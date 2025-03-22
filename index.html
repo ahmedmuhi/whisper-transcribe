@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech to Text App</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4cc9f0;
+            --text-color: #333;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --success-color: #38b000;
+            --error-color: #d90429;
+            --recording-color: #e63946;
+            --card-bg: white;
+            --visualizer-bg: #222;
+            --shadow-color: rgba(0,0,0,0.1);
+        }
+        
+        /* Add dark theme variables */
+        .dark-theme {
+            --primary-color: #6366f1;
+            --secondary-color: #4f46e5;
+            --accent-color: #06b6d4;
+            --text-color: #e5e7eb;
+            --light-bg: #1f2937;
+            --border-color: #4b5563;
+            --card-bg: #111827;
+            --visualizer-bg: #0f172a;
+            --shadow-color: rgba(0,0,0,0.3);
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--light-bg);
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.7);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 0 15px rgba(230, 57, 70, 0);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
+            }
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        
+        .transcript-area, .controls-area {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        .transcript-area:hover, .controls-area:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--shadow-color);
+        }
+        
+        .transcript-area {
+            order: 1;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            min-height: 200px;
+            box-shadow: 0 1px 3px var(--shadow-color);
+            margin-bottom: 1rem;
+        }
+        
+        .transcript-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .transcript-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+        
+        .action-btn, .clear-btn {
+            background-color: var(--light-bg);
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-left: 10px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover, .clear-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .transcript-content {
+            min-height: 150px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            width: 100%;
+            resize: vertical;
+            padding: 10px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 1rem;
+            border: none;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .transcript-content:focus {
+            outline: 1px solid var(--primary-color);
+        }
+        
+        .controls-area {
+            order: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+        }
+        
+        .visualizer-container {
+            width: 100%;
+            background: linear-gradient(to right, var(--visualizer-bg), #1a1a2e);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            height: 100px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        #visualizer {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: transparent;
+        }
+        
+        .status {
+            font-size: 0.9rem;
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .mic-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.3);
+        }
+        
+        .mic-button:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 20px rgba(67, 97, 238, 0.4);
+        }
+        
+        .mic-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .mic-button.recording {
+            background: linear-gradient(145deg, var(--recording-color), #d90429);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .mic-icon {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+        
+        .settings-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .settings-icon {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            margin: 5% auto; /* Reduced from 10% to 5% to position higher */
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 500px;
+            max-height: 80vh; /* Limit height to 80% of viewport */
+            overflow-y: auto; /* Make it scrollable */
+            box-shadow: 0 5px 15px var(--shadow-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-title {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+        }
+        
+        .save-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .save-button:hover {
+            background-color: var(--secondary-color);
+        }
+        /* Theme toggle button */
+        .theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .theme-icon {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        /* Spinner styles */
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Improved Spinner styles */
+        .spinner-container {
+            display: none;
+            margin: 15px auto;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 5px solid rgba(0,0,0,0.1);
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        .spinner-text {
+            font-size: 0.9rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Speech to Text</h1>
+        <div style="display: flex;">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+                <svg id="theme-icon" class="theme-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path id="moon-icon" style="display:block;" d="M12 11.807C10.7418 10.5483 9.88488 8.94484 9.53762 7.1993C9.19037 5.45375 9.36832 3.64444 10.049 2C8.10826 2.38205 6.3256 3.33431 4.92899 4.735C1.02399 8.64 1.02399 14.972 4.92899 18.877C8.83499 22.783 15.166 22.782 19.072 18.877C20.4723 17.4805 21.4245 15.6983 21.807 13.758C20.1625 14.4385 18.3533 14.6164 16.6077 14.2692C14.8622 13.9219 13.2588 13.0651 12 11.807V11.807Z"/>
+                    <path id="sun-icon" style="display:none;" d="M12 17C14.7614 17 17 14.7614 17 12C17 9.23858 14.7614 7 12 7C9.23858 7 7 9.23858 7 12C7 14.7614 9.23858 17 12 17Z M12 1V3 M12 21V23 M4.22 4.22L5.64 5.64 M18.36 18.36L19.78 19.78 M1 12H3 M21 12H23 M4.22 19.78L5.64 18.36 M18.36 5.64L19.78 4.22"/>
+                </svg>
+            </button>
+            <button id="settings-button" class="settings-button" aria-label="Settings">
+                <svg class="settings-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="transcript-area">
+            <div class="transcript-header">
+                <h2 class="transcript-title">Transcription</h2>
+                <div>
+                    <button id="cut-button" class="action-btn">Cut</button>
+                    <button id="copy-button" class="action-btn">Copy</button>
+                    <button id="clear-button" class="clear-btn">Clear</button>
+                </div>
+            </div>
+            <textarea id="transcript" class="transcript-content" placeholder="Transcription will appear here..."></textarea>
+        </div>
+        
+        <div class="controls-area">
+            <div class="visualizer-container">
+                <canvas id="visualizer" height="60"></canvas>
+            </div>
+            <div id="status" class="status">Click the microphone to start recording</div>
+            <!-- New Timer Element -->
+            <div id="timer" style="font-size:1rem; margin: 0.5rem 0;">00:00</div>
+            <!-- New Action Buttons -->
+            <button id="mic-button" class="mic-button">
+                <svg class="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.06 7.44-7 7.93V22h-2v-5.07z"/>
+                </svg>
+            </button>
+            <button id="pause-button" class="action-btn" style="margin-top: 0.5rem;">Pause</button>
+            <button id="cancel-button" class="action-btn" style="margin-top: 0.5rem;">Cancel</button>
+            <!-- Replace your current spinner div with this improved version -->
+            <div id="spinner-container" class="spinner-container">
+                <div class="spinner"></div>
+                <div class="spinner-text">Processing your audio...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Azure OpenAI Settings</h3>
+                <button id="close-modal" class="close-button">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="azure-endpoint">Azure OpenAI Endpoint:</label>
+                <input type="text" id="azure-endpoint" placeholder="https://your-resource-name.openai.azure.com">
+            </div>
+            <div class="form-group">
+                <label for="deployment-name">Deployment Name:</label>
+                <input type="text" id="deployment-name" placeholder="Enter your deployment name">
+            </div>
+            <div class="form-group">
+                <label for="api-version">API Version:</label>
+                <input type="text" id="api-version" placeholder="2024-06-01">
+            </div>
+            <div class="form-group">
+                <label for="endpoint-type">Endpoint Type:</label>
+                <select id="endpoint-type">
+                    <option value="translations">Translations</option>
+                    <option value="transcriptions">Transcriptions</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="api-key">Azure OpenAI API Key:</label>
+                <input type="password" id="api-key" placeholder="Enter your API key">
+            </div>
+            <button id="save-settings" class="save-button">Save Settings</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM elements
+            const micButton = document.getElementById('mic-button');
+            const statusElement = document.getElementById('status');
+            const transcriptElement = document.getElementById('transcript');
+            const apiKeyInput = document.getElementById('api-key');
+            const azureEndpointInput = document.getElementById('azure-endpoint');
+            const deploymentNameInput = document.getElementById('deployment-name');
+            const apiVersionInput = document.getElementById('api-version');
+            const endpointTypeInput = document.getElementById('endpoint-type');
+            const clearButton = document.getElementById('clear-button');
+            const copyButton = document.getElementById('copy-button');
+            const cutButton = document.getElementById('cut-button');
+            const settingsButton = document.getElementById('settings-button');
+            const themeToggle = document.getElementById('theme-toggle');
+            const moonIcon = document.getElementById('moon-icon');
+            const sunIcon = document.getElementById('sun-icon');
+            const settingsModal = document.getElementById('settings-modal');
+            const closeModalButton = document.getElementById('close-modal');
+            const saveSettingsButton = document.getElementById('save-settings');
+            const visualizer = document.getElementById('visualizer');
+            const pauseButton = document.getElementById('pause-button');
+            const cancelButton = document.getElementById('cancel-button');
+            const timerElement = document.getElementById('timer');
+            
+            // Set default status message
+            if (statusElement) {
+                statusElement.innerHTML = '🎙️ Click the microphone to start recording';
+            }
+            
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                moonIcon.style.display = 'none';
+                sunIcon.style.display = 'block';
+            }
+            
+            // Theme toggle functionality
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark-theme');
+                const isDarkTheme = document.body.classList.contains('dark-theme');
+                moonIcon.style.display = isDarkTheme ? 'none' : 'block';
+                sunIcon.style.display = isDarkTheme ? 'block' : 'none';
+                localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+                // Optionally update canvas background color if needed
+                if (canvasCtx) {
+                    canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#222';
+                    canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
+                }
+            });
+            
+            // Check for saved API key
+            const savedApiKey = localStorage.getItem('azure_api_key');
+            if (savedApiKey) {
+                apiKeyInput.value = savedApiKey;
+            }
+            
+            // Recording state
+            let mediaRecorder;
+            let audioChunks = [];
+            let isRecording = false;
+            let recordingStartTime;
+            let timerInterval;
+            let isPaused = false;
+            let isCancelled = false;
+            
+            // Audio visualization
+            let audioContext;
+            let analyser;
+            let source;
+            let canvasCtx = visualizer.getContext('2d');
+            let animationId;
+            
+            // Check if browser supports required APIs
+            if (!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                statusElement.textContent = 'Your browser does not support audio recording.';
+                micButton.style.opacity = 0.5;
+                micButton.style.cursor = 'not-allowed';
+                micButton.disabled = true;
+            }
+            
+            // Modal event listeners
+            settingsButton.addEventListener('click', () => {
+                settingsModal.style.display = 'block';
+            });
+            
+            closeModalButton.addEventListener('click', () => {
+                settingsModal.style.display = 'none';
+            });
+            
+            window.addEventListener('click', (event) => {
+                if (event.target === settingsModal) {
+                    settingsModal.style.display = 'none';
+                }
+            });
+            
+            saveSettingsButton.addEventListener('click', () => {
+                const apiKey = apiKeyInput.value.trim();
+                const azureEndpoint = azureEndpointInput.value.trim();
+                const deploymentName = deploymentNameInput.value.trim();
+                const apiVersion = apiVersionInput.value.trim();
+                const endpointType = endpointTypeInput.value;
+                
+                console.log('Saving settings:', { apiKey: '***', azureEndpoint, deploymentName, apiVersion, endpointType });
+                
+                if (!apiKey || !azureEndpoint || !deploymentName || !apiVersion) {
+                    showTemporaryStatus('Please fill in all required fields', 'error');
+                    return;
+                }
+                
+                // Save all settings to localStorage
+                localStorage.setItem('azure_api_key', apiKey);
+                localStorage.setItem('azure_endpoint', azureEndpoint);
+                localStorage.setItem('deployment_name', deploymentName);
+                localStorage.setItem('api_version', apiVersion);
+                localStorage.setItem('endpoint_type', endpointType);
+                
+                settingsModal.style.display = 'none';
+                
+                // Re-enable mic button now that settings are configured
+                micButton.disabled = false;
+                micButton.style.opacity = 1;
+                micButton.style.cursor = 'pointer';
+                
+                showTemporaryStatus('Settings saved', 'success');
+            });
+            
+            // Clear button functionality
+            clearButton.addEventListener('click', () => {
+                transcriptElement.value = '';
+                showTemporaryStatus('Transcription cleared', 'success');
+            });
+            
+            // Cut button functionality
+            cutButton.addEventListener('click', () => {
+                const text = transcriptElement.value;
+                if (text) {
+                    transcriptElement.select();
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            transcriptElement.value = '';
+                            showTemporaryStatus('Text cut to clipboard', 'success');
+                        })
+                        .catch(err => {
+                            console.error('Could not cut text: ', err);
+                            showTemporaryStatus('Failed to cut text', 'error');
+                        });
+                } else {
+                    showTemporaryStatus('No text to cut', 'error');
+                }
+            });
+            
+            // Copy button functionality
+            copyButton.addEventListener('click', () => {
+                const text = transcriptElement.value;
+                if (text) {
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            showTemporaryStatus('Text copied to clipboard', 'success');
+                        })
+                        .catch(err => {
+                            console.error('Could not copy text: ', err);
+                            showTemporaryStatus('Failed to copy text', 'error');
+                        });
+                } else {
+                    showTemporaryStatus('No text to copy', 'error');
+                }
+            });
+            
+            // Recording functionality
+            micButton.addEventListener('click', async () => {
+                if (!isRecording) {
+                    // Check if all required settings are configured
+                    const apiKey = localStorage.getItem('azure_api_key');
+                    const azureEndpoint = localStorage.getItem('azure_endpoint');
+                    const deploymentName = localStorage.getItem('deployment_name');
+                    const apiVersion = localStorage.getItem('api_version');
+                    
+                    if (!apiKey || !azureEndpoint || !deploymentName || !apiVersion) {
+                        showTemporaryStatus('Please configure Azure OpenAI settings', 'error');
+                        settingsModal.style.display = 'block';
+                        return;
+                    }
+                    
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        startRecording(stream);
+                    } catch (err) {
+                        console.error('Error accessing microphone:', err);
+                        showTemporaryStatus('Error accessing microphone. Please check permissions.', 'error');
+                    }
+                } else {
+                    stopRecording();
+                }
+            });
+            
+            function startRecording(stream) {
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                setupAudioVisualization(stream);
+                mediaRecorder.addEventListener('dataavailable', event => {
+                    audioChunks.push(event.data);
+                });
+                mediaRecorder.addEventListener('stop', async () => {
+                    clearInterval(timerInterval);
+                    timerElement.textContent = '00:00';
+                    micButton.classList.remove('recording');
+                    pauseButton.textContent = 'Pause';
+                    isPaused = false;
+                    stopVisualization();
+
+                    // If cancelled, do not send audio to API
+                    if (isCancelled) {
+                        statusElement.textContent = 'Recording cancelled';
+                        isCancelled = false;  // Reset for next recording
+                        return;
+                    }
+                    
+                    statusElement.textContent = 'Processing audio...';
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await sendToAzureWhisperAPI(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                });
+                mediaRecorder.start();
+                isRecording = true;
+                recordingStartTime = Date.now();
+                micButton.classList.add('recording');
+                statusElement.textContent = 'Recording... Click again to stop';
+                // Start the timer
+                timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - recordingStartTime;
+                    const seconds = Math.floor(elapsed / 1000) % 60;
+                    const minutes = Math.floor(elapsed / 60000);
+                    timerElement.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+                }, 1000);
+            }
+            
+            function setupAudioVisualization(stream) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 128;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                visualizer.width = visualizer.clientWidth;
+                visualizer.height = visualizer.clientHeight;
+                canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+                
+                function draw() {
+                    animationId = requestAnimationFrame(draw);
+                    analyser.getByteFrequencyData(dataArray);
+                    canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+
+                    // Bar properties
+                    const barWidth = Math.max(4, (visualizer.width / bufferLength) * 0.6); // Adjust bar width
+                    const barSpacing = Math.max(2, (visualizer.width / bufferLength) * 0.4); // Adjust spacing
+                    const cornerRadius = 4; // Rounded corners for bars
+                    let x = 0;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        const barHeight = (dataArray[i] / 255) * visualizer.height;
+
+                        // Create gradient for each bar
+                        const gradient = canvasCtx.createLinearGradient(0, visualizer.height - barHeight, 0, visualizer.height);
+                        gradient.addColorStop(0, 'rgba(67, 97, 238, 1)'); // Base color
+                        gradient.addColorStop(1, 'rgba(67, 97, 238, 0)'); // Transparent at the top
+
+                        canvasCtx.fillStyle = gradient;
+
+                        // Draw rounded bars
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(x, visualizer.height); // Bottom-left corner
+                        canvasCtx.lineTo(x, visualizer.height - barHeight + cornerRadius); // Top-left corner
+                        canvasCtx.arcTo(
+                            x, visualizer.height - barHeight, // Arc start
+                            x + barWidth, visualizer.height - barHeight, // Arc end
+                            cornerRadius // Radius
+                        );
+                        canvasCtx.lineTo(x + barWidth, visualizer.height); // Bottom-right corner
+                        canvasCtx.closePath();
+                        canvasCtx.fill();
+
+                        x += barWidth + barSpacing; // Move to the next bar position
+                    }
+                }
+                draw();
+            }
+            
+            function stopVisualization() {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                if (audioContext && source) {
+                    source.disconnect();
+                    canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+                }
+            }
+            
+            function stopRecording() {
+                if (mediaRecorder && isRecording) {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                }
+            }
+            
+            async function sendToAzureWhisperAPI(audioBlob) {
+                const spinnerContainer = document.getElementById('spinner-container');
+                spinnerContainer.style.display = 'block';
+                
+                // Get settings from localStorage
+                const apiKey = localStorage.getItem('azure_api_key');
+                const azureEndpoint = localStorage.getItem('azure_endpoint');
+                const deploymentName = localStorage.getItem('deployment_name');
+                const apiVersion = localStorage.getItem('api_version');
+                const endpointType = localStorage.getItem('endpoint_type') || 'translations';
+                
+                // Check if we have all required settings
+                if (!apiKey || !azureEndpoint || !deploymentName || !apiVersion) {
+                    showTemporaryStatus('Azure OpenAI settings not configured', 'error');
+                    settingsModal.style.display = 'block';
+                    spinnerContainer.style.display = 'none';
+                    return;
+                }
+                
+                const apiUrl = `${azureEndpoint}/openai/deployments/${deploymentName}/audio/${endpointType}?api-version=${apiVersion}`;
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'recording.webm');
+                
+                try {
+                    statusElement.textContent = 'Sending to Azure Whisper API...';
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'api-key': apiKey },
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('API Error Details:', errorText);
+                        throw new Error(`API responded with status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    displayTranscription(data.text);
+                    showTemporaryStatus('Transcription complete', 'success');
+                } catch (error) {
+                    console.error('Error sending to Azure Whisper API:', error);
+                    showTemporaryStatus(`Error: ${error.message}`, 'error');
+                } finally {
+                    // Remove the delay and just hide the spinner immediately
+                    spinnerContainer.style.display = 'none';
+                }
+            }
+            
+            function displayTranscription(text) {
+                if (transcriptElement.value) {
+                    transcriptElement.value += '\n\n' + (text || 'No transcription returned');
+                } else {
+                    transcriptElement.value = text || 'No transcription returned';
+                }
+                transcriptElement.focus();
+                transcriptElement.selectionStart = transcriptElement.value.length;
+                transcriptElement.selectionEnd = transcriptElement.value.length;
+            }
+            
+            function showTemporaryStatus(message, type = 'info', autoReset = true) {
+                const icons = {
+                    'error': '❌',
+                    'success': '✅',
+                    'info': 'ℹ️'
+                };
+                statusElement.innerHTML = `${icons[type] || 'ℹ️'} ${message}`;
+                
+                if (type === 'error') {
+                    statusElement.style.color = 'var(--error-color)';
+                } else if (type === 'success') {
+                    statusElement.style.color = 'var(--success-color)';
+                } else {
+                    statusElement.style.color = '#666';
+                }
+                
+                // Only auto-reset if specified and not recording
+                if (autoReset && !isRecording) {
+                    setTimeout(() => {
+                        statusElement.innerHTML = '🎙️ Click the microphone to start recording';
+                        statusElement.style.color = '#666';
+                    }, 3000);
+                }
+            }
+
+            // Pause/Resume functionality
+            pauseButton.addEventListener('click', () => {
+                if (!isRecording) return; // do nothing if not recording
+                if (!isPaused) {
+                    mediaRecorder.pause();
+                    clearInterval(timerInterval);
+                    pauseButton.textContent = 'Resume';
+                    statusElement.textContent = 'Recording paused';
+                    isPaused = true;
+                } else {
+                    mediaRecorder.resume();
+                    // Adjust recordingStartTime so that timer continues correctly:
+                    recordingStartTime = Date.now() - getTimerMilliseconds();
+                    timerInterval = setInterval(() => {
+                        const elapsed = Date.now() - recordingStartTime;
+                        const seconds = Math.floor(elapsed / 1000) % 60;
+                        const minutes = Math.floor(elapsed / 60000);
+                        timerElement.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+                    }, 1000);
+                    pauseButton.textContent = 'Pause';
+                    statusElement.textContent = 'Recording... Click again to stop';
+                    isPaused = false;
+                }
+            });
+
+            // Helper function to get elapsed ms from timer
+            function getTimerMilliseconds() {
+                const parts = timerElement.textContent.split(':');
+                return (parseInt(parts[0]) * 60000) + (parseInt(parts[1]) * 1000);
+            }
+
+            // Cancel functionality - stops recording and resets UI without sending audio
+            cancelButton.addEventListener('click', () => {
+                if (isRecording) {
+                    isCancelled = true;  // Mark that the recording was cancelled
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    clearInterval(timerInterval);
+                    timerElement.textContent = '00:00';
+                    statusElement.textContent = 'Recording cancelled';
+                    micButton.classList.remove('recording');
+                    pauseButton.textContent = 'Pause';
+                    isPaused = false;
+                    audioChunks = [];  // Clear stored audio
+                }
+            });
+
+            // Check for saved settings and display configuration prompt if needed
+            checkSettings();
+            
+            function checkSettings() {
+                // Load saved settings if they exist
+                const savedApiKey = localStorage.getItem('azure_api_key');
+                const savedEndpoint = localStorage.getItem('azure_endpoint');
+                const savedDeployment = localStorage.getItem('deployment_name');
+                const savedApiVersion = localStorage.getItem('api_version');
+                const savedEndpointType = localStorage.getItem('endpoint_type');
+                
+                // Populate form fields with saved values if they exist
+                if (savedApiKey) apiKeyInput.value = savedApiKey;
+                if (savedEndpoint) azureEndpointInput.value = savedEndpoint;
+                if (savedDeployment) deploymentNameInput.value = savedDeployment;
+                if (savedApiVersion) apiVersionInput.value = savedApiVersion;
+                if (savedEndpointType) endpointTypeInput.value = savedEndpointType;
+                
+                // Check if all required settings are available
+                if (!savedApiKey || !savedEndpoint || !savedDeployment || !savedApiVersion) {
+                    // Show a message but don't automatically open the modal
+                    showTemporaryStatus('Azure OpenAI settings need to be configured', 'info', false);
+                    // Disable mic button until settings are configured
+                    micButton.disabled = true;
+                    micButton.style.opacity = 0.5;
+                    micButton.style.cursor = 'not-allowed';
+                } else {
+                    micButton.disabled = false;
+                    micButton.style.opacity = 1;
+                    micButton.style.cursor = 'pointer';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
