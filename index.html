@@ -125,6 +125,8 @@
             margin-bottom: 1rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--border-color);
+            width: 100%;
+            box-sizing: border-box;
         }
         
         .transcript-title {
@@ -164,6 +166,7 @@
             width: 100%;
             resize: vertical;
             padding: 8px;
+            margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 0.95rem;
             border: 1px solid var(--border-color);
@@ -171,6 +174,7 @@
             color: var(--text-color);
             border-radius: 4px;
             transition: background-color 0.3s, color 0.3s;
+            box-sizing: border-box; /* Ensure padding is included in width */
         }
         
         .transcript-content:focus {
