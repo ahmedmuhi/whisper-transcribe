@@ -168,15 +168,18 @@
             width: 100%;
         }
         
+        /* Replace the existing visualizer-container CSS with this simpler version */
         .visualizer-container {
             width: 100%;
-            background: linear-gradient(to right, var(--visualizer-bg), #1a1a2e);
-            border-radius: 8px;
-            padding: 15px;
+            background-color: #666; /* Changed from gradient to solid dark gray */
             margin-bottom: 15px;
             height: 100px;
             overflow: hidden;
-            border: 1px solid var(--border-color);
+        }
+
+        /* For dark theme compatibility, adjust slightly if needed */
+        .dark-theme .visualizer-container {
+            background-color: #444; /* Slightly darker in dark mode for better contrast */
         }
         
         #visualizer {
