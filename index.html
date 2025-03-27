@@ -118,21 +118,25 @@
         }
         
         .action-btn, .clear-btn {
-            background-color: var(--light-bg);
-            border: none;
-            color: var(--primary-color);
+            background-color: white;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
             cursor: pointer;
             font-size: 0.9rem;
             margin-left: 10px;
             padding: 6px 12px;
-            border-radius: 6px;
-            transition: all 0.2s;
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
-        
+
+        /* Dark theme compatibility */
+        .dark-theme .action-btn, .dark-theme .clear-btn {
+            background-color: var(--card-bg);
+        }
+
+        /* Replace the existing hover effects with minimal styling */
         .action-btn:hover, .clear-btn:hover {
-            background-color: var(--primary-color);
-            color: white;
-            transform: translateY(-2px);
+            border-color: var(--text-color);
         }
         
         .transcript-content {
