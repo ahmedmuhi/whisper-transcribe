@@ -55,6 +55,13 @@
             align-items: center;
             box-shadow: none;
         }
+
+        /* Fix header buttons spacing */
+        header div {
+            display: flex;
+            gap: 12px; /* Add space between theme toggle and settings button */
+            align-items: center;
+        }
         
         h1 {
             margin: 0;
@@ -90,6 +97,7 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            box-sizing: border-box; /* Ensure padding is included in width */
         }
         
         /* Update card styles */
@@ -98,6 +106,9 @@
             border-radius: 6px;
             padding: 1.25rem;
             border: 1px solid var(--border-color);
+            width: 100%; /* Ensure both areas take full width */
+            box-sizing: border-box; /* Include padding in width calculation */
+            margin: 0; /* Remove any default margins */
             transition: background-color 0.3s, color 0.3s;
         }
         
@@ -179,7 +190,7 @@
         .visualizer-container {
             width: 100%;
             background-color: #666666;
-            margin-bottom: 12px;
+            margin-bottom: 0.75rem;
             height: 80px;
             border-radius: 4px;
             overflow: hidden;
@@ -218,6 +229,7 @@
             justify-content: center;
             cursor: pointer;
             transition: background-color 0.2s;
+            margin: 0.5rem 0;
         }
 
         .mic-button:hover {
@@ -243,6 +255,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 4px;
+            margin: 0;
         }
         
         .settings-icon {
@@ -349,6 +363,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 4px;
+            margin: 0;
         }
         
         .theme-icon {
@@ -441,7 +457,12 @@
             <div id="status" class="status">Click the microphone to start recording</div>
             <div id="timer" style="font-size:0.9rem; margin: 0.25rem 0;">00:00</div>
             <button id="mic-button" class="mic-button">
-                <!-- Keep existing SVG content -->
+                <svg class="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
             </button>
             <div style="display: flex; gap: 8px; margin-top: 0.5rem;">
                 <button id="pause-button" class="action-btn">Pause</button>
