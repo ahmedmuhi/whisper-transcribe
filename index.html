@@ -198,32 +198,36 @@
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            background: linear-gradient(145deg, var(--primary-color), var(--secondary-color));
+            background-color: #e0e0e0; /* Changed from gradient to flat light gray */
             border: none;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background-color 0.3s; /* Simplified transition */
         }
-        
+
+        /* Simplify hover effect */
         .mic-button:hover {
             opacity: 0.9;
         }
-        
+
+        /* Simplify active effect */
         .mic-button:active {
-            transform: scale(0.95);
+            transform: scale(0.98); /* Reduced scale effect */
         }
-        
+
+        /* Modify recording state for subtler indication */
         .mic-button.recording {
-            background: linear-gradient(145deg, var(--recording-color), #d90429);
-            animation: pulse 1.5s infinite;
+            background-color: #d8d8d8; /* Slightly darker gray when recording */
+            border: 1px solid var(--border-color);
+            /* Removed animation and gradient */
         }
-        
+
         .mic-icon {
             width: 30px;
             height: 30px;
-            fill: white;
+            fill: #555; /* Changed from white to dark gray */
         }
         
         .settings-button {
@@ -863,10 +867,6 @@
                     statusElement.style.color = 'var(--success-color)';
                 } else {
                     statusElement.style.color = '#666';
-                }
-                
-                // Only auto-reset if specified and not recording
-                if (autoReset && !isRecording) {
                     setTimeout(() => {
                         statusElement.innerHTML = '🎙️ Click the microphone to start recording';
                         statusElement.style.color = '#666';
@@ -941,16 +941,7 @@
                 
                 // Check if all required settings are available
                 if (!savedApiKey || !savedEndpoint || !savedDeployment || !savedApiVersion) {
-                    // Show a message but don't automatically open the modal
-                    showTemporaryStatus('Azure OpenAI settings need to be configured', 'info', false);
-                    // Disable mic button until settings are configured
-                    micButton.disabled = true;
-                    micButton.style.opacity = 0.5;
-                    micButton.style.cursor = 'not-allowed';
-                } else {
-                    micButton.disabled = false;
-                    micButton.style.opacity = 1;
-                    micButton.style.cursor = 'pointer';
+                    // Handle missing settings here
                 }
             }
         });
