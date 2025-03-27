@@ -198,6 +198,9 @@
             height: 80px;
             border-radius: 4px;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Dark theme compatibility for visualizer */
@@ -206,10 +209,10 @@
         }
         
         #visualizer {
-            width: 100%;
-            height: 100%;
-            display: block;
             background: transparent;
+            border-color: var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
         }
         
         /* Update status text */
@@ -217,6 +220,7 @@
             font-size: 0.9rem;
             color: #666;
             font-style: italic;
+            border-color: var(--border-color);
             text-align: center;
             transition: all 0.3s;
         }
@@ -455,11 +459,13 @@
         </div>
         
         <div class="controls-area">
-            <div class="visualizer-container">
-                <canvas id="visualizer" height="60"></canvas>
+            <div id="visualizer-container" class="visualizer-container">
+                <canvas id="visualizer"></canvas>
             </div>
+            
             <div id="status" class="status">Click the microphone to start recording</div>
-            <div id="timer" style="font-size:0.9rem; margin: 0.25rem 0;">00:00</div>
+            <div id="timer" style="margin: 0.25rem 0;">00:00</div>
+            
             <button id="mic-button" class="mic-button">
                 <svg class="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -468,10 +474,27 @@
                     <line x1="8" y1="23" x2="16" y2="23"></line>
                 </svg>
             </button>
-            <div style="display: flex; gap: 8px; margin-top: 0.5rem;">
-                <button id="pause-button" class="action-btn">Pause</button>
-                <button id="cancel-button" class="action-btn">Cancel</button>
+            
+            <div class="control-buttons">
+                <button id="pause-button" class="icon-btn" aria-label="Pause">
+                    <svg id="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                    
+                    <svg id="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+                        <polygon points="5,3 19,12 5,21"></polygon>
+                    </svg>
+                </button>
+                
+                <button id="cancel-button" class="icon-btn" aria-label="Cancel">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
+            
             <div id="spinner-container" class="spinner-container">
                 <div class="spinner"></div>
                 <div class="spinner-text">Processing your audio...</div>
@@ -538,39 +561,9 @@
             const pauseButton = document.getElementById('pause-button');
             const cancelButton = document.getElementById('cancel-button');
             const timerElement = document.getElementById('timer');
-            
-            // Set default status message
-            if (statusElement) {
-                statusElement.innerHTML = '🎙️ Click the microphone to start recording';
-            }
-            
-            // Check for saved theme preference
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.body.classList.add('dark-theme');
-                moonIcon.style.display = 'none';
-                sunIcon.style.display = 'block';
-            }
-            
-            // Theme toggle functionality
-            themeToggle.addEventListener('click', () => {
-                document.body.classList.toggle('dark-theme');
-                const isDarkTheme = document.body.classList.contains('dark-theme');
-                moonIcon.style.display = isDarkTheme ? 'none' : 'block';
-                sunIcon.style.display = isDarkTheme ? 'block' : 'none';
-                localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
-                // Optionally update canvas background color if needed
-                if (canvasCtx) {
-                    canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#222';
-                    canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
-                }
-            });
-            
-            // Check for saved API key
-            const savedApiKey = localStorage.getItem('azure_api_key');
-            if (savedApiKey) {
-                apiKeyInput.value = savedApiKey;
-            }
+            const spinnerContainer = document.getElementById('spinner-container');
+            const pauseIcon = document.getElementById('pause-icon');
+            const playIcon = document.getElementById('play-icon');
             
             // Recording state
             let mediaRecorder;
@@ -588,12 +581,46 @@
             let canvasCtx = visualizer.getContext('2d');
             let animationId;
             
+            // Set default status message
+            if (statusElement) {
+                statusElement.innerHTML = '🎙️ Click the microphone to start recording';
+            }
+            
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                moonIcon.style.display = 'none';
+                sunIcon.style.display = 'block';
+            }
+            
             // Check if browser supports required APIs
             if (!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 statusElement.textContent = 'Your browser does not support audio recording.';
                 micButton.style.opacity = 0.5;
                 micButton.style.cursor = 'not-allowed';
                 micButton.disabled = true;
+            }
+            
+            // Theme toggle functionality
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark-theme');
+                const isDarkTheme = document.body.classList.contains('dark-theme');
+                moonIcon.style.display = isDarkTheme ? 'none' : 'block';
+                sunIcon.style.display = isDarkTheme ? 'block' : 'none';
+                localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+                
+                // Update canvas background if needed
+                if (canvasCtx) {
+                    canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#222';
+                    canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
+                }
+            });
+            
+            // Check for saved API key
+            const savedApiKey = localStorage.getItem('azure_api_key');
+            if (savedApiKey) {
+                apiKeyInput.value = savedApiKey;
             }
             
             // Modal event listeners
@@ -715,9 +742,11 @@
                 audioChunks = [];
                 mediaRecorder = new MediaRecorder(stream);
                 setupAudioVisualization(stream);
+                
                 mediaRecorder.addEventListener('dataavailable', event => {
                     audioChunks.push(event.data);
                 });
+                
                 mediaRecorder.addEventListener('stop', async () => {
                     clearInterval(timerInterval);
                     timerElement.textContent = '00:00';
@@ -725,7 +754,7 @@
                     pauseButton.textContent = 'Pause';
                     isPaused = false;
                     stopVisualization();
-
+                    
                     // If cancelled, do not send audio to API
                     if (isCancelled) {
                         statusElement.textContent = 'Recording cancelled';
@@ -738,11 +767,13 @@
                     await sendToAzureWhisperAPI(audioBlob);
                     stream.getTracks().forEach(track => track.stop());
                 });
+                
                 mediaRecorder.start();
                 isRecording = true;
                 recordingStartTime = Date.now();
                 micButton.classList.add('recording');
                 statusElement.textContent = 'Recording... Click again to stop';
+                
                 // Start the timer
                 timerInterval = setInterval(() => {
                     const elapsed = Date.now() - recordingStartTime;
@@ -758,8 +789,10 @@
                 source = audioContext.createMediaStreamSource(stream);
                 source.connect(analyser);
                 analyser.fftSize = 128;
+                
                 const bufferLength = analyser.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
+                
                 visualizer.width = visualizer.clientWidth;
                 visualizer.height = visualizer.clientHeight;
                 canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
@@ -768,12 +801,12 @@
                     animationId = requestAnimationFrame(draw);
                     analyser.getByteFrequencyData(dataArray);
                     canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
-
+                    
                     // Simple bar visualization with grayscale colors
                     const barWidth = (visualizer.width / bufferLength) * 0.8;
                     const barSpacing = (visualizer.width / bufferLength) * 0.2;
                     let x = 0;
-
+                    
                     for (let i = 0; i < bufferLength; i++) {
                         const barHeight = (dataArray[i] / 255) * visualizer.height;
                         
@@ -786,6 +819,7 @@
                         x += barWidth + barSpacing;
                     }
                 }
+                
                 draw();
             }
             
@@ -793,6 +827,7 @@
                 if (animationId) {
                     cancelAnimationFrame(animationId);
                 }
+                
                 if (audioContext && source) {
                     source.disconnect();
                     canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
@@ -807,7 +842,6 @@
             }
             
             async function sendToAzureWhisperAPI(audioBlob) {
-                const spinnerContainer = document.getElementById('spinner-container');
                 spinnerContainer.style.display = 'block';
                 
                 // Get settings from localStorage
@@ -861,17 +895,17 @@
                 } else {
                     transcriptElement.value = text || 'No transcription returned';
                 }
+                
                 transcriptElement.focus();
                 transcriptElement.selectionStart = transcriptElement.value.length;
                 transcriptElement.selectionEnd = transcriptElement.value.length;
             }
             
             function showTemporaryStatus(message, type = 'info', autoReset = true) {
-                // Simplified status display without icons
                 statusElement.textContent = message;
                 
                 if (type === 'error') {
-                    statusElement.style.color = '#999999'; // Dark gray for errors
+                    statusElement.style.color = '#999999'; // Dark gray for error
                 } else if (type === 'success') {
                     statusElement.style.color = '#666666'; // Medium gray for success
                 } else {
@@ -885,38 +919,52 @@
                     }, 3000);
                 }
             }
-
+            
             // Pause/Resume functionality
             pauseButton.addEventListener('click', () => {
                 if (!isRecording) return; // do nothing if not recording
+                
                 if (!isPaused) {
+                    // Pause recording
                     mediaRecorder.pause();
                     clearInterval(timerInterval);
-                    pauseButton.textContent = 'Resume';
+                    
+                    // Update UI
+                    pauseIcon.style.display = 'none';
+                    playIcon.style.display = 'block';
+                    pauseButton.setAttribute('aria-label', 'Resume');
                     statusElement.textContent = 'Recording paused';
                     isPaused = true;
                 } else {
+                    // Resume recording
                     mediaRecorder.resume();
-                    // Adjust recordingStartTime so that timer continues correctly:
-                    recordingStartTime = Date.now() - getTimerMilliseconds();
+                    
+                    // Record time when we resume so that timer continues correctly
+                    const pausedTime = getTimerMilliseconds();
+                    recordingStartTime = Date.now() - pausedTime;
+                    
                     timerInterval = setInterval(() => {
                         const elapsed = Date.now() - recordingStartTime;
                         const seconds = Math.floor(elapsed / 1000) % 60;
                         const minutes = Math.floor(elapsed / 60000);
                         timerElement.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
                     }, 1000);
-                    pauseButton.textContent = 'Pause';
+                    
+                    // Update UI
+                    pauseIcon.style.display = 'block';
+                    playIcon.style.display = 'none';
+                    pauseButton.setAttribute('aria-label', 'Pause');
                     statusElement.textContent = 'Recording... Click again to stop';
                     isPaused = false;
                 }
             });
-
+            
             // Helper function to get elapsed ms from timer
             function getTimerMilliseconds() {
                 const parts = timerElement.textContent.split(':');
                 return (parseInt(parts[0]) * 60000) + (parseInt(parts[1]) * 1000);
             }
-
+            
             // Cancel functionality - stops recording and resets UI without sending audio
             cancelButton.addEventListener('click', () => {
                 if (isRecording) {
@@ -927,12 +975,14 @@
                     timerElement.textContent = '00:00';
                     statusElement.textContent = 'Recording cancelled';
                     micButton.classList.remove('recording');
-                    pauseButton.textContent = 'Pause';
+                    pauseButton.setAttribute('aria-label', 'Pause');
+                    pauseIcon.style.display = 'block';
+                    playIcon.style.display = 'none';
                     isPaused = false;
                     audioChunks = [];  // Clear stored audio
                 }
             });
-
+            
             // Check for saved settings and display configuration prompt if needed
             checkSettings();
             
@@ -953,7 +1003,11 @@
                 
                 // Check if all required settings are available
                 if (!savedApiKey || !savedEndpoint || !savedDeployment || !savedApiVersion) {
-                    // Handle missing settings here
+                    // Show settings modal on first load if settings are missing
+                    setTimeout(() => {
+                        showTemporaryStatus('Please configure Azure OpenAI settings', 'info', false);
+                        settingsModal.style.display = 'block';
+                    }, 500);
                 }
             }
         });
