@@ -504,6 +504,73 @@
         .dark-theme .icon-btn:hover {
             background-color: var(--border-color);
         }
+
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            .container {
+                padding: 0 0.5rem;
+                max-width: 100%;
+                gap: 1rem;
+            }
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 0.75rem 0.5rem;
+            }
+            h1 {
+                font-size: 1.1rem;
+                margin-bottom: 0.5rem;
+            }
+            .transcript-area, .controls-area {
+                padding: 0.75rem;
+            }
+            .transcript-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            .transcript-title {
+                font-size: 1rem;
+            }
+            .action-btn, .clear-btn {
+                font-size: 1rem;
+                padding: 10px 0;
+                width: 100%;
+                margin: 0.25rem 0 0 0;
+            }
+            .transcript-content {
+                font-size: 1rem;
+                min-height: 80px;
+            }
+            .control-buttons-container {
+                flex-direction: column;
+                gap: 12px;
+                width: 100%;
+            }
+            .icon-btn, .mic-button {
+                width: 56px;
+                height: 56px;
+                min-width: 44px;
+                min-height: 44px;
+            }
+            .icon-btn svg, .mic-icon {
+                width: 24px;
+                height: 24px;
+            }
+            .settings-button, .theme-toggle {
+                padding: 8px;
+            }
+            .modal-content {
+                max-width: 98vw;
+                padding: 1rem;
+            }
+        }
+
+        /* Ensure all buttons are at least 44x44px for touch */
+        button, .icon-btn, .mic-button {
+            min-width: 44px;
+            min-height: 44px;
+        }
     </style>
 </head>
 <body>
