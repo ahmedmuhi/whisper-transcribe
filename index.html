@@ -1012,8 +1012,13 @@
                 const apiUrl = `${azureEndpoint}/openai/deployments/${deploymentName}/audio/${endpointType}?api-version=${apiVersion}`;
                 const formData = new FormData();
                 formData.append('file', audioBlob, 'recording.webm');
+<<<<<<< HEAD
+                formData.append('language', 'en'); // Set language to English
+
+=======
                 formData.append('language', 'en'); // Set the language English
                 
+>>>>>>> a4a1c1ea4aa171319fef1cce8c57d48f13b544b6
                 try {
                     statusElement.textContent = 'Sending to Azure Whisper API...';
                     const response = await fetch(apiUrl, {
