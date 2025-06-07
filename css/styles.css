@@ -12,6 +12,7 @@
     --card-bg: white;
     --visualizer-bg: #1976d2;        /* Match primary */
     --shadow-color: rgba(0,0,0,0.1);
+    --header-bg: var(--primary-color);  /* Blue in light mode */
 }
 
 /* Dark theme variables */
@@ -25,6 +26,7 @@
     --card-bg: #1e1e1e;              /* Slightly elevated surface */
     --visualizer-bg: #1565c0;
     --shadow-color: rgba(0,0,0,0.3);
+    --header-bg: #0f172a;  /* Midnight blue for header */
 }
 
 body {
@@ -54,7 +56,7 @@ button, input, textarea, select,
 
 /* Update header styles */
 header {
-    background-color: var(--primary-color);
+    background-color: var(--header-bg);
     color: white;
     padding: 1rem 1.5rem;
     display: flex;
@@ -159,8 +161,8 @@ h1 {
 
 /* Update buttons */
 .action-btn, .clear-btn {
-    background-color: transparent;
-    border: none;
+    background-color: rgba(25, 118, 210, 0.08);
+    border: 1px solid rgba(25, 118, 210, 0.2);
     color: var(--primary-color);
     cursor: pointer;
     font-size: 0.9rem;
@@ -174,12 +176,20 @@ h1 {
 }
 
 .action-btn:hover, .clear-btn:hover {
-    background-color: rgba(25, 118, 210, 0.08);
+    background-color: rgba(25, 118, 210, 0.15);
+    border-color: var(--primary-color);
     transform: translateY(-1px);
 }
 
+/* Dark theme button styles */
+.dark-theme .action-btn, .dark-theme .clear-btn {
+    background-color: rgba(66, 165, 245, 0.1);
+    border-color: rgba(66, 165, 245, 0.3);
+}
+
 .dark-theme .action-btn:hover, .dark-theme .clear-btn:hover {
-    background-color: rgba(66, 165, 245, 0.12);
+    background-color: rgba(66, 165, 245, 0.2);
+    border-color: var(--primary-color);
 }
 
 /* Update transcript content area */
@@ -367,7 +377,7 @@ h1 {
     font-size: 0.95rem; /* Slightly smaller but clear */
 }
 
-.form-group input {
+.form-group input, .form-group select {
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--border-color);
@@ -379,7 +389,7 @@ h1 {
     transition: background-color 0.3s, color 0.3s;
 }
 
-.form-group input:focus {
+.form-group input:focus, .form-group select:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
@@ -581,8 +591,8 @@ h1 {
     }
     .action-btn, .clear-btn {
         font-size: 1rem;
-        padding: 10px 0;
-        width: 100%;
+        padding: 10px 16px;
+        width: auto;
         margin: 0.25rem 0 0 0;
     }
     .transcript-content {
@@ -618,3 +628,90 @@ button, .icon-btn, .mic-button {
     min-width: 44px;
     min-height: 44px;
 }
+
+/* Model selector styling */
+.model-selector {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.model-selector label {
+    font-weight: 500;
+    margin-right: 0.5rem;
+    color: var(--text-color);
+}
+
+#model-select {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.95rem;
+    min-width: 200px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+    /* Ensure consistent appearance across browsers */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Add custom dropdown arrow */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 2.5rem;
+}
+
+#model-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+#model-select:hover {
+    border-color: var(--primary-color);
+}
+
+.dark-theme #model-select:hover {
+    border-color: var(--secondary-color);
+}
+
+/* Dark theme focus state for model selector */
+.dark-theme #model-select:focus {
+    box-shadow: 0 0 0 2px rgba(66, 165, 245, 0.3);
+}
+
+/* Ensure dropdown options inherit proper styling */
+#model-select option {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    padding: 0.5rem;
+}
+
+/* Specific dark theme styling for dropdown options */
+.dark-theme #model-select option {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+/* For webkit browsers, ensure proper dropdown styling */
+#model-select::-webkit-scrollbar {
+    width: 8px;
+}
+
+#model-select::-webkit-scrollbar-track {
+    background: var(--card-bg);
+}
+
+#model-select::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.dark-theme #model-select::-webkit-scrollbar-thumb {
+    background: #555;
+}
+
+/* Form styling improvements */
