@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech to Text App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -29,9 +32,7 @@
             <div class="transcript-header">
                 <h2 class="transcript-title">Transcription</h2>
                 <div>
-                    <button id="cut-button" class="action-btn">Cut</button>
-                    <button id="copy-button" class="action-btn">Copy</button>
-                    <button id="clear-button" class="clear-btn">Clear</button>
+                    <button id="grab-text-button" class="clear-btn">Cut</button>
                 </div>
             </div>
             <textarea id="transcript" class="transcript-content" placeholder="Transcription will appear here..."></textarea>
@@ -39,9 +40,9 @@
         
         <div class="controls-area">
             <!-- ADD THIS NEW SECTION -->
-            <div class="model-selector" style="margin-bottom: 1rem; text-align: center;">
-                <label for="model-select" style="font-weight: 500; margin-right: 0.5rem;">Model:</label>
-                <select id="model-select" style="padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+            <div class="model-selector">
+                <label for="model-select">Model:</label>
+                <select id="model-select">
                     <option value="whisper">Whisper (Stable)</option>
                     <option value="gpt-4o-transcribe">GPT-4o (Better accuracy)</option>
                 </select>
@@ -95,6 +96,16 @@
             <div class="modal-header">
                 <h3 class="modal-title" id="modal-title">Azure OpenAI Settings</h3>
                 <button id="close-modal" class="close-button" aria-label="Close settings dialog">&times;</button>
+            </div>
+            
+            <!-- Theme Settings -->
+            <div class="form-group">
+                <label for="theme-mode">Theme Mode:</label>
+                <select id="theme-mode" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color);">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="auto">Auto (Follow System)</option>
+                </select>
             </div>
             
             <!-- Whisper Settings -->

@@ -4,9 +4,7 @@ export class UI {
         this.micButton = document.getElementById('mic-button');
         this.statusElement = document.getElementById('status');
         this.transcriptElement = document.getElementById('transcript');
-        this.clearButton = document.getElementById('clear-button');
-        this.copyButton = document.getElementById('copy-button');
-        this.cutButton = document.getElementById('cut-button');
+        this.grabTextButton = document.getElementById('grab-text-button');
         this.settingsButton = document.getElementById('settings-button');
         this.themeToggle = document.getElementById('theme-toggle');
         this.settingsModal = document.getElementById('settings-modal');
@@ -25,9 +23,9 @@ export class UI {
         this.sunIcon = document.getElementById('sun-icon');
     }
     
-    init(settings, recorder) {
+    init(settings, audioHandler) {
         this.settings = settings;
-        this.recorder = recorder;
+        this.audioHandler = audioHandler;
         
         // Set initial status
         this.setStatus('🎙️ Click the microphone to start recording');
@@ -43,11 +41,51 @@ export class UI {
     }
     
     loadTheme() {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark') {
+        const themeMode = localStorage.getItem('themeMode') || 'auto';
+        const themeSelect = document.getElementById('theme-mode');
+        if (themeSelect) themeSelect.value = themeMode;
+        
+        this.applyTheme();
+        
+        // Listen for system theme changes
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (localStorage.getItem('themeMode') === 'auto') {
+                    this.applyTheme();
+                }
+            });
+        }
+    }
+
+    applyTheme() {
+        const themeMode = localStorage.getItem('themeMode') || 'auto';
+        let isDark = false;
+        
+        if (themeMode === 'dark') {
+            isDark = true;
+        } else if (themeMode === 'light') {
+            isDark = false;
+        } else { // auto
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        
+        if (isDark) {
             document.body.classList.add('dark-theme');
-            this.moonIcon.style.display = 'none';
-            this.sunIcon.style.display = 'block';
+            if (this.moonIcon) this.moonIcon.style.display = 'none';
+            if (this.sunIcon) this.sunIcon.style.display = 'block';
+        } else {
+            document.body.classList.remove('dark-theme');
+            if (this.moonIcon) this.moonIcon.style.display = 'block';
+            if (this.sunIcon) this.sunIcon.style.display = 'none';
+        }
+        
+        // Update canvas background if needed
+        if (this.visualizer) {
+            const canvasCtx = this.visualizer.getContext('2d');
+            if (canvasCtx) {
+                canvasCtx.fillStyle = isDark ? '#0f172a' : '#f8fafc';
+                canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
+            }
         }
     }
     
@@ -63,53 +101,51 @@ export class UI {
     
     setupEventListeners() {
         // Theme toggle
-        this.themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark-theme');
-            const isDarkTheme = document.body.classList.contains('dark-theme');
-            this.moonIcon.style.display = isDarkTheme ? 'none' : 'block';
-            this.sunIcon.style.display = isDarkTheme ? 'block' : 'none';
-            localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
-            
-            // Update canvas background if needed
-            if (this.visualizer) {
-                const canvasCtx = this.visualizer.getContext('2d');
-                if (canvasCtx) {
-                    canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#f8fafc';
-                    canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
+        if (this.themeToggle) {
+            this.themeToggle.addEventListener('click', () => {
+                const currentMode = localStorage.getItem('themeMode') || 'auto';
+                let newMode;
+                
+                if (currentMode === 'auto') {
+                    newMode = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+                } else if (currentMode === 'light') {
+                    newMode = 'dark';
+                } else {
+                    newMode = 'light';
                 }
-            }
-        });
+                
+                localStorage.setItem('themeMode', newMode);
+                const themeSelect = document.getElementById('theme-mode');
+                if (themeSelect) themeSelect.value = newMode;
+                this.applyTheme();
+            });
+        }
+        
+        // Theme mode selector
+        const themeSelect = document.getElementById('theme-mode');
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (e) => {
+                localStorage.setItem('themeMode', e.target.value);
+                this.applyTheme();
+            });
+        }
         
         // Transcript buttons
-        this.clearButton.addEventListener('click', () => {
-            this.transcriptElement.value = '';
-            this.showTemporaryStatus('Transcription cleared', 'success');
-        });
-        
-        this.copyButton.addEventListener('click', () => {
-            const text = this.transcriptElement.value;
-            if (text) {
-                navigator.clipboard.writeText(text)
-                    .then(() => this.showTemporaryStatus('Text copied to clipboard', 'success'))
-                    .catch(() => this.showTemporaryStatus('Failed to copy text', 'error'));
-            } else {
-                this.showTemporaryStatus('No text to copy', 'error');
-            }
-        });
-        
-        this.cutButton.addEventListener('click', () => {
-            const text = this.transcriptElement.value;
-            if (text) {
-                navigator.clipboard.writeText(text)
-                    .then(() => {
-                        this.transcriptElement.value = '';
-                        this.showTemporaryStatus('Text cut to clipboard', 'success');
-                    })
-                    .catch(() => this.showTemporaryStatus('Failed to cut text', 'error'));
-            } else {
-                this.showTemporaryStatus('No text to cut', 'error');
-            }
-        });
+        if (this.grabTextButton) {
+            this.grabTextButton.addEventListener('click', () => {
+                const text = this.transcriptElement.value;
+                if (text) {
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            this.transcriptElement.value = '';
+                            this.showTemporaryStatus('Text cut to clipboard', 'success');
+                        })
+                        .catch(() => this.showTemporaryStatus('Failed to cut text', 'error'));
+                } else {
+                    this.showTemporaryStatus('No text to cut', 'error');
+                }
+            });
+        }
         
         // Recording control buttons - these are now handled in main.js
         // this.pauseButton.addEventListener('click', () => {
