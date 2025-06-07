@@ -111,25 +111,25 @@ export class UI {
             }
         });
         
-        // Recording control buttons
-        this.pauseButton.addEventListener('click', () => {
-            if (this.recorder) {
-                this.recorder.togglePause();
-            }
-        });
+        // Recording control buttons - these are now handled in main.js
+        // this.pauseButton.addEventListener('click', () => {
+        //     if (this.recorder) {
+        //         this.recorder.togglePause();
+        //     }
+        // });
         
-        this.cancelButton.addEventListener('click', () => {
-            if (this.recorder) {
-                this.recorder.cancelRecording();
-            }
-        });
+        // this.cancelButton.addEventListener('click', () => {
+        //     if (this.recorder) {
+        //         this.recorder.cancelRecording();
+        //     }
+        // });
         
-        // Main recording button
-        this.micButton.addEventListener('click', async () => {
-            if (this.recorder) {
-                await this.recorder.toggleRecording();
-            }
-        });
+        // Main recording button - this is now handled in main.js
+        // this.micButton.addEventListener('click', async () => {
+        //     if (this.recorder) {
+        //         await this.recorder.toggleRecording();
+        //     }
+        // });
     }
     
     setStatus(message) {

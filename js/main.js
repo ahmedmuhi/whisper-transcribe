@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initializeRecording(settings, ui, apiClient, audioProcessor) {
     const micButton = document.getElementById('mic-button');
+    const cancelButton = document.getElementById('cancel-button');
+    const pauseButton = document.getElementById('pause-button');
     
     micButton.addEventListener('click', async () => {
         if (!isRecording) {
@@ -55,6 +57,20 @@ function initializeRecording(settings, ui, apiClient, audioProcessor) {
             }
         } else {
             stopRecording();
+        }
+    });
+    
+    // Add cancel button functionality
+    cancelButton.addEventListener('click', () => {
+        if (isRecording) {
+            cancelRecording(ui);
+        }
+    });
+    
+    // Add pause button functionality
+    pauseButton.addEventListener('click', () => {
+        if (isRecording) {
+            togglePause(ui);
         }
     });
 }
@@ -99,6 +115,7 @@ function startRecording(stream, settings, ui, apiClient, audioProcessor) {
         clearInterval(timerInterval);
         ui.updateTimer('00:00');
         ui.setRecordingState(false);
+        ui.setPauseState(false); // Reset pause state
         
         isPaused = false;
         
@@ -126,12 +143,8 @@ function startRecording(stream, settings, ui, apiClient, audioProcessor) {
     recordingStartTime = Date.now();
     ui.setRecordingState(true);
     
-    timerInterval = setInterval(() => {
-        const elapsed = Date.now() - recordingStartTime;
-        const seconds = Math.floor(elapsed / 1000) % 60;
-        const minutes = Math.floor(elapsed / 60000);
-        ui.updateTimer(`${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`);
-    }, 1000);
+    // Start timer using the new function
+    startTimer(ui);
 }
 
 async function processAndSendAudio(settings, ui, apiClient, audioProcessor) {
@@ -181,4 +194,43 @@ function stopRecording() {
         mediaRecorder.stop();
         isRecording = false;
     }
+}
+
+function cancelRecording(ui) {
+    if (mediaRecorder && isRecording) {
+        isCancelled = true;
+        mediaRecorder.stop();
+        isRecording = false;
+    }
+}
+
+function togglePause(ui) {
+    if (!isRecording) return;
+    
+    if (!isPaused) {
+        mediaRecorder.pause();
+        clearInterval(timerInterval);
+        ui.setPauseState(true);
+        isPaused = true;
+    } else {
+        mediaRecorder.resume();
+        
+        // Resume timer from where it left off
+        const pausedTime = getTimerMilliseconds();
+        recordingStartTime = Date.now() - pausedTime;
+        startTimer(ui);
+        
+        ui.setPauseState(false);
+        ui.setStatus('Recording... Click again to stop');
+        isPaused = false;
+    }
+}
+
+function startTimer(ui) {
+    timerInterval = setInterval(() => {
+        const elapsed = Date.now() - recordingStartTime;
+        const seconds = Math.floor(elapsed / 1000) % 60;
+        const minutes = Math.floor(elapsed / 60000);
+        ui.updateTimer(`${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`);
+    }, 1000);
 }
