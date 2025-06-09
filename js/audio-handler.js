@@ -14,13 +14,6 @@ export class AudioHandler {
         this.recordingStartTime = null;
         this.timerInterval = null;
         
-        // Audio processing state
-        this.recordedChunks = [];
-        this.silenceMap = [];
-        this.currentSilenceStart = null;
-        this.audioMonitor = null;
-        this.silenceThreshold = 10; // Adjust based on your environment
-        
         // Audio visualization
         this.visualizationController = null;
         
@@ -65,13 +58,17 @@ export class AudioHandler {
                 }
             }
         } else {
-            this.stopRecording();
+            if (this.settings.getCurrentModel() === 'gpt-4o-transcribe') {
+                this.ui.setStatus('Finishing...');
+                this.gracefulStop();
+            } else {
+                this.stopRecording();
+            }
         }
     }
     
     startRecording(stream) {
         this.audioChunks = [];
-        this.reset();
         
         this.mediaRecorder = new MediaRecorder(stream);
         
@@ -80,22 +77,8 @@ export class AudioHandler {
         const isDarkTheme = document.body.classList.contains('dark-theme');
         this.visualizationController = this.setupVisualization(stream, visualizer, isDarkTheme);
         
-        // Setup silence tracking for GPT-4o
-        if (this.settings.getCurrentModel() === 'gpt-4o-transcribe') {
-            this.setupSilenceTracking(stream, (totalSilence) => {
-                const savedSeconds = (totalSilence / 1000).toFixed(1);
-                this.ui.setStatusHTML(`🔴 Recording... <span style="color: #666;">(${savedSeconds}s silence will be trimmed)</span>`);
-            });
-        }
-        
         this.mediaRecorder.addEventListener('dataavailable', event => {
             this.audioChunks.push(event.data);
-            
-            // Add chunk to audio processor for GPT-4o
-            if (this.settings.getCurrentModel() === 'gpt-4o-transcribe' && event.data.size > 0) {
-                const chunkTime = performance.now() - this.recordingStartTime;
-                this.addChunk(event.data, chunkTime);
-            }
         });
         
         this.mediaRecorder.addEventListener('stop', async () => {
@@ -103,6 +86,7 @@ export class AudioHandler {
             
             if (this.isCancelled) {
                 this.ui.setStatus('Recording cancelled');
+                stream.getTracks().forEach(t => t.stop());   // close here
                 this.isCancelled = false;
                 return;
             }
@@ -124,6 +108,23 @@ export class AudioHandler {
             this.mediaRecorder.stop();
             this.isRecording = false;
         }
+    }
+    
+    async gracefulStop(delayMs = 700) {
+        if (!this.mediaRecorder || !this.isRecording) return;
+        
+        // 1. Ask MediaRecorder to flush its internal buffer
+        await new Promise(res => {
+            this.mediaRecorder.addEventListener('dataavailable', res, { once: true });
+            this.mediaRecorder.requestData();
+        });
+        
+        // 2. Keep capturing a short tail of real silence
+        await new Promise(res => setTimeout(res, delayMs));
+        
+        // 3. Stop recording
+        this.mediaRecorder.stop();
+        this.isRecording = false;
     }
     
     togglePause() {
@@ -158,25 +159,13 @@ export class AudioHandler {
     async processAndSendAudio(stream) {
         this.ui.setStatus('Processing audio...');
         
-        const config = this.settings.getModelConfig();
-        
-        // Show silence removal status if applicable
-        if (config.model === 'gpt-4o-transcribe' && config.silenceRemoval !== 'off') {
-            const totalSilence = this.getTotalSilence();
-            if (totalSilence > 0) {
-                this.ui.setStatus(`Removing ${(totalSilence/1000).toFixed(1)}s of silence...`);
-            }
-        }
-        
-        // Process audio using AudioProcessor
-        const audioBlob = await this.processAudio(
-            this.audioChunks, 
-            config.model, 
-            config.silenceRemoval
-        );
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         
         await this.sendToAzureAPI(audioBlob);
         stream.getTracks().forEach(track => track.stop());
+        
+        // Clear the array to free memory
+        this.audioChunks.length = 0;
     }
     
     async sendToAzureAPI(audioBlob) {
@@ -224,125 +213,6 @@ export class AudioHandler {
             this.visualizationController.stop();
             this.visualizationController = null;
         }
-        
-        // Stop silence tracking
-        this.stopSilenceTracking();
-    }
-    
-    // ========== AUDIO PROCESSING METHODS (from AudioProcessor) ==========
-    
-    reset() {
-        this.recordedChunks = [];
-        this.silenceMap = [];
-        this.currentSilenceStart = null;
-        this.recordingStartTime = performance.now();
-    }
-    
-    addChunk(blob, timestamp) {
-        if (blob.size > 0) {
-            this.recordedChunks.push({
-                blob: blob,
-                startMs: timestamp - 100,
-                endMs: timestamp
-            });
-        }
-    }
-    
-    setupSilenceTracking(stream, onSilenceUpdate) {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const analyser = audioContext.createAnalyser();
-        const microphone = audioContext.createMediaStreamSource(stream);
-        const processor = audioContext.createScriptProcessor(2048, 1, 1);
-        
-        analyser.smoothingTimeConstant = 0.3;
-        analyser.fftSize = 256;
-        
-        microphone.connect(analyser);
-        analyser.connect(processor);
-        processor.connect(audioContext.destination);
-        
-        processor.onaudioprocess = (e) => {
-            const array = new Uint8Array(analyser.frequencyBinCount);
-            analyser.getByteFrequencyData(array);
-            
-            // Calculate average volume
-            const average = array.reduce((a, b) => a + b) / array.length;
-            const currentTime = performance.now() - this.recordingStartTime;
-            
-            if (average < this.silenceThreshold) {
-                // In silence
-                if (!this.currentSilenceStart) {
-                    this.currentSilenceStart = currentTime;
-                }
-            } else {
-                // Not silence
-                if (this.currentSilenceStart) {
-                    const silenceDuration = currentTime - this.currentSilenceStart;
-                    if (silenceDuration > 3000) { // Only track >3 second silences
-                        this.silenceMap.push({
-                            start: this.currentSilenceStart,
-                            end: currentTime,
-                            duration: silenceDuration
-                        });
-                        console.log(`Detected ${(silenceDuration/1000).toFixed(1)}s silence`);
-                        
-                        // Notify about total silence
-                        if (onSilenceUpdate) {
-                            const totalSilence = this.silenceMap.reduce((sum, s) => sum + s.duration, 0);
-                            onSilenceUpdate(totalSilence);
-                        }
-                    }
-                    this.currentSilenceStart = null;
-                }
-            }
-        };
-        
-        this.audioMonitor = { audioContext, processor, analyser };
-    }
-    
-    stopSilenceTracking() {
-        if (this.audioMonitor) {
-            this.audioMonitor.processor.disconnect();
-            this.audioMonitor.analyser.disconnect();
-            this.audioMonitor.audioContext.close();
-            this.audioMonitor = null;
-        }
-    }
-    
-    async processAudio(audioChunks, model, silenceRemoval) {
-        if (model !== 'gpt-4o-transcribe' || silenceRemoval === 'off' || this.silenceMap.length === 0) {
-            // No processing needed
-            return new Blob(audioChunks, { type: 'audio/webm' });
-        }
-        
-        // Remove silence for GPT-4o
-        const totalSilence = this.silenceMap.reduce((sum, s) => sum + s.duration, 0);
-        console.log(`Processing: removing ${(totalSilence/1000).toFixed(1)}s of silence`);
-        
-        // Filter out silent chunks
-        const filteredChunks = this.recordedChunks.filter(chunk => {
-            const chunkMidpoint = (chunk.startMs + chunk.endMs) / 2;
-            
-            for (const silence of this.silenceMap) {
-                const silenceStart = silence.start + 100; // Add buffer
-                const silenceEnd = silence.end - 100;
-                
-                if (chunkMidpoint > silenceStart && chunkMidpoint < silenceEnd) {
-                    return false; // Skip this chunk
-                }
-            }
-            return true; // Keep this chunk
-        });
-        
-        // Create blob from filtered chunks
-        const blobs = filteredChunks.map(chunk => chunk.blob);
-        console.log(`Removed ${this.recordedChunks.length - filteredChunks.length} silent chunks`);
-        
-        return new Blob(blobs, { type: 'audio/webm' });
-    }
-    
-    getTotalSilence() {
-        return this.silenceMap.reduce((sum, s) => sum + s.duration, 0);
     }
     
     // Audio visualization setup
@@ -367,8 +237,9 @@ export class AudioHandler {
             
             updateCanvasSize();
             
-            // Handle resize
-            window.addEventListener('resize', updateCanvasSize);
+            // Store the reference so we can remove it later
+            const resizeHandler = updateCanvasSize;
+            window.addEventListener('resize', resizeHandler);
             
             let animationId;
             
@@ -408,7 +279,7 @@ export class AudioHandler {
                     }
                     
                     // Remove resize listener
-                    window.removeEventListener('resize', updateCanvasSize);
+                    window.removeEventListener('resize', resizeHandler);
                     
                     if (source) {
                         try {
@@ -435,24 +306,5 @@ export class AudioHandler {
             console.error('Error setting up audio visualization:', error);
             return null;
         }
-    }
-    
-    // Helper method to update silence threshold
-    setSilenceThreshold(threshold) {
-        this.silenceThreshold = threshold;
-    }
-    
-    // Get silence statistics
-    getSilenceStats() {
-        const totalSilence = this.getTotalSilence();
-        const silenceCount = this.silenceMap.length;
-        const averageSilenceDuration = silenceCount > 0 ? totalSilence / silenceCount : 0;
-        
-        return {
-            totalSilence,
-            silenceCount,
-            averageSilenceDuration,
-            silencePercentage: 0 // Will be calculated when we know total recording time
-        };
     }
 }
