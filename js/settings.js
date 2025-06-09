@@ -81,13 +81,11 @@ export class Settings {
         const whisperKey = localStorage.getItem('whisper_api_key');
         const gpt4oUri = localStorage.getItem('gpt4o_uri');
         const gpt4oKey = localStorage.getItem('gpt4o_api_key');
-        const silenceRemoval = localStorage.getItem('silence_removal') || 'auto';
         
         if (whisperUri) document.getElementById('whisper-uri').value = whisperUri;
         if (whisperKey) document.getElementById('whisper-key').value = whisperKey;
         if (gpt4oUri) document.getElementById('gpt4o-uri').value = gpt4oUri;
         if (gpt4oKey) document.getElementById('gpt4o-key').value = gpt4oKey;
-        document.getElementById('silence-removal').value = silenceRemoval;
     }
     
     saveSettings() {
@@ -100,8 +98,6 @@ export class Settings {
         } else {
             targetUri = document.getElementById('gpt4o-uri').value.trim();
             apiKey = document.getElementById('gpt4o-key').value.trim();
-            const silenceRemoval = document.getElementById('silence-removal').value;
-            localStorage.setItem('silence_removal', silenceRemoval);
         }
         
         if (!apiKey || !targetUri) {
@@ -141,8 +137,7 @@ export class Settings {
         return {
             model,
             apiKey,
-            uri,
-            silenceRemoval: localStorage.getItem('silence_removal') || 'auto'
+            uri
         };
     }
     

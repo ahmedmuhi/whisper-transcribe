@@ -206,6 +206,9 @@ export class UI {
         this.transcriptElement.focus();
         this.transcriptElement.selectionStart = this.transcriptElement.value.length;
         this.transcriptElement.selectionEnd = this.transcriptElement.value.length;
+        
+        // Auto-scroll to bottom so newest text is always visible
+        this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
     }
     
     updateTimer(timeString) {
