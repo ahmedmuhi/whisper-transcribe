@@ -94,7 +94,7 @@ export class AudioHandler {
             await this.processAndSendAudio(stream);
         });
         
-        this.mediaRecorder.start(100);
+        this.mediaRecorder.start(250);
         this.isRecording = true;
         this.recordingStartTime = Date.now();
         this.ui.setRecordingState(true);
@@ -110,17 +110,17 @@ export class AudioHandler {
         }
     }
     
-    async gracefulStop(delayMs = 700) {
+    async gracefulStop(delayMs = 800) {
         if (!this.mediaRecorder || !this.isRecording) return;
         
-        // 1. Ask MediaRecorder to flush its internal buffer
+        // 1. Keep capturing a short tail to ensure complete audio including the tail
+        await new Promise(res => setTimeout(res, delayMs));
+        
+        // 2. Ask MediaRecorder to flush its internal buffer
         await new Promise(res => {
             this.mediaRecorder.addEventListener('dataavailable', res, { once: true });
             this.mediaRecorder.requestData();
         });
-        
-        // 2. Keep capturing a short tail of real silence
-        await new Promise(res => setTimeout(res, delayMs));
         
         // 3. Stop recording
         this.mediaRecorder.stop();
