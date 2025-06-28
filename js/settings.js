@@ -1,3 +1,5 @@
+import { showTemporaryStatus } from './status-helper.js';
+
 export class Settings {
     constructor() {
         this.modelSelect = document.getElementById('model-select');
@@ -5,6 +7,9 @@ export class Settings {
         this.closeModalButton = document.getElementById('close-modal');
         this.saveSettingsButton = document.getElementById('save-settings');
         this.settingsButton = document.getElementById('settings-button');
+
+        // Cache the status element with the other DOM references
+        this.statusElement = document.getElementById('status');
         
         this.init();
     }
@@ -101,7 +106,7 @@ export class Settings {
         }
         
         if (!apiKey || !targetUri) {
-            this.showTemporaryStatus('Please fill in all required fields', 'error');
+            showTemporaryStatus(this.statusElement, 'Please fill in all required fields', 'error');
             return;
         }
         
@@ -115,7 +120,7 @@ export class Settings {
         }
         
         this.closeSettingsModal();
-        this.showTemporaryStatus('Settings saved', 'success');
+        showTemporaryStatus(this.statusElement, 'Settings saved', 'success');
         
         // Notify that settings have been updated
         document.dispatchEvent(new CustomEvent('settingsUpdated'));
@@ -146,29 +151,9 @@ export class Settings {
         
         if (!config.apiKey || !config.uri) {
             setTimeout(() => {
-                this.showTemporaryStatus('Please configure Azure OpenAI settings', 'info', false);
+                showTemporaryStatus(this.statusElement, 'Please configure Azure OpenAI settings', 'info', 0);
                 this.openSettingsModal();
             }, 500);
-        }
-    }
-    
-    showTemporaryStatus(message, type = 'info', autoReset = true) {
-        const statusElement = document.getElementById('status');
-        statusElement.textContent = message;
-        
-        if (type === 'error') {
-            statusElement.style.color = '#dc2626';
-        } else if (type === 'success') {
-            statusElement.style.color = '#16a34a';
-        } else {
-            statusElement.style.color = '';
-        }
-        
-        if (autoReset) {
-            setTimeout(() => {
-                statusElement.textContent = '🎙️ Click the microphone to start recording';
-                statusElement.style.color = '';
-            }, 3000);
         }
     }
 }
