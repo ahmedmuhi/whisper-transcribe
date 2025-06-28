@@ -18,7 +18,6 @@ export class AudioHandler {
         this.visualizationController = null;
         
         this.setupEventListeners();
-        this.ui.checkBrowserSupport();
     }
     
     setupEventListeners() {
