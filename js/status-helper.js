@@ -1,9 +1,11 @@
+import { COLORS } from './constants.js';
+
 export function showTemporaryStatus(element, message, type = 'info', duration = 3000) {
     element.textContent = message;
 
     const colors = {
-        error: '#dc2626',
-        success: '#16a34a',
+        error: COLORS.ERROR,
+        success: COLORS.SUCCESS,
         info: ''
     };
 

@@ -1,3 +1,5 @@
+import { STORAGE_KEYS, COLORS } from './constants.js';
+
 export class UI {
     static browserSupportsRecording() {
         return !!(window.MediaRecorder &&
@@ -47,7 +49,7 @@ export class UI {
     }
     
     loadTheme() {
-        const themeMode = localStorage.getItem('themeMode') || 'auto';
+        const themeMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
         const themeSelect = document.getElementById('theme-mode');
         if (themeSelect) themeSelect.value = themeMode;
         
@@ -56,7 +58,7 @@ export class UI {
         // Listen for system theme changes
         if (window.matchMedia) {
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-                if (localStorage.getItem('themeMode') === 'auto') {
+                if (localStorage.getItem(STORAGE_KEYS.THEME_MODE) === 'auto') {
                     this.applyTheme();
                 }
             });
@@ -64,7 +66,7 @@ export class UI {
     }
 
     applyTheme() {
-        const themeMode = localStorage.getItem('themeMode') || 'auto';
+        const themeMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
         let isDark = false;
         
         if (themeMode === 'dark') {
@@ -89,7 +91,7 @@ export class UI {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             if (canvasCtx) {
-                canvasCtx.fillStyle = isDark ? '#0f172a' : '#f8fafc';
+                canvasCtx.fillStyle = isDark ? COLORS.DARK_BG : COLORS.LIGHT_BG;
                 canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
             }
         }
@@ -108,7 +110,7 @@ export class UI {
         // Theme toggle
         if (this.themeToggle) {
             this.themeToggle.addEventListener('click', () => {
-                const currentMode = localStorage.getItem('themeMode') || 'auto';
+                const currentMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
                 let newMode;
                 
                 if (currentMode === 'auto') {
@@ -119,7 +121,7 @@ export class UI {
                     newMode = 'light';
                 }
                 
-                localStorage.setItem('themeMode', newMode);
+                localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
                 const themeSelect = document.getElementById('theme-mode');
                 if (themeSelect) themeSelect.value = newMode;
                 this.applyTheme();
@@ -130,7 +132,7 @@ export class UI {
         const themeSelect = document.getElementById('theme-mode');
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => {
-                localStorage.setItem('themeMode', e.target.value);
+                localStorage.setItem(STORAGE_KEYS.THEME_MODE, e.target.value);
                 this.applyTheme();
             });
         }
@@ -186,9 +188,9 @@ export class UI {
         this.statusElement.textContent = message;
         
         if (type === 'error') {
-            this.statusElement.style.color = '#dc2626';
+            this.statusElement.style.color = COLORS.ERROR;
         } else if (type === 'success') {
-            this.statusElement.style.color = '#16a34a';
+            this.statusElement.style.color = COLORS.SUCCESS;
         } else {
             this.statusElement.style.color = '';
         }
@@ -280,7 +282,7 @@ export class UI {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             const isDarkTheme = document.body.classList.contains('dark-theme');
-            canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#f8fafc';
+            canvasCtx.fillStyle = isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
             canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
         }
     }

@@ -1,4 +1,6 @@
 // js/audio-handler.js
+import { COLORS } from './constants.js';
+
 export class AudioHandler {
     constructor(apiClient, ui, settings) {
         this.apiClient = apiClient;
@@ -238,7 +240,7 @@ export class AudioHandler {
                 
                 analyser.getByteFrequencyData(dataArray);
                 
-                canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#f8fafc';
+                canvasCtx.fillStyle = isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
                 canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
                 
                 const barWidth = (canvas.width / bufferLength) * 2.5;
@@ -288,7 +290,7 @@ export class AudioHandler {
                     }
                     
                     // Clear the canvas
-                    canvasCtx.fillStyle = isDarkTheme ? '#0f172a' : '#f8fafc';
+                    canvasCtx.fillStyle = isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
                     canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
                 }
             };
