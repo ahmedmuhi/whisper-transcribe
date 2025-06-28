@@ -1,3 +1,5 @@
+import { API_PARAMS, DEFAULT_LANGUAGE } from './constants.js';
+
 export class AzureAPIClient {
     constructor(settings) {
         this.settings = settings;
@@ -11,13 +13,13 @@ export class AzureAPIClient {
         }
         
         const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.webm');
-        formData.append('language', 'en');
+        formData.append(API_PARAMS.FILE, audioBlob, 'recording.webm');
+        formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
         
         // Add response_format for GPT-4o to avoid truncation
         if (config.model === 'gpt-4o-transcribe') {
-            formData.append('response_format', 'json');
-            formData.append('temperature', '0');
+            formData.append(API_PARAMS.RESPONSE_FORMAT, 'json');
+            formData.append(API_PARAMS.TEMPERATURE, '0');
         }
         
         try {
@@ -27,7 +29,7 @@ export class AzureAPIClient {
             
             const response = await fetch(config.uri, {
                 method: 'POST',
-                headers: { 'api-key': config.apiKey },
+                headers: { [API_PARAMS.API_KEY_HEADER]: config.apiKey },
                 body: formData
             });
             
@@ -89,11 +91,11 @@ export class AzureAPIClient {
             // Create a minimal test request (you might want to adjust this)
             const testBlob = new Blob([''], { type: 'audio/webm' });
             const formData = new FormData();
-            formData.append('file', testBlob, 'test.webm');
+            formData.append(API_PARAMS.FILE, testBlob, 'test.webm');
             
             const response = await fetch(config.uri, {
                 method: 'POST',
-                headers: { 'api-key': config.apiKey },
+                headers: { [API_PARAMS.API_KEY_HEADER]: config.apiKey },
                 body: formData
             });
             

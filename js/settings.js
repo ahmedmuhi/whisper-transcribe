@@ -1,4 +1,5 @@
 import { showTemporaryStatus } from './status-helper.js';
+import { STORAGE_KEYS } from './constants.js';
 
 export class Settings {
     constructor() {
@@ -22,14 +23,14 @@ export class Settings {
     }
     
     loadSavedModel() {
-        const savedModel = localStorage.getItem('transcription_model') || 'whisper';
+        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
         this.modelSelect.value = savedModel;
     }
     
     setupEventListeners() {
         // Model change listener
         this.modelSelect.addEventListener('change', (e) => {
-            localStorage.setItem('transcription_model', e.target.value);
+            localStorage.setItem(STORAGE_KEYS.MODEL, e.target.value);
             console.log('Model changed to:', e.target.value);
             this.updateSettingsVisibility();
         });
@@ -82,10 +83,10 @@ export class Settings {
     
     loadSettingsToForm() {
         // Load saved settings into form fields
-        const whisperUri = localStorage.getItem('whisper_uri');
-        const whisperKey = localStorage.getItem('whisper_api_key');
-        const gpt4oUri = localStorage.getItem('gpt4o_uri');
-        const gpt4oKey = localStorage.getItem('gpt4o_api_key');
+        const whisperUri = localStorage.getItem(STORAGE_KEYS.WHISPER_URI);
+        const whisperKey = localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY);
+        const gpt4oUri = localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
+        const gpt4oKey = localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
         
         if (whisperUri) document.getElementById('whisper-uri').value = whisperUri;
         if (whisperKey) document.getElementById('whisper-key').value = whisperKey;
@@ -112,11 +113,11 @@ export class Settings {
         
         // Save model-specific settings
         if (currentModel === 'whisper') {
-            localStorage.setItem('whisper_uri', targetUri);
-            localStorage.setItem('whisper_api_key', apiKey);
+            localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
+            localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
         } else {
-            localStorage.setItem('gpt4o_uri', targetUri);
-            localStorage.setItem('gpt4o_api_key', apiKey);
+            localStorage.setItem(STORAGE_KEYS.GPT4O_URI, targetUri);
+            localStorage.setItem(STORAGE_KEYS.GPT4O_API_KEY, apiKey);
         }
         
         this.closeSettingsModal();
@@ -132,12 +133,12 @@ export class Settings {
     
     getModelConfig() {
         const model = this.getCurrentModel();
-        const apiKey = model === 'whisper' ? 
-            localStorage.getItem('whisper_api_key') : 
-            localStorage.getItem('gpt4o_api_key');
-        const uri = model === 'whisper' ? 
-            localStorage.getItem('whisper_uri') : 
-            localStorage.getItem('gpt4o_uri');
+        const apiKey = model === 'whisper' ?
+            localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY) :
+            localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
+        const uri = model === 'whisper' ?
+            localStorage.getItem(STORAGE_KEYS.WHISPER_URI) :
+            localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
             
         return {
             model,
