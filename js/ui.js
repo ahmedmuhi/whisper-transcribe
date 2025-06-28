@@ -1,4 +1,10 @@
 export class UI {
+    static browserSupportsRecording() {
+        return !!(window.MediaRecorder &&
+                   navigator.mediaDevices &&
+                   navigator.mediaDevices.getUserMedia);
+    }
+
     constructor() {
         // Get all DOM elements
         this.micButton = document.getElementById('mic-button');
@@ -90,13 +96,12 @@ export class UI {
     }
     
     checkBrowserSupport() {
-        // Check if browser supports required APIs
-        if (!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (!UI.browserSupportsRecording()) {
             this.setStatus('Your browser does not support audio recording.');
-            this.micButton.style.opacity = 0.5;
-            this.micButton.style.cursor = 'not-allowed';
-            this.micButton.disabled = true;
+            this.disableMicButton();
+            return false;
         }
+        return true;
     }
     
     setupEventListeners() {
