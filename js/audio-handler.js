@@ -18,7 +18,7 @@ export class AudioHandler {
         this.visualizationController = null;
         
         this.setupEventListeners();
-        this.checkBrowserSupport();
+        this.ui.checkBrowserSupport();
     }
     
     setupEventListeners() {
@@ -30,15 +30,6 @@ export class AudioHandler {
         
         // Cancel button
         this.ui.cancelButton.addEventListener('click', () => this.cancelRecording());
-    }
-    
-    checkBrowserSupport() {
-        if (!window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            this.ui.setStatus('Your browser does not support audio recording.');
-            this.ui.micButton.style.opacity = 0.5;
-            this.ui.micButton.style.cursor = 'not-allowed';
-            this.ui.micButton.disabled = true;
-        }
     }
     
     async toggleRecording() {
