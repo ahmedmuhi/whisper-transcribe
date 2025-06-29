@@ -240,7 +240,7 @@ export class AudioHandler {
                 
                 analyser.getByteFrequencyData(dataArray);
                 
-                canvasCtx.fillStyle = isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
+                canvasCtx.fillStyle = isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
                 canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
                 
                 const barWidth = (canvas.width / bufferLength) * 2.5;

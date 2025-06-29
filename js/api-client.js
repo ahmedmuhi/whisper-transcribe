@@ -1,4 +1,4 @@
-import { API_PARAMS, DEFAULT_LANGUAGE } from './constants.js';
+import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME } from './constants.js';
 
 export class AzureAPIClient {
     constructor(settings) {
@@ -13,7 +13,7 @@ export class AzureAPIClient {
         }
         
         const formData = new FormData();
-        formData.append(API_PARAMS.FILE, audioBlob, 'recording.webm');
+        formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
         formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
         
         // Add response_format for GPT-4o to avoid truncation
@@ -81,31 +81,5 @@ export class AzureAPIClient {
         }
         
         return config;
-    }
-    
-    // Test API connection (optional)
-    async testConnection() {
-        try {
-            const config = this.validateConfig();
-            
-            // Create a minimal test request (you might want to adjust this)
-            const testBlob = new Blob([''], { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append(API_PARAMS.FILE, testBlob, 'test.webm');
-            
-            const response = await fetch(config.uri, {
-                method: 'POST',
-                headers: { [API_PARAMS.API_KEY_HEADER]: config.apiKey },
-                body: formData
-            });
-            
-            // Even if the request fails due to empty audio, a 400 response
-            // with proper Azure error indicates the connection works
-            return response.status === 400 || response.ok;
-            
-        } catch (error) {
-            console.error('Connection test failed:', error);
-            return false;
-        }
     }
 }

@@ -91,7 +91,7 @@ export class UI {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             if (canvasCtx) {
-                canvasCtx.fillStyle = isDark ? COLORS.DARK_BG : COLORS.LIGHT_BG;
+                canvasCtx.fillStyle = isDark ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
                 canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
             }
         }
@@ -282,7 +282,7 @@ export class UI {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             const isDarkTheme = document.body.classList.contains('dark-theme');
-            canvasCtx.fillStyle = isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
+            canvasCtx.fillStyle = isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
             canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
         }
     }
