@@ -37,6 +37,11 @@ export class AudioHandler {
     async toggleRecording() {
         if (!this.isRecording) {
             try {
+                // Check prerequisites first
+                if (!this.ui.checkRecordingPrerequisites()) {
+                    return;
+                }
+                
                 // Validate configuration before starting
                 this.apiClient.validateConfig();
                 
@@ -44,10 +49,17 @@ export class AudioHandler {
                 this.startRecording(stream);
             } catch (err) {
                 console.error('Error starting recording:', err);
-                showTemporaryStatus(this.ui.statusElement, err.message, 'error');
                 
-                if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
-                    this.settings.openSettingsModal();
+                // Handle permission errors through UI
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || 
+                    err.name === 'NotFoundError') {
+                    this.ui.handlePermissionError(err);
+                } else {
+                    showTemporaryStatus(this.ui.statusElement, err.message, 'error');
+                    
+                    if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
+                        this.settings.openSettingsModal();
+                    }
                 }
             }
         } else {

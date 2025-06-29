@@ -36,17 +36,14 @@ export class UI {
         this.settings = settings;
         this.audioHandler = audioHandler;
         
-        // Set initial status
-        this.setStatus(DEFAULT_RESET_STATUS);
-        
         // Load theme
         this.loadTheme();
         
         // Setup event listeners
         this.setupEventListeners();
         
-        // Check browser support
-        this.checkBrowserSupport();
+        // Check all recording prerequisites (browser support, API config, etc.)
+        this.checkRecordingPrerequisites();
     }
     
     loadTheme() {
@@ -105,6 +102,50 @@ export class UI {
             return false;
         }
         return true;
+    }
+
+    // Comprehensive method to check all recording prerequisites
+    checkRecordingPrerequisites() {
+        // Check browser support first
+        if (!this.checkBrowserSupport()) {
+            return false;
+        }
+        
+        // Check if API is configured
+        const config = this.settings.getModelConfig();
+        if (!config.apiKey || !config.uri) {
+            this.setStatus('⚙️ Please configure API settings first');
+            this.disableMicButton();
+            return false;
+        }
+        
+        // All prerequisites met - enable the button and set ready status
+        this.enableMicButton();
+        this.setStatus(DEFAULT_RESET_STATUS);
+        return true;
+    }
+
+    // Method to handle permission-related errors
+    handlePermissionError(error) {
+        console.error('Permission error:', error);
+        
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            this.setStatus('🚫 Microphone permission denied. Please allow microphone access.');
+            this.disableMicButton();
+        } else if (error.name === 'NotFoundError') {
+            this.setStatus('🎤 No microphone found. Please connect a microphone.');
+            this.disableMicButton();
+        } else {
+            this.setStatus('❌ Error accessing microphone: ' + error.message);
+            this.disableMicButton();
+        }
+    }
+
+    // Method to re-enable microphone after fixing issues
+    enableMicrophoneAfterFix() {
+        if (this.checkRecordingPrerequisites()) {
+            console.log('Microphone re-enabled after fixing prerequisites');
+        }
     }
     
     setupEventListeners() {
@@ -174,6 +215,11 @@ export class UI {
         //         await this.recorder.toggleRecording();
         //     }
         // });
+
+        // Listen for settings updates to re-check prerequisites
+        document.addEventListener('settingsUpdated', () => {
+            this.checkRecordingPrerequisites();
+        });
     }
     
     setStatus(message) {
