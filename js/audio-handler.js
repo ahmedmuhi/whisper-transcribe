@@ -1,8 +1,8 @@
 // js/audio-handler.js
 import { showTemporaryStatus } from './status-helper.js';
-import { COLORS } from './constants.js';
+import { COLORS, RECORDING_STATES } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
-import { PermissionManager } from './permission-manager.js';
+import { RecordingStateMachine } from './recording-state-machine.js';
 
 export class AudioHandler {
     constructor(apiClient, ui, settings) {
@@ -13,9 +13,6 @@ export class AudioHandler {
         // Recording state
         this.mediaRecorder = null;
         this.audioChunks = [];
-        this.isRecording = false;
-        this.isPaused = false;
-        this.isCancelled = false;
         this.recordingStartTime = null;
         this.timerInterval = null;
         
@@ -24,6 +21,14 @@ export class AudioHandler {
         
         // Permission management
         this.permissionManager = new PermissionManager(ui);
+        
+        // State machine
+        this.stateMachine = new RecordingStateMachine(this);
+        
+        // Listen to state changes
+        this.stateMachine.onStateChange((newState, oldState) => {
+            console.log(`Recording state changed: ${oldState} → ${newState}`);
+        });
         
         this.setupEventListeners();
     }
@@ -40,41 +45,68 @@ export class AudioHandler {
     }
     
     async toggleRecording() {
-        if (!this.isRecording) {
-            try {
-                // Check prerequisites first
-                if (!this.ui.checkRecordingPrerequisites()) {
-                    return;
-                }
-                
-                // Validate configuration before starting
-                this.apiClient.validateConfig();
-                
-                // Request microphone access through PermissionManager
-                const stream = await this.permissionManager.requestMicrophoneAccess();
-                if (!stream) {
-                    // Permission manager already handled the error display
-                    return;
-                }
-                
-                this.startRecording(stream);
-            } catch (err) {
-                console.error('Error starting recording:', err);
-                
-                // Non-permission errors
-                showTemporaryStatus(this.ui.statusElement, err.message, 'error');
-                
-                if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
-                    this.settings.openSettingsModal();
-                }
+        if (this.stateMachine.canRecord()) {
+            await this.startRecordingFlow();
+        } else if (this.stateMachine.canStop()) {
+            await this.stopRecordingFlow();
+        }
+    }
+    
+    async startRecordingFlow() {
+        try {
+            // Transition to initializing
+            await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
+            
+            // Check prerequisites first
+            if (!this.ui.checkRecordingPrerequisites()) {
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+                return;
             }
+            
+            // Validate configuration before starting
+            this.apiClient.validateConfig();
+            
+            // Request microphone access through PermissionManager
+            const stream = await this.permissionManager.requestMicrophoneAccess();
+            if (!stream) {
+                // Permission manager already handled the error display
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+                return;
+            }
+            
+            // Transition to recording
+            await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
+            this.startRecording(stream);
+            
+        } catch (err) {
+            console.error('Error starting recording:', err);
+            
+            // Transition to error state
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
+                error: err.message
+            });
+            
+            // Show temporary error status
+            showTemporaryStatus(this.ui.statusElement, err.message, 'error');
+            
+            if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
+                this.settings.openSettingsModal();
+            }
+            
+            // Return to idle after error
+            setTimeout(() => {
+                this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+            }, 3000);
+        }
+    }
+    
+    async stopRecordingFlow() {
+        if (this.settings.getCurrentModel() === 'gpt-4o-transcribe') {
+            await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+            this.gracefulStop();
         } else {
-            if (this.settings.getCurrentModel() === 'gpt-4o-transcribe') {
-                this.ui.setStatus('Finishing...');
-                this.gracefulStop();
-            } else {
-                this.stopRecording();
-            }
+            await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+            this.stopRecording();
         }
     }
     
@@ -95,34 +127,32 @@ export class AudioHandler {
         this.mediaRecorder.addEventListener('stop', async () => {
             this.cleanup();
             
-            if (this.isCancelled) {
-                this.ui.setStatus('Recording cancelled');
-                stream.getTracks().forEach(t => t.stop());   // close here
-                this.isCancelled = false;
+            if (this.stateMachine.getState() === RECORDING_STATES.CANCELLING) {
+                stream.getTracks().forEach(t => t.stop());
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
                 return;
             }
             
+            // Transition to processing
+            await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
             await this.processAndSendAudio(stream);
         });
         
         this.mediaRecorder.start(250);
-        this.isRecording = true;
         this.recordingStartTime = Date.now();
-        this.ui.setRecordingState(true);
         
         // Start timer
         this.startTimer();
     }
     
     stopRecording() {
-        if (this.mediaRecorder && this.isRecording) {
+        if (this.mediaRecorder && this.stateMachine.canStop()) {
             this.mediaRecorder.stop();
-            this.isRecording = false;
         }
     }
     
     async gracefulStop(delayMs = 800) {
-        if (!this.mediaRecorder || !this.isRecording) return;
+        if (!this.mediaRecorder || !this.stateMachine.canStop()) return;
         
         // 1. Keep capturing a short tail to ensure complete audio including the tail
         await new Promise(res => setTimeout(res, delayMs));
@@ -135,18 +165,14 @@ export class AudioHandler {
         
         // 3. Stop recording
         this.mediaRecorder.stop();
-        this.isRecording = false;
     }
     
-    togglePause() {
-        if (!this.isRecording) return;
-        
-        if (!this.isPaused) {
+    async togglePause() {
+        if (this.stateMachine.canPause()) {
             this.mediaRecorder.pause();
             clearInterval(this.timerInterval);
-            this.ui.setPauseState(true);
-            this.isPaused = true;
-        } else {
+            await this.stateMachine.transitionTo(RECORDING_STATES.PAUSED);
+        } else if (this.stateMachine.canResume()) {
             this.mediaRecorder.resume();
             
             // Resume timer from where it left off
@@ -154,22 +180,18 @@ export class AudioHandler {
             this.recordingStartTime = Date.now() - pausedTime;
             this.startTimer();
             
-            this.ui.setPauseState(false);
-            this.ui.setStatus('Recording... Click again to stop');
-            this.isPaused = false;
+            await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
         }
     }
     
-    cancelRecording() {
-        if (this.isRecording) {
-            this.isCancelled = true;
+    async cancelRecording() {
+        if (this.stateMachine.canCancel()) {
+            await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
             this.stopRecording();
         }
     }
     
     async processAndSendAudio(stream) {
-        this.ui.setStatus('Processing audio...');
-        
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         
         await this.sendToAzureAPI(audioBlob);
@@ -177,11 +199,12 @@ export class AudioHandler {
         
         // Clear the array to free memory
         this.audioChunks.length = 0;
+        
+        // Return to idle state
+        await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
     }
     
     async sendToAzureAPI(audioBlob) {
-        this.ui.showSpinner();
-        
         try {
             const transcriptionText = await this.apiClient.transcribe(audioBlob, (statusMessage) => {
                 this.ui.setStatus(statusMessage);

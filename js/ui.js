@@ -1,7 +1,6 @@
 import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
-import { PermissionManager } from './permission-manager.js';
 
 export class UI {
     constructor() {
