@@ -1,4 +1,6 @@
 import { showTemporaryStatus } from './status-helper.js';
+import { MESSAGES } from './constants.js';
+import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class PermissionManager {
     constructor(ui) {
@@ -51,8 +53,13 @@ export class PermissionManager {
         try {
             // First check browser support
             if (!PermissionManager.checkBrowserSupport()) {
-                this.ui.setStatus('Your browser does not support audio recording.');
-                this.ui.disableMicButton();
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.BROWSER_NOT_SUPPORTED,
+                    type: 'error'
+                });
+                eventBus.emit(APP_EVENTS.PERMISSION_ERROR, {
+                    error: 'Browser not supported'
+                });
                 return null;
             }
             
@@ -72,8 +79,12 @@ export class PermissionManager {
             this.microphoneStream = stream;
             
             // Permission was granted
-            this.ui.enableMicButton();
-            showTemporaryStatus(this.ui.statusElement, 'Microphone access granted', 'success');
+            eventBus.emit(APP_EVENTS.PERMISSION_GRANTED);
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: MESSAGES.MICROPHONE_ACCESS_GRANTED,
+                type: 'success',
+                temporary: true
+            });
             
             return stream;
             
@@ -91,42 +102,47 @@ export class PermissionManager {
         console.error('Permission error:', error);
         
         let message = '';
-        let shouldDisableButton = true;
+        let eventData = { error: error.name, message: error.message };
         
         switch (error.name) {
             case 'NotAllowedError':
             case 'PermissionDeniedError':
-                message = '🚫 Microphone permission denied. Please allow microphone access in your browser settings.';
+                message = MESSAGES.PERMISSION_DENIED;
+                eventBus.emit(APP_EVENTS.PERMISSION_DENIED, eventData);
                 break;
                 
             case 'NotFoundError':
             case 'DevicesNotFoundError':
-                message = '🎤 No microphone found. Please connect a microphone and try again.';
+                message = MESSAGES.NO_MICROPHONE;
                 break;
                 
             case 'NotReadableError':
             case 'TrackStartError':
-                message = '⚠️ Microphone is already in use by another application.';
+                message = MESSAGES.MICROPHONE_IN_USE;
                 break;
                 
             case 'OverconstrainedError':
             case 'ConstraintNotSatisfiedError':
-                message = '⚠️ No microphone meets the requirements. Try with a different microphone.';
+                message = MESSAGES.MICROPHONE_NOT_SUITABLE;
                 break;
                 
             case 'TypeError':
-                message = '❌ Invalid request. Please check your browser settings.';
+                message = MESSAGES.INVALID_REQUEST;
                 break;
                 
             default:
-                message = `❌ Error accessing microphone: ${error.message}`;
+                message = `${MESSAGES.MICROPHONE_ERROR_PREFIX}${error.message}`;
         }
         
-        this.ui.setStatus(message);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message,
+            type: 'error'
+        });
         
-        if (shouldDisableButton) {
-            this.ui.disableMicButton();
-        }
+        eventBus.emit(APP_EVENTS.PERMISSION_ERROR, {
+            ...eventData,
+            userMessage: message
+        });
         
         return null;
     }
@@ -138,20 +154,27 @@ export class PermissionManager {
     handlePermissionChange(state) {
         console.log('Permission state changed to:', state);
         
+        eventBus.emit(APP_EVENTS.PERMISSION_STATUS_CHANGED, { state });
+        
         switch (state) {
             case 'granted':
-                // Re-check all prerequisites when permission is granted
-                this.ui.checkRecordingPrerequisites();
+                eventBus.emit(APP_EVENTS.PERMISSION_GRANTED);
                 break;
                 
             case 'denied':
-                this.ui.setStatus('🚫 Microphone permission denied');
-                this.ui.disableMicButton();
+                eventBus.emit(APP_EVENTS.PERMISSION_DENIED);
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.PERMISSION_DENIED,
+                    type: 'error'
+                });
                 break;
                 
             case 'prompt':
                 // User closed the permission dialog without choosing
-                this.ui.setStatus('🎤 Click the microphone to request access');
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: DEFAULT_RESET_STATUS,
+                    type: 'info'
+                });
                 break;
         }
     }
@@ -191,16 +214,20 @@ export class PermissionManager {
             let instructions = '';
             
             if (userAgent.includes('chrome') || userAgent.includes('edge')) {
-                instructions = 'Click the camera icon in the address bar and allow microphone access.';
+                instructions = MESSAGES.PERMISSION_CHROME;
             } else if (userAgent.includes('firefox')) {
-                instructions = 'Click the microphone icon in the address bar and allow access.';
+                instructions = MESSAGES.PERMISSION_FIREFOX;
             } else if (userAgent.includes('safari')) {
-                instructions = 'Go to Safari > Settings > Websites > Microphone and allow access.';
+                instructions = MESSAGES.PERMISSION_SAFARI;
             } else {
-                instructions = 'Check your browser settings to allow microphone access for this site.';
+                instructions = MESSAGES.PERMISSION_DEFAULT;
             }
             
-            this.ui.setStatus(`🚫 ${instructions}`);
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: `🚫 ${instructions}`,
+                type: 'error'
+            });
+            
             return null;
         }
         

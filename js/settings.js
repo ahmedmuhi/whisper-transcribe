@@ -1,5 +1,6 @@
 import { showTemporaryStatus } from './status-helper.js';
-import { STORAGE_KEYS } from './constants.js';
+import { STORAGE_KEYS, MESSAGES } from './constants.js';
+import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class Settings {
     constructor() {
@@ -30,9 +31,18 @@ export class Settings {
     setupEventListeners() {
         // Model change listener
         this.modelSelect.addEventListener('change', (e) => {
-            localStorage.setItem(STORAGE_KEYS.MODEL, e.target.value);
-            console.log('Model changed to:', e.target.value);
+            const newModel = e.target.value;
+            const oldModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+            
+            localStorage.setItem(STORAGE_KEYS.MODEL, newModel);
+            console.log('Model changed to:', newModel);
             this.updateSettingsVisibility();
+            
+            // Emit model changed event
+            eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+                model: newModel,
+                previousModel: oldModel
+            });
         });
         
         // Settings button listener
@@ -75,10 +85,14 @@ export class Settings {
         this.updateSettingsVisibility();
         this.loadSettingsToForm();
         this.settingsModal.style.display = 'block';
+        
+        eventBus.emit(APP_EVENTS.UI_SETTINGS_OPENED);
     }
     
     closeSettingsModal() {
         this.settingsModal.style.display = 'none';
+        
+        eventBus.emit(APP_EVENTS.UI_SETTINGS_CLOSED);
     }
     
     loadSettingsToForm() {
@@ -107,7 +121,15 @@ export class Settings {
         }
         
         if (!apiKey || !targetUri) {
-            showTemporaryStatus(this.statusElement, 'Please fill in all required fields', 'error');
+            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, {
+                message: MESSAGES.FILL_REQUIRED_FIELDS
+            });
+            
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: MESSAGES.FILL_REQUIRED_FIELDS,
+                type: 'error',
+                temporary: true
+            });
             return;
         }
         
@@ -121,10 +143,25 @@ export class Settings {
         }
         
         this.closeSettingsModal();
-        showTemporaryStatus(this.statusElement, 'Settings saved', 'success');
         
-        // Notify that settings have been updated
-        document.dispatchEvent(new CustomEvent('settingsUpdated'));
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.SETTINGS_SAVED,
+            type: 'success',
+            temporary: true
+        });
+        
+        // Emit settings saved event
+        eventBus.emit(APP_EVENTS.SETTINGS_SAVED, {
+            model: currentModel,
+            hasUri: !!targetUri,
+            hasApiKey: !!apiKey
+        });
+        
+        // Also emit settings updated for compatibility
+        eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
+        
+        // Remove old custom event
+        // document.dispatchEvent(new CustomEvent('settingsUpdated'));
     }
     
     getCurrentModel() {
@@ -152,7 +189,10 @@ export class Settings {
         
         if (!config.apiKey || !config.uri) {
             setTimeout(() => {
-                showTemporaryStatus(this.statusElement, 'Please configure Azure OpenAI settings', 'info', 0);
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.CONFIGURE_AZURE,
+                    type: 'info'
+                });
                 this.openSettingsModal();
             }, 500);
         }

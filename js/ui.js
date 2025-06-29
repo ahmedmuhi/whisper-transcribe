@@ -1,6 +1,7 @@
-import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS } from './constants.js';
+import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
+import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class UI {
     constructor() {
@@ -36,9 +37,100 @@ export class UI {
         
         // Setup event listeners
         this.setupEventListeners();
+        this.setupEventBusListeners();
         
         // Check all recording prerequisites (browser support, API config, etc.)
         this.checkRecordingPrerequisites();
+        
+        // Emit app initialized event
+        eventBus.emit(APP_EVENTS.APP_INITIALIZED);
+    }
+    
+    setupEventBusListeners() {
+        // Listen for status updates
+        eventBus.on(APP_EVENTS.UI_STATUS_UPDATE, (data) => {
+            if (data.temporary) {
+                showTemporaryStatus(
+                    this.statusElement, 
+                    data.message, 
+                    data.type || 'info',
+                    data.duration || 3000,
+                    data.resetMessage || DEFAULT_RESET_STATUS
+                );
+            } else {
+                this.setStatus(data.message);
+            }
+        });
+        
+        // Listen for recording state changes
+        eventBus.on(APP_EVENTS.RECORDING_STATE_CHANGED, (data) => {
+            const { newState, oldState } = data;
+            console.log(`UI: Recording state changed from ${oldState} to ${newState}`);
+            
+            // Update UI based on state
+            switch (newState) {
+                case 'idle':
+                    this.resetControlsAfterRecording();
+                    break;
+                case 'initializing':
+                    this.disableMicButton();
+                    break;
+                case 'recording':
+                    this.setRecordingState(true);
+                    this.enableMicButton();
+                    break;
+                case 'paused':
+                    this.setPauseState(true);
+                    break;
+                case 'stopping':
+                    this.disableMicButton();
+                    break;
+                case 'processing':
+                    this.showSpinner();
+                    this.disableMicButton();
+                    break;
+                case 'cancelling':
+                    this.disableMicButton();
+                    break;
+                case 'error':
+                    this.enableMicButton();
+                    break;
+            }
+        });
+        
+        // Listen for transcription ready
+        eventBus.on(APP_EVENTS.UI_TRANSCRIPTION_READY, (data) => {
+            this.displayTranscription(data.text);
+            this.hideSpinner();
+        });
+        
+        // Listen for API events
+        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, (data) => {
+            this.hideSpinner();
+        });
+        
+        // Listen for permission events
+        eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => {
+            this.checkRecordingPrerequisites();
+        });
+        
+        eventBus.on(APP_EVENTS.PERMISSION_DENIED, () => {
+            this.disableMicButton();
+        });
+        
+        // Listen for settings events
+        eventBus.on(APP_EVENTS.SETTINGS_UPDATED, () => {
+            this.checkRecordingPrerequisites();
+        });
+        
+        eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, (data) => {
+            console.log('Model changed to:', data.model);
+        });
+        
+        // Listen for theme changes
+        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, (data) => {
+            this.applyTheme();
+        });
     }
     
     loadTheme() {
@@ -92,7 +184,7 @@ export class UI {
     
     checkBrowserSupport() {
         if (!PermissionManager.checkBrowserSupport()) {
-            this.setStatus('Your browser does not support audio recording.');
+            this.setStatus(MESSAGES.BROWSER_NOT_SUPPORTED);
             this.disableMicButton();
             return false;
         }
@@ -103,20 +195,24 @@ export class UI {
     checkRecordingPrerequisites() {
         // Check browser support first
         if (!this.checkBrowserSupport()) {
+            eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'browser' });
             return false;
         }
         
         // Check if API is configured
         const config = this.settings.getModelConfig();
         if (!config.apiKey || !config.uri) {
-            this.setStatus('⚙️ Please configure API settings first');
+            this.setStatus(MESSAGES.API_NOT_CONFIGURED);
             this.disableMicButton();
+            eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });
             return false;
         }
         
         // All prerequisites met - enable the button and set ready status
         this.enableMicButton();
         this.setStatus(DEFAULT_RESET_STATUS);
+        eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: true });
+        eventBus.emit(APP_EVENTS.APP_READY);
         return true;
     }
 
@@ -146,6 +242,9 @@ export class UI {
                 const themeSelect = document.getElementById('theme-mode');
                 if (themeSelect) themeSelect.value = newMode;
                 this.applyTheme();
+                
+                // Emit theme changed event
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: newMode });
             });
         }
         
@@ -155,6 +254,7 @@ export class UI {
             themeSelect.addEventListener('change', (e) => {
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, e.target.value);
                 this.applyTheme();
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: e.target.value });
             });
         }
         
@@ -166,39 +266,33 @@ export class UI {
                     navigator.clipboard.writeText(text)
                         .then(() => {
                             this.transcriptElement.value = '';
-                            showTemporaryStatus(this.statusElement, 'Text cut to clipboard', 'success');
+                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                                message: MESSAGES.TEXT_CUT_SUCCESS,
+                                type: 'success',
+                                temporary: true
+                            });
                         })
-                        .catch(() => showTemporaryStatus(this.statusElement, 'Failed to cut text', 'error'));
+                        .catch(() => {
+                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                                message: MESSAGES.TEXT_CUT_FAILED,
+                                type: 'error',
+                                temporary: true
+                            });
+                        });
                 } else {
-                    showTemporaryStatus(this.statusElement, 'No text to cut', 'error');
+                    eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                        message: MESSAGES.NO_TEXT_TO_CUT,
+                        type: 'error',
+                        temporary: true
+                    });
                 }
             });
         }
         
-        // Recording control buttons - these are now handled in main.js
-        // this.pauseButton.addEventListener('click', () => {
-        //     if (this.recorder) {
-        //         this.recorder.togglePause();
-        //     }
+        // Remove the old settings event listener since we're using eventBus now
+        // document.addEventListener('settingsUpdated', () => {
+        //     this.checkRecordingPrerequisites();
         // });
-        
-        // this.cancelButton.addEventListener('click', () => {
-        //     if (this.recorder) {
-        //         this.recorder.cancelRecording();
-        //     }
-        // });
-        
-        // Main recording button - this is now handled in main.js
-        // this.micButton.addEventListener('click', async () => {
-        //     if (this.recorder) {
-        //         await this.recorder.toggleRecording();
-        //     }
-        // });
-
-        // Listen for settings updates to re-check prerequisites
-        document.addEventListener('settingsUpdated', () => {
-            this.checkRecordingPrerequisites();
-        });
     }
     
     setStatus(message) {

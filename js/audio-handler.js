@@ -1,8 +1,9 @@
 // js/audio-handler.js
 import { showTemporaryStatus } from './status-helper.js';
-import { COLORS, RECORDING_STATES } from './constants.js';
+import { COLORS, RECORDING_STATES, MESSAGES } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
+import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class AudioHandler {
     constructor(apiClient, ui, settings) {
@@ -25,12 +26,27 @@ export class AudioHandler {
         // State machine
         this.stateMachine = new RecordingStateMachine(this);
         
-        // Listen to state changes
-        this.stateMachine.onStateChange((newState, oldState) => {
-            console.log(`Recording state changed: ${oldState} → ${newState}`);
+        this.setupEventListeners();
+        this.setupEventBusListeners();
+    }
+    
+    setupEventBusListeners() {
+        // Listen for API config missing events
+        eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => {
+            this.settings.openSettingsModal();
         });
         
-        this.setupEventListeners();
+        // Listen for recording events that might come from other sources
+        eventBus.on(APP_EVENTS.RECORDING_RESUMED, () => {
+            if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
+                this.mediaRecorder.resume();
+                
+                // Resume timer from where it left off
+                const pausedTime = this.getTimerMilliseconds();
+                this.recordingStartTime = Date.now() - pausedTime;
+                this.startTimer();
+            }
+        });
     }
     
     setupEventListeners() {
@@ -86,11 +102,8 @@ export class AudioHandler {
                 error: err.message
             });
             
-            // Show temporary error status
-            showTemporaryStatus(this.ui.statusElement, err.message, 'error');
-            
             if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
-                this.settings.openSettingsModal();
+                eventBus.emit(APP_EVENTS.API_CONFIG_MISSING);
             }
             
             // Return to idle after error
@@ -101,11 +114,12 @@ export class AudioHandler {
     }
     
     async stopRecordingFlow() {
-        if (this.settings.getCurrentModel() === 'gpt-4o-transcribe') {
-            await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+        const model = this.settings.getCurrentModel();
+        await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+        
+        if (model === 'gpt-4o-transcribe') {
             this.gracefulStop();
         } else {
-            await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
             this.stopRecording();
         }
     }
@@ -173,13 +187,7 @@ export class AudioHandler {
             clearInterval(this.timerInterval);
             await this.stateMachine.transitionTo(RECORDING_STATES.PAUSED);
         } else if (this.stateMachine.canResume()) {
-            this.mediaRecorder.resume();
-            
-            // Resume timer from where it left off
-            const pausedTime = this.getTimerMilliseconds();
-            this.recordingStartTime = Date.now() - pausedTime;
-            this.startTimer();
-            
+            eventBus.emit(APP_EVENTS.RECORDING_RESUMED);
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
         }
     }
@@ -207,15 +215,36 @@ export class AudioHandler {
     async sendToAzureAPI(audioBlob) {
         try {
             const transcriptionText = await this.apiClient.transcribe(audioBlob, (statusMessage) => {
-                this.ui.setStatus(statusMessage);
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: statusMessage,
+                    type: 'info'
+                });
             });
             
-            this.ui.displayTranscription(transcriptionText);
-            showTemporaryStatus(this.ui.statusElement, 'Transcription complete', 'success');
+            eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, {
+                text: transcriptionText
+            });
+            
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: MESSAGES.TRANSCRIPTION_COMPLETE,
+                type: 'success',
+                temporary: true
+            });
+            
+            eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS);
             
         } catch (error) {
             console.error('Transcription error:', error);
-            showTemporaryStatus(this.ui.statusElement, `Error: ${error.message}`, 'error');
+            
+            eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
+                error: error.message
+            });
+            
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: `${MESSAGES.ERROR_PREFIX}${error.message}`,
+                type: 'error',
+                temporary: true
+            });
         } finally {
             this.ui.hideSpinner();
         }

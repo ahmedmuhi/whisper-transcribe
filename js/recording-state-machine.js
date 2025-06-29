@@ -1,11 +1,11 @@
-import { RECORDING_STATES, STATE_TRANSITIONS } from './constants.js';
+import { RECORDING_STATES, STATE_TRANSITIONS, MESSAGES } from './constants.js';
+import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class RecordingStateMachine {
     constructor(audioHandler) {
         this.audioHandler = audioHandler;
         this.currentState = RECORDING_STATES.IDLE;
         this.previousState = null;
-        this.stateChangeListeners = [];
         
         // Bind state handlers
         this.stateHandlers = {
@@ -50,8 +50,12 @@ export class RecordingStateMachine {
         this.previousState = this.currentState;
         this.currentState = newState;
         
-        // Notify listeners
-        this.notifyStateChange(newState, this.previousState, data);
+        // Emit state change event
+        eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
+            newState,
+            oldState: this.previousState,
+            ...data
+        });
         
         // Execute state handler
         const handler = this.stateHandlers[newState];
@@ -62,71 +66,69 @@ export class RecordingStateMachine {
         return true;
     }
     
-    /**
-     * Add a state change listener
-     */
-    onStateChange(listener) {
-        this.stateChangeListeners.push(listener);
-        return () => {
-            const index = this.stateChangeListeners.indexOf(listener);
-            if (index > -1) {
-                this.stateChangeListeners.splice(index, 1);
-            }
-        };
-    }
-    
-    /**
-     * Notify all listeners of state change
-     */
-    notifyStateChange(newState, oldState, data) {
-        this.stateChangeListeners.forEach(listener => {
-            listener(newState, oldState, data);
-        });
-    }
-    
     // State Handlers
     
     async handleIdleState() {
-        this.audioHandler.ui.resetControlsAfterRecording();
-        this.audioHandler.ui.setStatus('🎙️ Click the microphone to start recording');
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.DEFAULT_RESET_STATUS,
+            type: 'info'
+        });
     }
     
     async handleInitializingState() {
-        this.audioHandler.ui.setStatus('Initializing microphone...');
-        this.audioHandler.ui.disableMicButton();
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.INITIALIZING_MICROPHONE,
+            type: 'info'
+        });
     }
     
     async handleRecordingState() {
-        this.audioHandler.ui.setRecordingState(true);
-        this.audioHandler.ui.setStatus('Recording... Click again to stop');
-        this.audioHandler.ui.enableMicButton();
+        eventBus.emit(APP_EVENTS.RECORDING_STARTED);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.RECORDING_IN_PROGRESS,
+            type: 'info'
+        });
     }
     
     async handlePausedState() {
-        this.audioHandler.ui.setPauseState(true);
-        this.audioHandler.ui.setStatus('Recording paused');
+        eventBus.emit(APP_EVENTS.RECORDING_PAUSED);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.RECORDING_PAUSED,
+            type: 'info'
+        });
     }
     
     async handleStoppingState() {
-        this.audioHandler.ui.setStatus('Finishing...');
-        this.audioHandler.ui.disableMicButton();
+        eventBus.emit(APP_EVENTS.RECORDING_STOPPED);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.FINISHING_RECORDING,
+            type: 'info'
+        });
     }
     
     async handleProcessingState() {
-        this.audioHandler.ui.setStatus('Processing audio...');
-        this.audioHandler.ui.showSpinner();
-        this.audioHandler.ui.disableMicButton();
+        eventBus.emit(APP_EVENTS.API_REQUEST_START);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.PROCESSING_AUDIO,
+            type: 'info'
+        });
     }
     
     async handleCancellingState() {
-        this.audioHandler.ui.setStatus('Cancelling...');
-        this.audioHandler.ui.disableMicButton();
+        eventBus.emit(APP_EVENTS.RECORDING_CANCELLED);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.RECORDING_CANCELLED,
+            type: 'info'
+        });
     }
     
     async handleErrorState(data) {
         const errorMessage = data.error || 'An error occurred';
-        this.audioHandler.ui.setStatus(`Error: ${errorMessage}`);
-        this.audioHandler.ui.enableMicButton();
+        eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: errorMessage });
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: `${MESSAGES.ERROR_PREFIX}${errorMessage}`,
+            type: 'error'
+        });
     }
     
     /**

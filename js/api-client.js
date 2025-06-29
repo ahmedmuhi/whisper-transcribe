@@ -1,4 +1,5 @@
-import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME } from './constants.js';
+import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES } from './constants.js';
+import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class AzureAPIClient {
     constructor(settings) {
@@ -9,7 +10,7 @@ export class AzureAPIClient {
         const config = this.settings.getModelConfig();
         
         if (!config.apiKey || !config.uri) {
-            throw new Error('Please configure settings first');
+            throw new Error(MESSAGES.CONFIGURE_SETTINGS_FIRST);
         }
         
         const formData = new FormData();
@@ -23,9 +24,18 @@ export class AzureAPIClient {
         }
         
         try {
+            const statusMessage = config.model === 'whisper' ? 
+                MESSAGES.SENDING_TO_WHISPER : 
+                MESSAGES.SENDING_TO_GPT4O;
+                
             if (onProgress) {
-                onProgress(`Sending to Azure ${config.model === 'whisper' ? 'Whisper' : 'GPT-4o'} API...`);
+                onProgress(statusMessage);
             }
+            
+            eventBus.emit(APP_EVENTS.API_REQUEST_START, {
+                model: config.model,
+                message: statusMessage
+            });
             
             const response = await fetch(config.uri, {
                 method: 'POST',
@@ -36,14 +46,34 @@ export class AzureAPIClient {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('API Error Details:', errorText);
-                throw new Error(`API responded with status: ${response.status}`);
+                const error = new Error(`API responded with status: ${response.status}`);
+                
+                eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
+                    status: response.status,
+                    error: error.message,
+                    details: errorText
+                });
+                
+                throw error;
             }
             
             const data = await response.json();
-            return this.parseResponse(data, config.model);
+            const transcription = this.parseResponse(data, config.model);
+            
+            eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
+                model: config.model,
+                transcriptionLength: transcription.length
+            });
+            
+            return transcription;
             
         } catch (error) {
             console.error('Error sending to Azure API:', error);
+            
+            eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
+                error: error.message
+            });
+            
             throw error;
         }
     }
@@ -58,7 +88,7 @@ export class AzureAPIClient {
             return data.text;
         }
         
-        throw new Error('Unknown response format from API');
+        throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
     }
     
     // Validate configuration before attempting transcription
@@ -66,18 +96,24 @@ export class AzureAPIClient {
         const config = this.settings.getModelConfig();
         
         if (!config.apiKey) {
-            throw new Error(`${config.model} API key is required`);
+            const error = new Error(`${config.model} ${MESSAGES.API_KEY_REQUIRED}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey', model: config.model });
+            throw error;
         }
         
         if (!config.uri) {
-            throw new Error(`${config.model} URI is required`);
+            const error = new Error(`${config.model} ${MESSAGES.URI_REQUIRED}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri', model: config.model });
+            throw error;
         }
         
         // Basic URI validation
         try {
             new URL(config.uri);
         } catch (e) {
-            throw new Error(`Invalid URI format for ${config.model}`);
+            const error = new Error(`${MESSAGES.INVALID_URI_FORMAT} for ${config.model}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri', model: config.model });
+            throw error;
         }
         
         return config;
