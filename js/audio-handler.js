@@ -1,4 +1,5 @@
 // js/audio-handler.js
+import { showTemporaryStatus } from './status-helper.js';
 import { COLORS } from './constants.js';
 
 export class AudioHandler {
@@ -43,7 +44,7 @@ export class AudioHandler {
                 this.startRecording(stream);
             } catch (err) {
                 console.error('Error starting recording:', err);
-                this.ui.showTemporaryStatus(err.message, 'error');
+                showTemporaryStatus(this.ui.statusElement, err.message, 'error');
                 
                 if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
                     this.settings.openSettingsModal();
@@ -169,11 +170,11 @@ export class AudioHandler {
             });
             
             this.ui.displayTranscription(transcriptionText);
-            this.ui.showTemporaryStatus('Transcription complete', 'success');
+            showTemporaryStatus(this.ui.statusElement, 'Transcription complete', 'success');
             
         } catch (error) {
             console.error('Transcription error:', error);
-            this.ui.showTemporaryStatus(`Error: ${error.message}`, 'error');
+            showTemporaryStatus(this.ui.statusElement, `Error: ${error.message}`, 'error');
         } finally {
             this.ui.hideSpinner();
         }
