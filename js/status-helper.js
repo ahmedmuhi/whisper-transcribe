@@ -1,11 +1,11 @@
-import { COLORS } from './constants.js';
+import { COLORS, DEFAULT_RESET_STATUS } from './constants.js';
 
 export function showTemporaryStatus(
     element,
     message,
     type = 'info',
     duration = 3000,
-    resetMessage = '🎙️ Click the microphone to start recording'
+    resetMessage = DEFAULT_RESET_STATUS
 ) {
     element.textContent = message;
 

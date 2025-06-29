@@ -27,3 +27,5 @@ export const API_PARAMS = {
 
 export const DEFAULT_LANGUAGE  = 'en';
 export const DEFAULT_FILENAME  = 'recording.webm';   // used when uploading audio
+export const DEFAULT_RESET_STATUS =
+  '🎙️ Click the microphone to start recording';

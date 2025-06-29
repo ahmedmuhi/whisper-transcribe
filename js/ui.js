@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, COLORS } from './constants.js';
+import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 
 export class UI {
@@ -37,7 +37,7 @@ export class UI {
         this.audioHandler = audioHandler;
         
         // Set initial status
-        this.setStatus('🎙️ Click the microphone to start recording');
+        this.setStatus(DEFAULT_RESET_STATUS);
         
         // Load theme
         this.loadTheme();
