@@ -1,4 +1,5 @@
 import { STORAGE_KEYS, COLORS } from './constants.js';
+import { showTemporaryStatus } from './status-helper.js';
 
 export class UI {
     static browserSupportsRecording() {
@@ -145,11 +146,11 @@ export class UI {
                     navigator.clipboard.writeText(text)
                         .then(() => {
                             this.transcriptElement.value = '';
-                            this.showTemporaryStatus('Text cut to clipboard', 'success');
+                            showTemporaryStatus(this.statusElement, 'Text cut to clipboard', 'success');
                         })
-                        .catch(() => this.showTemporaryStatus('Failed to cut text', 'error'));
+                        .catch(() => showTemporaryStatus(this.statusElement, 'Failed to cut text', 'error'));
                 } else {
-                    this.showTemporaryStatus('No text to cut', 'error');
+                    showTemporaryStatus(this.statusElement, 'No text to cut', 'error');
                 }
             });
         }
@@ -184,24 +185,6 @@ export class UI {
         this.statusElement.innerHTML = html;
     }
     
-    showTemporaryStatus(message, type = 'info', duration = 3000) {
-        this.statusElement.textContent = message;
-        
-        if (type === 'error') {
-            this.statusElement.style.color = COLORS.ERROR;
-        } else if (type === 'success') {
-            this.statusElement.style.color = COLORS.SUCCESS;
-        } else {
-            this.statusElement.style.color = '';
-        }
-        
-        if (duration > 0) {
-            setTimeout(() => {
-                this.setStatus('🎙️ Click the microphone to start recording');
-                this.statusElement.style.color = '';
-            }, duration);
-        }
-    }
     
     displayTranscription(text) {
         if (this.transcriptElement.value) {
