@@ -71,6 +71,8 @@ export class UI {
             switch (newState) {
                 case 'idle':
                     this.resetControlsAfterRecording();
+                    this.enableMicButton();
+                    this.hideSpinner();
                     break;
                 case 'initializing':
                     this.disableMicButton();
@@ -83,7 +85,11 @@ export class UI {
                     this.setPauseState(true);
                     break;
                 case 'stopping':
-                    this.disableMicButton();
+                    // Keep button enabled during stopping state
+                    // Just show visual feedback that we're stopping
+                    if (this.micButton.classList) {
+                        this.micButton.classList.remove('recording');
+                    }
                     break;
                 case 'processing':
                     this.showSpinner();
@@ -94,6 +100,7 @@ export class UI {
                     break;
                 case 'error':
                     this.enableMicButton();
+                    this.hideSpinner();
                     break;
             }
         });

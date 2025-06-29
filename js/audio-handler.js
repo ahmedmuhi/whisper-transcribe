@@ -117,6 +117,9 @@ export class AudioHandler {
         const model = this.settings.getCurrentModel();
         await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
         
+        // Stop the timer immediately when stopping
+        clearInterval(this.timerInterval);
+        
         if (model === 'gpt-4o-transcribe') {
             this.gracefulStop();
         } else {
@@ -265,17 +268,25 @@ export class AudioHandler {
     }
     
     cleanup() {
+        // Clear timer
         clearInterval(this.timerInterval);
+        this.timerInterval = null;
+        
+        // Reset UI
         this.ui.updateTimer('00:00');
         this.ui.setRecordingState(false);
         this.ui.setPauseState(false);
-        this.isPaused = false;
         
         // Stop visualization
         if (this.visualizationController) {
             this.visualizationController.stop();
             this.visualizationController = null;
         }
+        
+        // Clear recording state
+        this.audioChunks.length = 0;
+        this.recordingStartTime = null;
+        this.mediaRecorder = null;
     }
     
     // Audio visualization setup

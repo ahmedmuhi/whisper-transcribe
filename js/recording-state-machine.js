@@ -1,4 +1,4 @@
-import { RECORDING_STATES, STATE_TRANSITIONS, MESSAGES } from './constants.js';
+import { RECORDING_STATES, STATE_TRANSITIONS, MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class RecordingStateMachine {
@@ -70,9 +70,13 @@ export class RecordingStateMachine {
     
     async handleIdleState() {
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.DEFAULT_RESET_STATUS,
+            message: DEFAULT_RESET_STATUS,
             type: 'info'
         });
+        // Re-enable the button when returning to idle
+        this.audioHandler.ui.enableMicButton();
+        this.audioHandler.ui.hideSpinner();
+        this.audioHandler.ui.resetControlsAfterRecording();
     }
     
     async handleInitializingState() {
@@ -80,6 +84,7 @@ export class RecordingStateMachine {
             message: MESSAGES.INITIALIZING_MICROPHONE,
             type: 'info'
         });
+        this.audioHandler.ui.disableMicButton();
     }
     
     async handleRecordingState() {
@@ -88,6 +93,8 @@ export class RecordingStateMachine {
             message: MESSAGES.RECORDING_IN_PROGRESS,
             type: 'info'
         });
+        this.audioHandler.ui.setRecordingState(true);
+        this.audioHandler.ui.enableMicButton();
     }
     
     async handlePausedState() {
@@ -96,6 +103,7 @@ export class RecordingStateMachine {
             message: MESSAGES.RECORDING_PAUSED,
             type: 'info'
         });
+        this.audioHandler.ui.setPauseState(true);
     }
     
     async handleStoppingState() {
@@ -104,6 +112,8 @@ export class RecordingStateMachine {
             message: MESSAGES.FINISHING_RECORDING,
             type: 'info'
         });
+        // Don't disable the mic button here - let it stay clickable
+        // The button will be properly managed in processing/idle states
     }
     
     async handleProcessingState() {
@@ -112,6 +122,9 @@ export class RecordingStateMachine {
             message: MESSAGES.PROCESSING_AUDIO,
             type: 'info'
         });
+        // Disable button only during processing
+        this.audioHandler.ui.disableMicButton();
+        this.audioHandler.ui.showSpinner();
     }
     
     async handleCancellingState() {
@@ -120,6 +133,8 @@ export class RecordingStateMachine {
             message: MESSAGES.RECORDING_CANCELLED,
             type: 'info'
         });
+        this.audioHandler.ui.disableMicButton();
+        this.audioHandler.ui.hideSpinner();
     }
     
     async handleErrorState(data) {
@@ -129,6 +144,8 @@ export class RecordingStateMachine {
             message: `${MESSAGES.ERROR_PREFIX}${errorMessage}`,
             type: 'error'
         });
+        this.audioHandler.ui.enableMicButton();
+        this.audioHandler.ui.hideSpinner();
     }
     
     /**
