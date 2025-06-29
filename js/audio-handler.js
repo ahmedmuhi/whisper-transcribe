@@ -1,6 +1,8 @@
 // js/audio-handler.js
 import { showTemporaryStatus } from './status-helper.js';
 import { COLORS } from './constants.js';
+import { PermissionManager } from './permission-manager.js';
+import { PermissionManager } from './permission-manager.js';
 
 export class AudioHandler {
     constructor(apiClient, ui, settings) {
@@ -19,6 +21,9 @@ export class AudioHandler {
         
         // Audio visualization
         this.visualizationController = null;
+        
+        // Permission management
+        this.permissionManager = new PermissionManager(ui);
         
         this.setupEventListeners();
     }
@@ -45,21 +50,22 @@ export class AudioHandler {
                 // Validate configuration before starting
                 this.apiClient.validateConfig();
                 
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Request microphone access through PermissionManager
+                const stream = await this.permissionManager.requestMicrophoneAccess();
+                if (!stream) {
+                    // Permission manager already handled the error display
+                    return;
+                }
+                
                 this.startRecording(stream);
             } catch (err) {
                 console.error('Error starting recording:', err);
                 
-                // Handle permission errors through UI
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || 
-                    err.name === 'NotFoundError') {
-                    this.ui.handlePermissionError(err);
-                } else {
-                    showTemporaryStatus(this.ui.statusElement, err.message, 'error');
-                    
-                    if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
-                        this.settings.openSettingsModal();
-                    }
+                // Non-permission errors
+                showTemporaryStatus(this.ui.statusElement, err.message, 'error');
+                
+                if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
+                    this.settings.openSettingsModal();
                 }
             }
         } else {

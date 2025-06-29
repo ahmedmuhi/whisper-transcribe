@@ -1,13 +1,9 @@
 import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
+import { PermissionManager } from './permission-manager.js';
+import { PermissionManager } from './permission-manager.js';
 
 export class UI {
-    static browserSupportsRecording() {
-        return !!(window.MediaRecorder &&
-                   navigator.mediaDevices &&
-                   navigator.mediaDevices.getUserMedia);
-    }
-
     constructor() {
         // Get all DOM elements
         this.micButton = document.getElementById('mic-button');
@@ -96,7 +92,7 @@ export class UI {
     }
     
     checkBrowserSupport() {
-        if (!UI.browserSupportsRecording()) {
+        if (!PermissionManager.checkBrowserSupport()) {
             this.setStatus('Your browser does not support audio recording.');
             this.disableMicButton();
             return false;
@@ -123,22 +119,6 @@ export class UI {
         this.enableMicButton();
         this.setStatus(DEFAULT_RESET_STATUS);
         return true;
-    }
-
-    // Method to handle permission-related errors
-    handlePermissionError(error) {
-        console.error('Permission error:', error);
-        
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            this.setStatus('🚫 Microphone permission denied. Please allow microphone access.');
-            this.disableMicButton();
-        } else if (error.name === 'NotFoundError') {
-            this.setStatus('🎤 No microphone found. Please connect a microphone.');
-            this.disableMicButton();
-        } else {
-            this.setStatus('❌ Error accessing microphone: ' + error.message);
-            this.disableMicButton();
-        }
     }
 
     // Method to re-enable microphone after fixing issues
