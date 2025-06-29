@@ -163,13 +163,13 @@ export class AudioHandler {
     }
     
     stopRecording() {
-        if (this.mediaRecorder && this.stateMachine.canStop()) {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
         }
     }
     
     async gracefulStop(delayMs = 800) {
-        if (!this.mediaRecorder || !this.stateMachine.canStop()) return;
+        if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
         
         // 1. Keep capturing a short tail to ensure complete audio including the tail
         await new Promise(res => setTimeout(res, delayMs));
