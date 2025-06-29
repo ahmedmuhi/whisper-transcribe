@@ -1,6 +1,12 @@
 import { COLORS } from './constants.js';
 
-export function showTemporaryStatus(element, message, type = 'info', duration = 3000) {
+export function showTemporaryStatus(
+    element,
+    message,
+    type = 'info',
+    duration = 3000,
+    resetMessage = '🎙️ Click the microphone to start recording'
+) {
     element.textContent = message;
 
     const colors = {
@@ -13,7 +19,7 @@ export function showTemporaryStatus(element, message, type = 'info', duration = 
 
     if (duration > 0) {
         setTimeout(() => {
-            element.textContent = '🎙️ Click the microphone to start recording';
+            element.textContent = resetMessage;
             element.style.color = '';
         }, duration);
     }
