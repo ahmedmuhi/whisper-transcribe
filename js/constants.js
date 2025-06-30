@@ -25,6 +25,51 @@ export const API_PARAMS = {
   API_KEY_HEADER:  'api-key'
 };
 
+export const ID = Object.freeze({
+  // Buttons
+  MIC_BUTTON:       'mic-button',
+  PAUSE_BUTTON:     'pause-button',
+  CANCEL_BUTTON:    'cancel-button',
+  SETTINGS_BUTTON:  'settings-button',
+  GRAB_TEXT_BUTTON: 'grab-text-button',
+  SAVE_SETTINGS:    'save-settings',
+  THEME_TOGGLE:     'theme-toggle',
+
+  // Status & text areas
+  STATUS:           'status',
+  TRANSCRIPT:       'transcript',
+  TIMER:            'timer',
+
+  // Modals & panes
+  SETTINGS_MODAL:   'settings-modal',
+  CLOSE_MODAL:      'close-modal',
+  MODAL_TITLE:      'modal-title',
+  WHISPER_SETTINGS: 'whisper-settings',
+  GPT4O_SETTINGS:   'gpt4o-settings',
+
+  // Selectors / inputs
+  MODEL_SELECT:     'model-select',
+  THEME_MODE:       'theme-mode',
+  WHISPER_URI:      'whisper-uri',
+  WHISPER_KEY:      'whisper-key',
+  GPT4O_URI:        'gpt4o-uri',
+  GPT4O_KEY:        'gpt4o-key',
+
+  // Canvas / visualiser
+  VISUALIZER:       'visualizer',
+  VISUALIZER_CONTAINER: 'visualizer-container',
+
+  // Icons
+  PAUSE_ICON:       'pause-icon',
+  PLAY_ICON:        'play-icon',
+  MOON_ICON:        'moon-icon',
+  SUN_ICON:         'sun-icon',
+  THEME_ICON:       'theme-icon',
+
+  // Misc
+  SPINNER_CONTAINER: 'spinner-container'
+});
+
 export const DEFAULT_LANGUAGE  = 'en';
 export const DEFAULT_FILENAME  = 'recording.webm';   // used when uploading audio
 export const DEFAULT_RESET_STATUS =

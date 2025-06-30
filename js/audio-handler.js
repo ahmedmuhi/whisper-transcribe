@@ -1,6 +1,6 @@
 // js/audio-handler.js
 import { showTemporaryStatus } from './status-helper.js';
-import { COLORS, RECORDING_STATES, MESSAGES } from './constants.js';
+import { COLORS, RECORDING_STATES, MESSAGES, ID } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -133,7 +133,7 @@ export class AudioHandler {
         this.mediaRecorder = new MediaRecorder(stream);
         
         // Setup visualization
-        const visualizer = document.getElementById('visualizer');
+        const visualizer = document.getElementById(ID.VISUALIZER);
         const isDarkTheme = document.body.classList.contains('dark-theme');
         this.visualizationController = this.setupVisualization(stream, visualizer, isDarkTheme);
         

@@ -1,17 +1,17 @@
 import { showTemporaryStatus } from './status-helper.js';
-import { STORAGE_KEYS, MESSAGES } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 
 export class Settings {
     constructor() {
-        this.modelSelect = document.getElementById('model-select');
-        this.settingsModal = document.getElementById('settings-modal');
-        this.closeModalButton = document.getElementById('close-modal');
-        this.saveSettingsButton = document.getElementById('save-settings');
-        this.settingsButton = document.getElementById('settings-button');
+        this.modelSelect = document.getElementById(ID.MODEL_SELECT);
+        this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
+        this.closeModalButton = document.getElementById(ID.CLOSE_MODAL);
+        this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
+        this.settingsButton = document.getElementById(ID.SETTINGS_BUTTON);
 
         // Cache the status element with the other DOM references
-        this.statusElement = document.getElementById('status');
+        this.statusElement = document.getElementById(ID.STATUS);
         
         this.init();
     }
@@ -69,8 +69,8 @@ export class Settings {
     
     updateSettingsVisibility() {
         const currentModel = this.getCurrentModel();
-        const whisperSettings = document.getElementById('whisper-settings');
-        const gpt4oSettings = document.getElementById('gpt4o-settings');
+        const whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
+        const gpt4oSettings = document.getElementById(ID.GPT4O_SETTINGS);
         
         if (currentModel === 'whisper') {
             whisperSettings.style.display = 'block';
@@ -102,10 +102,10 @@ export class Settings {
         const gpt4oUri = localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
         const gpt4oKey = localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
         
-        if (whisperUri) document.getElementById('whisper-uri').value = whisperUri;
-        if (whisperKey) document.getElementById('whisper-key').value = whisperKey;
-        if (gpt4oUri) document.getElementById('gpt4o-uri').value = gpt4oUri;
-        if (gpt4oKey) document.getElementById('gpt4o-key').value = gpt4oKey;
+        if (whisperUri) document.getElementById(ID.WHISPER_URI).value = whisperUri;
+        if (whisperKey) document.getElementById(ID.WHISPER_KEY).value = whisperKey;
+        if (gpt4oUri) document.getElementById(ID.GPT4O_URI).value = gpt4oUri;
+        if (gpt4oKey) document.getElementById(ID.GPT4O_KEY).value = gpt4oKey;
     }
     
     saveSettings() {
@@ -113,11 +113,11 @@ export class Settings {
         
         let targetUri, apiKey;
         if (currentModel === 'whisper') {
-            targetUri = document.getElementById('whisper-uri').value.trim();
-            apiKey = document.getElementById('whisper-key').value.trim();
+            targetUri = document.getElementById(ID.WHISPER_URI).value.trim();
+            apiKey = document.getElementById(ID.WHISPER_KEY).value.trim();
         } else {
-            targetUri = document.getElementById('gpt4o-uri').value.trim();
-            apiKey = document.getElementById('gpt4o-key').value.trim();
+            targetUri = document.getElementById(ID.GPT4O_URI).value.trim();
+            apiKey = document.getElementById(ID.GPT4O_KEY).value.trim();
         }
         
         if (!apiKey || !targetUri) {

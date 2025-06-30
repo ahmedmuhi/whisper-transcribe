@@ -1,4 +1,4 @@
-import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES } from './constants.js';
+import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -6,26 +6,26 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
 export class UI {
     constructor() {
         // Get all DOM elements
-        this.micButton = document.getElementById('mic-button');
-        this.statusElement = document.getElementById('status');
-        this.transcriptElement = document.getElementById('transcript');
-        this.grabTextButton = document.getElementById('grab-text-button');
-        this.settingsButton = document.getElementById('settings-button');
-        this.themeToggle = document.getElementById('theme-toggle');
-        this.settingsModal = document.getElementById('settings-modal');
-        this.closeModalButton = document.getElementById('close-modal');
-        this.saveSettingsButton = document.getElementById('save-settings');
-        this.pauseButton = document.getElementById('pause-button');
-        this.cancelButton = document.getElementById('cancel-button');
-        this.timerElement = document.getElementById('timer');
-        this.spinnerContainer = document.getElementById('spinner-container');
-        this.visualizer = document.getElementById('visualizer');
+        this.micButton = document.getElementById(ID.MIC_BUTTON);
+        this.statusElement = document.getElementById(ID.STATUS);
+        this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
+        this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
+        this.settingsButton = document.getElementById(ID.SETTINGS_BUTTON);
+        this.themeToggle = document.getElementById(ID.THEME_TOGGLE);
+        this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
+        this.closeModalButton = document.getElementById(ID.CLOSE_MODAL);
+        this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
+        this.pauseButton = document.getElementById(ID.PAUSE_BUTTON);
+        this.cancelButton = document.getElementById(ID.CANCEL_BUTTON);
+        this.timerElement = document.getElementById(ID.TIMER);
+        this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
+        this.visualizer = document.getElementById(ID.VISUALIZER);
         
         // Icons
-        this.pauseIcon = document.getElementById('pause-icon');
-        this.playIcon = document.getElementById('play-icon');
-        this.moonIcon = document.getElementById('moon-icon');
-        this.sunIcon = document.getElementById('sun-icon');
+        this.pauseIcon = document.getElementById(ID.PAUSE_ICON);
+        this.playIcon = document.getElementById(ID.PLAY_ICON);
+        this.moonIcon = document.getElementById(ID.MOON_ICON);
+        this.sunIcon = document.getElementById(ID.SUN_ICON);
     }
     
     init(settings, audioHandler) {
@@ -143,7 +143,7 @@ export class UI {
     
     loadTheme() {
         const themeMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
-        const themeSelect = document.getElementById('theme-mode');
+        const themeSelect = document.getElementById(ID.THEME_MODE);
         if (themeSelect) themeSelect.value = themeMode;
         
         this.applyTheme();
@@ -247,7 +247,7 @@ export class UI {
                 }
                 
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
-                const themeSelect = document.getElementById('theme-mode');
+                const themeSelect = document.getElementById(ID.THEME_MODE);
                 if (themeSelect) themeSelect.value = newMode;
                 this.applyTheme();
                 
@@ -257,7 +257,7 @@ export class UI {
         }
         
         // Theme mode selector
-        const themeSelect = document.getElementById('theme-mode');
+        const themeSelect = document.getElementById(ID.THEME_MODE);
         if (themeSelect) {
             themeSelect.addEventListener('change', (e) => {
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, e.target.value);
