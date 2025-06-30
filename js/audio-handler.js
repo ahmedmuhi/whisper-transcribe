@@ -142,17 +142,19 @@ export class AudioHandler {
         });
         
         this.mediaRecorder.addEventListener('stop', async () => {
-            this.cleanup();
-            
             if (this.stateMachine.getState() === RECORDING_STATES.CANCELLING) {
                 stream.getTracks().forEach(t => t.stop());
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+                this.cleanup();
                 return;
             }
-            
+
             // Transition to processing
             await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
             await this.processAndSendAudio(stream);
+
+            // Cleanup after audio has been processed so chunks remain intact
+            this.cleanup();
         });
         
         this.mediaRecorder.start(250);
@@ -268,6 +270,8 @@ export class AudioHandler {
     }
     
     cleanup() {
+        // Called after audio has been processed to reset UI and state
+
         // Clear timer
         clearInterval(this.timerInterval);
         this.timerInterval = null;
