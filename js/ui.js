@@ -79,6 +79,7 @@ export class UI {
                     break;
                 case 'recording':
                     this.setRecordingState(true);
+                    this.setPauseState(false);
                     this.enableMicButton();
                     break;
                 case 'paused':
