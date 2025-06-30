@@ -15,7 +15,9 @@ export class AzureAPIClient {
         
         const formData = new FormData();
         formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
-        formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
+        if (config.model !== 'whisper-translate') {
+            formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
+        }
         
         // Add response_format for GPT-4o to avoid truncation
         if (config.model === 'gpt-4o-transcribe') {
