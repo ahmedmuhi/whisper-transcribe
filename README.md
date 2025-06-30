@@ -43,6 +43,11 @@ npm install
 npm test
 ```
 
+### DOM IDs
+
+All element IDs are centralized in `js/constants.js` under the `ID` object.
+Use `document.getElementById(ID.SOME_ID)` instead of hard-coded strings.
+
 ## Usage Tips
 
 - Position yourself in a quiet environment for best results
