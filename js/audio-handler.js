@@ -63,7 +63,7 @@ export class AudioHandler {
     async toggleRecording() {
         if (this.stateMachine.canRecord()) {
             await this.startRecordingFlow();
-        } else if (this.stateMachine.canStop()) {
+        } else if (this.stateMachine.canInvokeStop()) {
             await this.stopRecordingFlow();
         }
     }
@@ -171,10 +171,13 @@ export class AudioHandler {
     }
 
     stopRecording() {
-        this.safeStopRecorder();
+        if (this.stateMachine.canInvokeStop()) {
+            this.safeStopRecorder();
+        }
     }
-    
+
     async gracefulStop(delayMs = 800) {
+        if (!this.stateMachine.canInvokeStop()) return;
         if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
 
         // 1. Keep capturing a short tail to ensure complete audio including the tail
@@ -190,8 +193,8 @@ export class AudioHandler {
             }
         });
 
-        // 3. Stop recording if still active
-        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        // 3. Stop recording if still active and stopping is allowed
+        if (this.stateMachine.canInvokeStop() && this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.safeStopRecorder();
         }
     }
