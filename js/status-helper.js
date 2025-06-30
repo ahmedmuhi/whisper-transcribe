@@ -17,10 +17,21 @@ export function showTemporaryStatus(
 
     element.style.color = colors[type] || '';
 
+    // Clear any existing timeout on the element
+    if (element._statusTimeout) {
+        clearTimeout(element._statusTimeout);
+        element._statusTimeout = null;
+    }
+
     if (duration > 0) {
-        setTimeout(() => {
-            element.textContent = resetMessage;
-            element.style.color = '';
+        const originalMessage = message;
+        element._statusTimeout = setTimeout(() => {
+            // Only reset if the message has not been changed meanwhile
+            if (element.textContent === originalMessage) {
+                element.textContent = resetMessage;
+                element.style.color = '';
+            }
+            element._statusTimeout = null;
         }, duration);
     }
 }

@@ -304,6 +304,11 @@ export class UI {
     }
     
     setStatus(message) {
+        if (this.statusElement._statusTimeout) {
+            clearTimeout(this.statusElement._statusTimeout);
+            this.statusElement._statusTimeout = null;
+        }
+
         this.statusElement.textContent = message;
         this.statusElement.style.color = '';
     }
