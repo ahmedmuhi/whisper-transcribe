@@ -163,27 +163,37 @@ export class AudioHandler {
         // Start timer
         this.startTimer();
     }
-    
-    stopRecording() {
+
+    safeStopRecorder() {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
         }
     }
+
+    stopRecording() {
+        this.safeStopRecorder();
+    }
     
     async gracefulStop(delayMs = 800) {
         if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
-        
+
         // 1. Keep capturing a short tail to ensure complete audio including the tail
         await new Promise(res => setTimeout(res, delayMs));
-        
+
         // 2. Ask MediaRecorder to flush its internal buffer
         await new Promise(res => {
-            this.mediaRecorder.addEventListener('dataavailable', res, { once: true });
-            this.mediaRecorder.requestData();
+            if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
+                res();
+            } else {
+                this.mediaRecorder.addEventListener('dataavailable', res, { once: true });
+                this.mediaRecorder.requestData();
+            }
         });
-        
-        // 3. Stop recording
-        this.mediaRecorder.stop();
+
+        // 3. Stop recording if still active
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.safeStopRecorder();
+        }
     }
     
     async togglePause() {
