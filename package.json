@@ -1,0 +1,16 @@
+{
+  "name": "whisper-transcribe",
+  "version": "1.0.0",
+  "description": "A lightweight web application that converts spoken audio to text using Azure's Speech Services. Record directly from your browser and get transcriptions in real-time.",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "jest": "^30.0.3"
+  }
+}

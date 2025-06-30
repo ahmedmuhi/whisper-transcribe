@@ -179,10 +179,6 @@ export class RecordingStateMachine {
         return this.currentState === RECORDING_STATES.PAUSED;
     }
     
-    canStop() {
-        return [RECORDING_STATES.RECORDING, RECORDING_STATES.PAUSED].includes(this.currentState);
-    }
-
     /**
      * Determine if the recorder can be asked to stop. This returns true when
      * recording is active, paused or already in the process of stopping or
