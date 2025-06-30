@@ -34,6 +34,15 @@ A lightweight web application that converts spoken audio to text using Azure's S
    - API Key
 3. Click "Save Settings"
 
+## Development
+
+Run the unit tests with:
+
+```bash
+npm install
+npm test
+```
+
 ## Usage Tips
 
 - Position yourself in a quiet environment for best results
