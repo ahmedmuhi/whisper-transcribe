@@ -57,7 +57,10 @@ export class AzureAPIClient {
                 throw error;
             }
             
-            const data = await response.json();
+            const contentType = response.headers.get('content-type') || '';
+            const data = contentType.includes('application/json')
+                ? await response.json()
+                : await response.text();
             const transcription = this.parseResponse(data, config.model);
             
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
@@ -79,7 +82,12 @@ export class AzureAPIClient {
     }
     
     parseResponse(data, model) {
-        // Handle different response formats
+        // Text response
+        if (typeof data === 'string') {
+            return data.trim();
+        }
+
+        // Handle different JSON formats
         if (model === 'gpt-4o-transcribe' && data.segments) {
             // GPT-4o JSON format - merge all segments
             return data.segments.map(seg => seg.text).join(' ');
@@ -87,7 +95,7 @@ export class AzureAPIClient {
             // Whisper or simple text response
             return data.text;
         }
-        
+
         throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
     }
     
