@@ -112,6 +112,17 @@ export class RecordingStateMachine {
             message: MESSAGES.FINISHING_RECORDING,
             type: 'info'
         });
+        // Immediately reflect stopped state in the UI
+        this.audioHandler.ui.setRecordingState(false);
+
+        if (this.audioHandler.visualizationController) {
+            this.audioHandler.visualizationController.stop();
+            this.audioHandler.visualizationController = null;
+            if (this.audioHandler.ui.clearVisualization) {
+                this.audioHandler.ui.clearVisualization();
+            }
+        }
+
         // Don't disable the mic button here - let it stay clickable
         // The button will be properly managed in processing/idle states
     }
