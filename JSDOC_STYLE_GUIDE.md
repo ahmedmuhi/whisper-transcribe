@@ -2,9 +2,26 @@
 
 ## Overview
 
-This document defines the JSDoc documentation standards for the whisper-transcribe project. All public methods, classes, and modules must follow these conventions.
+This document defines the JSDoc documentation standards for the whisper-transcribe project. All public methods, classes, and modules must follow these conventions to maintain consistency and clarity.
 
 ## Basic Standards
+
+### Module-Level Documentation
+All modules should start with a @fileoverview tag and import the logger:
+
+```javascript
+/**
+ * @fileoverview Brief description of the module's purpose.
+ * More detailed explanation of what this module does and how it fits into the app.
+ * 
+ * @module ModuleName
+ * @requires Logger
+ * @requires EventBus
+ * @since 1.0.0
+ */
+
+import { logger } from './logger.js';
+```
 
 ### Class Documentation
 ```javascript
@@ -179,6 +196,73 @@ async startRecording() {
 5. **Keep Updated**: Update documentation when code changes
 6. **Link Related Items**: Use `@see` to reference related methods/classes
 7. **Document Async Behavior**: Always note async methods and their resolution values
+8. **Use Proper Logging**: Follow logging guidelines for all examples
+
+## Logging Guidelines
+
+### Logger Import and Usage
+All modules should import and use the centralized logger instead of console statements:
+
+```javascript
+import { logger } from './logger.js';
+
+// Create module-specific logger
+const moduleLogger = logger.child('ModuleName');
+```
+
+### Log Levels
+Use appropriate log levels based on message importance:
+
+```javascript
+// DEBUG: Detailed debugging information (development only)
+moduleLogger.debug('Processing audio chunk', { size: chunk.length, timestamp: Date.now() });
+
+// INFO: General information about application flow
+moduleLogger.info('User initiated recording session');
+moduleLogger.info('Model changed to:', newModel);
+
+// WARN: Warning messages for non-critical issues
+moduleLogger.warn('API rate limit approaching');
+moduleLogger.warn('Configuration incomplete, using defaults');
+
+// ERROR: Error messages for critical issues (always shown)
+moduleLogger.error('Failed to start recording:', error);
+moduleLogger.error('API request failed:', { status: 500, url: '/api/transcribe' });
+```
+
+### JSDoc Examples with Logging
+Update all JSDoc examples to use logger instead of console:
+
+```javascript
+/**
+ * Validates API configuration and credentials.
+ * 
+ * @returns {Object} Configuration object with model, apiKey, and uri
+ * @throws {Error} When configuration is invalid
+ * 
+ * @example
+ * try {
+ *   const config = apiClient.validateConfig();
+ *   logger.info('Configuration is valid:', config);
+ * } catch (error) {
+ *   logger.error('Configuration invalid:', error.message);
+ * }
+ */
+```
+
+### Logging Best Practices
+1. **Use Module Context**: Always create module-specific loggers with `logger.child()`
+2. **Include Relevant Data**: Log important context data with messages
+3. **Don't Log Sensitive Data**: Avoid logging API keys, passwords, or personal information
+4. **Use Appropriate Levels**: DEBUG for development, INFO for important events, WARN for issues, ERROR for failures
+5. **Be Consistent**: Use the same logging patterns across similar operations
+6. **Log State Changes**: Important state transitions should be logged at INFO level
+7. **Log Errors with Context**: Include error objects and relevant context data
+
+### Environment Behavior
+- **Development**: All log levels shown (DEBUG, INFO, WARN, ERROR)
+- **Production**: Only ERROR level messages shown by default
+- **Debug Override**: Add `?debug` to URL to enable debug logging in any environment
 
 ## Validation
 

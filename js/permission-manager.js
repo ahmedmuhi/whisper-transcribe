@@ -1,6 +1,7 @@
 import { showTemporaryStatus } from './status-helper.js';
 import { MESSAGES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { logger } from './logger.js';
 
 export class PermissionManager {
     constructor(ui) {
@@ -38,7 +39,8 @@ export class PermissionManager {
                 return result.state;
             }
         } catch (error) {
-            console.log('Permissions API not available or error:', error);
+            const permLogger = logger.child('PermissionManager');
+            permLogger.debug('Permissions API not available or error:', error);
         }
         
         // Fallback: we don't know the status
@@ -65,7 +67,8 @@ export class PermissionManager {
             
             // Check current permission status
             const currentStatus = await this.getPermissionStatus();
-            console.log('Current permission status:', currentStatus);
+            const permLogger = logger.child('PermissionManager');
+            permLogger.debug('Current permission status:', currentStatus);
             
             // Request microphone access
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -99,7 +102,8 @@ export class PermissionManager {
      * @returns {null} Always returns null to indicate failure
      */
     handlePermissionError(error) {
-        console.error('Permission error:', error);
+        const permLogger = logger.child('PermissionManager');
+        permLogger.error('Permission error:', error);
         
         let message = '';
         let eventData = { error: error.name, message: error.message };
@@ -152,7 +156,8 @@ export class PermissionManager {
      * @param {PermissionState} state The new permission state
      */
     handlePermissionChange(state) {
-        console.log('Permission state changed to:', state);
+        const permLogger = logger.child('PermissionManager');
+        permLogger.info('Permission state changed to:', state);
         
         eventBus.emit(APP_EVENTS.PERMISSION_STATUS_CHANGED, { state });
         

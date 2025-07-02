@@ -12,6 +12,7 @@
 import { showTemporaryStatus } from './status-helper.js';
 import { STORAGE_KEYS, MESSAGES, ID } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { logger } from './logger.js';
 
 /**
  * Settings manager for API configuration and user preferences.
@@ -29,7 +30,7 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
  * 
  * // Get current model configuration
  * const config = settings.getModelConfig();
- * console.log('Current model:', config.model);
+ * logger.info('Current model:', config.model);
  * 
  * // Open settings modal
  * settings.openSettingsModal();
@@ -95,7 +96,8 @@ export class Settings {
             const oldModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
             
             localStorage.setItem(STORAGE_KEYS.MODEL, newModel);
-            console.log('Model changed to:', newModel);
+            const settingsLogger = logger.child('Settings');
+            settingsLogger.info('Model changed to:', newModel);
             this.updateSettingsVisibility();
             
             // Emit model changed event
@@ -255,7 +257,7 @@ export class Settings {
      * 
      * @example
      * const model = settings.getCurrentModel();
-     * console.log('Current model:', model);
+     * logger.info('Current model:', model);
      */
     getCurrentModel() {
         return this.modelSelect.value;
@@ -274,9 +276,9 @@ export class Settings {
      * @example
      * const config = settings.getModelConfig();
      * if (config.apiKey && config.uri) {
-     *   console.log('Configuration is complete for', config.model);
+     *   logger.info('Configuration is complete for', config.model);
      * } else {
-     *   console.log('Configuration incomplete');
+     *   logger.warn('Configuration incomplete');
      * }
      */
     getModelConfig() {

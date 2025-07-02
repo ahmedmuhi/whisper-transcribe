@@ -15,6 +15,7 @@ import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID } from './cons
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { logger } from './logger.js';
 
 /**
  * User interface controller for managing DOM interactions and visual states.
@@ -125,7 +126,8 @@ export class UI {
         // Listen for recording state changes
         eventBus.on(APP_EVENTS.RECORDING_STATE_CHANGED, (data) => {
             const { newState, oldState } = data;
-            console.log(`UI: Recording state changed from ${oldState} to ${newState}`);
+            const uiLogger = logger.child('UI');
+            uiLogger.debug(`Recording state changed from ${oldState} to ${newState}`);
             
             // Update UI based on state
             switch (newState) {
@@ -192,7 +194,8 @@ export class UI {
         });
         
         eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, (data) => {
-            console.log('Model changed to:', data.model);
+            const uiLogger = logger.child('UI');
+            uiLogger.info('Model changed to:', data.model);
         });
         
         // Listen for theme changes
@@ -217,7 +220,8 @@ export class UI {
                     this.visualizationController.start();
                 }
             } catch (error) {
-                console.error('Error starting visualization:', error);
+                const uiLogger = logger.child('UI');
+                uiLogger.error('Error starting visualization:', error);
             }
         });
 
@@ -316,7 +320,8 @@ export class UI {
     // Method to re-enable microphone after fixing issues
     enableMicrophoneAfterFix() {
         if (this.checkRecordingPrerequisites()) {
-            console.log('Microphone re-enabled after fixing prerequisites');
+            const uiLogger = logger.child('UI');
+            uiLogger.info('Microphone re-enabled after fixing prerequisites');
         }
     }
     

@@ -220,7 +220,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line162">line 162</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line164">line 164</a>
     </li></ul></dd>
     
 
@@ -313,7 +313,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line250">line 250</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line252">line 252</a>
     </li></ul></dd>
     
 
@@ -367,7 +367,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
     <h5>Example</h5>
     
     <pre class="prettyprint"><code>const model = settings.getCurrentModel();
-console.log('Current model:', model);</code></pre>
+logger.info('Current model:', model);</code></pre>
 
 
 
@@ -430,7 +430,7 @@ Returns API credentials and endpoint information for the active model.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line264">line 264</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line266">line 266</a>
     </li></ul></dd>
     
 
@@ -545,9 +545,9 @@ Returns API credentials and endpoint information for the active model.</p>
     
     <pre class="prettyprint"><code>const config = settings.getModelConfig();
 if (config.apiKey &amp;&amp; config.uri) {
-  console.log('Configuration is complete for', config.model);
+  logger.info('Configuration is complete for', config.model);
 } else {
-  console.log('Configuration incomplete');
+  logger.warn('Configuration incomplete');
 }</code></pre>
 
 
@@ -611,7 +611,7 @@ Updates visibility based on selected model and loads current settings.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line144">line 144</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line146">line 146</a>
     </li></ul></dd>
     
 
@@ -667,13 +667,13 @@ Updates visibility based on selected model and loads current settings.</p>
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 06:58:45 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

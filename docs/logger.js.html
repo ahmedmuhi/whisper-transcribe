@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: logger.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: logger.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileoverview Centralized logging utility for the Speech-to-Text application.
+ * Provides configurable log levels with environment-based control to prevent
+ * debug information exposure in production environments.
+ * 
+ * @module Logger
+ * @since 1.0.0
+ * @author Development Team
+ */
+
+/**
+ * Log levels enumeration
+ * @readonly
+ * @enum {number}
+ */
+const LOG_LEVELS = {
+    /** Detailed debugging information */
+    DEBUG: 0,
+    /** General information about application flow */
+    INFO: 1,
+    /** Warning messages for non-critical issues */
+    WARN: 2,
+    /** Error messages for critical issues */
+    ERROR: 3,
+    /** Completely disable logging */
+    NONE: 4
+};
+
+/**
+ * Log level names for display
+ * @readonly
+ * @enum {string}
+ */
+const LOG_LEVEL_NAMES = {
+    [LOG_LEVELS.DEBUG]: 'DEBUG',
+    [LOG_LEVELS.INFO]: 'INFO',
+    [LOG_LEVELS.WARN]: 'WARN',
+    [LOG_LEVELS.ERROR]: 'ERROR'
+};
+
+/**
+ * Environment detection utility
+ * @returns {string} Current environment ('development' or 'production')
+ */
+function detectEnvironment() {
+    // Check for common development indicators
+    if (typeof process !== 'undefined' &amp;&amp; process.env &amp;&amp; process.env.NODE_ENV) {
+        return process.env.NODE_ENV;
+    }
+    
+    // Check for localhost or development domains
+    if (typeof window !== 'undefined' &amp;&amp; window.location) {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.local')) {
+            return 'development';
+        }
+    }
+    
+    // Check for debug flag in URL
+    if (typeof window !== 'undefined' &amp;&amp; window.location &amp;&amp; window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('debug')) {
+            return 'development';
+        }
+    }
+    
+    // Default to production for safety
+    return 'production';
+}
+
+/**
+ * Centralized logging utility with configurable log levels and environment detection.
+ * Automatically adjusts log level based on environment to prevent debug information
+ * exposure in production.
+ * 
+ * @class Logger
+ * @example
+ * // Basic usage
+ * import { logger } from './logger.js';
+ * 
+ * logger.debug('Detailed debugging info', { userId: 123 });
+ * logger.info('User logged in successfully');
+ * logger.warn('API rate limit approaching');
+ * logger.error('Failed to connect to API', error);
+ * 
+ * @example
+ * // Module-specific logging
+ * import { logger } from './logger.js';
+ * 
+ * const moduleLogger = logger.child('AudioHandler');
+ * moduleLogger.info('Recording started');
+ * moduleLogger.error('Microphone access denied');
+ */
+class Logger {
+    /**
+     * Creates a new Logger instance
+     * @param {Object} options - Logger configuration options
+     * @param {number} [options.level] - Manual log level override
+     * @param {string} [options.environment] - Manual environment override
+     * @param {string} [options.moduleContext] - Module context for log messages
+     */
+    constructor(options = {}) {
+        this.environment = options.environment || detectEnvironment();
+        this.moduleContext = options.moduleContext || '';
+        
+        // Set default log level based on environment
+        if (options.level !== undefined) {
+            this.level = options.level;
+        } else {
+            this.level = this.environment === 'production' ? LOG_LEVELS.ERROR : LOG_LEVELS.DEBUG;
+        }
+        
+        // Bind methods to maintain context
+        this.debug = this.debug.bind(this);
+        this.info = this.info.bind(this);
+        this.warn = this.warn.bind(this);
+        this.error = this.error.bind(this);
+    }
+    
+    /**
+     * Creates a child logger with module context
+     * @param {string} moduleContext - Module name for log message context
+     * @returns {Logger} New logger instance with module context
+     * @example
+     * const moduleLogger = logger.child('RecordingStateMachine');
+     * moduleLogger.info('State transition completed');
+     */
+    child(moduleContext) {
+        return new Logger({
+            level: this.level,
+            environment: this.environment,
+            moduleContext
+        });
+    }
+    
+    /**
+     * Sets the current log level
+     * @param {number} level - Log level from LOG_LEVELS enum
+     * @example
+     * logger.setLevel(LOG_LEVELS.WARN); // Only show warnings and errors
+     */
+    setLevel(level) {
+        this.level = level;
+    }
+    
+    /**
+     * Gets the current log level
+     * @returns {number} Current log level
+     */
+    getLevel() {
+        return this.level;
+    }
+    
+    /**
+     * Checks if a log level is enabled
+     * @param {number} level - Log level to check
+     * @returns {boolean} True if the level is enabled
+     */
+    isLevelEnabled(level) {
+        return level >= this.level;
+    }
+    
+    /**
+     * Formats a log message with timestamp and context
+     * @private
+     * @param {number} level - Log level
+     * @param {string} message - Log message
+     * @param {...*} args - Additional arguments
+     * @returns {Array} Formatted message array for console output
+     */
+    _formatMessage(level, message, ...args) {
+        const timestamp = new Date().toISOString();
+        const levelName = LOG_LEVEL_NAMES[level];
+        const context = this.moduleContext ? `[${this.moduleContext}]` : '';
+        
+        const prefix = `[${timestamp}] ${levelName}${context}:`;
+        
+        return [prefix, message, ...args];
+    }
+    
+    /**
+     * Logs a debug message (only in development)
+     * @param {string} message - Debug message
+     * @param {...*} args - Additional arguments to log
+     * @example
+     * logger.debug('Processing audio chunk', { size: chunk.length, timestamp: Date.now() });
+     */
+    debug(message, ...args) {
+        if (this.isLevelEnabled(LOG_LEVELS.DEBUG)) {
+            console.log(...this._formatMessage(LOG_LEVELS.DEBUG, message, ...args));
+        }
+    }
+    
+    /**
+     * Logs an info message
+     * @param {string} message - Info message
+     * @param {...*} args - Additional arguments to log
+     * @example
+     * logger.info('User initiated recording session');
+     */
+    info(message, ...args) {
+        if (this.isLevelEnabled(LOG_LEVELS.INFO)) {
+            console.log(...this._formatMessage(LOG_LEVELS.INFO, message, ...args));
+        }
+    }
+    
+    /**
+     * Logs a warning message
+     * @param {string} message - Warning message
+     * @param {...*} args - Additional arguments to log
+     * @example
+     * logger.warn('Microphone permissions not granted yet');
+     */
+    warn(message, ...args) {
+        if (this.isLevelEnabled(LOG_LEVELS.WARN)) {
+            console.warn(...this._formatMessage(LOG_LEVELS.WARN, message, ...args));
+        }
+    }
+    
+    /**
+     * Logs an error message (always shown, even in production)
+     * @param {string} message - Error message
+     * @param {...*} args - Additional arguments to log (e.g., Error objects)
+     * @example
+     * logger.error('Failed to start recording', error);
+     * logger.error('API request failed', { status: 500, url: '/api/transcribe' });
+     */
+    error(message, ...args) {
+        if (this.isLevelEnabled(LOG_LEVELS.ERROR)) {
+            console.error(...this._formatMessage(LOG_LEVELS.ERROR, message, ...args));
+        }
+    }
+    
+    /**
+     * Logs an object or data structure for debugging
+     * @param {string} label - Label for the data
+     * @param {*} data - Data to log
+     * @example
+     * logger.logData('API Response', responseData);
+     * logger.logData('User Settings', userConfig);
+     */
+    logData(label, data) {
+        if (this.isLevelEnabled(LOG_LEVELS.DEBUG)) {
+            console.group(`[${new Date().toISOString()}] DEBUG${this.moduleContext ? `[${this.moduleContext}]` : ''}: ${label}`);
+            console.log(data);
+            console.groupEnd();
+        }
+    }
+}
+
+// Create singleton logger instance
+const logger = new Logger();
+
+// Export both the Logger class and singleton instance
+export { Logger, LOG_LEVELS, logger };
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

@@ -6,6 +6,8 @@
  * @since 1.0.0
  */
 
+import { logger } from './logger.js';
+
 /**
  * EventBus - Central event management system for the application.
  * Provides a decoupled way for modules to communicate using publish-subscribe pattern.
@@ -15,7 +17,7 @@
  * @example
  * // Subscribe to an event
  * const unsubscribe = eventBus.on('user:login', (data) => {
- *   console.log('User logged in:', data.username);
+ *   logger.info('User logged in:', data.username);
  * });
  * 
  * // Emit an event
@@ -101,7 +103,8 @@ export class EventBus {
      */
     emit(eventName, data = {}) {
         if (this.debugMode) {
-            console.log(`[EventBus] Emitting: ${eventName}`, data);
+            const eventLogger = logger.child('EventBus');
+            eventLogger.debug(`Emitting event: ${eventName}`, data);
         }
         
         // Record event in history
@@ -129,7 +132,8 @@ export class EventBus {
                     this.off(eventName, listener.callback);
                 }
             } catch (error) {
-                console.error(`[EventBus] Error in listener for ${eventName}:`, error);
+                const eventLogger = logger.child('EventBus');
+                eventLogger.error(`Error in listener for ${eventName}:`, error);
             }
         });
     }
@@ -180,7 +184,7 @@ export class EventBus {
  * import { eventBus, APP_EVENTS } from './event-bus.js';
  * 
  * eventBus.on(APP_EVENTS.RECORDING_STARTED, (data) => {
- *   console.log('Recording started at:', data.timestamp);
+ *   logger.info('Recording started at:', data.timestamp);
  * });
  */
 export const eventBus = new EventBus();

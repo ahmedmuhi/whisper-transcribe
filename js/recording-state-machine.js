@@ -10,6 +10,7 @@
 
 import { RECORDING_STATES, STATE_TRANSITIONS, MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { logger } from './logger.js';
 
 /**
  * Finite state machine for managing audio recording lifecycle and state transitions.
@@ -29,7 +30,7 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
  * 
  * // Listen for state changes
  * eventBus.on(APP_EVENTS.RECORDING_STATE_CHANGED, ({ newState, oldState }) => {
- *   console.log(`State changed: ${oldState} -> ${newState}`);
+ *   logger.debug(`State changed: ${oldState} -> ${newState}`);
  * });
  */
 export class RecordingStateMachine {
@@ -103,19 +104,21 @@ export class RecordingStateMachine {
      *     { audioBlob: recordedData }
      *   );
      *   if (success) {
-     *     console.log('State transition completed');
+     *     logger.info('State transition completed');
      *   }
      * } catch (error) {
-     *   console.error('State transition failed:', error);
+     *   logger.error('State transition failed:', error);
      * }
      */
     async transitionTo(newState, data = {}) {
         if (!this.canTransitionTo(newState)) {
-            console.error(`Invalid state transition from ${this.currentState} to ${newState}`);
+            const stateLogger = logger.child('RecordingStateMachine');
+            stateLogger.error(`Invalid state transition from ${this.currentState} to ${newState}`);
             return false;
         }
         
-        console.log(`State transition: ${this.currentState} → ${newState}`);
+        const stateLogger = logger.child('RecordingStateMachine');
+        stateLogger.debug(`State transition: ${this.currentState} → ${newState}`);
         
         // Store previous state
         this.previousState = this.currentState;

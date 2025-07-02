@@ -17,6 +17,7 @@ import { COLORS, RECORDING_STATES, MESSAGES, ID } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { logger } from './logger.js';
 
 /**
  * Audio recording and processing manager for speech transcription.
@@ -44,7 +45,7 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
  * 
  * // Check current state
  * if (audioHandler.stateMachine.canRecord()) {
- *   console.log('Ready to record');
+ *   logger.info('Ready to record');
  * }
  */
 export class AudioHandler {
@@ -171,7 +172,8 @@ export class AudioHandler {
             this.startRecording(stream);
             
         } catch (err) {
-            console.error('Error starting recording:', err);
+            const audioLogger = logger.child('AudioHandler');
+            audioLogger.error('Error starting recording:', err);
             
             // Transition to error state
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
@@ -332,7 +334,8 @@ export class AudioHandler {
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS);
             
         } catch (error) {
-            console.error('Transcription error:', error);
+            const audioLogger = logger.child('AudioHandler');
+            audioLogger.error('Transcription error:', error);
             
             eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                 error: error.message

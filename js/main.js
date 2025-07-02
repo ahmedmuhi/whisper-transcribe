@@ -2,10 +2,11 @@ import { Settings } from './settings.js';
 import { UI } from './ui.js';
 import { AzureAPIClient } from './api-client.js';
 import { AudioHandler } from './audio-handler.js';
+import { logger } from './logger.js';
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Initializing Speech-to-Text App...');
+    logger.info('Initializing Speech-to-Text App...');
     
     // Initialize modules
     const settings = new Settings();
@@ -16,5 +17,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize UI with settings reference
     ui.init(settings, audioHandler);
     
-    console.log('Speech-to-Text App initialized');
+    logger.info('Speech-to-Text App initialized');
 });

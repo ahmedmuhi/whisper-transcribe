@@ -10,6 +10,7 @@
 
 import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { logger } from './logger.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
@@ -25,11 +26,11 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
  * 
  * try {
  *   const result = await apiClient.transcribe(audioBlob, (status) => {
- *     console.log('Status:', status);
+ *     logger.debug('Transcription status:', status);
  *   });
- *   console.log('Transcription:', result.text);
+ *   logger.info('Transcription completed:', result.text);
  * } catch (error) {
- *   console.error('Transcription failed:', error.message);
+ *   logger.error('Transcription failed:', error.message);
  * }
  */
 export class AzureAPIClient {
@@ -63,7 +64,7 @@ export class AzureAPIClient {
      * @example
      * // Basic transcription
      * const result = await apiClient.transcribe(audioBlob);
-     * console.log(result.text);
+     * logger.info('Transcription result:', result.text);
      * 
      * @example
      * // With progress tracking
@@ -112,7 +113,8 @@ export class AzureAPIClient {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('API Error Details:', errorText);
+                const apiLogger = logger.child('AzureAPIClient');
+                apiLogger.error('API Error Details:', errorText);
                 const error = new Error(`API responded with status: ${response.status}`);
                 
                 eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
@@ -138,7 +140,8 @@ export class AzureAPIClient {
             return transcription;
             
         } catch (error) {
-            console.error('Error sending to Azure API:', error);
+            const apiLogger = logger.child('AzureAPIClient');
+            apiLogger.error('Error sending to Azure API:', error);
             
             eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                 error: error.message
@@ -202,9 +205,9 @@ export class AzureAPIClient {
      * @example
      * try {
      *   const config = apiClient.validateConfig();
-     *   console.log('Configuration is valid:', config);
+     *   logger.info('Configuration is valid:', config);
      * } catch (error) {
-     *   console.error('Configuration invalid:', error.message);
+     *   logger.error('Configuration invalid:', error.message);
      * }
      */
     validateConfig() {
