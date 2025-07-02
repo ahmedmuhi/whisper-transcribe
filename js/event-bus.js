@@ -267,6 +267,17 @@ export const APP_EVENTS = {
     UI_THEME_CHANGED: 'ui:themeChanged',
     UI_SETTINGS_OPENED: 'ui:settingsOpened',
     UI_SETTINGS_CLOSED: 'ui:settingsClosed',
+    
+    // UI Control events - for decoupled UI state management
+    UI_TIMER_UPDATE: 'ui:timerUpdate',
+    UI_TIMER_RESET: 'ui:timerReset',
+    UI_BUTTON_ENABLE_MIC: 'ui:buttonEnableMic',
+    UI_BUTTON_DISABLE_MIC: 'ui:buttonDisableMic',
+    UI_BUTTON_SET_RECORDING_STATE: 'ui:buttonSetRecordingState',
+    UI_BUTTON_SET_PAUSE_STATE: 'ui:buttonSetPauseState',
+    UI_CONTROLS_RESET: 'ui:controlsReset',
+    UI_SPINNER_SHOW: 'ui:spinnerShow',
+    UI_SPINNER_HIDE: 'ui:spinnerHide',
 
     // Visualization events
     VISUALIZATION_START: 'visualization:start',

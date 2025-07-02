@@ -157,9 +157,9 @@ export class RecordingStateMachine {
             type: 'info'
         });
         // Re-enable the button when returning to idle
-        this.audioHandler.ui.enableMicButton();
-        this.audioHandler.ui.hideSpinner();
-        this.audioHandler.ui.resetControlsAfterRecording();
+        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
+        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
+        eventBus.emit(APP_EVENTS.UI_CONTROLS_RESET);
     }
     
     /**
@@ -176,7 +176,7 @@ export class RecordingStateMachine {
             message: MESSAGES.INITIALIZING_MICROPHONE,
             type: 'info'
         });
-        this.audioHandler.ui.disableMicButton();
+        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
     }
     
     /**
@@ -195,8 +195,8 @@ export class RecordingStateMachine {
             message: 'Recording... Click to stop',
             type: 'info'
         });
-        this.audioHandler.ui.enableMicButton();
-        this.audioHandler.ui.setRecordingState(true);
+        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
     }
     
     /**
@@ -215,7 +215,7 @@ export class RecordingStateMachine {
             message: 'Recording paused',
             type: 'info'
         });
-        this.audioHandler.ui.setPauseState(true);
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
     }
     
     /**
@@ -236,7 +236,7 @@ export class RecordingStateMachine {
             type: 'info'
         });
         // Immediately reflect stopped state in the UI
-        this.audioHandler.ui.setRecordingState(false);
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
 
         // Emit visualization stop event so UI can handle cleanup
         eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
@@ -262,8 +262,8 @@ export class RecordingStateMachine {
             type: 'info'
         });
         // Disable button only during processing
-        this.audioHandler.ui.disableMicButton();
-        this.audioHandler.ui.showSpinner();
+        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
+        eventBus.emit(APP_EVENTS.UI_SPINNER_SHOW);
     }
     
     /**
@@ -282,8 +282,8 @@ export class RecordingStateMachine {
             message: MESSAGES.RECORDING_CANCELLED,
             type: 'info'
         });
-        this.audioHandler.ui.disableMicButton();
-        this.audioHandler.ui.hideSpinner();
+        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
+        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
     /**
@@ -305,8 +305,8 @@ export class RecordingStateMachine {
             message: `${MESSAGES.ERROR_PREFIX}${errorMessage}`,
             type: 'error'
         });
-        this.audioHandler.ui.enableMicButton();
-        this.audioHandler.ui.hideSpinner();
+        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
+        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
     // Helper methods for common state checks

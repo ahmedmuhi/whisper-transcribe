@@ -98,7 +98,8 @@ export class UI {
     
     /**
      * Sets up event bus listeners for UI updates and state synchronization.
-     * Listens for status updates, recording state changes, transcription results, and settings changes.
+     * Listens for status updates, recording state changes, transcription results, settings changes,
+     * and UI control events for decoupled UI management.
      * 
      * @private
      * @method setupEventBusListeners
@@ -106,6 +107,15 @@ export class UI {
      * @listens APP_EVENTS.RECORDING_STATE_CHANGED
      * @listens APP_EVENTS.UI_TRANSCRIPTION_READY
      * @listens APP_EVENTS.SETTINGS_UPDATED
+     * @listens APP_EVENTS.UI_TIMER_UPDATE
+     * @listens APP_EVENTS.UI_TIMER_RESET
+     * @listens APP_EVENTS.UI_BUTTON_ENABLE_MIC
+     * @listens APP_EVENTS.UI_BUTTON_DISABLE_MIC
+     * @listens APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE
+     * @listens APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE
+     * @listens APP_EVENTS.UI_CONTROLS_RESET
+     * @listens APP_EVENTS.UI_SPINNER_SHOW
+     * @listens APP_EVENTS.UI_SPINNER_HIDE
      */
     setupEventBusListeners() {
         // Listen for status updates
@@ -231,6 +241,43 @@ export class UI {
                 this.visualizationController = null;
             }
             this.clearVisualization();
+        });
+
+        // Listen for UI control events for decoupled UI management
+        eventBus.on(APP_EVENTS.UI_TIMER_UPDATE, (data) => {
+            this.updateTimer(data.display);
+        });
+
+        eventBus.on(APP_EVENTS.UI_TIMER_RESET, () => {
+            this.updateTimer('00:00');
+        });
+
+        eventBus.on(APP_EVENTS.UI_BUTTON_ENABLE_MIC, () => {
+            this.enableMicButton();
+        });
+
+        eventBus.on(APP_EVENTS.UI_BUTTON_DISABLE_MIC, () => {
+            this.disableMicButton();
+        });
+
+        eventBus.on(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, (data) => {
+            this.setRecordingState(data.isRecording);
+        });
+
+        eventBus.on(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, (data) => {
+            this.setPauseState(data.isPaused);
+        });
+
+        eventBus.on(APP_EVENTS.UI_CONTROLS_RESET, () => {
+            this.resetControlsAfterRecording();
+        });
+
+        eventBus.on(APP_EVENTS.UI_SPINNER_SHOW, () => {
+            this.showSpinner();
+        });
+
+        eventBus.on(APP_EVENTS.UI_SPINNER_HIDE, () => {
+            this.hideSpinner();
         });
     }
     

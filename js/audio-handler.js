@@ -66,10 +66,10 @@ export class AudioHandler {
         this.audioChunks = [];
         this.recordingStartTime = null;
         this.timerInterval = null;
+        this.currentTimerDisplay = '00:00';
         
-
-        
-        // Permission management
+        // Controls
+        this.cancelRequested = false;
         this.permissionManager = new PermissionManager(ui);
         
         // State machine
@@ -347,7 +347,7 @@ export class AudioHandler {
                 temporary: true
             });
         } finally {
-            this.ui.hideSpinner();
+            eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }
     }
     
@@ -356,12 +356,15 @@ export class AudioHandler {
             const elapsed = Date.now() - this.recordingStartTime;
             const seconds = Math.floor(elapsed / 1000) % 60;
             const minutes = Math.floor(elapsed / 60000);
-            this.ui.updateTimer(`${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`);
+            this.currentTimerDisplay = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+            eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, {
+                display: this.currentTimerDisplay
+            });
         }, 1000);
     }
     
     getTimerMilliseconds() {
-        const parts = this.ui.timerElement.textContent.split(':');
+        const parts = this.currentTimerDisplay.split(':');
         return (parseInt(parts[0]) * 60000) + (parseInt(parts[1]) * 1000);
     }
     
@@ -371,11 +374,12 @@ export class AudioHandler {
         // Clear timer
         clearInterval(this.timerInterval);
         this.timerInterval = null;
+        this.currentTimerDisplay = '00:00';
 
-        // Reset UI
-        this.ui.updateTimer('00:00');
-        this.ui.setRecordingState(false);
-        this.ui.setPauseState(false);
+        // Reset UI via events
+        eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: false });
 
         // Visualization cleanup is now handled by UI via event
 
