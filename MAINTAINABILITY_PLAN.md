@@ -23,14 +23,14 @@ Ensure the UI module is the only component responsible for creating, starting, a
    - Ensure state transitions that require visualization changes emit the correct events (e.g., stopping, error, cancel).
 
 5. **Update Tests**
-   - [ ] Add/modify tests to verify that visualization is only controlled by the UI and responds to events as expected.
-   - [ ] Update or add tests for event emission and UI response.
+   - [x] Add/modify tests to verify that visualization is only controlled by the UI and responds to events as expected.
+   - [x] Update or add tests for event emission and UI response.
 
 ---
 
 **Progress:**
-- Steps 1–4 completed: Visualization events are now defined, AudioHandler emits events, UI listens and controls VisualizationController, and RecordingStateMachine emits visualization stop events as needed.
-- **Next step:** Update and add tests to ensure visualization is only controlled by the UI and responds to events as expected.
+- Steps 1–5 completed: Visualization events are now defined, AudioHandler emits events, UI listens and controls VisualizationController, RecordingStateMachine emits visualization stop events as needed, and tests are updated and passing.
+- **Refactor complete:** Visualization is now fully controlled by the UI module via event-driven architecture.
 
 6. **Documentation**
    - Update code comments and the maintainability plan to reflect the new architecture.

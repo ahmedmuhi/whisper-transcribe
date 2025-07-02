@@ -3,7 +3,6 @@ import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID } from './cons
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
-import { VisualizationController } from './visualization.js';
 
 export class UI {
     constructor() {
@@ -145,17 +144,23 @@ export class UI {
         });
 
         // Listen for visualization events
-        eventBus.on(APP_EVENTS.VISUALIZATION_START, (data) => {
+        eventBus.on(APP_EVENTS.VISUALIZATION_START, async (data) => {
             // Clean up any existing visualization
             if (this.visualizationController) {
                 this.visualizationController.stop();
                 this.visualizationController = null;
             }
-            // Create and start new visualization
-            const { stream, isDarkTheme } = data;
-            if (this.visualizer && stream) {
-                this.visualizationController = new VisualizationController(stream, this.visualizer, isDarkTheme);
-                this.visualizationController.start();
+            
+            // Dynamically import VisualizationController to avoid circular imports
+            try {
+                const { VisualizationController } = await import('./visualization.js');
+                const { stream, isDarkTheme } = data;
+                if (this.visualizer && stream) {
+                    this.visualizationController = new VisualizationController(stream, this.visualizer, isDarkTheme);
+                    this.visualizationController.start();
+                }
+            } catch (error) {
+                console.error('Error starting visualization:', error);
             }
         });
 

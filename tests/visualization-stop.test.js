@@ -20,8 +20,7 @@ describe('UI visualization event handling (UI is sole controller)', () => {
   beforeEach(() => {
     document.body.innerHTML = '<canvas id="visualizer"></canvas>';
     ui = new UI();
-    // Initialize visualizationController and element
-    ui.visualizationController = mockController;
+    // Initialize element
     ui.visualizer = document.getElementById('visualizer');
     // Register event handlers
     ui.setupEventBusListeners();
@@ -33,17 +32,23 @@ describe('UI visualization event handling (UI is sole controller)', () => {
     ui.clearVisualization.mockClear();
   });
 
-  it('starts visualization on VISUALIZATION_START event if stream is provided', () => {
+  it('starts visualization on VISUALIZATION_START event if stream is provided', async () => {
     eventBus.emit(APP_EVENTS.VISUALIZATION_START, { stream: {}, isDarkTheme: false });
+    // Wait for async import to complete
+    await new Promise(resolve => setTimeout(resolve, 10));
     expect(mockController.start).toHaveBeenCalled();
   });
 
-  it('does not start visualization if VISUALIZATION_START event is missing stream', () => {
+  it('does not start visualization if VISUALIZATION_START event is missing stream', async () => {
     eventBus.emit(APP_EVENTS.VISUALIZATION_START, { isDarkTheme: false });
+    // Wait for async import to complete
+    await new Promise(resolve => setTimeout(resolve, 10));
     expect(mockController.start).not.toHaveBeenCalled();
   });
 
   it('stops visualization on VISUALIZATION_STOP event', () => {
+    // Set up an existing controller first
+    ui.visualizationController = mockController;
     eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
     expect(mockController.stop).toHaveBeenCalled();
     expect(ui.visualizationController).toBeNull();

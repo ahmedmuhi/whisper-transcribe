@@ -87,6 +87,25 @@ export class RecordingStateMachine {
         this.audioHandler.ui.disableMicButton();
     }
     
+    async handleRecordingState() {
+        eventBus.emit(APP_EVENTS.RECORDING_STARTED);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: 'Recording... Click to stop',
+            type: 'info'
+        });
+        this.audioHandler.ui.enableMicButton();
+        this.audioHandler.ui.setRecordingState(true);
+    }
+    
+    async handlePausedState() {
+        eventBus.emit(APP_EVENTS.RECORDING_PAUSED);
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: 'Recording paused',
+            type: 'info'
+        });
+        this.audioHandler.ui.setPauseState(true);
+    }
+    
     async handleStoppingState() {
         eventBus.emit(APP_EVENTS.RECORDING_STOPPED);
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
