@@ -177,6 +177,10 @@ export const APP_EVENTS = {
     UI_THEME_CHANGED: 'ui:themeChanged',
     UI_SETTINGS_OPENED: 'ui:settingsOpened',
     UI_SETTINGS_CLOSED: 'ui:settingsClosed',
+
+    // Visualization events
+    VISUALIZATION_START: 'visualization:start',
+    VISUALIZATION_STOP: 'visualization:stop',
     
     // Settings events
     SETTINGS_UPDATED: 'settings:updated',

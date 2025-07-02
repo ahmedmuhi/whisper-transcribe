@@ -87,25 +87,6 @@ export class RecordingStateMachine {
         this.audioHandler.ui.disableMicButton();
     }
     
-    async handleRecordingState() {
-        eventBus.emit(APP_EVENTS.RECORDING_STARTED);
-        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.RECORDING_IN_PROGRESS,
-            type: 'info'
-        });
-        this.audioHandler.ui.setRecordingState(true);
-        this.audioHandler.ui.enableMicButton();
-    }
-    
-    async handlePausedState() {
-        eventBus.emit(APP_EVENTS.RECORDING_PAUSED);
-        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.RECORDING_PAUSED,
-            type: 'info'
-        });
-        this.audioHandler.ui.setPauseState(true);
-    }
-    
     async handleStoppingState() {
         eventBus.emit(APP_EVENTS.RECORDING_STOPPED);
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
@@ -115,13 +96,8 @@ export class RecordingStateMachine {
         // Immediately reflect stopped state in the UI
         this.audioHandler.ui.setRecordingState(false);
 
-        if (this.audioHandler.visualizationController) {
-            this.audioHandler.visualizationController.stop();
-            this.audioHandler.visualizationController = null;
-            if (this.audioHandler.ui.clearVisualization) {
-                this.audioHandler.ui.clearVisualization();
-            }
-        }
+        // Emit visualization stop event so UI can handle cleanup
+        eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
 
         // Don't disable the mic button here - let it stay clickable
         // The button will be properly managed in processing/idle states

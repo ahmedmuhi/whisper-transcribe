@@ -1,7 +1,9 @@
+
 import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { VisualizationController } from './visualization.js';
 
 export class UI {
     constructor() {
@@ -20,6 +22,8 @@ export class UI {
         this.timerElement = document.getElementById(ID.TIMER);
         this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
         this.visualizer = document.getElementById(ID.VISUALIZER);
+        // Visualization controller instance
+        this.visualizationController = null;
         
         // Icons
         this.pauseIcon = document.getElementById(ID.PAUSE_ICON);
@@ -138,6 +142,29 @@ export class UI {
         // Listen for theme changes
         eventBus.on(APP_EVENTS.UI_THEME_CHANGED, (data) => {
             this.applyTheme();
+        });
+
+        // Listen for visualization events
+        eventBus.on(APP_EVENTS.VISUALIZATION_START, (data) => {
+            // Clean up any existing visualization
+            if (this.visualizationController) {
+                this.visualizationController.stop();
+                this.visualizationController = null;
+            }
+            // Create and start new visualization
+            const { stream, isDarkTheme } = data;
+            if (this.visualizer && stream) {
+                this.visualizationController = new VisualizationController(stream, this.visualizer, isDarkTheme);
+                this.visualizationController.start();
+            }
+        });
+
+        eventBus.on(APP_EVENTS.VISUALIZATION_STOP, () => {
+            if (this.visualizationController) {
+                this.visualizationController.stop();
+                this.visualizationController = null;
+            }
+            this.clearVisualization();
         });
     }
     
@@ -400,5 +427,14 @@ export class UI {
             canvasCtx.fillStyle = isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
             canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
         }
+    }
+
+    // Optionally, expose a method to externally stop visualization (for tests or other modules)
+    stopVisualization() {
+        if (this.visualizationController) {
+            this.visualizationController.stop();
+            this.visualizationController = null;
+        }
+        this.clearVisualization();
     }
 }

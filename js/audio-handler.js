@@ -4,7 +4,7 @@ import { COLORS, RECORDING_STATES, MESSAGES, ID } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
-import { VisualizationController } from './visualization.js';
+
 
 export class AudioHandler {
     constructor(apiClient, ui, settings) {
@@ -18,8 +18,7 @@ export class AudioHandler {
         this.recordingStartTime = null;
         this.timerInterval = null;
         
-        // Audio visualization
-        this.visualizationController = null;
+
         
         // Permission management
         this.permissionManager = new PermissionManager(ui);
@@ -130,20 +129,24 @@ export class AudioHandler {
     
     startRecording(stream) {
         this.audioChunks = [];
-        
         this.mediaRecorder = new MediaRecorder(stream);
-        
-        // Setup visualization
-        const visualizer = document.getElementById(ID.VISUALIZER);
+
+        // Emit event to start visualization
         const isDarkTheme = document.body.classList.contains('dark-theme');
-        this.visualizationController = new VisualizationController(stream, visualizer, isDarkTheme);
-        this.visualizationController.start();
-        
+        eventBus.emit(APP_EVENTS.VISUALIZATION_START, {
+            stream,
+            visualizer: document.getElementById(ID.VISUALIZER),
+            isDarkTheme
+        });
+
         this.mediaRecorder.addEventListener('dataavailable', event => {
             this.audioChunks.push(event.data);
         });
-        
+
         this.mediaRecorder.addEventListener('stop', async () => {
+            // Emit event to stop visualization
+            eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
+
             if (this.stateMachine.getState() === RECORDING_STATES.CANCELLING) {
                 stream.getTracks().forEach(t => t.stop());
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
@@ -158,10 +161,9 @@ export class AudioHandler {
             // Cleanup after audio has been processed so chunks remain intact
             this.cleanup();
         });
-        
+
         this.mediaRecorder.start(250);
         this.recordingStartTime = Date.now();
-        
         // Start timer
         this.startTimer();
     }
@@ -290,18 +292,14 @@ export class AudioHandler {
         // Clear timer
         clearInterval(this.timerInterval);
         this.timerInterval = null;
-        
+
         // Reset UI
         this.ui.updateTimer('00:00');
         this.ui.setRecordingState(false);
         this.ui.setPauseState(false);
-        
-        // Stop visualization
-        if (this.visualizationController) {
-            this.visualizationController.stop();
-            this.visualizationController = null;
-        }
-        
+
+        // Visualization cleanup is now handled by UI via event
+
         // Clear recording state
         this.audioChunks.length = 0;
         this.recordingStartTime = null;
