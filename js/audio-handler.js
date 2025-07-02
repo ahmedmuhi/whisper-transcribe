@@ -4,6 +4,7 @@ import { COLORS, RECORDING_STATES, MESSAGES, ID } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { VisualizationController } from './visualization.js';
 
 export class AudioHandler {
     constructor(apiClient, ui, settings) {
@@ -135,7 +136,8 @@ export class AudioHandler {
         // Setup visualization
         const visualizer = document.getElementById(ID.VISUALIZER);
         const isDarkTheme = document.body.classList.contains('dark-theme');
-        this.visualizationController = this.setupVisualization(stream, visualizer, isDarkTheme);
+        this.visualizationController = new VisualizationController(stream, visualizer, isDarkTheme);
+        this.visualizationController.start();
         
         this.mediaRecorder.addEventListener('dataavailable', event => {
             this.audioChunks.push(event.data);
@@ -306,96 +308,5 @@ export class AudioHandler {
         this.mediaRecorder = null;
     }
     
-    // Audio visualization setup
-    setupVisualization(stream, canvas, isDarkTheme) {
-        try {
-            const canvasCtx = canvas.getContext('2d');
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaStreamSource(stream);
-            
-            analyser.fftSize = 256;
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            
-            source.connect(analyser);
-            
-            // Ensure canvas fills container properly
-            const updateCanvasSize = () => {
-                canvas.width = canvas.parentElement.offsetWidth;
-                canvas.height = canvas.parentElement.offsetHeight;
-            };
-            
-            updateCanvasSize();
-            
-            // Store the reference so we can remove it later
-            const resizeHandler = updateCanvasSize;
-            window.addEventListener('resize', resizeHandler);
-            
-            let animationId;
-            
-            function draw() {
-                animationId = requestAnimationFrame(draw);
-                
-                analyser.getByteFrequencyData(dataArray);
-                
-                canvasCtx.fillStyle = isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
-                canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                const barWidth = (canvas.width / bufferLength) * 2.5;
-                let barHeight;
-                let x = 0;
-                
-                for (let i = 0; i < bufferLength; i++) {
-                    barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
-                    
-                    const hue = (i / bufferLength) * 360;
-                    canvasCtx.fillStyle = `hsl(${hue}, 70%, 60%)`;
-                    canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                    
-                    x += barWidth + 1;
-                }
-            }
-            
-            draw();
-            
-            return {
-                audioContext,
-                analyser,
-                source,
-                animationId,
-                stop: () => {
-                    if (animationId) {
-                        cancelAnimationFrame(animationId);
-                    }
-                    
-                    // Remove resize listener
-                    window.removeEventListener('resize', resizeHandler);
-                    
-                    if (source) {
-                        try {
-                            source.disconnect();
-                        } catch (e) {
-                            console.log('Source already disconnected');
-                        }
-                    }
-                    
-                    if (audioContext && audioContext.state !== 'closed') {
-                        try {
-                            audioContext.close();
-                        } catch (e) {
-                            console.log('AudioContext already closed');
-                        }
-                    }
-                    
-                    // Clear the canvas
-                    canvasCtx.fillStyle = isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
-                    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-                }
-            };
-        } catch (error) {
-            console.error('Error setting up audio visualization:', error);
-            return null;
-        }
-    }
+    // Visualization logic is now handled by VisualizationController in visualization.js
 }
