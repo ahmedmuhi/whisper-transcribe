@@ -155,6 +155,7 @@ describe('AudioHandler Integration', () => {
   
   afterEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
   });
   
   describe('MediaRecorder Integration Edge Cases', () => {

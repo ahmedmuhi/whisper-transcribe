@@ -204,6 +204,7 @@ describe('Recording Integration', () => {
   
   afterEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
   });
   
   describe('Full Recording Start → Stop → Transcription Flow', () => {

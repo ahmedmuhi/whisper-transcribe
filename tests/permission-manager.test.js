@@ -95,6 +95,7 @@ describe('PermissionManager', () => {
     
     afterEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
     });
     
     describe('Browser Support Detection', () => {

@@ -67,6 +67,7 @@ describe('AzureAPIClient Configuration Validation', () => {
     
     afterEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
     });
 
     describe('validateConfig Method', () => {

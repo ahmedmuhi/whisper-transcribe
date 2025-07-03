@@ -86,6 +86,7 @@ describe('AzureAPIClient Error Handling', () => {
     
     afterEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
     });
 
     describe('Configuration Validation Errors', () => {

@@ -71,6 +71,7 @@ describe('UI Event Bus Communication', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
     });
 
     describe('Timer Events', () => {

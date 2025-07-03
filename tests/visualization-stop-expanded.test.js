@@ -6,6 +6,7 @@
 import { jest } from '@jest/globals';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { COLORS } from '../js/constants.js';
+import { applyDomSpies } from './setupTests.js';
 
 // Mock window.requestAnimationFrame and cancelAnimationFrame
 global.requestAnimationFrame = jest.fn(cb => {
@@ -109,6 +110,7 @@ describe('Visualization Event Handling and Cleanup', () => {
   
   afterEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
   });
   
   describe('Basic Visualization Control', () => {
