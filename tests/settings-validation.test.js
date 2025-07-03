@@ -80,6 +80,7 @@ describe('Settings Validation', () => {
         it('should accept valid API keys for Whisper model', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -89,6 +90,7 @@ describe('Settings Validation', () => {
         it('should accept valid API keys for GPT-4o model', () => {
             settings.modelSelect.value = 'gpt-4o';
             settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -98,6 +100,7 @@ describe('Settings Validation', () => {
         it('should reject empty API keys', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = '';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -107,6 +110,7 @@ describe('Settings Validation', () => {
         it('should reject API keys that are too short', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = 'sk-123';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -116,6 +120,7 @@ describe('Settings Validation', () => {
         it('should reject API keys with invalid format', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = 'invalid-key-format';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -125,6 +130,7 @@ describe('Settings Validation', () => {
         it('should accept API keys with spaces (will be trimmed)', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -315,8 +321,8 @@ describe('Settings Validation', () => {
 
             const errors = settings.getValidationErrors();
 
-            expect(errors).toContain(expect.stringContaining('API key'));
-            expect(errors).toContain(expect.stringContaining('format'));
+            expect(errors).toEqual(expect.arrayContaining([expect.stringContaining('API key')]));
+            expect(errors).toEqual(expect.arrayContaining([expect.stringContaining('format')]));
         });
 
         it('should provide specific error messages for URI issues', () => {
@@ -326,8 +332,8 @@ describe('Settings Validation', () => {
 
             const errors = settings.getValidationErrors();
 
-            expect(errors).toContain(expect.stringContaining('URI'));
-            expect(errors).toContain(expect.stringContaining('HTTPS'));
+            expect(errors).toEqual(expect.arrayContaining([expect.stringContaining('URI')]));
+            expect(errors).toEqual(expect.arrayContaining([expect.stringContaining('HTTPS')]));
         });
 
         it('should not expose sensitive information in error messages', () => {
@@ -349,6 +355,7 @@ describe('Settings Validation', () => {
         it('should trim whitespace from API keys', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             settings.sanitizeInputs();
 
@@ -357,6 +364,7 @@ describe('Settings Validation', () => {
 
         it('should normalize URI format', () => {
             settings.modelSelect.value = 'whisper';
+            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
             settings.apiUriInput.value = '  https://test.azure.com//extra//slashes  ';
 
             settings.sanitizeInputs();
@@ -367,6 +375,7 @@ describe('Settings Validation', () => {
         it('should handle special characters in inputs', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = 'sk-test\nwith\tspecial\rchars';
+            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             settings.sanitizeInputs();
 
