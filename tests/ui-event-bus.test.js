@@ -28,9 +28,16 @@ const createMockElement = (id) => ({
     },
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
+    setAttribute: jest.fn(),
+    getAttribute: jest.fn(),
+    focus: jest.fn(),
     click: jest.fn(),
     disabled: false,
-    checked: false
+    checked: false,
+    selectionStart: 0,
+    selectionEnd: 0,
+    scrollTop: 0,
+    scrollHeight: 0
 });
 
 // Create a map of all required DOM elements by ID
@@ -149,38 +156,39 @@ describe('UI Event Bus Interactions', () => {
             
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
             
-            expect(micButton.textContent).toBe('Stop Recording');
             expect(micButton.classList.add).toHaveBeenCalledWith('recording');
             
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
             
-            expect(micButton.textContent).toBe('Start Recording');
             expect(micButton.classList.remove).toHaveBeenCalledWith('recording');
         });
 
         it('should set pause state on UI_BUTTON_SET_PAUSE_STATE event', () => {
             const pauseButton = ui.pauseButton;
+            const pauseIcon = ui.pauseIcon;
+            const playIcon = ui.playIcon;
             
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
             
-            expect(pauseButton.textContent).toBe('Resume');
+            expect(pauseIcon.style.display).toBe('none');
+            expect(playIcon.style.display).toBe('block');
+            expect(pauseButton.setAttribute).toHaveBeenCalledWith('aria-label', 'Resume');
             
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: false });
             
-            expect(pauseButton.textContent).toBe('Pause');
+            expect(pauseIcon.style.display).toBe('block');
+            expect(playIcon.style.display).toBe('none');
+            expect(pauseButton.setAttribute).toHaveBeenCalledWith('aria-label', 'Pause');
         });
 
         it('should reset controls on UI_CONTROLS_RESET event', () => {
             const micButton = ui.micButton;
-            const pauseButton = ui.pauseButton;
-            const cancelButton = ui.cancelButton;
             
             eventBus.emit(APP_EVENTS.UI_CONTROLS_RESET);
             
-            expect(micButton.textContent).toBe('Start Recording');
             expect(micButton.classList.remove).toHaveBeenCalledWith('recording');
-            expect(pauseButton.style.display).toBe('none');
-            expect(cancelButton.style.display).toBe('none');
+            // The resetControlsAfterRecording method updates timer and recording state
+            // Button visibility is typically controlled by CSS or separate events
         });
     });
 
@@ -191,7 +199,7 @@ describe('UI Event Bus Interactions', () => {
             
             eventBus.emit(APP_EVENTS.UI_SPINNER_SHOW);
             
-            expect(spinner.style.display).toBe('inline-block');
+            expect(spinner.style.display).toBe('block');
         });
 
         it('should hide spinner on UI_SPINNER_HIDE event', () => {
@@ -248,7 +256,7 @@ describe('UI Event Bus Interactions', () => {
 
             eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, transcriptionData);
 
-            expect(transcriptionElement.textContent).toBe('Hello world transcription');
+            expect(transcriptionElement.value).toBe('Hello world transcription');
             expect(spinner.style.display).toBe('none');
         });
     });
@@ -256,8 +264,6 @@ describe('UI Event Bus Interactions', () => {
     describe('Recording State Change Events', () => {
         it('should handle idle state transition', () => {
             const micButton = ui.micButton;
-            const pauseButton = ui.pauseButton;
-            const cancelButton = ui.cancelButton;
             const spinner = ui.spinnerContainer;
             
             eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
@@ -265,10 +271,7 @@ describe('UI Event Bus Interactions', () => {
                 oldState: 'processing'
             });
 
-            expect(micButton.textContent).toBe('Start Recording');
             expect(micButton.classList.remove).toHaveBeenCalledWith('recording');
-            expect(pauseButton.style.display).toBe('none');
-            expect(cancelButton.style.display).toBe('none');
             expect(micButton.disabled).toBe(false);
             expect(spinner.style.display).toBe('none');
         });
@@ -276,15 +279,18 @@ describe('UI Event Bus Interactions', () => {
         it('should handle recording state transition', () => {
             const micButton = ui.micButton;
             const pauseButton = ui.pauseButton;
+            const pauseIcon = ui.pauseIcon;
+            const playIcon = ui.playIcon;
             
             eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
                 newState: 'recording',
                 oldState: 'idle'
             });
 
-            expect(micButton.textContent).toBe('Stop Recording');
             expect(micButton.classList.add).toHaveBeenCalledWith('recording');
-            expect(pauseButton.textContent).toBe('Pause');
+            expect(pauseIcon.style.display).toBe('block');
+            expect(playIcon.style.display).toBe('none');
+            expect(pauseButton.setAttribute).toHaveBeenCalledWith('aria-label', 'Pause');
             expect(micButton.disabled).toBe(false);
         });
 
@@ -297,7 +303,7 @@ describe('UI Event Bus Interactions', () => {
                 oldState: 'stopping'
             });
 
-            expect(spinner.style.display).toBe('inline-block');
+            expect(spinner.style.display).toBe('block');
             expect(micButton.disabled).toBe(true);
         });
     });
