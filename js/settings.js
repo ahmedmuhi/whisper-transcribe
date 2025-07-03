@@ -192,26 +192,157 @@ export class Settings {
         if (gpt4oUri) document.getElementById(ID.GPT4O_URI).value = gpt4oUri;
         if (gpt4oKey) document.getElementById(ID.GPT4O_KEY).value = gpt4oKey;
     }
+
+    /**
+     * Trim whitespace and normalize user provided settings inputs.
+     * Removes newlines and tabs from the API key and ensures the
+     * URI field uses a standard format of <origin>/ with no path.
+     *
+     * @method sanitizeInputs
+     */
+    sanitizeInputs() {
+        const currentModel = this.getCurrentModel();
+
+        const apiKeyInput = this.apiKeyInput || document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
+        );
+        const uriInput = this.apiUriInput || document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
+        );
+
+        if (apiKeyInput && typeof apiKeyInput.value === 'string') {
+            apiKeyInput.value = apiKeyInput.value
+                .trim()
+                .replace(/[\n\r\t]/g, '');
+        }
+
+        if (uriInput && typeof uriInput.value === 'string') {
+            let uri = uriInput.value.trim().replace(/[\n\r\t]/g, '');
+            try {
+                const parsed = new URL(uri);
+                uri = `${parsed.origin}/`;
+            } catch (_) {
+                // Leave as trimmed string if parsing fails
+            }
+            uriInput.value = uri;
+        }
+    }
+
+    /**
+     * Validate the current configuration fields.
+     * Ensures an API key is present and formatted correctly and that
+     * the URI is a valid HTTPS URL.
+     * Emits SETTINGS_VALIDATION_ERROR with details when invalid.
+     *
+     * @method validateConfiguration
+     * @returns {boolean} True if configuration is valid
+     */
+    validateConfiguration() {
+        this.sanitizeInputs();
+
+        const currentModel = this.getCurrentModel();
+        const apiKeyInput = this.apiKeyInput || document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
+        );
+        const uriInput = this.apiUriInput || document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
+        );
+
+        const errors = [];
+
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            errors.push('API key is required');
+        } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
+            errors.push('Invalid API key format');
+        }
+
+        const uri = uriInput.value.trim();
+        if (!uri) {
+            errors.push('URI is required');
+        } else {
+            try {
+                const url = new URL(uri);
+                if (url.protocol !== 'https:') {
+                    errors.push('URI must use HTTPS');
+                }
+            } catch (_) {
+                errors.push('Invalid URI format');
+            }
+        }
+
+        if (errors.length > 0) {
+            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, { errors });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Retrieve human readable validation errors for the current
+     * configuration without emitting any events.
+     *
+     * @method getValidationErrors
+     * @returns {string[]} Array of error messages
+     */
+    getValidationErrors() {
+        this.sanitizeInputs();
+
+        const currentModel = this.getCurrentModel();
+        const apiKeyInput = this.apiKeyInput || document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
+        );
+        const uriInput = this.apiUriInput || document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
+        );
+
+        const errors = [];
+
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            errors.push('API key is required');
+        } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
+            errors.push('Invalid API key format');
+        }
+
+        const uri = uriInput.value.trim();
+        if (!uri) {
+            errors.push('URI is required');
+        } else {
+            try {
+                const url = new URL(uri);
+                if (url.protocol !== 'https:') {
+                    errors.push('URI must use HTTPS');
+                }
+            } catch (_) {
+                errors.push('Invalid URI format');
+            }
+        }
+
+        return errors;
+    }
     
     saveSettings() {
         const currentModel = this.getCurrentModel();
-        
-        let targetUri, apiKey;
-        if (currentModel === 'whisper') {
-            targetUri = document.getElementById(ID.WHISPER_URI).value.trim();
-            apiKey = document.getElementById(ID.WHISPER_KEY).value.trim();
-        } else {
-            targetUri = document.getElementById(ID.GPT4O_URI).value.trim();
-            apiKey = document.getElementById(ID.GPT4O_KEY).value.trim();
-        }
-        
-        if (!apiKey || !targetUri) {
-            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, {
-                message: MESSAGES.FILL_REQUIRED_FIELDS
-            });
-            
+
+        this.sanitizeInputs();
+
+        const apiKeyInput = document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
+        );
+        const uriInput = document.getElementById(
+            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
+        );
+
+        const targetUri = uriInput.value.trim();
+        const apiKey = apiKeyInput.value.trim();
+
+        if (!this.validateConfiguration()) {
+            // Display first error to user via status helper
+            const [firstError] = this.getValidationErrors();
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: MESSAGES.FILL_REQUIRED_FIELDS,
+                message: firstError || MESSAGES.FILL_REQUIRED_FIELDS,
                 type: 'error',
                 temporary: true
             });
