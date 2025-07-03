@@ -160,6 +160,14 @@ describe('AudioHandler Integration', () => {
   });
   
   describe('MediaRecorder Integration Edge Cases', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('handles different states of MediaRecorder safely', async () => {
       // Start recording
       await audioHandler.startRecordingFlow();
@@ -308,6 +316,14 @@ describe('AudioHandler Integration', () => {
   });
   
   describe('Timer Accuracy During Long Recordings', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('maintains accurate timer during recording sessions', async () => {
       // Mock Date.now for controlled testing
       const originalDateNow = Date.now;

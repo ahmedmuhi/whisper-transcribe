@@ -345,6 +345,14 @@ describe('Recording Integration', () => {
   });
   
   describe('Error Recovery During Recording', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should handle API validation errors', async () => {
       // Make validateConfig throw an error
       mockApiClient.validateConfig.mockImplementation(() => {
@@ -423,6 +431,14 @@ describe('Recording Integration', () => {
   });
 
   describe('Timer Integration', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should update timer correctly during recording', async () => {
       // Mock Date.now to control time
       const originalDateNow = Date.now;

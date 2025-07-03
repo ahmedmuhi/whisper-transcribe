@@ -349,6 +349,14 @@ describe('Error Recovery Scenarios', () => {
   });
   
   describe('Configuration Recovery', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('should automatically open settings modal when API configuration is missing', async () => {
       // Make validateConfig throw a configuration error
       mockApiClient.validateConfig.mockImplementationOnce(() => {
