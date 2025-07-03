@@ -142,6 +142,7 @@ describe('Error Recovery Scenarios', () => {
   
   afterEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
   });
 
   describe('Permission Denial Recovery', () => {

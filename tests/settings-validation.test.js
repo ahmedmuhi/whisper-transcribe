@@ -73,6 +73,7 @@ describe('Settings Validation', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
     });
 
     describe('API Key Validation', () => {
