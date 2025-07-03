@@ -3,6 +3,9 @@
  * Tests the full recording start → stop → transcription flow and other recording lifecycles.
  */
 
+import { jest } from '@jest/globals';
+import { applyDomSpies } from './setupTests.js';
+
 // Mock dependencies
 jest.unstable_mockModule('../js/logger.js', () => ({
   logger: {
@@ -146,6 +149,7 @@ describe('Recording Integration', () => {
   
   beforeEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
     
     // Create mock UI
     mockUI = {
@@ -199,7 +203,7 @@ describe('Recording Integration', () => {
   });
   
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
   
   describe('Full Recording Start → Stop → Transcription Flow', () => {

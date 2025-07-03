@@ -7,6 +7,7 @@
 import { jest } from '@jest/globals';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { MESSAGES } from '../js/constants.js';
+import { applyDomSpies } from './setupTests.js';
 
 // Mock Settings
 const mockSettings = {
@@ -57,6 +58,7 @@ describe('AzureAPIClient Error Handling', () => {
     
     beforeEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
         
         // Setup default mock settings
         mockSettings.getModelConfig.mockReturnValue({
@@ -83,7 +85,7 @@ describe('AzureAPIClient Error Handling', () => {
     });
     
     afterEach(() => {
-        jest.restoreAllMocks();
+        jest.clearAllMocks();
     });
 
     describe('Configuration Validation Errors', () => {

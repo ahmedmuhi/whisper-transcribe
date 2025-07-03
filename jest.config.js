@@ -16,6 +16,7 @@ export default {
     }
   },
   verbose: true,
+  setupFilesAfterEnv: ['<rootDir>/tests/setupTests.js'],
   testMatch: ['**/tests/**/*.test.js'],
   testTimeout: 10000,
   moduleNameMapper: {

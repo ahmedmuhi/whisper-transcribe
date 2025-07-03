@@ -5,6 +5,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { applyDomSpies } from './setupTests.js';
 
 // Mock DOM completely to prevent any real DOM access
 global.document = {
@@ -45,6 +46,7 @@ describe('UI Event Bus Communication', () => {
     let ui;
 
     beforeEach(() => {
+        applyDomSpies();
         // Create UI instance
         ui = new UI();
         
@@ -68,7 +70,7 @@ describe('UI Event Bus Communication', () => {
     });
 
     afterEach(() => {
-        jest.restoreAllMocks();
+        jest.clearAllMocks();
     });
 
     describe('Timer Events', () => {

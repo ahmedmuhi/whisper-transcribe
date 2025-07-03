@@ -6,6 +6,7 @@
 import { jest } from '@jest/globals';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { MESSAGES } from '../js/constants.js';
+import { applyDomSpies } from './setupTests.js';
 
 // Mock dependencies
 jest.unstable_mockModule('../js/status-helper.js', () => ({
@@ -74,6 +75,7 @@ describe('PermissionManager', () => {
     
     beforeEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
         
         // Reset mock state
         mockMediaDevices.getUserMedia.mockReset();
@@ -92,7 +94,7 @@ describe('PermissionManager', () => {
     });
     
     afterEach(() => {
-        jest.restoreAllMocks();
+        jest.clearAllMocks();
     });
     
     describe('Browser Support Detection', () => {
