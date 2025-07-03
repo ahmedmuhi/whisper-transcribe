@@ -59,6 +59,10 @@ jest.unstable_mockModule('../js/visualization.js', () => ({
   VisualizationController: jest.fn(() => mockController)
 }));
 
+// Load the mocked module to avoid "Must use import" errors when the UI lazily
+// imports VisualizationController.
+const { VisualizationController } = await import('../js/visualization.js');
+
 // Import UI after mocking
 let UI;
 beforeAll(async () => {
