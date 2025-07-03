@@ -90,7 +90,7 @@ describe('AzureAPIClient Error Handling', () => {
     });
 
     describe('Configuration Validation Errors', () => {
-        it('should throw error and emit event when API key is missing', async () => {
+        it('should throw error when API key is missing during transcription', async () => {
             // Setup missing API key
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'whisper',
@@ -99,7 +99,43 @@ describe('AzureAPIClient Error Handling', () => {
             });
             
             // Attempt to transcribe without API key
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow();
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.CONFIGURE_SETTINGS_FIRST);
+            
+            // transcribe() does not emit API_CONFIG_MISSING events, only throws error
+            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.API_CONFIG_MISSING,
+                expect.anything()
+            );
+        });
+        
+        it('should throw error when URI is missing during transcription', async () => {
+            // Setup missing URI
+            mockSettings.getModelConfig.mockReturnValue({
+                model: 'whisper',
+                apiKey: 'test-api-key',
+                uri: ''
+            });
+            
+            // Attempt to transcribe without URI
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.CONFIGURE_SETTINGS_FIRST);
+            
+            // transcribe() does not emit API_CONFIG_MISSING events, only throws error
+            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.API_CONFIG_MISSING,
+                expect.anything()
+            );
+        });
+        
+        it('should emit event when validateConfig is called with missing API key', () => {
+            // Setup missing API key
+            mockSettings.getModelConfig.mockReturnValue({
+                model: 'whisper',
+                apiKey: '',
+                uri: 'https://test-api.azure.com'
+            });
+            
+            // Call validateConfig directly
+            expect(() => apiClient.validateConfig()).toThrow();
             
             // Should emit API_CONFIG_MISSING event
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
@@ -111,7 +147,7 @@ describe('AzureAPIClient Error Handling', () => {
             );
         });
         
-        it('should throw error and emit event when URI is missing', async () => {
+        it('should emit event when validateConfig is called with missing URI', () => {
             // Setup missing URI
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'whisper',
@@ -119,8 +155,8 @@ describe('AzureAPIClient Error Handling', () => {
                 uri: ''
             });
             
-            // Attempt to transcribe without URI
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow();
+            // Call validateConfig directly
+            expect(() => apiClient.validateConfig()).toThrow();
             
             // Should emit API_CONFIG_MISSING event
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
@@ -132,7 +168,7 @@ describe('AzureAPIClient Error Handling', () => {
             );
         });
         
-        it('should throw error and emit event when URI format is invalid', async () => {
+        it('should emit event when validateConfig is called with invalid URI format', () => {
             // Setup invalid URI format
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'whisper',
@@ -140,8 +176,8 @@ describe('AzureAPIClient Error Handling', () => {
                 uri: 'invalid-uri'
             });
             
-            // Validate configuration should throw
-            await expect(apiClient.validateConfig()).rejects.toThrow();
+            // Call validateConfig directly
+            expect(() => apiClient.validateConfig()).toThrow();
             
             // Should emit API_CONFIG_MISSING event
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
