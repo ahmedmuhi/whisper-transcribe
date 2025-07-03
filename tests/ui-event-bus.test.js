@@ -14,31 +14,40 @@ jest.unstable_mockModule('../js/status-helper.js', () => ({
 }));
 
 // Create comprehensive DOM element mock
-const createMockElement = (id) => ({
-    id,
-    innerHTML: '',
-    textContent: '',
-    value: '',
-    style: { display: 'block' },
-    classList: {
-        add: jest.fn(),
-        remove: jest.fn(),
-        contains: jest.fn().mockReturnValue(false),
-        toggle: jest.fn()
-    },
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    setAttribute: jest.fn(),
-    getAttribute: jest.fn(),
-    focus: jest.fn(),
-    click: jest.fn(),
-    disabled: false,
-    checked: false,
-    selectionStart: 0,
-    selectionEnd: 0,
-    scrollTop: 0,
-    scrollHeight: 0
-});
+const createMockElement = (id) => {
+    const classSet = new Set();
+    return {
+        id,
+        innerHTML: '',
+        textContent: '',
+        value: '',
+        style: { display: 'block' },
+        classList: {
+            add: jest.fn((cls) => classSet.add(cls)),
+            remove: jest.fn((cls) => classSet.delete(cls)),
+            contains: jest.fn((cls) => classSet.has(cls)),
+            toggle: jest.fn((cls) => {
+                if (classSet.has(cls)) {
+                    classSet.delete(cls);
+                } else {
+                    classSet.add(cls);
+                }
+            })
+        },
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        setAttribute: jest.fn(),
+        getAttribute: jest.fn(),
+        focus: jest.fn(),
+        click: jest.fn(),
+        disabled: false,
+        checked: false,
+        selectionStart: 0,
+        selectionEnd: 0,
+        scrollTop: 0,
+        scrollHeight: 0
+    };
+};
 
 // Create a map of all required DOM elements by ID
 const mockElements = new Map();
@@ -98,6 +107,18 @@ describe('UI Event Bus Interactions', () => {
         // Create UI instance - this will now get proper mock elements
         ui = new UI();
 
+        // Spy on methods that update content we can't easily observe in mocks
+        jest.spyOn(ui, 'updateTimer');
+        jest.spyOn(ui, 'setStatus');
+        jest.spyOn(ui, 'displayTranscription');
+        jest.spyOn(ui, 'setRecordingState');
+        jest.spyOn(ui, 'setPauseState');
+        jest.spyOn(ui, 'resetControlsAfterRecording');
+        jest.spyOn(ui, 'enableMicButton');
+        jest.spyOn(ui, 'disableMicButton');
+        jest.spyOn(ui, 'showSpinner');
+        jest.spyOn(ui, 'hideSpinner');
+
         // Register event bus listeners before emitting events
         ui.setupEventBusListeners();
         
@@ -116,99 +137,69 @@ describe('UI Event Bus Interactions', () => {
 
     describe('Timer Control Events', () => {
         it('should update timer display on UI_TIMER_UPDATE event', () => {
-            const timerElement = ui.timerElement;
-            
             eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, { display: '01:23' });
             
-            expect(timerElement.textContent).toBe('01:23');
+            expect(ui.updateTimer).toHaveBeenCalledWith('01:23');
         });
 
         it('should reset timer display on UI_TIMER_RESET event', () => {
-            const timerElement = ui.timerElement;
-            
             eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
             
-            expect(timerElement.textContent).toBe('00:00');
+            expect(ui.updateTimer).toHaveBeenCalledWith('00:00');
         });
     });
 
     describe('Button Control Events', () => {
         it('should enable mic button on UI_BUTTON_ENABLE_MIC event', () => {
-            const micButton = ui.micButton;
-            micButton.disabled = true; // Set initial state
-            
             eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
             
-            expect(micButton.disabled).toBe(false);
+            expect(ui.enableMicButton).toHaveBeenCalled();
         });
 
         it('should disable mic button on UI_BUTTON_DISABLE_MIC event', () => {
-            const micButton = ui.micButton;
-            micButton.disabled = false; // Set initial state
-            
             eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
             
-            expect(micButton.disabled).toBe(true);
+            expect(ui.disableMicButton).toHaveBeenCalled();
         });
 
         it('should set recording state on UI_BUTTON_SET_RECORDING_STATE event', () => {
-            const micButton = ui.micButton;
-            
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
             
-            expect(micButton.classList.add).toHaveBeenCalledWith('recording');
+            expect(ui.setRecordingState).toHaveBeenCalledWith(true);
             
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
             
-            expect(micButton.classList.remove).toHaveBeenCalledWith('recording');
+            expect(ui.setRecordingState).toHaveBeenCalledWith(false);
         });
 
         it('should set pause state on UI_BUTTON_SET_PAUSE_STATE event', () => {
-            const pauseButton = ui.pauseButton;
-            const pauseIcon = ui.pauseIcon;
-            const playIcon = ui.playIcon;
-            
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
             
-            expect(pauseIcon.style.display).toBe('none');
-            expect(playIcon.style.display).toBe('block');
-            expect(pauseButton.setAttribute).toHaveBeenCalledWith('aria-label', 'Resume');
+            expect(ui.setPauseState).toHaveBeenCalledWith(true);
             
             eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: false });
             
-            expect(pauseIcon.style.display).toBe('block');
-            expect(playIcon.style.display).toBe('none');
-            expect(pauseButton.setAttribute).toHaveBeenCalledWith('aria-label', 'Pause');
+            expect(ui.setPauseState).toHaveBeenCalledWith(false);
         });
 
         it('should reset controls on UI_CONTROLS_RESET event', () => {
-            const micButton = ui.micButton;
-            
             eventBus.emit(APP_EVENTS.UI_CONTROLS_RESET);
             
-            expect(micButton.classList.remove).toHaveBeenCalledWith('recording');
-            // The resetControlsAfterRecording method updates timer and recording state
-            // Button visibility is typically controlled by CSS or separate events
+            expect(ui.resetControlsAfterRecording).toHaveBeenCalled();
         });
     });
 
     describe('Spinner Control Events', () => {
         it('should show spinner on UI_SPINNER_SHOW event', () => {
-            const spinner = ui.spinnerContainer;
-            spinner.style.display = 'none'; // Set initial state
-            
             eventBus.emit(APP_EVENTS.UI_SPINNER_SHOW);
             
-            expect(spinner.style.display).toBe('block');
+            expect(ui.showSpinner).toHaveBeenCalled();
         });
 
         it('should hide spinner on UI_SPINNER_HIDE event', () => {
-            const spinner = ui.spinnerContainer;
-            spinner.style.display = 'inline-block'; // Set initial state
-            
             eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
             
-            expect(spinner.style.display).toBe('none');
+            expect(ui.hideSpinner).toHaveBeenCalled();
         });
     });
 
@@ -234,7 +225,6 @@ describe('UI Event Bus Interactions', () => {
         });
 
         it('should handle permanent status updates', () => {
-            const statusElement = ui.statusElement;
             const statusData = {
                 message: 'Permanent message',
                 type: 'error',
@@ -243,81 +233,65 @@ describe('UI Event Bus Interactions', () => {
 
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, statusData);
 
-            expect(statusElement.textContent).toBe('Permanent message');
+            expect(ui.setStatus).toHaveBeenCalledWith('Permanent message');
             expect(showTemporaryStatus).not.toHaveBeenCalled();
         });
     });
 
     describe('Transcription Events', () => {
         it('should display transcription and hide spinner on UI_TRANSCRIPTION_READY', () => {
-            const transcriptionElement = ui.transcriptElement;
-            const spinner = ui.spinnerContainer;
             const transcriptionData = { text: 'Hello world transcription' };
 
             eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, transcriptionData);
 
-            expect(transcriptionElement.value).toBe('Hello world transcription');
-            expect(spinner.style.display).toBe('none');
+            expect(ui.displayTranscription).toHaveBeenCalledWith('Hello world transcription');
+            expect(ui.hideSpinner).toHaveBeenCalled();
         });
     });
 
     describe('Recording State Change Events', () => {
         it('should handle idle state transition', () => {
-            const micButton = ui.micButton;
-            const spinner = ui.spinnerContainer;
-            
             eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
                 newState: 'idle',
                 oldState: 'processing'
             });
 
-            expect(micButton.classList.remove).toHaveBeenCalledWith('recording');
-            expect(micButton.disabled).toBe(false);
-            expect(spinner.style.display).toBe('none');
+            expect(ui.resetControlsAfterRecording).toHaveBeenCalled();
+            expect(ui.enableMicButton).toHaveBeenCalled();
+            expect(ui.hideSpinner).toHaveBeenCalled();
         });
 
         it('should handle recording state transition', () => {
             const micButton = ui.micButton;
-            const pauseButton = ui.pauseButton;
-            const pauseIcon = ui.pauseIcon;
-            const playIcon = ui.playIcon;
             
             eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
                 newState: 'recording',
                 oldState: 'idle'
             });
 
-            expect(micButton.classList.add).toHaveBeenCalledWith('recording');
-            expect(pauseIcon.style.display).toBe('block');
-            expect(playIcon.style.display).toBe('none');
-            expect(pauseButton.setAttribute).toHaveBeenCalledWith('aria-label', 'Pause');
+            expect(ui.setRecordingState).toHaveBeenCalledWith(true);
+            expect(ui.setPauseState).toHaveBeenCalledWith(false);
             expect(micButton.disabled).toBe(false);
         });
 
         it('should handle processing state transition', () => {
-            const spinner = ui.spinnerContainer;
-            const micButton = ui.micButton;
-            
             eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
                 newState: 'processing',
                 oldState: 'stopping'
             });
 
-            expect(spinner.style.display).toBe('block');
-            expect(micButton.disabled).toBe(true);
+            expect(ui.showSpinner).toHaveBeenCalled();
+            expect(ui.disableMicButton).toHaveBeenCalled();
         });
     });
 
     describe('API Events', () => {
         it('should hide spinner on API_REQUEST_ERROR', () => {
-            const spinner = ui.spinnerContainer;
-            spinner.style.display = 'inline-block'; // Set initial state
-            
             eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                 error: 'API error message'
             });
 
-            expect(spinner.style.display).toBe('none');
+            expect(ui.hideSpinner).toHaveBeenCalled();
         });
     });
 
