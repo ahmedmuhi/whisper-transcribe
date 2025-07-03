@@ -2,6 +2,7 @@
 
 import { jest } from '@jest/globals';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { resetEventBus } from './setupTests.js';
 
 // Mock VisualizationController module using ESM mocking
 const mockController = { start: jest.fn(), stop: jest.fn() };
@@ -30,6 +31,11 @@ describe('UI visualization event handling (UI is sole controller)', () => {
     mockController.start.mockClear();
     mockController.stop.mockClear();
     ui.clearVisualization.mockClear();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    resetEventBus();
   });
 
   it('starts visualization on VISUALIZATION_START event if stream is provided', async () => {

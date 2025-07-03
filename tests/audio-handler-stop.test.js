@@ -1,6 +1,7 @@
 
 import { jest } from '@jest/globals';
 import { AudioHandler } from '../js/audio-handler.js';
+import { resetEventBus } from './setupTests.js';
 
 describe('safeStopRecorder', () => {
   it('calls stop only when active', () => {
@@ -24,5 +25,9 @@ describe('safeStopRecorder', () => {
     handler.mediaRecorder.state = 'recording';
     handler.safeStopRecorder();
     expect(handler.mediaRecorder.stop).toHaveBeenCalledTimes(1);
+  });
+
+  afterEach(() => {
+    resetEventBus();
   });
 });

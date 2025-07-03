@@ -4,7 +4,7 @@
  */
 
 import { jest } from '@jest/globals';
-import { applyDomSpies } from './setupTests.js';
+import { applyDomSpies, resetEventBus } from './setupTests.js';
 
 // Mock dependencies
 jest.unstable_mockModule('../js/logger.js', () => ({
@@ -156,6 +156,7 @@ describe('AudioHandler Integration', () => {
   afterEach(() => {
     jest.clearAllMocks();
     applyDomSpies();
+    resetEventBus();
   });
   
   describe('MediaRecorder Integration Edge Cases', () => {
