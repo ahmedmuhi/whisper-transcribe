@@ -4,6 +4,9 @@
  * configuration issues, and state machine error states.
  */
 
+import { jest } from '@jest/globals';
+import { applyDomSpies } from './setupTests.js';
+
 // Mock dependencies
 jest.unstable_mockModule('../js/logger.js', () => ({
   logger: {
@@ -87,6 +90,7 @@ describe('Error Recovery Scenarios', () => {
   
   beforeEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
     
     // Create mock UI
     mockUI = {
@@ -137,7 +141,7 @@ describe('Error Recovery Scenarios', () => {
   });
   
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Permission Denial Recovery', () => {

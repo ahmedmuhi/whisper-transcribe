@@ -3,6 +3,9 @@
  * Verifies edge cases in audio handling, cleanup after errors, and timer accuracy.
  */
 
+import { jest } from '@jest/globals';
+import { applyDomSpies } from './setupTests.js';
+
 // Mock dependencies
 jest.unstable_mockModule('../js/logger.js', () => ({
   logger: {
@@ -64,6 +67,7 @@ describe('AudioHandler Integration', () => {
   
   beforeEach(() => {
     jest.clearAllMocks();
+    applyDomSpies();
     
     // Reset event handlers
     mediaRecorderEventHandlers = {
@@ -150,7 +154,7 @@ describe('AudioHandler Integration', () => {
   });
   
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
   
   describe('MediaRecorder Integration Edge Cases', () => {

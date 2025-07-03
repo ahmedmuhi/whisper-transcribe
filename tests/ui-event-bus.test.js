@@ -5,6 +5,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { applyDomSpies } from './setupTests.js';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 
 // Mock showTemporaryStatus
@@ -85,6 +86,7 @@ describe('UI Event Bus Interactions', () => {
     beforeEach(() => {
         // Clear all mocks before each test
         jest.clearAllMocks();
+        applyDomSpies();
         
         // Create UI instance - this will now get proper mock elements
         ui = new UI();
@@ -97,7 +99,7 @@ describe('UI Event Bus Interactions', () => {
     });
 
     afterEach(() => {
-        jest.restoreAllMocks();
+        jest.clearAllMocks();
     });
 
     describe('Timer Control Events', () => {

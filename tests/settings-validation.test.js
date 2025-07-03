@@ -5,6 +5,7 @@
 
 import { jest } from '@jest/globals';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { applyDomSpies } from './setupTests.js';
 
 // Mock localStorage
 const localStorageMock = {
@@ -54,6 +55,7 @@ describe('Settings Validation', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        applyDomSpies();
         localStorageMock.getItem.mockReturnValue(null);
         
         settings = new Settings();
@@ -70,7 +72,7 @@ describe('Settings Validation', () => {
     });
 
     afterEach(() => {
-        jest.restoreAllMocks();
+        jest.clearAllMocks();
     });
 
     describe('API Key Validation', () => {
