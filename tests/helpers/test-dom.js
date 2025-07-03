@@ -19,8 +19,24 @@ export function applyDomSpies() {
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
         click: jest.fn(),
+        setAttribute: jest.fn(),
+        removeAttribute: jest.fn(),
+        getAttribute: jest.fn(),
+        focus: jest.fn(),
+        getContext: jest.fn(() => ({
+          fillRect: jest.fn(),
+          clearRect: jest.fn(),
+          fillStyle: ''
+        })),
+        appendChild: jest.fn(),
+        removeChild: jest.fn(),
         disabled: false,
-        checked: false
+        checked: false,
+        selectionStart: 0,
+        selectionEnd: 0,
+        scrollTop: 0,
+        scrollHeight: 0,
+        parentElement: { offsetWidth: 0, offsetHeight: 0 }
       };
     }
     return elements[id];
