@@ -223,15 +223,17 @@ describe('Visualization Event Handling and Cleanup', () => {
     it('handles multiple start/stop cycles without memory leaks', async () => {
       // Track created controllers
       const controllers = [];
-      const originalControllerConstructor = jest.requireMock('../js/visualization.js').VisualizationController;
+      
+      // Create a tracking constructor that wraps the original mock
+      const trackingConstructor = jest.fn((...args) => {
+        const controller = { start: jest.fn(), stop: jest.fn() };
+        controllers.push(controller);
+        return controller;
+      });
       
       // Override mock to track instances
       jest.unstable_mockModule('../js/visualization.js', () => ({
-        VisualizationController: jest.fn((...args) => {
-          const controller = originalControllerConstructor(...args);
-          controllers.push(controller);
-          return controller;
-        })
+        VisualizationController: trackingConstructor
       }));
       
       // Get reference to mocked module
