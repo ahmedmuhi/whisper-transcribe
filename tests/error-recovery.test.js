@@ -38,15 +38,9 @@ document.body.innerHTML = `
   <div id="settings-modal" style="display: none;"></div>
 `;
 
-// Setup global mocks
-global.navigator = {
-  mediaDevices: {
-    getUserMedia: jest.fn()
-  },
-  permissions: {
-    query: jest.fn()
-  }
-};
+// Backup original navigator properties for test isolation
+const _originalMediaDevices = global.navigator.mediaDevices;
+const _originalPermissions = global.navigator.permissions;
 
 // Mock local storage
 const localStorageMock = (() => {
@@ -89,6 +83,23 @@ describe('Error Recovery Scenarios', () => {
   let eventBusEmitSpy;
   
   beforeEach(() => {
+    // Ensure MediaRecorder exists so browser support check passes
+    Object.defineProperty(global, 'MediaRecorder', {
+      value: function () {},
+      writable: true,
+      configurable: true
+    });
+    // Reset navigator mocks for each test
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      value: { getUserMedia: jest.fn() },
+      writable: true,
+      configurable: true
+    });
+    Object.defineProperty(global.navigator, 'permissions', {
+      value: { query: jest.fn() },
+      writable: true,
+      configurable: true
+    });
     jest.clearAllMocks();
     applyDomSpies();
     
@@ -141,6 +152,17 @@ describe('Error Recovery Scenarios', () => {
   });
   
   afterEach(() => {
+    // Restore original navigator properties
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      value: _originalMediaDevices,
+      writable: true,
+      configurable: true
+    });
+    Object.defineProperty(global.navigator, 'permissions', {
+      value: _originalPermissions,
+      writable: true,
+      configurable: true
+    });
     jest.clearAllMocks();
     applyDomSpies();
     resetEventBus();

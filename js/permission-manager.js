@@ -111,7 +111,12 @@ export class PermissionManager {
         switch (error.name) {
             case 'NotAllowedError':
             case 'PermissionDeniedError':
-                message = MESSAGES.PERMISSION_DENIED;
+                // Provide browser-specific instructions for Chrome
+                if (navigator.userAgent.includes('Chrome')) {
+                    message = MESSAGES.PERMISSION_CHROME;
+                } else {
+                    message = MESSAGES.PERMISSION_DENIED;
+                }
                 eventBus.emit(APP_EVENTS.PERMISSION_DENIED, eventData);
                 break;
                 
