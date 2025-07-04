@@ -172,6 +172,7 @@ export class UI {
                     this.disableMicButton();
                     break;
                 case 'error':
+                    this.resetControlsAfterRecording();
                     this.enableMicButton();
                     this.hideSpinner();
                     break;
