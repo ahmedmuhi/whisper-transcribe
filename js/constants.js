@@ -340,3 +340,17 @@ export const LOGGING = {
     INCLUDE_MODULE_CONTEXT: true
   }
 };
+  
+/**
+ * Timer configuration constants.
+ * Centralizes magic values for timer intervals, display pattern, and stop delays.
+ * @constant {Object} TIMER_CONFIG
+ * @property {number} INTERVAL_MS - Interval in milliseconds for timer updates
+ * @property {string} DEFAULT_DISPLAY - Initial timer display string
+ * @property {number} GRACEFUL_STOP_DELAY_MS - Delay in milliseconds before recorder flush
+ */
+export const TIMER_CONFIG = {
+  INTERVAL_MS: 1000,
+  DEFAULT_DISPLAY: '00:00',
+  GRACEFUL_STOP_DELAY_MS: 800
+};

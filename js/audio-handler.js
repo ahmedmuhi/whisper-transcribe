@@ -13,7 +13,7 @@
 
 // js/audio-handler.js
 import { showTemporaryStatus } from './status-helper.js';
-import { COLORS, RECORDING_STATES, MESSAGES, ID } from './constants.js';
+import { COLORS, RECORDING_STATES, MESSAGES, ID, TIMER_CONFIG } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -270,7 +270,7 @@ export class AudioHandler {
         }
     }
 
-    async gracefulStop(delayMs = 800) {
+    async gracefulStop(delayMs = TIMER_CONFIG.GRACEFUL_STOP_DELAY_MS) {
         if (!this.stateMachine.canInvokeStop()) return;
         if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
 
@@ -375,7 +375,7 @@ export class AudioHandler {
             eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, {
                 display: this.currentTimerDisplay
             });
-        }, 1000);
+        }, TIMER_CONFIG.INTERVAL_MS);
     }
     
     getTimerMilliseconds() {
@@ -389,7 +389,7 @@ export class AudioHandler {
         // Clear timer
         clearInterval(this.timerInterval);
         this.timerInterval = null;
-        this.currentTimerDisplay = '00:00';
+        this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
 
         // Reset UI via events
         eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
