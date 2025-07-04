@@ -66,7 +66,7 @@ export class AudioHandler {
         this.audioChunks = [];
         this.recordingStartTime = null;
         this.timerInterval = null;
-        this.currentTimerDisplay = '00:00';
+    this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         
         // Controls
         this.cancelRequested = false;
