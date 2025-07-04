@@ -10,7 +10,13 @@ export function resetEventBus() {
   else eventBus.removeAllListeners?.();
 }
 
-// Suppress logger output globally in tests
+// Suppress VM Modules ExperimentalWarning and logger output globally in tests
+// Filter Node process warnings to ignore ExperimentalWarning for ESM modules
+process.removeAllListeners('warning');
+process.on('warning', warning => {
+  if (warning.name === 'ExperimentalWarning') return;
+  console.warn(warning);
+});
 beforeAll(() => {
   jest.spyOn(logger, 'info').mockImplementation(() => {});
   jest.spyOn(logger, 'debug').mockImplementation(() => {});

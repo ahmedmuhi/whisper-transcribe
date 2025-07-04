@@ -4,7 +4,7 @@
   "description": "A lightweight web application that converts spoken audio to text using Azure's Speech Services. Record directly from your browser and get transcriptions in real-time.",
   "main": "index.js",
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --ci --coverage",
@@ -18,8 +18,14 @@
   "license": "ISC",
   "type": "module",
   "devDependencies": {
+    "glob": "^8.1.0",
+    "inflight": "^1.0.6",
     "jest": "^30.0.3",
     "jest-environment-jsdom": "^30.0.2",
     "jsdoc": "^4.0.4"
+  },
+  "overrides": {
+    "glob": "^8.1.0",
+    "inflight": "^1.0.6"
   }
 }
