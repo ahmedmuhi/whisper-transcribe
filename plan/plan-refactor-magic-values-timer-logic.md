@@ -28,13 +28,23 @@ This plan describes how to remove hard-coded "magic" values for timer intervals,
    - Replace `1000` in `startTimer()` with `TIMER_CONFIG.INTERVAL_MS`.
    - Replace default display `'00:00'` in constructor and cleanup with `TIMER_CONFIG.DEFAULT_DISPLAY`.
    - Use `TIMER_CONFIG.GRACEFUL_STOP_DELAY_MS` as the default `delayMs` in `gracefulStop()`.
-3. Update `js/recording-state-machine.js` if it contains any timing values to use the same constants.
-4. Import `TIMER_CONFIG` where needed:
+3. Update `js/recording-state-machine.js`:
+   - Search for any occurrences of numeric timer values (e.g., `1000`, `60000`).
+   - If found, replace with corresponding `TIMER_CONFIG` constants or compute from them:
+     - Use `TIMER_CONFIG.INTERVAL_MS` where applicable.
+     - For conversion factors (minutes to ms), define separate constants if needed.
+   - Import `TIMER_CONFIG` and update import statements.
+4. Import `TIMER_CONFIG` where needed in any modules using timer logic:
    ```js
    import { TIMER_CONFIG } from './constants.js';
    ```
-5. Add comments in `constants.js` explaining the rationale for each timing constant.
-6. Remove any leftover numeric literals or magic strings from the codebase by searching for common patterns (e.g., `/\b1000\b/`).
+5. Add or verify comments in `js/constants.js`:
+   - Ensure each `TIMER_CONFIG` property has descriptive JSDoc explaining purpose and usage.
+   - Group `TIMER_CONFIG` under related constants section.
+6. Remove leftover numeric literals or magic strings:
+   - Run `grep -R "\b1000\b" js/` to locate any direct usages.
+   - Replace each with the appropriate `TIMER_CONFIG` constant or new named constant.
+   - Commit and run tests to confirm no regression.
 
 ## 3. Alternatives
 

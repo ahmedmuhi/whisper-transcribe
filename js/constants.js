@@ -348,9 +348,14 @@ export const LOGGING = {
  * @property {number} INTERVAL_MS - Interval in milliseconds for timer updates
  * @property {string} DEFAULT_DISPLAY - Initial timer display string
  * @property {number} GRACEFUL_STOP_DELAY_MS - Delay in milliseconds before recorder flush
+ * @property {number} SECOND_MS - Number of milliseconds in one second
+ * @property {number} MINUTE_MS - Number of milliseconds in one minute
  */
 export const TIMER_CONFIG = {
   INTERVAL_MS: 1000,
   DEFAULT_DISPLAY: '00:00',
-  GRACEFUL_STOP_DELAY_MS: 800
+  GRACEFUL_STOP_DELAY_MS: 800,
+  // Unit conversion constants
+  SECOND_MS: 1000,
+  MINUTE_MS: 60000
 };

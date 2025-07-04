@@ -369,7 +369,7 @@ export class AudioHandler {
     startTimer() {
         this.timerInterval = setInterval(() => {
             const elapsed = Date.now() - this.recordingStartTime;
-            const seconds = Math.floor(elapsed / 1000) % 60;
+            const seconds = Math.floor(elapsed / TIMER_CONFIG.SECOND_MS) % 60;
             const minutes = Math.floor(elapsed / 60000);
             this.currentTimerDisplay = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
             eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, {
@@ -380,7 +380,7 @@ export class AudioHandler {
     
     getTimerMilliseconds() {
         const parts = this.currentTimerDisplay.split(':');
-        return (parseInt(parts[0]) * 60000) + (parseInt(parts[1]) * 1000);
+    return (parseInt(parts[0]) * TIMER_CONFIG.MINUTE_MS) + (parseInt(parts[1]) * TIMER_CONFIG.SECOND_MS);
     }
     
     cleanup() {
