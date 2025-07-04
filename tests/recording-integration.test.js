@@ -27,19 +27,45 @@ jest.unstable_mockModule('../js/status-helper.js', () => ({
 }));
 
 // Mock MediaRecorder
-const mockStream = {
-  active: true,
-  getAudioTracks: jest.fn(() => [{ kind: 'audio' }]),
-  getTracks: jest.fn(() => [{
-    kind: 'audio',
-    stop: jest.fn(),
-    readyState: 'live'
-  }])
+const mockMediaStreamTrack = {
+  kind: 'audio',
+  id: 'mock-track-id',
+  label: 'Mock audio track',
+  enabled: true,
+  muted: false,
+  readyState: 'live',
+  stop: jest.fn(),
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  clone: jest.fn(() => mockMediaStreamTrack)
 };
+
+const mockStream = {
+  id: 'mock-stream-id',
+  active: true,
+  getAudioTracks: jest.fn(() => [mockMediaStreamTrack]),
+  getVideoTracks: jest.fn(() => []),
+  getTracks: jest.fn(() => [mockMediaStreamTrack]),
+  addTrack: jest.fn(),
+  removeTrack: jest.fn(),
+  clone: jest.fn(() => mockStream),
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn()
+};
+
+// Mock DOMException for browser API errors
+global.DOMException = function(message, name) {
+  this.message = message;
+  this.name = name;
+  Error.captureStackTrace && Error.captureStackTrace(this, global.DOMException);
+};
+global.DOMException.prototype = Object.create(Error.prototype);
+global.DOMException.prototype.constructor = global.DOMException;
 
 // Mock MediaRecorder events and methods
 class MockMediaRecorder {
-  constructor() {
+  constructor(stream) {
+    this.stream = stream;
     this.state = 'inactive';
     this.eventListeners = {
       dataavailable: [],
@@ -48,66 +74,139 @@ class MockMediaRecorder {
       resume: [],
       error: []
     };
+    this._stopping = false;
+    this._debugLog = []; // For debugging event firing sequence
   }
 
   addEventListener(event, callback) {
+    if (!this.eventListeners[event]) {
+      this.eventListeners[event] = [];
+    }
     this.eventListeners[event].push(callback);
+    this._debugLog.push(`addEventListener: ${event}`);
   }
 
   removeEventListener(event, callback) {
-    const index = this.eventListeners[event].indexOf(callback);
-    if (index !== -1) {
-      this.eventListeners[event].splice(index, 1);
+    if (this.eventListeners[event]) {
+      const index = this.eventListeners[event].indexOf(callback);
+      if (index !== -1) {
+        this.eventListeners[event].splice(index, 1);
+        this._debugLog.push(`removeEventListener: ${event}`);
+      }
     }
   }
 
-  start() {
+  // Reset method for test isolation
+  _reset() {
+    this.state = 'inactive';
+    this._stopping = false;
+    this._debugLog = [];
+    // Clear all event listeners
+    Object.keys(this.eventListeners).forEach(event => {
+      this.eventListeners[event] = [];
+    });
+  }
+
+  start(timeslice) {
     this.state = 'recording';
+    
+    // Immediately simulate data being available
+    setTimeout(() => {
+      if (this.state === 'recording') {
+        const event = { data: new Blob(['test audio data'], { type: 'audio/webm' }) };
+        this.eventListeners.dataavailable?.forEach(callback => callback(event));
+      }
+    }, 5);
   }
 
   stop() {
-    this.state = 'inactive';
-    // Create a sample audio chunk
-    const event = { data: new Blob(['test audio data'], { type: 'audio/webm' }) };
-    this.eventListeners.dataavailable.forEach(callback => callback(event));
-    // Trigger stop event
-    setTimeout(() => {
-      this.eventListeners.stop.forEach(callback => callback());
-    }, 10);
+    if (this.state !== 'inactive' && !this._stopping) {
+      this._stopping = true;
+      this.state = 'inactive';
+      this._debugLog.push('stop() called');
+      
+      // Create a sample audio chunk before stopping
+      const event = { data: new Blob(['final audio data'], { type: 'audio/webm' }) };
+      this.eventListeners.dataavailable?.forEach(callback => {
+        this._debugLog.push('dataavailable fired');
+        callback(event);
+      });
+      
+      // Fire stop event with proper async handling for both normal and cancellation flows
+      // Use nextTick to ensure it runs after current execution but still synchronously for test timing
+      Promise.resolve().then(() => {
+        this._debugLog.push('stop event fired');
+        this.eventListeners.stop?.forEach(callback => callback());
+        this._stopping = false;
+      });
+    }
   }
 
   pause() {
     if (this.state === 'recording') {
       this.state = 'paused';
-      this.eventListeners.pause.forEach(callback => callback());
+      this.eventListeners.pause?.forEach(callback => callback());
     }
   }
 
   resume() {
     if (this.state === 'paused') {
-      this.state = 'recording';
-      this.eventListeners.resume.forEach(callback => callback());
+      // Use Promise.resolve() to delay state change so event handler can see 'paused' state
+      Promise.resolve().then(() => {
+        this.state = 'recording';
+        this.eventListeners.resume?.forEach(callback => callback());
+      });
     }
   }
 
   requestData() {
     const event = { data: new Blob(['test audio data'], { type: 'audio/webm' }) };
-    this.eventListeners.dataavailable.forEach(callback => callback(event));
+    this.eventListeners.dataavailable?.forEach(callback => callback(event));
   }
 }
 
-// Create global mocks
-global.MediaRecorder = jest.fn(() => new MockMediaRecorder());
-global.Blob = function(content, options) {
-  return { content, options, size: 1024 };
-};
+// Define browser mocks using Object.defineProperty for ES6 compatibility
+Object.defineProperty(global, 'MediaRecorder', {
+  value: jest.fn((stream) => new MockMediaRecorder(stream)),
+  writable: true,
+  configurable: true
+});
 
-// Mock navigator.mediaDevices
-global.navigator = {
-  mediaDevices: {
-    getUserMedia: jest.fn().mockResolvedValue(mockStream)
-  }
-};
+Object.defineProperty(global, 'Blob', {
+  value: function(content, options) {
+    return { content, options, size: content ? content.length * 100 : 1024 };
+  },
+  writable: true,
+  configurable: true
+});
+
+// Mock navigator APIs using Object.defineProperty
+Object.defineProperty(global, 'navigator', {
+  value: {
+    mediaDevices: {
+      getUserMedia: jest.fn().mockResolvedValue(mockStream)
+    },
+    permissions: {
+      query: jest.fn().mockResolvedValue({ state: 'granted' })
+    },
+    userAgent: 'Mozilla/5.0 (Test Environment)'
+  },
+  writable: true,
+  configurable: true
+});
+
+// Mock window APIs if not already defined
+if (typeof global.window === 'undefined') {
+  Object.defineProperty(global, 'window', {
+    value: {},
+    writable: true,
+    configurable: true
+  });
+}
+
+// Add MediaRecorder and navigator to window
+global.window.MediaRecorder = global.MediaRecorder;
+global.window.navigator = global.navigator;
 
 // Mock canvas elements for visualization
 document.body.innerHTML = `
@@ -147,8 +246,19 @@ describe('Recording Integration', () => {
   let apiRequestStartSpy;
   let transcriptionReadySpy;
   
+  // Helper function for standardized async operation waiting
+  const waitForAsyncOperations = async (cycles = 3, timerAdvance = 50) => {
+    for (let i = 0; i < cycles; i++) {
+      await Promise.resolve();
+    }
+    if (timerAdvance > 0) {
+      jest.advanceTimersByTime(timerAdvance);
+    }
+  };
+  
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers(); // Use fake timers for all tests
     applyDomSpies();
     
     // Create mock UI
@@ -204,6 +314,7 @@ describe('Recording Integration', () => {
   
   afterEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers(); // Restore real timers after each test
     applyDomSpies();
     resetEventBus();
   });
@@ -236,8 +347,8 @@ describe('Recording Integration', () => {
         expect.objectContaining({ newState: RECORDING_STATES.STOPPING })
       );
       
-      // Wait for the async stop to complete
-      await new Promise(resolve => setTimeout(resolve, 20));
+      // Wait for the MediaRecorder stop event to be processed
+      await waitForAsyncOperations(3, 50);
       
       // Verify processing state
       expect(stateChangeSpy).toHaveBeenCalledWith(
@@ -248,8 +359,8 @@ describe('Recording Integration', () => {
       // Verify API request was made
       expect(mockApiClient.transcribe).toHaveBeenCalled();
       
-      // Wait for processing to complete
-      await new Promise(resolve => setTimeout(resolve, 20));
+      // Wait for transcription to complete and cleanup to finish
+      await waitForAsyncOperations(4, 100);
       
       // Should return to idle state
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
@@ -259,6 +370,9 @@ describe('Recording Integration', () => {
         APP_EVENTS.UI_TRANSCRIPTION_READY,
         expect.objectContaining({ text: expect.any(String) })
       );
+      
+      // Wait for final cleanup operations to complete
+      await waitForAsyncOperations(2, 25);
       
       // Clean up should have occurred
       expect(audioHandler.audioChunks.length).toBe(0);
@@ -317,19 +431,22 @@ describe('Recording Integration', () => {
       // Verify recording started
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
       
-      // Cancel recording
-      await audioHandler.cancelRecording();
+      // Cancel recording and check state immediately 
+      const cancelPromise = audioHandler.cancelRecording();
       
-      // Verify cancelling state
+      // Check cancelling state immediately - before any async operations
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.CANCELLING);
+      
+      // Now wait for the cancellation to complete
+      await cancelPromise;
       expect(stateChangeSpy).toHaveBeenCalledWith(
         APP_EVENTS.RECORDING_STATE_CHANGED,
         expect.objectContaining({ newState: RECORDING_STATES.CANCELLING })
       );
       expect(recordingCancelledSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_CANCELLED);
       
-      // Wait for the async stop to complete
-      await new Promise(resolve => setTimeout(resolve, 20));
+      // Wait for cancellation to complete
+      await waitForAsyncOperations(3, 100);
       
       // Should return to idle state
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
@@ -354,13 +471,16 @@ describe('Recording Integration', () => {
     });
 
     it('should handle API validation errors', async () => {
-      // Make validateConfig throw an error
+      // Make validateConfig throw an error with 'configure' in the message to trigger API_CONFIG_MISSING
       mockApiClient.validateConfig.mockImplementation(() => {
-        throw new Error('API key is missing');
+        throw new Error('Failed to configure API key');
       });
       
       // Try to start recording
       await audioHandler.startRecordingFlow();
+      
+      // Wait for error processing
+      await waitForAsyncOperations(2, 50);
       
       // Should enter error state
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
@@ -368,15 +488,16 @@ describe('Recording Integration', () => {
         APP_EVENTS.RECORDING_STATE_CHANGED,
         expect.objectContaining({ 
           newState: RECORDING_STATES.ERROR,
-          error: expect.stringContaining('API key is missing')
+          error: expect.stringContaining('configure')
         })
       );
       
-      // Settings modal should be opened
+      // Settings modal should be opened (triggered by API_CONFIG_MISSING event)
       expect(mockSettings.openSettingsModal).toHaveBeenCalled();
       
       // Should transition back to idle after error (via setTimeout)
       jest.advanceTimersByTime(3000);
+      await waitForAsyncOperations(1, 0);
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
     });
     
@@ -411,8 +532,8 @@ describe('Recording Integration', () => {
       // Stop recording
       await audioHandler.stopRecordingFlow();
       
-      // Wait for the async stop to complete
-      await new Promise(resolve => setTimeout(resolve, 20));
+      // Wait for transcription error processing
+      await waitForAsyncOperations(4, 100);
       
       // API request error should be emitted
       expect(eventBus.emit).toHaveBeenCalledWith(
@@ -478,6 +599,9 @@ describe('Recording Integration', () => {
       // Stop recording
       await audioHandler.stopRecordingFlow();
       
+      // Wait for full stop sequence including cleanup
+      await waitForAsyncOperations(4, 100);
+      
       // Timer should be reset after stopping
       expect(eventBus.emit).toHaveBeenCalledWith(APP_EVENTS.UI_TIMER_RESET);
       
@@ -516,6 +640,9 @@ describe('Recording Integration', () => {
       
       // Resume recording
       await audioHandler.togglePause();
+      
+      // Wait for async resume operations to complete
+      await waitForAsyncOperations(2, 50);
       
       // Record time should be adjusted to maintain correct elapsed time
       expect(audioHandler.recordingStartTime).toBe(mockStartTime + 15000 - 10000);
@@ -556,8 +683,8 @@ describe('Recording Integration', () => {
       // Stop recording
       await audioHandler.stopRecordingFlow();
       
-      // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 30));
+      // Wait for complete async state machine cycle including final transition to idle
+      await waitForAsyncOperations(4, 100);
       
       // Verify state transition sequence
       expect(stateTransitions).toEqual([

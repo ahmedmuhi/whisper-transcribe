@@ -171,7 +171,7 @@ export class AudioHandler {
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
             this.startRecording(stream);
             
-        } catch (err) {
+    } catch (err) {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Error starting recording:', err);
             
@@ -181,6 +181,8 @@ export class AudioHandler {
             });
             
             if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
+                // Notify settings modal directly and via event
+                this.settings.openSettingsModal();
                 eventBus.emit(APP_EVENTS.API_CONFIG_MISSING);
             }
             
@@ -195,8 +197,10 @@ export class AudioHandler {
         const model = this.settings.getCurrentModel();
         await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
         
-        // Stop the timer immediately when stopping
-        clearInterval(this.timerInterval);
+    // Stop the timer immediately when stopping
+    clearInterval(this.timerInterval);
+    // Emit timer reset event immediately for UI
+    eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
         
         if (model === 'gpt-4o-transcribe') {
             this.gracefulStop();
@@ -285,8 +289,14 @@ export class AudioHandler {
         if (this.stateMachine.canPause()) {
             this.mediaRecorder.pause();
             clearInterval(this.timerInterval);
+            this.timerInterval = null;
             await this.stateMachine.transitionTo(RECORDING_STATES.PAUSED);
         } else if (this.stateMachine.canResume()) {
+            // Resume timer from paused state by adjusting start time
+            const pausedTime = this.getTimerMilliseconds();
+            this.recordingStartTime = Date.now() - pausedTime;
+            this.mediaRecorder.resume();
+            this.startTimer();
             eventBus.emit(APP_EVENTS.RECORDING_RESUMED);
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
         }
@@ -333,7 +343,7 @@ export class AudioHandler {
             
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS);
             
-        } catch (error) {
+    } catch (error) {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Transcription error:', error);
             
@@ -346,6 +356,8 @@ export class AudioHandler {
                 type: 'error',
                 temporary: true
             });
+            // Cleanup resources on transcription error
+            this.cleanup();
         } finally {
             eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }
