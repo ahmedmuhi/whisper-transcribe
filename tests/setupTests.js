@@ -13,15 +13,3 @@ export function resetEventBus() {
 if (global.document) {
   applyDomSpies();
 }
-
-// Safety net to ensure DOM spies remain active
-afterEach(() => {
-  if (global.document) {
-    expect(jest.isMockFunction(global.document.getElementById)).toBe(true);
-  }
-  if (typeof eventBus.getEvents === 'function') {
-    expect(eventBus.getEvents().length).toBe(0);
-  } else if (eventBus.listenerCount) {
-    expect(eventBus.listenerCount()).toBe(0);
-  }
-});

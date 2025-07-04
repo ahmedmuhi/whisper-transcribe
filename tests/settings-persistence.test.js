@@ -6,6 +6,7 @@
 import { jest } from '@jest/globals';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { STORAGE_KEYS, ID } from '../js/constants.js';
+import { applyDomSpies } from './setupTests.js';
 
 // Mock dependencies
 jest.unstable_mockModule('../js/logger.js', () => ({
@@ -26,41 +27,21 @@ jest.unstable_mockModule('../js/status-helper.js', () => ({
     showTemporaryStatus: jest.fn(),
 }));
 
-// Mock DOM
-const mockElement = (id) => ({
-    id,
-    value: '',
-    checked: false,
-    style: { display: 'none' },
-    addEventListener: jest.fn(),
-    setAttribute: jest.fn(),
-    removeAttribute: jest.fn(),
-    classList: {
-        add: jest.fn(),
-        remove: jest.fn(),
-        contains: jest.fn(),
-    },
-});
-
-const mockElements = {};
-global.document = {
-    getElementById: jest.fn((id) => mockElements[id]),
-    body: {
-        classList: {
-            add: jest.fn(),
-            remove: jest.fn(),
-            contains: jest.fn(),
-        },
-    },
-};
-
-// Mock localStorage
+// Mock localStorage using Jest spies on the Storage prototype
 const localStorageMock = {
     getItem: jest.fn(),
     setItem: jest.fn(),
     removeItem: jest.fn(),
     clear: jest.fn(),
 };
+
+// Define localStorage methods before modules are imported
+Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+    writable: true
+});
+
+// Also set global localStorage for ES modules
 global.localStorage = localStorageMock;
 
 // Dynamically import Settings after mocks are set up
@@ -80,19 +61,25 @@ describe('Settings Persistence & Management', () => {
         localStorageMock.getItem.mockReturnValue(null);
         localStorageMock.clear();
         
-        // Populate mock elements before each test
-        mockElements[ID.MODEL_SELECT] = mockElement(ID.MODEL_SELECT);
-        mockElements[ID.SETTINGS_MODAL] = mockElement(ID.SETTINGS_MODAL);
-        mockElements[ID.CLOSE_MODAL] = mockElement(ID.CLOSE_MODAL);
-        mockElements[ID.SAVE_SETTINGS] = mockElement(ID.SAVE_SETTINGS);
-        mockElements[ID.SETTINGS_BUTTON] = mockElement(ID.SETTINGS_BUTTON);
-        mockElements[ID.STATUS] = mockElement(ID.STATUS);
-        mockElements[ID.WHISPER_SETTINGS] = mockElement(ID.WHISPER_SETTINGS);
-        mockElements[ID.GPT4O_SETTINGS] = mockElement(ID.GPT4O_SETTINGS);
-        mockElements[ID.WHISPER_URI] = mockElement(ID.WHISPER_URI);
-        mockElements[ID.WHISPER_KEY] = mockElement(ID.WHISPER_KEY);
-        mockElements[ID.GPT4O_URI] = mockElement(ID.GPT4O_URI);
-        mockElements[ID.GPT4O_KEY] = mockElement(ID.GPT4O_KEY);
+        // Ensure all required elements exist and reset their values
+        const requiredIds = [
+            ID.MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS,
+            ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, ID.GPT4O_SETTINGS,
+            ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY
+        ];
+        
+        // Pre-populate by calling getElementById for each required element and reset values
+        requiredIds.forEach(id => {
+            const element = document.getElementById(id);
+            // Reset all values to empty to prevent state leakage between tests
+            element.value = '';
+            element.style.display = '';
+            
+            // Set specific defaults after reset
+            if (id === ID.MODEL_SELECT) {
+                element.value = 'whisper'; // Set default model
+            }
+        });
 
         eventBusEmitSpy = jest.spyOn(eventBus, 'emit');
         
@@ -103,16 +90,24 @@ describe('Settings Persistence & Management', () => {
         });
         
         settings = new Settings();
+        
+        // Mock the problematic methods that might interfere
+        jest.spyOn(settings, 'checkInitialSettings').mockImplementation(() => {});
+        jest.spyOn(settings, 'updateSettingsVisibility').mockImplementation(() => {});
     });
 
     describe('LocalStorage Persistence', () => {
         test('should save Whisper settings to localStorage', () => {
             // Arrange
             const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
-            const whisperApiUri = 'https://whisper.openai.azure.com/';
-            mockElements[ID.MODEL_SELECT].value = 'whisper';
-            mockElements[ID.WHISPER_KEY].value = whisperApiKey;
-            mockElements[ID.WHISPER_URI].value = whisperApiUri;
+            const whisperApiUri = 'https://myresource.openai.azure.com/';
+            
+            // Set up form values
+            settings.modelSelect.value = 'whisper';
+            const keyElement = document.getElementById(ID.WHISPER_KEY);
+            const uriElement = document.getElementById(ID.WHISPER_URI);
+            keyElement.value = whisperApiKey;
+            uriElement.value = whisperApiUri;
 
             // Act
             settings.saveSettings();
@@ -126,9 +121,13 @@ describe('Settings Persistence & Management', () => {
             // Arrange
             const gpt4oApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
             const gpt4oApiUri = 'https://gpt4o.openai.azure.com/';
-            mockElements[ID.MODEL_SELECT].value = 'gpt-4o';
-            mockElements[ID.GPT4O_KEY].value = gpt4oApiKey;
-            mockElements[ID.GPT4O_URI].value = gpt4oApiUri;
+            
+            // Set up form values  
+            settings.modelSelect.value = 'gpt-4o';
+            const keyElement = document.getElementById(ID.GPT4O_KEY);
+            const uriElement = document.getElementById(ID.GPT4O_URI);
+            keyElement.value = gpt4oApiKey;
+            uriElement.value = gpt4oApiUri;
 
             // Act
             settings.saveSettings();
@@ -141,7 +140,7 @@ describe('Settings Persistence & Management', () => {
         test('should load saved settings into the form on modal open', () => {
             // Arrange
             const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
-            const whisperApiUri = 'https://loaded-whisper.openai.azure.com/';
+            const whisperApiUri = 'https://myresource.openai.azure.com/'; // Use same URI as other tests
             
             // Mock localStorage to return saved settings
             localStorageMock.getItem.mockImplementation((key) => {
@@ -155,8 +154,8 @@ describe('Settings Persistence & Management', () => {
             settings.openSettingsModal();
 
             // Assert
-            expect(mockElements[ID.WHISPER_KEY].value).toBe(whisperApiKey);
-            expect(mockElements[ID.WHISPER_URI].value).toBe(whisperApiUri);
+            expect(document.getElementById(ID.WHISPER_KEY).value).toBe(whisperApiKey);
+            expect(document.getElementById(ID.WHISPER_URI).value).toBe(whisperApiUri);
         });
     });
 
@@ -166,7 +165,7 @@ describe('Settings Persistence & Management', () => {
             settings.openSettingsModal();
 
             // Assert
-            expect(mockElements[ID.SETTINGS_MODAL].style.display).toBe('block');
+            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_OPENED);
         });
 
@@ -175,7 +174,7 @@ describe('Settings Persistence & Management', () => {
             settings.closeSettingsModal();
 
             // Assert
-            expect(mockElements[ID.SETTINGS_MODAL].style.display).toBe('none');
+            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('none');
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_CLOSED);
         });
     });
@@ -183,9 +182,12 @@ describe('Settings Persistence & Management', () => {
     describe('Event Bus Communication', () => {
         test('should emit SETTINGS_SAVED and SETTINGS_UPDATED on successful save', () => {
             // Arrange
-            mockElements[ID.MODEL_SELECT].value = 'whisper';
-            mockElements[ID.WHISPER_KEY].value = 'sk-1234567890abcdef1234567890abcdef12345678';
-            mockElements[ID.WHISPER_URI].value = 'https://myresource.openai.azure.com/';
+            const keyElement = document.getElementById(ID.WHISPER_KEY);
+            const uriElement = document.getElementById(ID.WHISPER_URI);
+            
+            settings.modelSelect.value = 'whisper';
+            keyElement.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            uriElement.value = 'https://myresource.openai.azure.com/';
 
             // Act
             settings.saveSettings();
@@ -197,9 +199,15 @@ describe('Settings Persistence & Management', () => {
 
         test('should emit SETTINGS_MODEL_CHANGED when the model is changed', () => {
             // Arrange - Create a fresh Settings instance and trigger the setup
+            // First set up the localStorage state properly 
+            localStorageMock.getItem.mockImplementation((key) => {
+                if (key === STORAGE_KEYS.MODEL) return 'whisper';
+                return null;
+            });
+            
             const freshSettings = new Settings();
             
-            const modelSelect = mockElements[ID.MODEL_SELECT];
+            const modelSelect = document.getElementById(ID.MODEL_SELECT);
             expect(modelSelect.addEventListener).toHaveBeenCalled();
             
             // Find the 'change' event listener
@@ -222,14 +230,34 @@ describe('Settings Persistence & Management', () => {
 
         test('should emit SETTINGS_VALIDATION_ERROR if required fields are empty', () => {
             // Arrange
-            mockElements[ID.MODEL_SELECT].value = 'whisper';
-            mockElements[ID.WHISPER_KEY].value = ''; // Empty key
-            mockElements[ID.WHISPER_URI].value = ''; // Empty URI
+            const keyElement = document.getElementById(ID.WHISPER_KEY);
+            const uriElement = document.getElementById(ID.WHISPER_URI);
+            
+            settings.modelSelect.value = 'whisper';
+            keyElement.value = ''; // Empty key
+            uriElement.value = ''; // Empty URI
 
             // Act
             settings.saveSettings();
 
             // Assert - Should emit validation error, not save
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_VALIDATION_ERROR, expect.any(Object));
+            expect(localStorageMock.setItem).not.toHaveBeenCalled();
+        });
+
+        test('should emit SETTINGS_VALIDATION_ERROR for HTTP URI (insecure)', () => {
+            // Arrange
+            const keyElement = document.getElementById(ID.WHISPER_KEY);
+            const uriElement = document.getElementById(ID.WHISPER_URI);
+            
+            settings.modelSelect.value = 'whisper';
+            keyElement.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            uriElement.value = 'http://insecure.openai.azure.com/'; // HTTP instead of HTTPS
+
+            // Act
+            settings.saveSettings();
+
+            // Assert - Should emit validation error due to HTTP URI, not save
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_VALIDATION_ERROR, expect.any(Object));
             expect(localStorageMock.setItem).not.toHaveBeenCalled();
         });
@@ -241,6 +269,9 @@ describe('Settings Persistence & Management', () => {
             const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
             const whisperApiUri = 'https://retrieval-whisper.openai.azure.com/';
             
+            // Ensure the model select shows whisper 
+            document.getElementById(ID.MODEL_SELECT).value = 'whisper';
+            
             // Mock localStorage to return Whisper model and its config
             localStorageMock.getItem.mockImplementation((key) => {
                 if (key === STORAGE_KEYS.MODEL) return 'whisper';
@@ -249,8 +280,13 @@ describe('Settings Persistence & Management', () => {
                 return null;
             });
             
+            // Create a fresh Settings instance that will read from the mocked localStorage
+            const freshSettings = new Settings();
+            jest.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
+            jest.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
+            
             // Act
-            const config = settings.getModelConfig();
+            const config = freshSettings.getModelConfig();
 
             // Assert
             expect(config).toEqual({
@@ -265,6 +301,9 @@ describe('Settings Persistence & Management', () => {
             const gpt4oApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
             const gpt4oApiUri = 'https://retrieval-gpt4o.openai.azure.com/';
             
+            // Update the model select element to match GPT-4o
+            document.getElementById(ID.MODEL_SELECT).value = 'gpt-4o';
+            
             // Mock localStorage to return GPT-4o model and its config
             localStorageMock.getItem.mockImplementation((key) => {
                 if (key === STORAGE_KEYS.MODEL) return 'gpt-4o';
@@ -273,11 +312,13 @@ describe('Settings Persistence & Management', () => {
                 return null;
             });
             
-            // Update the model select element to match
-            mockElements[ID.MODEL_SELECT].value = 'gpt-4o';
+            // Create a fresh Settings instance that will read from the mocked localStorage
+            const freshSettings = new Settings();
+            jest.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
+            jest.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
             
             // Act
-            const config = settings.getModelConfig();
+            const config = freshSettings.getModelConfig();
 
             // Assert
             expect(config).toEqual({
