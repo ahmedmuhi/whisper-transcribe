@@ -202,10 +202,14 @@ export class AudioHandler {
     // Emit timer reset event immediately for UI
     eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
         
-        if (model === 'gpt-4o-transcribe') {
-            this.gracefulStop();
-        } else {
-            this.stopRecording();
+        try {
+            if (model === 'gpt-4o-transcribe') {
+                await this.gracefulStop();
+            } else {
+                this.safeStopRecorder();
+            }
+        } catch (err) {
+            eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
         }
     }
     
@@ -252,7 +256,11 @@ export class AudioHandler {
 
     safeStopRecorder() {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-            this.mediaRecorder.stop();
+            try {
+                this.mediaRecorder.stop();
+            } catch (err) {
+                eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
+            }
         }
     }
 
@@ -266,23 +274,18 @@ export class AudioHandler {
         if (!this.stateMachine.canInvokeStop()) return;
         if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
 
-        // 1. Keep capturing a short tail to ensure complete audio including the tail
-        await new Promise(res => setTimeout(res, delayMs));
-
-        // 2. Ask MediaRecorder to flush its internal buffer
-        await new Promise(res => {
-            if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
-                res();
-            } else {
-                this.mediaRecorder.addEventListener('dataavailable', res, { once: true });
-                this.mediaRecorder.requestData();
-            }
-        });
-
-        // 3. Stop recording if still active and stopping is allowed
-        if (this.stateMachine.canInvokeStop() && this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-            this.safeStopRecorder();
+        // Request internal buffer flush immediately
+        try {
+            this.mediaRecorder.requestData();
+        } catch (err) {
+            eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
+            return;
         }
+
+        // Delay stopping to capture remaining audio tail
+        setTimeout(() => {
+            this.safeStopRecorder();
+        }, delayMs);
     }
     
     async togglePause() {

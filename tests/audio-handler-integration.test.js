@@ -6,6 +6,9 @@
 import { jest } from '@jest/globals';
 import { applyDomSpies, resetEventBus } from './setupTests.js';
 
+// Backup original mediaDevices API for restoration
+const _originalMediaDevices = global.navigator.mediaDevices;
+
 // Mock dependencies
 jest.unstable_mockModule('../js/logger.js', () => ({
   logger: {
@@ -106,11 +109,14 @@ describe('AudioHandler Integration', () => {
     };
     
     // Mock getUserMedia
-    global.navigator = {
-      mediaDevices: {
+    // Define mock mediaDevices API
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      value: {
         getUserMedia: jest.fn().mockResolvedValue(mockStream)
-      }
-    };
+      },
+      writable: true,
+      configurable: true
+    });
     
     // Create mock UI
     mockUI = {
@@ -154,6 +160,12 @@ describe('AudioHandler Integration', () => {
   });
   
   afterEach(() => {
+    // Restore original mediaDevices API
+    Object.defineProperty(global.navigator, 'mediaDevices', {
+      value: _originalMediaDevices,
+      writable: true,
+      configurable: true
+    });
     jest.clearAllMocks();
     applyDomSpies();
     resetEventBus();
