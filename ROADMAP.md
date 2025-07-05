@@ -22,7 +22,7 @@ This document outlines a phased, actionable roadmap to evolve the Whisper-Transc
 ## Phase 1 – Code Quality & Architecture
 **Objective:** Eliminate technical debt, enforce clean architecture, and simplify complex code paths.
 
-- **TD-001**: Add comprehensive JSDoc to all public methods across modules (AudioHandler, UI, API client, etc.)
+- **TD-001**: ~~Add comprehensive JSDoc to all public methods across modules (AudioHandler, UI, API client, etc.)~~ **[COMPLETED]**
 - **TD-002**: Implement a lightweight `logger` utility (env-aware log levels) and replace all `console.*` calls
 - **TD-003**: Remove direct UI method calls from non-UI modules—define and emit new events (`TIMER_TICK`, `SPINNER_SHOW`, `SPINNER_HIDE`) in `APP_EVENTS`
 - **TD-009**: Refactor large methods (≥ 30 LOC) into single-purpose helpers or utility functions
