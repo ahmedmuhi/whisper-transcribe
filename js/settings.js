@@ -49,6 +49,13 @@ export class Settings {
 
         // Cache the status element with the other DOM references
         this.statusElement = document.getElementById(ID.STATUS);
+    // Cache settings containers and form inputs
+    this.whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
+    this.gpt4oSettings = document.getElementById(ID.GPT4O_SETTINGS);
+    this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
+    this.whisperKeyInput = document.getElementById(ID.WHISPER_KEY);
+    this.gpt4oUriInput = document.getElementById(ID.GPT4O_URI);
+    this.gpt4oKeyInput = document.getElementById(ID.GPT4O_KEY);
         
         this.init();
     }
@@ -131,15 +138,11 @@ export class Settings {
     
     updateSettingsVisibility() {
         const currentModel = this.getCurrentModel();
-        const whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
-        const gpt4oSettings = document.getElementById(ID.GPT4O_SETTINGS);
-        
-        if (currentModel === 'whisper') {
-            whisperSettings.style.display = 'block';
-            gpt4oSettings.style.display = 'none';
-        } else {
-            whisperSettings.style.display = 'none';
-            gpt4oSettings.style.display = 'block';
+        if (this.whisperSettings) {
+            this.whisperSettings.style.display = currentModel === 'whisper' ? 'block' : 'none';
+        }
+        if (this.gpt4oSettings) {
+            this.gpt4oSettings.style.display = currentModel === 'whisper' ? 'none' : 'block';
         }
     }
     
@@ -187,10 +190,18 @@ export class Settings {
         const gpt4oUri = localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
         const gpt4oKey = localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
         
-        if (whisperUri) document.getElementById(ID.WHISPER_URI).value = whisperUri;
-        if (whisperKey) document.getElementById(ID.WHISPER_KEY).value = whisperKey;
-        if (gpt4oUri) document.getElementById(ID.GPT4O_URI).value = gpt4oUri;
-        if (gpt4oKey) document.getElementById(ID.GPT4O_KEY).value = gpt4oKey;
+        if (this.whisperUriInput && whisperUri) {
+            this.whisperUriInput.value = whisperUri;
+        }
+        if (this.whisperKeyInput && whisperKey) {
+            this.whisperKeyInput.value = whisperKey;
+        }
+        if (this.gpt4oUriInput && gpt4oUri) {
+            this.gpt4oUriInput.value = gpt4oUri;
+        }
+        if (this.gpt4oKeyInput && gpt4oKey) {
+            this.gpt4oKeyInput.value = gpt4oKey;
+        }
     }
 
     /**
@@ -203,26 +214,27 @@ export class Settings {
     sanitizeInputs() {
         const currentModel = this.getCurrentModel();
 
-        const apiKeyInput = this.apiKeyInput || document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
-        );
-        const uriInput = this.apiUriInput || document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
-        );
+        // Use injected inputs if defined, else use cached inputs; allow null to pass through
+        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
+            ? this.apiKeyInput
+            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+        const uriInput = typeof this.apiUriInput !== 'undefined'
+            ? this.apiUriInput
+            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
 
         if (apiKeyInput && typeof apiKeyInput.value === 'string') {
-            apiKeyInput.value = apiKeyInput.value
-                .trim()
-                .replace(/[\n\r\t]/g, '');
+            // Remove all whitespace characters (spaces, tabs, newlines, etc.)
+            apiKeyInput.value = apiKeyInput.value.replace(/\s+/g, '');
         }
 
         if (uriInput && typeof uriInput.value === 'string') {
-            let uri = uriInput.value.trim().replace(/[\n\r\t]/g, '');
+            // Remove all whitespace characters
+            let uri = uriInput.value.replace(/\s+/g, '');
             try {
                 const parsed = new URL(uri);
                 uri = `${parsed.origin}/`;
             } catch (_) {
-                // Leave as trimmed string if parsing fails
+                // Leave as whitespace-stripped string if parsing fails
             }
             uriInput.value = uri;
         }
@@ -241,23 +253,23 @@ export class Settings {
         this.sanitizeInputs();
 
         const currentModel = this.getCurrentModel();
-        const apiKeyInput = this.apiKeyInput || document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
-        );
-        const uriInput = this.apiUriInput || document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
-        );
+        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
+            ? this.apiKeyInput
+            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+        const uriInput = typeof this.apiUriInput !== 'undefined'
+            ? this.apiUriInput
+            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
 
         const errors = [];
 
-        const apiKey = apiKeyInput.value.trim();
+    const apiKey = apiKeyInput.value.trim();
         if (!apiKey) {
             errors.push('API key is required');
         } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
-        const uri = uriInput.value.trim();
+    const uri = uriInput.value.trim();
         if (!uri) {
             errors.push('URI is required');
         } else {
@@ -290,23 +302,23 @@ export class Settings {
         this.sanitizeInputs();
 
         const currentModel = this.getCurrentModel();
-        const apiKeyInput = this.apiKeyInput || document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
-        );
-        const uriInput = this.apiUriInput || document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
-        );
+        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
+            ? this.apiKeyInput
+            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+        const uriInput = typeof this.apiUriInput !== 'undefined'
+            ? this.apiUriInput
+            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
 
         const errors = [];
 
-        const apiKey = apiKeyInput.value.trim();
+    const apiKey = apiKeyInput.value.trim();
         if (!apiKey) {
             errors.push('API key is required');
         } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
-        const uri = uriInput.value.trim();
+    const uri = uriInput.value.trim();
         if (!uri) {
             errors.push('URI is required');
         } else {
@@ -328,15 +340,11 @@ export class Settings {
 
         this.sanitizeInputs();
 
-        const apiKeyInput = document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_KEY : ID.GPT4O_KEY
-        );
-        const uriInput = document.getElementById(
-            currentModel === 'whisper' ? ID.WHISPER_URI : ID.GPT4O_URI
-        );
+    const apiKeyInput = currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput;
+    const uriInput = currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput;
 
-        const targetUri = uriInput.value.trim();
-        const apiKey = apiKeyInput.value.trim();
+    const targetUri = uriInput ? uriInput.value.trim() : '';
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
         if (!this.validateConfiguration()) {
             // Display first error to user via status helper
