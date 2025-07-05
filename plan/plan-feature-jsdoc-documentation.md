@@ -45,13 +45,19 @@ This plan outlines the steps to add comprehensive JSDoc comments to every public
 
 | File Path                           | Description                                              |
 |-------------------------------------|----------------------------------------------------------|
-| `js/audio-handler.js`               | Public methods: `startRecording`, `stopRecording` — Done |
-| `js/ui.js`                          | Public UI manipulation methods — Done                    |
-| `js/recording-state-machine.js`     | State transition handlers — Done                         |
 | `js/api-client.js`                  | Azure API integration methods — Done                     |
-| `js/settings.js`                    | Settings persistence and retrieval methods — Done        |
-| `js/permission-manager.js`          | Permission request and status methods — Pending          |
+| `js/audio-handler.js`               | Public methods: `startRecording`, `stopRecording` — Done |
+| `js/constants.js`                   | App-wide constants (MESSAGES, STORAGE_KEYS, etc.) — Pending |
+| `js/error-handler.js`               | Central error handling methods — Done                   |
 | `js/event-bus.js`                   | Event emitters and listeners — Pending                   |
+| `js/logger.js`                      | Logging utility methods — Pending                        |
+| `js/main.js`                        | Application entry-point initialization — Pending         |
+| `js/permission-manager.js`          | Permission request and status methods — Pending          |
+| `js/recording-state-machine.js`     | State transition handlers — Done                         |
+| `js/settings.js`                    | Settings persistence and retrieval methods — Done        |
+| `js/status-helper.js`               | Temporary and persistent status display methods — Pending |
+| `js/ui.js`                          | Public UI manipulation methods — Done                    |
+| `js/visualization.js`               | Audio visualization control methods — Pending            |
 
 ## 6. Testing
 
