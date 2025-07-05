@@ -41,11 +41,12 @@
 
 // js/audio-handler.js
 import { showTemporaryStatus } from './status-helper.js';
-import { COLORS, RECORDING_STATES, MESSAGES, ID } from './constants.js';
+import { COLORS, RECORDING_STATES, MESSAGES, ID, TIMER_CONFIG } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { errorHandler } from './error-handler.js';
 
 /**
  * Audio recording and processing manager for speech transcription.
@@ -94,10 +95,10 @@ export class AudioHandler {
         this.audioChunks = [];
         this.recordingStartTime = null;
         this.timerInterval = null;
+    this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         
-
-        
-        // Permission management
+        // Controls
+        this.cancelRequested = false;
         this.permissionManager = new PermissionManager(ui);
         
         // State machine
@@ -200,18 +201,15 @@ export class AudioHandler {
             this.startRecording(stream);
             
         } catch (err) {
-            const audioLogger = logger.child('AudioHandler');
-            audioLogger.error('Error starting recording:', err);
-            
+            // Standardized error handling
+            errorHandler.handleError(err, { module: 'AudioHandler' });
             // Transition to error state
-            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
-                error: err.message
-            });
-            
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: err.message });
+            // If configuration-related error, open settings
             if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
+                this.settings.openSettingsModal();
                 eventBus.emit(APP_EVENTS.API_CONFIG_MISSING);
             }
-            
             // Return to idle after error
             setTimeout(() => {
                 this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
@@ -219,20 +217,40 @@ export class AudioHandler {
         }
     }
     
+    /**
+     * Stops the recording workflow, resets timer, and handles model-specific stop logic.
+     * 
+     * @async
+     * @method stopRecordingFlow
+     * @returns {Promise&lt;void>} Resolves when recorder has been stopped or an error event has been emitted
+     */
     async stopRecordingFlow() {
         const model = this.settings.getCurrentModel();
         await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
         
-        // Stop the timer immediately when stopping
-        clearInterval(this.timerInterval);
+    // Stop the timer immediately when stopping
+    clearInterval(this.timerInterval);
+    // Emit timer reset event immediately for UI
+    eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
         
-        if (model === 'gpt-4o-transcribe') {
-            this.gracefulStop();
-        } else {
-            this.stopRecording();
+        try {
+            if (model === 'gpt-4o-transcribe') {
+                await this.gracefulStop();
+            } else {
+                this.safeStopRecorder();
+            }
+        } catch (err) {
+            eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
         }
     }
     
+    /**
+     * Initializes MediaRecorder and begins capturing audio data, visualization, and timer.
+     * 
+     * @method startRecording
+     * @param {MediaStream} stream - Audio media stream from microphone
+     * @returns {void}
+     */
     startRecording(stream) {
         this.audioChunks = [];
         this.mediaRecorder = new MediaRecorder(stream);
@@ -274,52 +292,90 @@ export class AudioHandler {
         this.startTimer();
     }
 
+    /**
+     * Safely stops the MediaRecorder if active and handles any stop errors.
+     * 
+     * @method safeStopRecorder
+     * @returns {void}
+     */
     safeStopRecorder() {
         if (this.mediaRecorder &amp;&amp; this.mediaRecorder.state !== 'inactive') {
-            this.mediaRecorder.stop();
+            try {
+                this.mediaRecorder.stop();
+            } catch (err) {
+                eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
+            }
         }
     }
 
+    /**
+     * Requests the MediaRecorder to stop capturing audio if allowed by state machine.
+     * 
+     * @method stopRecording
+     * @returns {void}
+     */
     stopRecording() {
         if (this.stateMachine.canInvokeStop()) {
             this.safeStopRecorder();
         }
     }
 
-    async gracefulStop(delayMs = 800) {
+    /**
+     * Performs a graceful stop by flushing recorder data after a configured delay.
+     * 
+     * @async
+     * @method gracefulStop
+     * @param {number} [delayMs=250] - Delay in milliseconds before requesting data flush
+     * @returns {Promise&lt;void>} Resolves after recorder data has been requested or error emitted
+     */
+    async gracefulStop(delayMs = TIMER_CONFIG.GRACEFUL_STOP_DELAY_MS) {
         if (!this.stateMachine.canInvokeStop()) return;
         if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
 
-        // 1. Keep capturing a short tail to ensure complete audio including the tail
-        await new Promise(res => setTimeout(res, delayMs));
-
-        // 2. Ask MediaRecorder to flush its internal buffer
-        await new Promise(res => {
-            if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
-                res();
-            } else {
-                this.mediaRecorder.addEventListener('dataavailable', res, { once: true });
-                this.mediaRecorder.requestData();
-            }
-        });
-
-        // 3. Stop recording if still active and stopping is allowed
-        if (this.stateMachine.canInvokeStop() &amp;&amp; this.mediaRecorder &amp;&amp; this.mediaRecorder.state !== 'inactive') {
-            this.safeStopRecorder();
+        // Request internal buffer flush immediately
+        try {
+            this.mediaRecorder.requestData();
+        } catch (err) {
+            eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
+            return;
         }
+
+        // Delay stopping to capture remaining audio tail
+        setTimeout(() => {
+            this.safeStopRecorder();
+        }, delayMs);
     }
     
+    /**
+     * Toggles the pause state of the recording, pausing or resuming as appropriate.
+     * 
+     * @async
+     * @method togglePause
+     * @returns {Promise&lt;void>} Resolves when pause or resume operation completes
+     */
     async togglePause() {
         if (this.stateMachine.canPause()) {
             this.mediaRecorder.pause();
             clearInterval(this.timerInterval);
+            this.timerInterval = null;
             await this.stateMachine.transitionTo(RECORDING_STATES.PAUSED);
         } else if (this.stateMachine.canResume()) {
+            // Resume timer from paused state by adjusting start time
+            const pausedTime = this.getTimerMilliseconds();
+            this.recordingStartTime = Date.now() - pausedTime;
+            this.mediaRecorder.resume();
+            this.startTimer();
             eventBus.emit(APP_EVENTS.RECORDING_RESUMED);
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
         }
     }
     
+    /**
+     * Cancels the current recording, stops tracks, and resets state.
+     * 
+     * @method cancelRecording
+     * @returns {void}
+     */
     async cancelRecording() {
         if (this.stateMachine.canCancel()) {
             await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
@@ -327,6 +383,43 @@ export class AudioHandler {
         }
     }
     
+    /**
+     * Calculates the elapsed recording time in milliseconds based on start time.
+     * 
+     * @method getTimerMilliseconds
+     * @returns {number} The number of milliseconds since recording started
+     */
+    getTimerMilliseconds() {
+        const parts = this.currentTimerDisplay.split(':');
+    return (parseInt(parts[0]) * TIMER_CONFIG.MINUTE_MS) + (parseInt(parts[1]) * TIMER_CONFIG.SECOND_MS);
+    }
+
+    /**
+     * Starts or restarts the recording timer, updating UI on each tick.
+     * 
+     * @method startTimer
+     * @returns {void}
+     */
+    startTimer() {
+        this.timerInterval = setInterval(() => {
+            const elapsed = Date.now() - this.recordingStartTime;
+            const seconds = Math.floor(elapsed / TIMER_CONFIG.SECOND_MS) % 60;
+            const minutes = Math.floor(elapsed / 60000);
+            this.currentTimerDisplay = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+            eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, {
+                display: this.currentTimerDisplay
+            });
+        }, TIMER_CONFIG.INTERVAL_MS);
+    }
+    
+    /**
+     * Processes recorded audio chunks and sends them to Azure API for transcription.
+     * 
+     * @async
+     * @method processAndSendAudio
+     * @param {MediaStream} stream - The original audio media stream
+     * @returns {Promise&lt;void>} Resolves when transcription is complete or error emitted
+     */
     async processAndSendAudio(stream) {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         
@@ -361,7 +454,7 @@ export class AudioHandler {
             
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS);
             
-        } catch (error) {
+    } catch (error) {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Transcription error:', error);
             
@@ -374,36 +467,31 @@ export class AudioHandler {
                 type: 'error',
                 temporary: true
             });
+            // Cleanup resources on transcription error
+            this.cleanup();
         } finally {
-            this.ui.hideSpinner();
+            eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }
     }
     
-    startTimer() {
-        this.timerInterval = setInterval(() => {
-            const elapsed = Date.now() - this.recordingStartTime;
-            const seconds = Math.floor(elapsed / 1000) % 60;
-            const minutes = Math.floor(elapsed / 60000);
-            this.ui.updateTimer(`${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`);
-        }, 1000);
-    }
-    
-    getTimerMilliseconds() {
-        const parts = this.ui.timerElement.textContent.split(':');
-        return (parseInt(parts[0]) * 60000) + (parseInt(parts[1]) * 1000);
-    }
-    
+    /**
+     * Cleans up MediaRecorder, audio chunks, and resets state for next recording.
+     * 
+     * @method cleanup
+     * @returns {void}
+     */
     cleanup() {
         // Called after audio has been processed to reset UI and state
 
         // Clear timer
         clearInterval(this.timerInterval);
         this.timerInterval = null;
+        this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
 
-        // Reset UI
-        this.ui.updateTimer('00:00');
-        this.ui.setRecordingState(false);
-        this.ui.setPauseState(false);
+        // Reset UI via events
+        eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
+        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: false });
 
         // Visualization cleanup is now handled by UI via event
 
@@ -425,13 +513,13 @@ export class AudioHandler {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

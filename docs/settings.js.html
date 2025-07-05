@@ -77,6 +77,13 @@ export class Settings {
 
         // Cache the status element with the other DOM references
         this.statusElement = document.getElementById(ID.STATUS);
+    // Cache settings containers and form inputs
+    this.whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
+    this.gpt4oSettings = document.getElementById(ID.GPT4O_SETTINGS);
+    this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
+    this.whisperKeyInput = document.getElementById(ID.WHISPER_KEY);
+    this.gpt4oUriInput = document.getElementById(ID.GPT4O_URI);
+    this.gpt4oKeyInput = document.getElementById(ID.GPT4O_KEY);
         
         this.init();
     }
@@ -157,29 +164,28 @@ export class Settings {
         });
     }
     
+    /**
+     * Updates visibility of model-specific settings sections based on selected model.
+     * 
+     * @method updateSettingsVisibility
+     * @returns {void}
+     */
     updateSettingsVisibility() {
         const currentModel = this.getCurrentModel();
-        const whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
-        const gpt4oSettings = document.getElementById(ID.GPT4O_SETTINGS);
-        
-        if (currentModel === 'whisper') {
-            whisperSettings.style.display = 'block';
-            gpt4oSettings.style.display = 'none';
-        } else {
-            whisperSettings.style.display = 'none';
-            gpt4oSettings.style.display = 'block';
+        if (this.whisperSettings) {
+            this.whisperSettings.style.display = currentModel === 'whisper' ? 'block' : 'none';
+        }
+        if (this.gpt4oSettings) {
+            this.gpt4oSettings.style.display = currentModel === 'whisper' ? 'none' : 'block';
         }
     }
     
     /**
-     * Opens the settings modal for user configuration.
-     * Updates visibility based on selected model and loads current settings.
+     * Opens the settings modal, loads current settings into form, and emits open event.
      * 
      * @method openSettingsModal
      * @fires APP_EVENTS.UI_SETTINGS_OPENED
-     * 
-     * @example
-     * settings.openSettingsModal(); // Show settings dialog
+     * @returns {void}
      */
     openSettingsModal() {
         this.updateSettingsVisibility();
@@ -190,10 +196,11 @@ export class Settings {
     }
     
     /**
-     * Closes the settings modal without saving changes.
+     * Closes the settings modal without saving and emits closed event.
      * 
      * @method closeSettingsModal
      * @fires APP_EVENTS.UI_SETTINGS_CLOSED
+     * @returns {void}
      */
     closeSettingsModal() {
         this.settingsModal.style.display = 'none';
@@ -215,31 +222,175 @@ export class Settings {
         const gpt4oUri = localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
         const gpt4oKey = localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
         
-        if (whisperUri) document.getElementById(ID.WHISPER_URI).value = whisperUri;
-        if (whisperKey) document.getElementById(ID.WHISPER_KEY).value = whisperKey;
-        if (gpt4oUri) document.getElementById(ID.GPT4O_URI).value = gpt4oUri;
-        if (gpt4oKey) document.getElementById(ID.GPT4O_KEY).value = gpt4oKey;
+        if (this.whisperUriInput &amp;&amp; whisperUri) {
+            this.whisperUriInput.value = whisperUri;
+        }
+        if (this.whisperKeyInput &amp;&amp; whisperKey) {
+            this.whisperKeyInput.value = whisperKey;
+        }
+        if (this.gpt4oUriInput &amp;&amp; gpt4oUri) {
+            this.gpt4oUriInput.value = gpt4oUri;
+        }
+        if (this.gpt4oKeyInput &amp;&amp; gpt4oKey) {
+            this.gpt4oKeyInput.value = gpt4oKey;
+        }
+    }
+
+    /**
+     * Trim whitespace and normalize user provided settings inputs.
+     * Removes newlines and tabs from the API key and ensures the
+     * URI field uses a standard format of &lt;origin>/ with no path.
+     *
+     * @method sanitizeInputs
+     */
+    sanitizeInputs() {
+        const currentModel = this.getCurrentModel();
+
+        // Use injected inputs if defined, else use cached inputs; allow null to pass through
+        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
+            ? this.apiKeyInput
+            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+        const uriInput = typeof this.apiUriInput !== 'undefined'
+            ? this.apiUriInput
+            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
+
+        if (apiKeyInput &amp;&amp; typeof apiKeyInput.value === 'string') {
+            // Remove all whitespace characters (spaces, tabs, newlines, etc.)
+            apiKeyInput.value = apiKeyInput.value.replace(/\s+/g, '');
+        }
+
+        if (uriInput &amp;&amp; typeof uriInput.value === 'string') {
+            // Remove all whitespace characters
+            let uri = uriInput.value.replace(/\s+/g, '');
+            try {
+                const parsed = new URL(uri);
+                uri = `${parsed.origin}/`;
+            } catch (_) {
+                // Leave as whitespace-stripped string if parsing fails
+            }
+            uriInput.value = uri;
+        }
+    }
+
+    /**
+     * Validate the current configuration fields.
+     * Ensures an API key is present and formatted correctly and that
+     * the URI is a valid HTTPS URL.
+     * Emits SETTINGS_VALIDATION_ERROR with details when invalid.
+     *
+     * @method validateConfiguration
+     * @returns {boolean} True if configuration is valid
+     */
+    validateConfiguration() {
+        this.sanitizeInputs();
+
+        const currentModel = this.getCurrentModel();
+        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
+            ? this.apiKeyInput
+            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+        const uriInput = typeof this.apiUriInput !== 'undefined'
+            ? this.apiUriInput
+            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
+
+        const errors = [];
+
+    const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            errors.push('API key is required');
+        } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
+            errors.push('Invalid API key format');
+        }
+
+    const uri = uriInput.value.trim();
+        if (!uri) {
+            errors.push('URI is required');
+        } else {
+            try {
+                const url = new URL(uri);
+                if (url.protocol !== 'https:') {
+                    errors.push('URI must use HTTPS');
+                }
+            } catch (_) {
+                errors.push('Invalid URI format');
+            }
+        }
+
+        if (errors.length > 0) {
+            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, { errors });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Retrieve human readable validation errors for the current
+     * configuration without emitting any events.
+     *
+     * @method getValidationErrors
+     * @returns {string[]} Array of error messages
+     */
+    getValidationErrors() {
+        this.sanitizeInputs();
+
+        const currentModel = this.getCurrentModel();
+        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
+            ? this.apiKeyInput
+            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+        const uriInput = typeof this.apiUriInput !== 'undefined'
+            ? this.apiUriInput
+            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
+
+        const errors = [];
+
+    const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            errors.push('API key is required');
+        } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
+            errors.push('Invalid API key format');
+        }
+
+    const uri = uriInput.value.trim();
+        if (!uri) {
+            errors.push('URI is required');
+        } else {
+            try {
+                const url = new URL(uri);
+                if (url.protocol !== 'https:') {
+                    errors.push('URI must use HTTPS');
+                }
+            } catch (_) {
+                errors.push('Invalid URI format');
+            }
+        }
+
+        return errors;
     }
     
+    /**
+     * Saves current settings from form to localStorage, validates, and emits relevant events.
+     * 
+     * @method saveSettings
+     * @fires APP_EVENTS.SETTINGS_SAVED
+     * @fires APP_EVENTS.SETTINGS_VALIDATION_ERROR
+     * @returns {void}
+     */
     saveSettings() {
         const currentModel = this.getCurrentModel();
-        
-        let targetUri, apiKey;
-        if (currentModel === 'whisper') {
-            targetUri = document.getElementById(ID.WHISPER_URI).value.trim();
-            apiKey = document.getElementById(ID.WHISPER_KEY).value.trim();
-        } else {
-            targetUri = document.getElementById(ID.GPT4O_URI).value.trim();
-            apiKey = document.getElementById(ID.GPT4O_KEY).value.trim();
-        }
-        
-        if (!apiKey || !targetUri) {
-            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, {
-                message: MESSAGES.FILL_REQUIRED_FIELDS
-            });
-            
+
+        this.sanitizeInputs();
+
+    const apiKeyInput = currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput;
+    const uriInput = currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput;
+
+    const targetUri = uriInput ? uriInput.value.trim() : '';
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+
+        if (!this.validateConfiguration()) {
+            // Display first error to user via status helper
+            const [firstError] = this.getValidationErrors();
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: MESSAGES.FILL_REQUIRED_FIELDS,
+                message: firstError || MESSAGES.FILL_REQUIRED_FIELDS,
                 type: 'error',
                 temporary: true
             });
@@ -282,32 +433,16 @@ export class Settings {
      * 
      * @method getCurrentModel
      * @returns {string} Current model identifier ('whisper' or 'gpt-4o-transcribe')
-     * 
-     * @example
-     * const model = settings.getCurrentModel();
-     * logger.info('Current model:', model);
      */
     getCurrentModel() {
         return this.modelSelect.value;
     }
     
     /**
-     * Gets the complete configuration for the currently selected model.
-     * Returns API credentials and endpoint information for the active model.
+     * Gets the complete API configuration for the selected model.
      * 
      * @method getModelConfig
-     * @returns {Object} Model configuration object
-     * @returns {string} config.model - Model identifier
-     * @returns {string} config.apiKey - API authentication key
-     * @returns {string} config.uri - API endpoint URI
-     * 
-     * @example
-     * const config = settings.getModelConfig();
-     * if (config.apiKey &amp;&amp; config.uri) {
-     *   logger.info('Configuration is complete for', config.model);
-     * } else {
-     *   logger.warn('Configuration incomplete');
-     * }
+     * @returns {{model: string, apiKey: string, uri: string}} Model configuration object
      */
     getModelConfig() {
         const model = this.getCurrentModel();
@@ -349,13 +484,13 @@ export class Settings {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

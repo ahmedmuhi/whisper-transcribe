@@ -8,6 +8,10 @@ import { COLORS } from './constants.js';
  *   controller.start();
  *   controller.stop();
  */
+/**
+ * Handles real-time audio visualization on a canvas element using Web Audio API.
+ * @module VisualizationController
+ */
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
         this.stream = stream;
@@ -27,11 +31,21 @@ export class VisualizationController {
         window.addEventListener('resize', this.resizeHandler);
     }
 
+    /**
+     * Adjust canvas dimensions to match parent container size.
+     * @method updateCanvasSize
+     * @returns {void}
+     */
     updateCanvasSize() {
         this.canvas.width = this.canvas.parentElement.offsetWidth;
         this.canvas.height = this.canvas.parentElement.offsetHeight;
     }
 
+    /**
+     * Begin audio visualization rendering loop.
+     * @method start
+     * @returns {void}
+     */
     start() {
         const draw = () => {
             this.animationId = requestAnimationFrame(draw);
@@ -51,6 +65,11 @@ export class VisualizationController {
         draw();
     }
 
+    /**
+     * Stop visualization loop and clean up audio context and event listeners.
+     * @method stop
+     * @returns {void}
+     */
     stop() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);

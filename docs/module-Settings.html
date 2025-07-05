@@ -133,7 +133,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
         <ul>
             <li><a href="module-EventBus.html">module:EventBus</a></li>
         
-            <li>module:StatusHelper</li>
+            <li><a href="module-StatusHelper.html">module:StatusHelper</a></li>
         
             <li><a href="module-Constants.html">module:Constants</a></li>
         </ul>
@@ -168,7 +168,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
     
 
     
-    <h4 class="name" id="~closeSettingsModal"><span class="type-signature">(inner) </span>closeSettingsModal<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~closeSettingsModal"><span class="type-signature">(inner) </span>closeSettingsModal<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
     
 
     
@@ -176,7 +176,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
 
 
 <div class="description">
-    <p>Closes the settings modal without saving changes.</p>
+    <p>Closes the settings modal without saving and emits closed event.</p>
 </div>
 
 
@@ -220,7 +220,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line164">line 164</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line170">line 170</a>
     </li></ul></dd>
     
 
@@ -250,6 +250,24 @@ Handles model selection, API credentials, and settings persistence.</p></div>
 
 
 
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
+
+
+    </dd>
+</dl>
+
+    
 
 
 
@@ -313,7 +331,7 @@ Handles model selection, API credentials, and settings persistence.</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line252">line 252</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line403">line 403</a>
     </li></ul></dd>
     
 
@@ -364,12 +382,6 @@ Handles model selection, API credentials, and settings persistence.</p></div>
 
 
 
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>const model = settings.getCurrentModel();
-logger.info('Current model:', model);</code></pre>
-
-
 
         
             
@@ -377,7 +389,7 @@ logger.info('Current model:', model);</code></pre>
     
 
     
-    <h4 class="name" id="~getModelConfig"><span class="type-signature">(inner) </span>getModelConfig<span class="signature">()</span><span class="type-signature"> &rarr; {Object|string|string|string}</span></h4>
+    <h4 class="name" id="~getModelConfig"><span class="type-signature">(inner) </span>getModelConfig<span class="signature">()</span><span class="type-signature"> &rarr; {Object}</span></h4>
     
 
     
@@ -385,8 +397,7 @@ logger.info('Current model:', model);</code></pre>
 
 
 <div class="description">
-    <p>Gets the complete configuration for the currently selected model.<br>
-Returns API credentials and endpoint information for the active model.</p>
+    <p>Gets the complete API configuration for the selected model.</p>
 </div>
 
 
@@ -430,7 +441,7 @@ Returns API credentials and endpoint information for the active model.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line266">line 266</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line413">line 413</a>
     </li></ul></dd>
     
 
@@ -456,8 +467,8 @@ Returns API credentials and endpoint information for the active model.</p>
 
 
 <h5>Returns:</h5>
-<ul>
-        <li>
+
+        
 <div class="param-desc">
     <p>Model configuration object</p>
 </div>
@@ -475,80 +486,10 @@ Returns API credentials and endpoint information for the active model.</p>
 
     </dd>
 </dl>
-</li>
+
     
-        <li>
-<div class="param-desc">
-    <p>config.model - Model identifier</p>
-</div>
 
 
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>config.apiKey - API authentication key</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>config.uri - API endpoint URI</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    </ul>
-
-
-
-
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>const config = settings.getModelConfig();
-if (config.apiKey &amp;&amp; config.uri) {
-  logger.info('Configuration is complete for', config.model);
-} else {
-  logger.warn('Configuration incomplete');
-}</code></pre>
 
 
 
@@ -558,7 +499,7 @@ if (config.apiKey &amp;&amp; config.uri) {
     
 
     
-    <h4 class="name" id="~openSettingsModal"><span class="type-signature">(inner) </span>openSettingsModal<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~getValidationErrors"><span class="type-signature">(inner) </span>getValidationErrors<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;string>}</span></h4>
     
 
     
@@ -566,8 +507,8 @@ if (config.apiKey &amp;&amp; config.uri) {
 
 
 <div class="description">
-    <p>Opens the settings modal for user configuration.<br>
-Updates visibility based on selected model and loads current settings.</p>
+    <p>Retrieve human readable validation errors for the current<br>
+configuration without emitting any events.</p>
 </div>
 
 
@@ -611,7 +552,117 @@ Updates visibility based on selected model and loads current settings.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line146">line 146</a>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line298">line 298</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>Array of error messages</p>
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Array.&lt;string></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~openSettingsModal"><span class="type-signature">(inner) </span>openSettingsModal<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Opens the settings modal, loads current settings into form, and emits open event.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line155">line 155</a>
     </li></ul></dd>
     
 
@@ -641,13 +692,448 @@ Updates visibility based on selected model and loads current settings.</p>
 
 
 
+<h5>Returns:</h5>
+
+        
 
 
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
 
 
-    <h5>Example</h5>
+    </dd>
+</dl>
+
     
-    <pre class="prettyprint"><code>settings.openSettingsModal(); // Show settings dialog</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~sanitizeInputs"><span class="type-signature">(inner) </span>sanitizeInputs<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Trim whitespace and normalize user provided settings inputs.<br>
+Removes newlines and tabs from the API key and ensures the<br>
+URI field uses a standard format of <origin>/ with no path.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line211">line 211</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~saveSettings"><span class="type-signature">(inner) </span>saveSettings<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Saves current settings from form to localStorage, validates, and emits relevant events.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line342">line 342</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<h5>Fires:</h5>
+<ul>
+    <li>APP_EVENTS.event:SETTINGS_SAVED</li>
+
+    <li>APP_EVENTS.event:SETTINGS_VALIDATION_ERROR</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~updateSettingsVisibility"><span class="type-signature">(inner) </span>updateSettingsVisibility<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Updates visibility of model-specific settings sections based on selected model.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line139">line 139</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~validateConfiguration"><span class="type-signature">(inner) </span>validateConfiguration<span class="signature">()</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Validate the current configuration fields.<br>
+Ensures an API key is present and formatted correctly and that<br>
+the URI is a valid HTTPS URL.<br>
+Emits SETTINGS_VALIDATION_ERROR with details when invalid.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line247">line 247</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>True if configuration is valid</p>
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
 
 
 
@@ -667,13 +1153,13 @@ Updates visibility based on selected model and loads current settings.</p>
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

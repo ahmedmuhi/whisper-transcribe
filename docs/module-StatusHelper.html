@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Class: AudioHandler</title>
+    <title>JSDoc: Module: StatusHelper</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Class: AudioHandler</h1>
+    <h1 class="page-title">Module: StatusHelper</h1>
 
     
 
@@ -28,8 +28,8 @@
 
 <header>
     
-        <h2><span class="attribs"><span class="type-signature"></span></span>
-            <span class="ancestors"><a href="module-AudioHandler.html">AudioHandler</a>.</span>AudioHandler<span class="signature">(apiClient, ui, settings)</span><span class="type-signature"></span></h2>
+        
+            
         
     
 </header>
@@ -38,20 +38,13 @@
     <div class="container-overview">
     
         
+            <div class="description"><p>Display a temporary status message in a DOM element and optionally reset it.</p></div>
+        
 
-    
-
-    
-    <h4 class="name" id="AudioHandler"><span class="type-signature"></span>new AudioHandler<span class="signature">(apiClient, ui, settings)</span><span class="type-signature"></span></h4>
-    
-
-    
+        
+            
 
 
-
-<div class="description">
-    <p>Creates a new AudioHandler instance.</p>
-</div>
 
 
 
@@ -74,7 +67,11 @@
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
+        
+        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -86,69 +83,191 @@
 
         <tr>
             
-                <td class="name"><code>apiClient</code></td>
+                <td class="name"><code>element</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">AzureAPIClient</span>
+<span class="param-type">HTMLElement</span>
 
 
             
             </td>
 
             
+                <td class="attributes">
+                
 
+                
+
+                
+                </td>
             
 
-            <td class="description last"><p>Azure API client for transcription</p></td>
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>The target element for status messages</p></td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>ui</code></td>
+                <td class="name"><code>message</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">UI</span>
+<span class="param-type">string</span>
 
 
             
             </td>
 
             
+                <td class="attributes">
+                
 
+                
+
+                
+                </td>
             
 
-            <td class="description last"><p>UI controller instance for interface updates</p></td>
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Status text to display</p></td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>settings</code></td>
+                <td class="name"><code>type</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">Settings</span>
+<span class="param-type">'info'</span>
+|
+
+<span class="param-type">'success'</span>
+|
+
+<span class="param-type">'error'</span>
 
 
             
             </td>
 
             
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
 
+                
+
+                
+                </td>
             
 
-            <td class="description last"><p>Settings manager for configuration</p></td>
+            
+                <td class="default">
+                
+                    'info'
+                
+                </td>
+            
+
+            <td class="description last"><p>Message type for color coding</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>duration</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    3000
+                
+                </td>
+            
+
+            <td class="description last"><p>Time in ms before resetting message</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>resetMessage</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Text to display after timeout</p></td>
         </tr>
 
     
@@ -189,7 +308,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="audio-handler.js.html">audio-handler.js</a>, <a href="audio-handler.js.html#line60">line 60</a>
+        <a href="status-helper.js.html">status-helper.js</a>, <a href="status-helper.js.html#line3">line 3</a>
     </li></ul></dd>
     
 
@@ -219,6 +338,7 @@
 
 
 
+        
     
     </div>
 

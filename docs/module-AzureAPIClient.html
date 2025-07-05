@@ -294,7 +294,7 @@ Handles both text and JSON responses from different Azure Speech Service models.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api-client.js.html">api-client.js</a>, <a href="api-client.js.html#line154">line 154</a>
+        <a href="api-client.js.html">api-client.js</a>, <a href="api-client.js.html#line155">line 155</a>
     </li></ul></dd>
     
 
@@ -537,7 +537,7 @@ Supports both Whisper and GPT-4o models with automatic model-specific formatting
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api-client.js.html">api-client.js</a>, <a href="api-client.js.html#line46">line 46</a>
+        <a href="api-client.js.html">api-client.js</a>, <a href="api-client.js.html#line47">line 47</a>
     </li></ul></dd>
     
 
@@ -732,7 +732,7 @@ const result = await apiClient.transcribe(audioBlob, (status) => {
     
 
     
-    <h4 class="name" id="~validateConfig"><span class="type-signature">(inner) </span>validateConfig<span class="signature">()</span><span class="type-signature"> &rarr; {Object|string|string|string}</span></h4>
+    <h4 class="name" id="~validateConfig"><span class="type-signature">(inner) </span>validateConfig<span class="signature">()</span><span class="type-signature"> &rarr; {Object}</span></h4>
     
 
     
@@ -740,8 +740,7 @@ const result = await apiClient.transcribe(audioBlob, (status) => {
 
 
 <div class="description">
-    <p>Validates API configuration before attempting transcription.<br>
-Checks for required API keys, URIs, and validates URI format.</p>
+    <p>Validates the API client configuration for required keys, URI, and model settings.</p>
 </div>
 
 
@@ -785,7 +784,7 @@ Checks for required API keys, URIs, and validates URI format.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api-client.js.html">api-client.js</a>, <a href="api-client.js.html#line192">line 192</a>
+        <a href="api-client.js.html">api-client.js</a>, <a href="api-client.js.html#line193">line 193</a>
     </li></ul></dd>
     
 
@@ -800,11 +799,6 @@ Checks for required API keys, URIs, and validates URI format.</p>
 
 
 
-<h5>Fires:</h5>
-<ul>
-    <li>APP_EVENTS.event:API_CONFIG_MISSING</li>
-</ul>
-
 
 
 
@@ -814,13 +808,13 @@ Checks for required API keys, URIs, and validates URI format.</p>
 
 
 <h5>Throws:</h5>
-<ul>
-        <li>
+
+        
 
 <dl>
     <dt>
         <div class="param-desc">
-        <p>When API key is missing</p>
+        <p>When API key or URI is missing or invalid</p>
         </div>
     </dt>
     <dd></dd>
@@ -840,40 +834,13 @@ Checks for required API keys, URIs, and validates URI format.</p>
     <dd></dd>
 </dl>
 
-</li>
+
     
-        <li>
-
-<dl>
-    <dt>
-        <div class="param-desc">
-        <p>When URI is missing or invalid format</p>
-        </div>
-    </dt>
-    <dd></dd>
-    <dt>
-        <dl>
-            <dt>
-                Type
-            </dt>
-            <dd>
-                
-<span class="param-type">Error</span>
-
-
-            </dd>
-        </dl>
-    </dt>
-    <dd></dd>
-</dl>
-
-</li>
-    </ul>
 
 
 <h5>Returns:</h5>
-<ul>
-        <li>
+
+        
 <div class="param-desc">
     <p>Validated configuration object</p>
 </div>
@@ -891,80 +858,10 @@ Checks for required API keys, URIs, and validates URI format.</p>
 
     </dd>
 </dl>
-</li>
+
     
-        <li>
-<div class="param-desc">
-    <p>config.apiKey - API authentication key</p>
-</div>
 
 
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>config.uri - API endpoint URI</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>config.model - Model identifier</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    </ul>
-
-
-
-
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>try {
-  const config = apiClient.validateConfig();
-  logger.info('Configuration is valid:', config);
-} catch (error) {
-  logger.error('Configuration invalid:', error.message);
-}</code></pre>
 
 
 
@@ -984,13 +881,13 @@ Checks for required API keys, URIs, and validates URI format.</p>
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

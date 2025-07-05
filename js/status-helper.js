@@ -1,5 +1,14 @@
 import { COLORS, DEFAULT_RESET_STATUS } from './constants.js';
 
+/**
+ * Display a temporary status message in a DOM element and optionally reset it.
+ * @module StatusHelper
+ * @param {HTMLElement} element - The target element for status messages
+ * @param {string} message - Status text to display
+ * @param {('info'|'success'|'error')} [type='info'] - Message type for color coding
+ * @param {number} [duration=3000] - Time in ms before resetting message
+ * @param {string} [resetMessage] - Text to display after timeout
+ */
 export function showTemporaryStatus(
     element,
     message,

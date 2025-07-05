@@ -218,7 +218,7 @@ Handles state transitions, validation, and coordination between recording states
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line400">line 400</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line380">line 380</a>
     </li></ul></dd>
     
 
@@ -329,7 +329,7 @@ Returns true when recording is active, paused, or already stopping/cancelling.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line384">line 384</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line364">line 364</a>
     </li></ul></dd>
     
 
@@ -439,7 +439,7 @@ Returns true when recording is active, paused, or already stopping/cancelling.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line364">line 364</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line344">line 344</a>
     </li></ul></dd>
     
 
@@ -549,7 +549,7 @@ Returns true when recording is active, paused, or already stopping/cancelling.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line354">line 354</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line334">line 334</a>
     </li></ul></dd>
     
 
@@ -659,7 +659,7 @@ Returns true when recording is active, paused, or already stopping/cancelling.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line374">line 374</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line354">line 354</a>
     </li></ul></dd>
     
 
@@ -725,8 +725,7 @@ Returns true when recording is active, paused, or already stopping/cancelling.</
 
 
 <div class="description">
-    <p>Checks if a transition to the specified state is valid from the current state.<br>
-Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
+    <p>Checks if a transition to the specified state is valid from the current state.</p>
 </div>
 
 
@@ -778,7 +777,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
 
             
 
-            <td class="description last"><p>Target state to transition to</p></td>
+            <td class="description last"><p>Target state to validate</p></td>
         </tr>
 
     
@@ -819,7 +818,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line70">line 70</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line71">line 71</a>
     </li></ul></dd>
     
 
@@ -848,7 +847,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
 
         
 <div class="param-desc">
-    <p>True if transition is valid, false otherwise</p>
+    <p>True if transition is allowed, false otherwise</p>
 </div>
 
 
@@ -868,13 +867,6 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
 
 
-
-
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>if (stateMachine.canTransitionTo(RECORDING_STATES.RECORDING)) {
-  await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-}</code></pre>
 
 
 
@@ -936,7 +928,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line60">line 60</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line61">line 61</a>
     </li></ul></dd>
     
 
@@ -1046,7 +1038,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line314">line 314</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line294">line 294</a>
     </li></ul></dd>
     
 
@@ -1156,7 +1148,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line334">line 334</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line314">line 314</a>
     </li></ul></dd>
     
 
@@ -1266,7 +1258,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line344">line 344</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line324">line 324</a>
     </li></ul></dd>
     
 
@@ -1376,7 +1368,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line324">line 324</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line304">line 304</a>
     </li></ul></dd>
     
 
@@ -1442,8 +1434,7 @@ Uses the STATE_TRANSITIONS configuration to validate allowed transitions.</p>
 
 
 <div class="description">
-    <p>Transitions to a new recording state with validation and event emission.<br>
-Validates the transition, updates state, emits events, and executes state handler.</p>
+    <p>Transitions the state machine to a new recording state, emits events, and invokes state handlers.</p>
 </div>
 
 
@@ -1550,7 +1541,7 @@ Validates the transition, updates state, emits events, and executes state handle
                 </td>
             
 
-            <td class="description last"><p>Additional data to pass to state handler and events</p></td>
+            <td class="description last"><p>Optional data payload for the transition event</p></td>
         </tr>
 
     
@@ -1591,7 +1582,7 @@ Validates the transition, updates state, emits events, and executes state handle
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line88">line 88</a>
+        <a href="recording-state-machine.js.html">recording-state-machine.js</a>, <a href="recording-state-machine.js.html#line83">line 83</a>
     </li></ul></dd>
     
 
@@ -1605,11 +1596,6 @@ Validates the transition, updates state, emits events, and executes state handle
 
 
 
-
-<h5>Fires:</h5>
-<ul>
-    <li>APP_EVENTS.event:RECORDING_STATE_CHANGED</li>
-</ul>
 
 
 
@@ -1654,7 +1640,7 @@ Validates the transition, updates state, emits events, and executes state handle
 
         
 <div class="param-desc">
-    <p>Promise resolving to true if transition succeeded</p>
+    <p>Resolves to true if transition succeeded</p>
 </div>
 
 
@@ -1676,21 +1662,6 @@ Validates the transition, updates state, emits events, and executes state handle
 
 
 
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>try {
-  const success = await stateMachine.transitionTo(
-    RECORDING_STATES.PROCESSING, 
-    { audioBlob: recordedData }
-  );
-  if (success) {
-    logger.info('State transition completed');
-  }
-} catch (error) {
-  logger.error('State transition failed:', error);
-}</code></pre>
-
-
 
         
     
@@ -1708,13 +1679,13 @@ Validates the transition, updates state, emits events, and executes state handle
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

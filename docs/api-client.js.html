@@ -39,6 +39,7 @@
 import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { errorHandler } from './error-handler.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
@@ -144,13 +145,14 @@ export class AzureAPIClient {
                 const apiLogger = logger.child('AzureAPIClient');
                 apiLogger.error('API Error Details:', errorText);
                 const error = new Error(`API responded with status: ${response.status}`);
-                
+                // Standardized error handling
+                errorHandler.handleError(error, { module: 'AzureAPIClient', status: response.status, details: errorText });
+                // Emit API_REQUEST_ERROR for consumer handling/tests
                 eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                     status: response.status,
                     error: error.message,
                     details: errorText
                 });
-                
                 throw error;
             }
             
@@ -168,13 +170,12 @@ export class AzureAPIClient {
             return transcription;
             
         } catch (error) {
-            const apiLogger = logger.child('AzureAPIClient');
-            apiLogger.error('Error sending to Azure API:', error);
-            
+            // Log and emit standardized error event
+            errorHandler.handleError(error, { module: 'AzureAPIClient' });
+            // Emit API_REQUEST_ERROR for consumer handling/tests
             eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                 error: error.message
             });
-            
             throw error;
         }
     }
@@ -218,25 +219,11 @@ export class AzureAPIClient {
     }
     
     /**
-     * Validates API configuration before attempting transcription.
-     * Checks for required API keys, URIs, and validates URI format.
+     * Validates the API client configuration for required keys, URI, and model settings.
      * 
      * @method validateConfig
-     * @returns {Object} Validated configuration object
-     * @returns {string} config.apiKey - API authentication key
-     * @returns {string} config.uri - API endpoint URI
-     * @returns {string} config.model - Model identifier
-     * @throws {Error} When API key is missing
-     * @throws {Error} When URI is missing or invalid format
-     * @fires APP_EVENTS.API_CONFIG_MISSING
-     * 
-     * @example
-     * try {
-     *   const config = apiClient.validateConfig();
-     *   logger.info('Configuration is valid:', config);
-     * } catch (error) {
-     *   logger.error('Configuration invalid:', error.message);
-     * }
+     * @returns {{ apiKey: string, uri: string, model: string }} Validated configuration object
+     * @throws {Error} When API key or URI is missing or invalid
      */
     validateConfig() {
         const config = this.settings.getModelConfig();
@@ -275,13 +262,13 @@ export class AzureAPIClient {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>

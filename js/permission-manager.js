@@ -4,6 +4,11 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
 
+/**
+ * Manages microphone permission requests and status notifications.
+ * Uses browser Permissions API and MediaDevices to handle access flows.
+ * @module PermissionManager
+ */
 export class PermissionManager {
     constructor(ui) {
         this.ui = ui;
@@ -14,6 +19,12 @@ export class PermissionManager {
     /**
      * Check if the browser supports the required APIs
      */
+    /**
+     * Check if the browser supports MediaRecorder and getUserMedia APIs.
+     * @static
+     * @method checkBrowserSupport
+     * @returns {boolean} True if required APIs are available
+     */
     static checkBrowserSupport() {
         return !!(window.MediaRecorder &&
                  navigator.mediaDevices &&
@@ -23,6 +34,12 @@ export class PermissionManager {
     /**
      * Get the current microphone permission status
      * @returns {Promise<PermissionState>} 'granted', 'denied', 'prompt', or null
+     */
+    /**
+     * Retrieves current microphone permission status via Permissions API.
+     * @async
+     * @method getPermissionStatus
+     * @returns {Promise<string|null>} 'granted', 'denied', 'prompt', or null if unavailable
      */
     async getPermissionStatus() {
         try {
@@ -51,6 +68,12 @@ export class PermissionManager {
     /**
      * Request microphone access and handle all possible outcomes
      * @returns {Promise<MediaStream|null>} The audio stream or null if failed
+     */
+    /**
+     * Requests microphone access, emits events for success or errors.
+     * @async
+     * @method requestMicrophoneAccess
+     * @returns {Promise<MediaStream|null>} The media stream if granted, otherwise null
      */
     async requestMicrophoneAccess() {
         try {
@@ -103,6 +126,12 @@ export class PermissionManager {
      * Handle various permission errors with specific messages
      * @param {Error} error The error from getUserMedia
      * @returns {null} Always returns null to indicate failure
+     */
+    /**
+     * Handles errors from getUserMedia and emits appropriate UI events.
+     * @method handlePermissionError
+     * @param {Error} error - Error thrown by getUserMedia
+     * @returns {null}
      */
     handlePermissionError(error) {
         const permLogger = logger.child('PermissionManager');
@@ -163,6 +192,11 @@ export class PermissionManager {
      * Handle permission state changes
      * @param {PermissionState} state The new permission state
      */
+    /**
+     * Reacts to permission status changes and emits events accordingly.
+     * @method handlePermissionChange
+     * @param {string} state - New permission state ('granted', 'denied', 'prompt')
+     */
     handlePermissionChange(state) {
         const permLogger = logger.child('PermissionManager');
         permLogger.info('Permission state changed to:', state);
@@ -194,6 +228,11 @@ export class PermissionManager {
     
     /**
      * Stop and clean up the microphone stream
+     */
+    /**
+     * Stops all tracks on the active microphone MediaStream.
+     * @method stopMicrophoneStream
+     * @returns {void}
      */
     stopMicrophoneStream() {
         if (this.microphoneStream) {

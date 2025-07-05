@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Class: Settings</title>
+    <title>JSDoc: Source: main.js</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,163 +17,47 @@
 
 <div id="main">
 
-    <h1 class="page-title">Class: Settings</h1>
+    <h1 class="page-title">Source: main.js</h1>
 
     
 
 
 
-
-<section>
-
-<header>
     
-        <h2><span class="attribs"><span class="type-signature"></span></span>
-            <span class="ancestors"><a href="module-Settings.html">Settings</a>~</span>Settings<span class="signature">()</span><span class="type-signature"></span></h2>
-        
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { Settings } from './settings.js';
+import { UI } from './ui.js';
+import { AzureAPIClient } from './api-client.js';
+import { AudioHandler } from './audio-handler.js';
+import { logger } from './logger.js';
+
+/**
+ * @fileoverview Application entry point: initializes core modules on DOMContentLoaded.
+ * @module Main
+ */
+// Initialize app
+document.addEventListener('DOMContentLoaded', () => {
+     /**
+      * Initialize the application: settings, UI, API client, audio handler.
+      * @returns {void}
+      */
+    logger.info('Initializing Speech-to-Text App...');
     
-</header>
-
-<article>
-    <div class="container-overview">
+    // Initialize modules
+    const settings = new Settings();
+    const ui = new UI();
+    const apiClient = new AzureAPIClient(settings);
+    const audioHandler = new AudioHandler(apiClient, ui, settings);
     
-        
-
+    // Initialize UI with settings reference
+    ui.init(settings, audioHandler);
     
-
-    
-    <h4 class="name" id="Settings"><span class="type-signature"></span>new Settings<span class="signature">()</span><span class="type-signature"></span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <p>Settings manager for API configuration and user preferences.<br>
-Handles model selection, API credentials, validation, and persistence to localStorage.<br>
-Provides configuration for both Azure Whisper and GPT-4o transcription models.</p>
-</div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="settings.js.html">settings.js</a>, <a href="settings.js.html#line17">line 17</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-<h5>Fires:</h5>
-<ul>
-    <li>APP_EVENTS.event:SETTINGS_UPDATED</li>
-
-    <li>APP_EVENTS.event:SETTINGS_MODEL_CHANGED</li>
-
-    <li>APP_EVENTS.event:SETTINGS_SAVED</li>
-
-    <li>APP_EVENTS.event:SETTINGS_VALIDATION_ERROR</li>
-</ul>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>const settings = new Settings();
-
-// Get current model configuration
-const config = settings.getModelConfig();
-logger.info('Current model:', config.model);
-
-// Open settings modal
-settings.openSettingsModal();</code></pre>
-
-
-
-    
-    </div>
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</article>
-
-</section>
+    logger.info('Speech-to-Text App initialized');
+});
+</code></pre>
+        </article>
+    </section>
 
 
 

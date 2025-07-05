@@ -91,7 +91,7 @@ Manages DOM interactions, visual states, and user interface updates.</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line2">line 2</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line1">line 1</a>
     </li></ul></dd>
     
 
@@ -133,9 +133,9 @@ Manages DOM interactions, visual states, and user interface updates.</p></div>
         <ul>
             <li><a href="module-EventBus.html">module:EventBus</a></li>
         
-            <li>module:PermissionManager</li>
+            <li><a href="module-PermissionManager.html">module:PermissionManager</a></li>
         
-            <li>module:StatusHelper</li>
+            <li><a href="module-StatusHelper.html">module:StatusHelper</a></li>
         
             <li><a href="module-Constants.html">module:Constants</a></li>
         </ul>
@@ -223,7 +223,7 @@ Used during processing or when recording is not available.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line554">line 554</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line596">line 596</a>
     </li></ul></dd>
     
 
@@ -264,7 +264,7 @@ Used during processing or when recording is not available.</p>
     
 
     
-    <h4 class="name" id="~displayTranscription"><span class="type-signature">(inner) </span>displayTranscription<span class="signature">(text)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~displayTranscription"><span class="type-signature">(inner) </span>displayTranscription<span class="signature">(text)</span><span class="type-signature"> &rarr; {void}</span></h4>
     
 
     
@@ -272,8 +272,7 @@ Used during processing or when recording is not available.</p>
 
 
 <div class="description">
-    <p>Displays transcribed text in the transcript area.<br>
-Appends new transcription to existing content with proper formatting.</p>
+    <p>Displays the transcribed text in the transcript textarea.</p>
 </div>
 
 
@@ -325,7 +324,7 @@ Appends new transcription to existing content with proper formatting.</p>
 
             
 
-            <td class="description last"><p>Transcribed text to display</p></td>
+            <td class="description last"><p>Transcription text to display</p></td>
         </tr>
 
     
@@ -366,7 +365,7 @@ Appends new transcription to existing content with proper formatting.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line435">line 435</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line489">line 489</a>
     </li></ul></dd>
     
 
@@ -391,14 +390,26 @@ Appends new transcription to existing content with proper formatting.</p>
 
 
 
+<h5>Returns:</h5>
+
+        
 
 
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
 
 
-    <h5>Example</h5>
+    </dd>
+</dl>
+
     
-    <pre class="prettyprint"><code>ui.displayTranscription('Hello world, this is a test.');
-ui.displayTranscription('Additional transcribed content.');</code></pre>
+
+
 
 
 
@@ -461,7 +472,7 @@ Used when the application is ready to accept recording commands.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line539">line 539</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line581">line 581</a>
     </li></ul></dd>
     
 
@@ -554,7 +565,7 @@ Used when the application is ready to accept recording commands.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line477">line 477</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line527">line 527</a>
     </li></ul></dd>
     
 
@@ -595,7 +606,7 @@ Used when the application is ready to accept recording commands.</p>
     
 
     
-    <h4 class="name" id="~init"><span class="type-signature">(inner) </span>init<span class="signature">(settings, audioHandler)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~init"><span class="type-signature">(inner) </span>init<span class="signature">(settings, audioHandler)</span><span class="type-signature"> &rarr; {void}</span></h4>
     
 
     
@@ -603,8 +614,7 @@ Used when the application is ready to accept recording commands.</p>
 
 
 <div class="description">
-    <p>Initializes the UI controller with required dependencies.<br>
-Sets up event listeners, loads theme, and performs initial state checks.</p>
+    <p>Initializes UI controller, sets up event listeners and loads initial theme and state.</p>
 </div>
 
 
@@ -720,7 +730,7 @@ Sets up event listeners, loads theme, and performs initial state checks.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line72">line 72</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line71">line 71</a>
     </li></ul></dd>
     
 
@@ -735,10 +745,6 @@ Sets up event listeners, loads theme, and performs initial state checks.</p>
 
 
 
-<h5>Fires:</h5>
-<ul>
-    <li>APP_EVENTS.event:APP_INITIALIZED</li>
-</ul>
 
 
 
@@ -749,7 +755,24 @@ Sets up event listeners, loads theme, and performs initial state checks.</p>
 
 
 
+<h5>Returns:</h5>
 
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
+
+
+    </dd>
+</dl>
+
+    
 
 
 
@@ -761,7 +784,7 @@ Sets up event listeners, loads theme, and performs initial state checks.</p>
     
 
     
-    <h4 class="name" id="~setPauseState"><span class="type-signature">(inner) </span>setPauseState<span class="signature">(isPaused)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~setPauseState"><span class="type-signature">(inner) </span>setPauseState<span class="signature">(isPaused)</span><span class="type-signature"> &rarr; {void}</span></h4>
     
 
     
@@ -769,8 +792,7 @@ Sets up event listeners, loads theme, and performs initial state checks.</p>
 
 
 <div class="description">
-    <p>Updates pause button visual state to reflect paused/playing status.<br>
-Toggles between pause and play icons based on current state.</p>
+    <p>Updates the pause button UI state.</p>
 </div>
 
 
@@ -822,7 +844,7 @@ Toggles between pause and play icons based on current state.</p>
 
             
 
-            <td class="description last"><p>Whether recording is currently paused</p></td>
+            <td class="description last"><p>True if recording is paused</p></td>
         </tr>
 
     
@@ -863,7 +885,7 @@ Toggles between pause and play icons based on current state.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line509">line 509</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line555">line 555</a>
     </li></ul></dd>
     
 
@@ -888,14 +910,26 @@ Toggles between pause and play icons based on current state.</p>
 
 
 
+<h5>Returns:</h5>
+
+        
 
 
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
 
 
-    <h5>Example</h5>
+    </dd>
+</dl>
+
     
-    <pre class="prettyprint"><code>ui.setPauseState(true);  // Show play icon (recording is paused)
-ui.setPauseState(false); // Show pause icon (recording is active)</code></pre>
+
+
 
 
 
@@ -905,7 +939,7 @@ ui.setPauseState(false); // Show pause icon (recording is active)</code></pre>
     
 
     
-    <h4 class="name" id="~setRecordingState"><span class="type-signature">(inner) </span>setRecordingState<span class="signature">(isRecording)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="~setRecordingState"><span class="type-signature">(inner) </span>setRecordingState<span class="signature">(isRecording)</span><span class="type-signature"> &rarr; {void}</span></h4>
     
 
     
@@ -913,8 +947,7 @@ ui.setPauseState(false); // Show pause icon (recording is active)</code></pre>
 
 
 <div class="description">
-    <p>Updates UI to reflect current recording state.<br>
-Changes button appearance and status message based on recording state.</p>
+    <p>Updates the recording state UI (e.g., toggles recording indicator).</p>
 </div>
 
 
@@ -966,7 +999,7 @@ Changes button appearance and status message based on recording state.</p>
 
             
 
-            <td class="description last"><p>Whether recording is currently active</p></td>
+            <td class="description last"><p>True if recording is active</p></td>
         </tr>
 
     
@@ -1007,7 +1040,7 @@ Changes button appearance and status message based on recording state.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line489">line 489</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line539">line 539</a>
     </li></ul></dd>
     
 
@@ -1032,14 +1065,26 @@ Changes button appearance and status message based on recording state.</p>
 
 
 
+<h5>Returns:</h5>
+
+        
 
 
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
 
 
-    <h5>Example</h5>
+    </dd>
+</dl>
+
     
-    <pre class="prettyprint"><code>ui.setRecordingState(true);  // Show recording state
-ui.setRecordingState(false); // Show idle state</code></pre>
+
+
 
 
 
@@ -1151,7 +1196,7 @@ Clears any existing temporary status timeout and displays the message.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line400">line 400</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line443">line 443</a>
     </li></ul></dd>
     
 
@@ -1295,7 +1340,7 @@ Allows for rich formatting in status messages.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line421">line 421</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line464">line 464</a>
     </li></ul></dd>
     
 
@@ -1327,6 +1372,267 @@ Allows for rich formatting in status messages.</p>
     <h5>Example</h5>
     
     <pre class="prettyprint"><code>ui.setStatusHTML('&lt;strong>Error:&lt;/strong> Configuration required');</code></pre>
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~setupEventListeners"><span class="type-signature">(inner) </span>setupEventListeners<span class="signature">()</span><span class="type-signature"> &rarr; {void}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Sets up DOM event listeners for UI controls (buttons, theme toggle, etc.).</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line97">line 97</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~showError"><span class="type-signature">(inner) </span>showError<span class="signature">(message)</span><span class="type-signature"> &rarr; {void}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Displays an error message to the user in a standardized way.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>message</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Error message to display</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line478">line 478</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">void</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
 
 
 
@@ -1388,7 +1694,7 @@ Allows for rich formatting in status messages.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line465">line 465</a>
+        <a href="ui.js.html">ui.js</a>, <a href="ui.js.html#line515">line 515</a>
     </li></ul></dd>
     
 
@@ -1439,13 +1745,13 @@ Allows for rich formatting in status messages.</p>
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-UI.html">UI</a></li></ul><h3>Classes</h3><ul><li><a href="VisualizationController.html">VisualizationController</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-Constants.html">Constants</a></li><li><a href="module-EventBus.html">EventBus</a></li><li><a href="module-Logger.html">Logger</a></li><li><a href="module-Main.html">Main</a></li><li><a href="module-PermissionManager.html">PermissionManager</a></li><li><a href="module-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.html">Settings</a></li><li><a href="module-StatusHelper.html">StatusHelper</a></li><li><a href="module-UI.html">UI</a></li><li><a href="module-VisualizationController.html">VisualizationController</a></li></ul><h3>Classes</h3><ul><li><a href="ErrorHandler.html">ErrorHandler</a></li><li><a href="module-AudioHandler.AudioHandler.html">AudioHandler</a></li><li><a href="module-AudioHandler-AudioHandler.html">AudioHandler</a></li><li><a href="module-AzureAPIClient.AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-AzureAPIClient-AzureAPIClient.html">AzureAPIClient</a></li><li><a href="module-EventBus.EventBus.html">EventBus</a></li><li><a href="module-EventBus-EventBus.html">EventBus</a></li><li><a href="module-Logger-Logger.html">Logger</a></li><li><a href="module-RecordingStateMachine.RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-RecordingStateMachine-RecordingStateMachine.html">RecordingStateMachine</a></li><li><a href="module-Settings.Settings.html">Settings</a></li><li><a href="module-Settings-Settings.html">Settings</a></li><li><a href="module-UI.UI.html">UI</a></li><li><a href="module-UI-UI.html">UI</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Thu Jul 03 2025 07:36:42 GMT+1200 (New Zealand Standard Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Sun Jul 06 2025 08:11:52 GMT+1200 (New Zealand Standard Time)
 </footer>
 
 <script> prettyPrint(); </script>
