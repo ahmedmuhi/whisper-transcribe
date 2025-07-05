@@ -18,6 +18,7 @@ import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { errorHandler } from './error-handler.js';
 
 /**
  * Audio recording and processing manager for speech transcription.
@@ -171,21 +172,16 @@ export class AudioHandler {
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
             this.startRecording(stream);
             
-    } catch (err) {
-            const audioLogger = logger.child('AudioHandler');
-            audioLogger.error('Error starting recording:', err);
-            
+        } catch (err) {
+            // Standardized error handling
+            errorHandler.handleError(err, { module: 'AudioHandler' });
             // Transition to error state
-            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
-                error: err.message
-            });
-            
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: err.message });
+            // If configuration-related error, open settings
             if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
-                // Notify settings modal directly and via event
                 this.settings.openSettingsModal();
                 eventBus.emit(APP_EVENTS.API_CONFIG_MISSING);
             }
-            
             // Return to idle after error
             setTimeout(() => {
                 this.stateMachine.transitionTo(RECORDING_STATES.IDLE);

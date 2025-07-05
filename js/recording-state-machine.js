@@ -11,6 +11,7 @@
 import { RECORDING_STATES, STATE_TRANSITIONS, MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { errorHandler } from './error-handler.js';
 
 /**
  * Finite state machine for managing audio recording lifecycle and state transitions.
@@ -112,8 +113,8 @@ export class RecordingStateMachine {
      */
     async transitionTo(newState, data = {}) {
         if (!this.canTransitionTo(newState)) {
-            const stateLogger = logger.child('RecordingStateMachine');
-            stateLogger.error(`Invalid state transition from ${this.currentState} to ${newState}`);
+            const msg = `Invalid state transition from ${this.currentState} to ${newState}`;
+            errorHandler.handleError(new Error(msg), { module: 'RecordingStateMachine', from: this.currentState, to: newState });
             return false;
         }
         

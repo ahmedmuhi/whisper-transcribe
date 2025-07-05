@@ -221,7 +221,8 @@ export const MESSAGES = {
   ERROR_PREFIX: 'Error: ',
   MICROPHONE_IN_USE: '⚠️ Microphone is already in use by another application.',
   MICROPHONE_NOT_SUITABLE: '⚠️ No microphone meets the requirements. Try with a different microphone.',
-  INVALID_REQUEST: '❌ Invalid request. Please check your browser settings.'
+  // Generic error message for unexpected errors
+  ERROR_OCCURRED: 'An unexpected error occurred',
 };
 
 /**

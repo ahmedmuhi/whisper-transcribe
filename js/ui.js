@@ -189,6 +189,11 @@ export class UI {
         eventBus.on(APP_EVENTS.API_REQUEST_ERROR, (data) => {
             this.hideSpinner();
         });
+        // Listen for standardized errors
+        eventBus.on(APP_EVENTS.ERROR_OCCURRED, ({ message }) => {
+            // Display error message consistently
+            this.showError(message || MESSAGES.ERROR_OCCURRED);
+        });
         
         // Listen for permission events
         eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => {

@@ -11,6 +11,7 @@
 import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { errorHandler } from './error-handler.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
@@ -116,13 +117,14 @@ export class AzureAPIClient {
                 const apiLogger = logger.child('AzureAPIClient');
                 apiLogger.error('API Error Details:', errorText);
                 const error = new Error(`API responded with status: ${response.status}`);
-                
+                // Standardized error handling
+                errorHandler.handleError(error, { module: 'AzureAPIClient', status: response.status, details: errorText });
+                // Emit API_REQUEST_ERROR for consumer handling/tests
                 eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                     status: response.status,
                     error: error.message,
                     details: errorText
                 });
-                
                 throw error;
             }
             
@@ -140,13 +142,12 @@ export class AzureAPIClient {
             return transcription;
             
         } catch (error) {
-            const apiLogger = logger.child('AzureAPIClient');
-            apiLogger.error('Error sending to Azure API:', error);
-            
+            // Log and emit standardized error event
+            errorHandler.handleError(error, { module: 'AzureAPIClient' });
+            // Emit API_REQUEST_ERROR for consumer handling/tests
             eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
                 error: error.message
             });
-            
             throw error;
         }
     }

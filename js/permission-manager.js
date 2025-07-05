@@ -2,6 +2,7 @@ import { showTemporaryStatus } from './status-helper.js';
 import { MESSAGES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { errorHandler } from './error-handler.js';
 
 export class PermissionManager {
     constructor(ui) {
@@ -92,6 +93,8 @@ export class PermissionManager {
             return stream;
             
         } catch (error) {
+            // Standardized error handling
+            errorHandler.handleError(error, { module: 'PermissionManager' });
             return this.handlePermissionError(error);
         }
     }

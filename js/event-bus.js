@@ -294,4 +294,5 @@ export const APP_EVENTS = {
     APP_ERROR: 'app:error',
     APP_PREREQUISITES_CHECKED: 'app:prerequisitesChecked',
     APP_READY: 'app:ready'
+    , ERROR_OCCURRED: 'app:errorOccurred'
 };
