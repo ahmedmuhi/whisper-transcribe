@@ -85,11 +85,11 @@ This section describes a step-by-step workflow to add and validate JSDoc comment
 |-------------------------------------|----------------------------------------------------------|
 | `js/api-client.js`                  | Azure API integration methods — Done                     |
 | `js/audio-handler.js`               | Public methods: `startRecording`, `stopRecording` — Done |
-| `js/constants.js`                   | App-wide constants (MESSAGES, STORAGE_KEYS, etc.) — Pending |
+| `js/constants.js`                   | App-wide constants (MESSAGES, STORAGE_KEYS, etc.) — Done |
 | `js/error-handler.js`               | Central error handling methods — Done                   |
-| `js/event-bus.js`                   | Event emitters and listeners — Pending                   |
-| `js/logger.js`                      | Logging utility methods — Pending                        |
-| `js/main.js`                        | Application entry-point initialization — Pending         |
+| `js/event-bus.js`                   | Event emitters and listeners — Done                     |
+| `js/logger.js`                      | Logging utility methods — Done                          |
+| `js/main.js`                        | Application entry-point initialization — Done           |
 | `js/permission-manager.js`          | Permission request and status methods — Pending          |
 | `js/recording-state-machine.js`     | State transition handlers — Done                         |
 | `js/settings.js`                    | Settings persistence and retrieval methods — Done        |
