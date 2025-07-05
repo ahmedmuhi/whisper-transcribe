@@ -24,12 +24,50 @@ This plan outlines the steps to add comprehensive JSDoc comments to every public
 
 ## 2. Implementation Steps
 
-1. **Module Inventory**: List all modules in `js/` containing public methods.
-2. **Method Identification**: For each file, identify exported classes or functions and mark public methods.
-3. **JSDoc Stub Creation**: Insert JSDoc stubs above each method signature.
-4. **Detail Filling**: Populate descriptions, parameter types, return types, and error conditions.
-5. **Lint & Validate**: Run `npx jsdoc --configure jsdoc.json` to generate docs and fix style errors.
-6. **Peer Review**: Create a PR and request documentation-focused review.
+This section describes a step-by-step workflow to add and validate JSDoc comments across all public methods.
+
+2.1. Module Inventory
+  - Execute: `ls js/*.js` or use a script to list all JavaScript modules in `js/`
+  - Verify each file exports a class or function intended for public use
+
+2.2. Public Method Detection
+  - Scan each module for `export class` or `export function` declarations
+  - Record all public method signatures (methods on exported classes, standalone exports)
+  - Maintain a checklist file (`docs/jsdoc-modules.json`) listing methods per module
+
+2.3. JSDoc Stub Insertion
+  - For every public method, insert a JSDoc block template:
+    ```js
+    /**
+     * [Short description of behavior]
+     *
+     * @param {Type} paramName - Description
+     * @returns {Type} Description
+     * @throws {Error} When [condition]
+     */
+    ```
+  - Use editor macros or multi-cursor to apply stubs consistently
+
+2.4. Documentation Completion
+  - Replace placeholders with meaningful text:
+    - Method purpose (verb-noun phrasing)
+    - Parameter types, names, and descriptions
+    - Return types and error conditions
+  - Reference `JSDOC_STYLE_GUIDE.md` for formatting rules and examples
+
+2.5. Linting and Formatting
+  - Run `npm run lint:docs` or configure ESLint to check JSDoc tags
+  - Address all lint warnings/errors related to missing tags or style violations
+
+2.6. Build and Verify
+  - Generate HTML docs: `npx jsdoc --configure jsdoc.json`
+  - Open the output directory (e.g., `out/` or `docs/`) in a browser
+  - Spot-check a representative sample of modules to ensure links and formatting are correct
+
+2.7. Peer Review and Merge
+  - Open a pull request labeled `documentation`
+  - Request reviewers to validate completeness, accuracy, and adherence to style guide
+  - Merge only after all review comments are addressed and CI passes
 
 ## 3. Alternatives
 
