@@ -189,6 +189,13 @@ export class AudioHandler {
         }
     }
     
+    /**
+     * Stops the recording workflow, resets timer, and handles model-specific stop logic.
+     * 
+     * @async
+     * @method stopRecordingFlow
+     * @returns {Promise<void>} Resolves when recorder has been stopped or an error event has been emitted
+     */
     async stopRecordingFlow() {
         const model = this.settings.getCurrentModel();
         await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
@@ -209,6 +216,13 @@ export class AudioHandler {
         }
     }
     
+    /**
+     * Initializes MediaRecorder and begins capturing audio data, visualization, and timer.
+     * 
+     * @method startRecording
+     * @param {MediaStream} stream - Audio media stream from microphone
+     * @returns {void}
+     */
     startRecording(stream) {
         this.audioChunks = [];
         this.mediaRecorder = new MediaRecorder(stream);
@@ -250,6 +264,12 @@ export class AudioHandler {
         this.startTimer();
     }
 
+    /**
+     * Safely stops the MediaRecorder if active and handles any stop errors.
+     * 
+     * @method safeStopRecorder
+     * @returns {void}
+     */
     safeStopRecorder() {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             try {
@@ -260,12 +280,26 @@ export class AudioHandler {
         }
     }
 
+    /**
+     * Requests the MediaRecorder to stop capturing audio if allowed by state machine.
+     * 
+     * @method stopRecording
+     * @returns {void}
+     */
     stopRecording() {
         if (this.stateMachine.canInvokeStop()) {
             this.safeStopRecorder();
         }
     }
 
+    /**
+     * Performs a graceful stop by flushing recorder data after a configured delay.
+     * 
+     * @async
+     * @method gracefulStop
+     * @param {number} [delayMs=250] - Delay in milliseconds before requesting data flush
+     * @returns {Promise<void>} Resolves after recorder data has been requested or error emitted
+     */
     async gracefulStop(delayMs = TIMER_CONFIG.GRACEFUL_STOP_DELAY_MS) {
         if (!this.stateMachine.canInvokeStop()) return;
         if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
@@ -284,6 +318,13 @@ export class AudioHandler {
         }, delayMs);
     }
     
+    /**
+     * Toggles the pause state of the recording, pausing or resuming as appropriate.
+     * 
+     * @async
+     * @method togglePause
+     * @returns {Promise<void>} Resolves when pause or resume operation completes
+     */
     async togglePause() {
         if (this.stateMachine.canPause()) {
             this.mediaRecorder.pause();
@@ -301,6 +342,12 @@ export class AudioHandler {
         }
     }
     
+    /**
+     * Cancels the current recording, stops tracks, and resets state.
+     * 
+     * @method cancelRecording
+     * @returns {void}
+     */
     async cancelRecording() {
         if (this.stateMachine.canCancel()) {
             await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
@@ -308,6 +355,43 @@ export class AudioHandler {
         }
     }
     
+    /**
+     * Calculates the elapsed recording time in milliseconds based on start time.
+     * 
+     * @method getTimerMilliseconds
+     * @returns {number} The number of milliseconds since recording started
+     */
+    getTimerMilliseconds() {
+        const parts = this.currentTimerDisplay.split(':');
+    return (parseInt(parts[0]) * TIMER_CONFIG.MINUTE_MS) + (parseInt(parts[1]) * TIMER_CONFIG.SECOND_MS);
+    }
+
+    /**
+     * Starts or restarts the recording timer, updating UI on each tick.
+     * 
+     * @method startTimer
+     * @returns {void}
+     */
+    startTimer() {
+        this.timerInterval = setInterval(() => {
+            const elapsed = Date.now() - this.recordingStartTime;
+            const seconds = Math.floor(elapsed / TIMER_CONFIG.SECOND_MS) % 60;
+            const minutes = Math.floor(elapsed / 60000);
+            this.currentTimerDisplay = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+            eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, {
+                display: this.currentTimerDisplay
+            });
+        }, TIMER_CONFIG.INTERVAL_MS);
+    }
+    
+    /**
+     * Processes recorded audio chunks and sends them to Azure API for transcription.
+     * 
+     * @async
+     * @method processAndSendAudio
+     * @param {MediaStream} stream - The original audio media stream
+     * @returns {Promise<void>} Resolves when transcription is complete or error emitted
+     */
     async processAndSendAudio(stream) {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         
@@ -362,23 +446,12 @@ export class AudioHandler {
         }
     }
     
-    startTimer() {
-        this.timerInterval = setInterval(() => {
-            const elapsed = Date.now() - this.recordingStartTime;
-            const seconds = Math.floor(elapsed / TIMER_CONFIG.SECOND_MS) % 60;
-            const minutes = Math.floor(elapsed / 60000);
-            this.currentTimerDisplay = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-            eventBus.emit(APP_EVENTS.UI_TIMER_UPDATE, {
-                display: this.currentTimerDisplay
-            });
-        }, TIMER_CONFIG.INTERVAL_MS);
-    }
-    
-    getTimerMilliseconds() {
-        const parts = this.currentTimerDisplay.split(':');
-    return (parseInt(parts[0]) * TIMER_CONFIG.MINUTE_MS) + (parseInt(parts[1]) * TIMER_CONFIG.SECOND_MS);
-    }
-    
+    /**
+     * Cleans up MediaRecorder, audio chunks, and resets state for next recording.
+     * 
+     * @method cleanup
+     * @returns {void}
+     */
     cleanup() {
         // Called after audio has been processed to reset UI and state
 

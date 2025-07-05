@@ -136,6 +136,12 @@ export class Settings {
         });
     }
     
+    /**
+     * Updates visibility of model-specific settings sections based on selected model.
+     * 
+     * @method updateSettingsVisibility
+     * @returns {void}
+     */
     updateSettingsVisibility() {
         const currentModel = this.getCurrentModel();
         if (this.whisperSettings) {
@@ -147,14 +153,11 @@ export class Settings {
     }
     
     /**
-     * Opens the settings modal for user configuration.
-     * Updates visibility based on selected model and loads current settings.
+     * Opens the settings modal, loads current settings into form, and emits open event.
      * 
      * @method openSettingsModal
      * @fires APP_EVENTS.UI_SETTINGS_OPENED
-     * 
-     * @example
-     * settings.openSettingsModal(); // Show settings dialog
+     * @returns {void}
      */
     openSettingsModal() {
         this.updateSettingsVisibility();
@@ -165,10 +168,11 @@ export class Settings {
     }
     
     /**
-     * Closes the settings modal without saving changes.
+     * Closes the settings modal without saving and emits closed event.
      * 
      * @method closeSettingsModal
      * @fires APP_EVENTS.UI_SETTINGS_CLOSED
+     * @returns {void}
      */
     closeSettingsModal() {
         this.settingsModal.style.display = 'none';
@@ -335,6 +339,14 @@ export class Settings {
         return errors;
     }
     
+    /**
+     * Saves current settings from form to localStorage, validates, and emits relevant events.
+     * 
+     * @method saveSettings
+     * @fires APP_EVENTS.SETTINGS_SAVED
+     * @fires APP_EVENTS.SETTINGS_VALIDATION_ERROR
+     * @returns {void}
+     */
     saveSettings() {
         const currentModel = this.getCurrentModel();
 
@@ -393,32 +405,16 @@ export class Settings {
      * 
      * @method getCurrentModel
      * @returns {string} Current model identifier ('whisper' or 'gpt-4o-transcribe')
-     * 
-     * @example
-     * const model = settings.getCurrentModel();
-     * logger.info('Current model:', model);
      */
     getCurrentModel() {
         return this.modelSelect.value;
     }
     
     /**
-     * Gets the complete configuration for the currently selected model.
-     * Returns API credentials and endpoint information for the active model.
+     * Gets the complete API configuration for the selected model.
      * 
      * @method getModelConfig
-     * @returns {Object} Model configuration object
-     * @returns {string} config.model - Model identifier
-     * @returns {string} config.apiKey - API authentication key
-     * @returns {string} config.uri - API endpoint URI
-     * 
-     * @example
-     * const config = settings.getModelConfig();
-     * if (config.apiKey && config.uri) {
-     *   logger.info('Configuration is complete for', config.model);
-     * } else {
-     *   logger.warn('Configuration incomplete');
-     * }
+     * @returns {{model: string, apiKey: string, uri: string}} Model configuration object
      */
     getModelConfig() {
         const model = this.getCurrentModel();

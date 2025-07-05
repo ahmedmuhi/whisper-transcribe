@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview User interface controller for the whisper-transcribe application.
  * Manages DOM interactions, visual states, and user interface updates.
@@ -70,13 +69,12 @@ export class UI {
     }
     
     /**
-     * Initializes the UI controller with required dependencies.
-     * Sets up event listeners, loads theme, and performs initial state checks.
+     * Initializes UI controller, sets up event listeners and loads initial theme and state.
      * 
      * @method init
      * @param {Settings} settings - Settings manager instance
      * @param {AudioHandler} audioHandler - Audio handler instance
-     * @fires APP_EVENTS.APP_INITIALIZED
+     * @returns {void}
      */
     init(settings, audioHandler) {
         this.settings = settings;
@@ -97,25 +95,89 @@ export class UI {
     }
     
     /**
-     * Sets up event bus listeners for UI updates and state synchronization.
-     * Listens for status updates, recording state changes, transcription results, settings changes,
-     * and UI control events for decoupled UI management.
+     * Sets up DOM event listeners for UI controls (buttons, theme toggle, etc.).
      * 
-     * @private
+     * @method setupEventListeners
+     * @returns {void}
+     */
+    setupEventListeners() {
+        // Theme toggle
+        if (this.themeToggle) {
+            this.themeToggle.addEventListener('click', () => {
+                const currentMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
+                let newMode;
+                
+                if (currentMode === 'auto') {
+                    newMode = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+                } else if (currentMode === 'light') {
+                    newMode = 'dark';
+                } else {
+                    newMode = 'light';
+                }
+                
+                localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
+                const themeSelect = document.getElementById(ID.THEME_MODE);
+                if (themeSelect) themeSelect.value = newMode;
+                this.applyTheme();
+                
+                // Emit theme changed event
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: newMode });
+            });
+        }
+        
+        // Theme mode selector
+        const themeSelect = document.getElementById(ID.THEME_MODE);
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (e) => {
+                localStorage.setItem(STORAGE_KEYS.THEME_MODE, e.target.value);
+                this.applyTheme();
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: e.target.value });
+            });
+        }
+        
+        // Transcript buttons
+        if (this.grabTextButton) {
+            this.grabTextButton.addEventListener('click', () => {
+                const text = this.transcriptElement.value;
+                if (text) {
+                    navigator.clipboard.writeText(text)
+                        .then(() => {
+                            this.transcriptElement.value = '';
+                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                                message: MESSAGES.TEXT_CUT_SUCCESS,
+                                type: 'success',
+                                temporary: true
+                            });
+                        })
+                        .catch(() => {
+                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                                message: MESSAGES.TEXT_CUT_FAILED,
+                                type: 'error',
+                                temporary: true
+                            });
+                        });
+                } else {
+                    eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                        message: MESSAGES.NO_TEXT_TO_CUT,
+                        type: 'error',
+                        temporary: true
+                    });
+                }
+            });
+        }
+        
+        // Remove the old settings event listener since we're using eventBus now
+        // document.addEventListener('settingsUpdated', () => {
+        //     this.checkRecordingPrerequisites();
+        // });
+    }
+    
+    /**
+     * Sets up event bus listeners to react to application events for UI updates.
+     * 
      * @method setupEventBusListeners
-     * @listens APP_EVENTS.UI_STATUS_UPDATE
-     * @listens APP_EVENTS.RECORDING_STATE_CHANGED
-     * @listens APP_EVENTS.UI_TRANSCRIPTION_READY
-     * @listens APP_EVENTS.SETTINGS_UPDATED
-     * @listens APP_EVENTS.UI_TIMER_UPDATE
-     * @listens APP_EVENTS.UI_TIMER_RESET
-     * @listens APP_EVENTS.UI_BUTTON_ENABLE_MIC
-     * @listens APP_EVENTS.UI_BUTTON_DISABLE_MIC
-     * @listens APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE
-     * @listens APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE
-     * @listens APP_EVENTS.UI_CONTROLS_RESET
-     * @listens APP_EVENTS.UI_SPINNER_SHOW
-     * @listens APP_EVENTS.UI_SPINNER_HIDE
+     * @private
+     * @returns {void}
      */
     setupEventBusListeners() {
         // Listen for status updates
@@ -378,78 +440,6 @@ export class UI {
         }
     }
     
-    setupEventListeners() {
-        // Theme toggle
-        if (this.themeToggle) {
-            this.themeToggle.addEventListener('click', () => {
-                const currentMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
-                let newMode;
-                
-                if (currentMode === 'auto') {
-                    newMode = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
-                } else if (currentMode === 'light') {
-                    newMode = 'dark';
-                } else {
-                    newMode = 'light';
-                }
-                
-                localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
-                const themeSelect = document.getElementById(ID.THEME_MODE);
-                if (themeSelect) themeSelect.value = newMode;
-                this.applyTheme();
-                
-                // Emit theme changed event
-                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: newMode });
-            });
-        }
-        
-        // Theme mode selector
-        const themeSelect = document.getElementById(ID.THEME_MODE);
-        if (themeSelect) {
-            themeSelect.addEventListener('change', (e) => {
-                localStorage.setItem(STORAGE_KEYS.THEME_MODE, e.target.value);
-                this.applyTheme();
-                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: e.target.value });
-            });
-        }
-        
-        // Transcript buttons
-        if (this.grabTextButton) {
-            this.grabTextButton.addEventListener('click', () => {
-                const text = this.transcriptElement.value;
-                if (text) {
-                    navigator.clipboard.writeText(text)
-                        .then(() => {
-                            this.transcriptElement.value = '';
-                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                                message: MESSAGES.TEXT_CUT_SUCCESS,
-                                type: 'success',
-                                temporary: true
-                            });
-                        })
-                        .catch(() => {
-                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                                message: MESSAGES.TEXT_CUT_FAILED,
-                                type: 'error',
-                                temporary: true
-                            });
-                        });
-                } else {
-                    eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                        message: MESSAGES.NO_TEXT_TO_CUT,
-                        type: 'error',
-                        temporary: true
-                    });
-                }
-            });
-        }
-        
-        // Remove the old settings event listener since we're using eventBus now
-        // document.addEventListener('settingsUpdated', () => {
-        //     this.checkRecordingPrerequisites();
-        // });
-    }
-    
     /**
      * Sets the status message displayed to the user.
      * Clears any existing temporary status timeout and displays the message.
@@ -486,15 +476,22 @@ export class UI {
     }
     
     /**
-     * Displays transcribed text in the transcript area.
-     * Appends new transcription to existing content with proper formatting.
+     * Displays an error message to the user in a standardized way.
+     * 
+     * @method showError
+     * @param {string} message - Error message to display
+     * @returns {void}
+     */
+    showError(message) {
+        this.setStatus(message || MESSAGES.ERROR_OCCURRED);
+    }
+    
+    /**
+     * Displays the transcribed text in the transcript textarea.
      * 
      * @method displayTranscription
-     * @param {string} text - Transcribed text to display
-     * 
-     * @example
-     * ui.displayTranscription('Hello world, this is a test.');
-     * ui.displayTranscription('Additional transcribed content.');
+     * @param {string} text - Transcription text to display
+     * @returns {void}
      */
     displayTranscription(text) {
         if (this.transcriptElement.value) {
@@ -540,15 +537,11 @@ export class UI {
     }
     
     /**
-     * Updates UI to reflect current recording state.
-     * Changes button appearance and status message based on recording state.
+     * Updates the recording state UI (e.g., toggles recording indicator).
      * 
      * @method setRecordingState
-     * @param {boolean} isRecording - Whether recording is currently active
-     * 
-     * @example
-     * ui.setRecordingState(true);  // Show recording state
-     * ui.setRecordingState(false); // Show idle state
+     * @param {boolean} isRecording - True if recording is active
+     * @returns {void}
      */
     setRecordingState(isRecording) {
         if (isRecording) {
@@ -560,15 +553,11 @@ export class UI {
     }
     
     /**
-     * Updates pause button visual state to reflect paused/playing status.
-     * Toggles between pause and play icons based on current state.
+     * Updates the pause button UI state.
      * 
      * @method setPauseState
-     * @param {boolean} isPaused - Whether recording is currently paused
-     * 
-     * @example
-     * ui.setPauseState(true);  // Show play icon (recording is paused)
-     * ui.setPauseState(false); // Show pause icon (recording is active)
+     * @param {boolean} isPaused - True if recording is paused
+     * @returns {void}
      */
     setPauseState(isPaused) {
         if (isPaused) {

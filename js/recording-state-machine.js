@@ -70,16 +70,10 @@ export class RecordingStateMachine {
     
     /**
      * Checks if a transition to the specified state is valid from the current state.
-     * Uses the STATE_TRANSITIONS configuration to validate allowed transitions.
      * 
      * @method canTransitionTo
-     * @param {string} newState - Target state to transition to
-     * @returns {boolean} True if transition is valid, false otherwise
-     * 
-     * @example
-     * if (stateMachine.canTransitionTo(RECORDING_STATES.RECORDING)) {
-     *   await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-     * }
+     * @param {string} newState - Target state to validate
+     * @returns {boolean} True if transition is allowed, false otherwise
      */
     canTransitionTo(newState) {
         const validTransitions = STATE_TRANSITIONS[this.currentState] || [];
@@ -87,29 +81,14 @@ export class RecordingStateMachine {
     }
     
     /**
-     * Transitions to a new recording state with validation and event emission.
-     * Validates the transition, updates state, emits events, and executes state handler.
+     * Transitions the state machine to a new recording state, emits events, and invokes state handlers.
      * 
      * @async
      * @method transitionTo
      * @param {string} newState - Target state from RECORDING_STATES constants
-     * @param {Object} [data={}] - Additional data to pass to state handler and events
-     * @returns {Promise<boolean>} Promise resolving to true if transition succeeded
+     * @param {Object} [data={}] - Optional data payload for the transition event
+     * @returns {Promise<boolean>} Resolves to true if transition succeeded
      * @throws {Error} When state handler execution fails
-     * @fires APP_EVENTS.RECORDING_STATE_CHANGED
-     * 
-     * @example
-     * try {
-     *   const success = await stateMachine.transitionTo(
-     *     RECORDING_STATES.PROCESSING, 
-     *     { audioBlob: recordedData }
-     *   );
-     *   if (success) {
-     *     logger.info('State transition completed');
-     *   }
-     * } catch (error) {
-     *   logger.error('State transition failed:', error);
-     * }
      */
     async transitionTo(newState, data = {}) {
         if (!this.canTransitionTo(newState)) {

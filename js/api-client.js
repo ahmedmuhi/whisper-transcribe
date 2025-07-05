@@ -191,25 +191,11 @@ export class AzureAPIClient {
     }
     
     /**
-     * Validates API configuration before attempting transcription.
-     * Checks for required API keys, URIs, and validates URI format.
+     * Validates the API client configuration for required keys, URI, and model settings.
      * 
      * @method validateConfig
-     * @returns {Object} Validated configuration object
-     * @returns {string} config.apiKey - API authentication key
-     * @returns {string} config.uri - API endpoint URI
-     * @returns {string} config.model - Model identifier
-     * @throws {Error} When API key is missing
-     * @throws {Error} When URI is missing or invalid format
-     * @fires APP_EVENTS.API_CONFIG_MISSING
-     * 
-     * @example
-     * try {
-     *   const config = apiClient.validateConfig();
-     *   logger.info('Configuration is valid:', config);
-     * } catch (error) {
-     *   logger.error('Configuration invalid:', error.message);
-     * }
+     * @returns {{ apiKey: string, uri: string, model: string }} Validated configuration object
+     * @throws {Error} When API key or URI is missing or invalid
      */
     validateConfig() {
         const config = this.settings.getModelConfig();
