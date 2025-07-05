@@ -60,9 +60,8 @@ This section describes a step-by-step workflow to add and validate JSDoc comment
   - Address all lint warnings/errors related to missing tags or style violations
 
 2.6. Build and Verify
-  - Generate HTML docs: `npx jsdoc --configure jsdoc.json`
-  - Open the output directory (e.g., `out/` or `docs/`) in a browser
-  - Spot-check a representative sample of modules to ensure links and formatting are correct
+  - ✅ Generated HTML docs via `npx jsdoc --configure jsdoc.json`
+  - ✅ Opened and spot-checked output directory for formatting and links
 
 2.7. Peer Review and Merge
   - Open a pull request labeled `documentation`

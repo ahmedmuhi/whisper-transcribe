@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
 
 describe('JSDoc Generation', () => {
   test('generates documentation without errors', () => {
