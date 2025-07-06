@@ -1,4 +1,10 @@
 import { vi } from 'vitest';
+import { eventBus } from '../../js/event-bus.js';
+
+export function resetEventBus() {
+  if (eventBus?.clear) eventBus.clear();
+  else eventBus.removeAllListeners?.();
+}
 
 export function applyDomSpies() {
   const elements = {};

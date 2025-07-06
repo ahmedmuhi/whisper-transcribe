@@ -35,7 +35,10 @@
     "test:vitest:pilot": "vitest tests/recording-state-machine.vitest.js",
     "test:vitest:pilot:run": "vitest run tests/recording-state-machine.vitest.js",
     "test:jest:pilot": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest tests/recording-state-machine.test.js",
-    "test:compare": "npm run test:jest:pilot && npm run test:vitest:pilot:run"
+    "test:compare": "npm run test:jest:pilot && npm run test:vitest:pilot:run",
+    "test:vitest:phase1": "vitest run tests/error-handler.vitest.js tests/status-reset.vitest.js tests/audio-handler-stop.vitest.js tests/jsdoc-generation.vitest.js",
+    "test:jest:phase1": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest tests/error-handler.test.js tests/status-reset.test.js tests/audio-handler-stop.test.js tests/jsdoc-generation.test.js",
+    "test:phase1:parallel": "npm run test:jest:phase1 && npm run test:vitest:phase1"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

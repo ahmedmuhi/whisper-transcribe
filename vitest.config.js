@@ -9,8 +9,8 @@ export default defineConfig({
     // Setup files - equivalent to Jest's setupFilesAfterEnv
     setupFiles: ['./tests/vitest-setup.js'],
     
-    // Test file patterns - match Jest's testMatch
-    include: ['**/tests/**/*.vitest.js'],
+    // Test file patterns - match Jest's testMatch, plus broader patterns for Phase 1
+    include: ['**/tests/**/*.vitest.js', '**/tests/**/*.{test,vitest}.js'],
     
     // Timeout configuration
     testTimeout: 10000,
