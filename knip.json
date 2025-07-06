@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["index.html", "js/main.js"],
+  "project": ["js/**/*.js", "css/**/*.css"],
+  "ignore": [
+    "coverage/**",
+    "docs/**",
+    "plan/**",
+    "scripts/**",
+    "*.config.js",
+    "*.config.ts",
+    ".husky/**"
+  ],
+  "ignoreDependencies": [
+    "glob"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "includeEntryExports": true,
+  "eslint": {
+    "entry": ["eslint.config.js"],
+    "project": ["eslint.config.js"]
+  },
+  "jest": {
+    "entry": ["tests/**/*.test.js", "tests/setupTests.js", "jest.config.js"],
+    "project": ["tests/**/*.js", "jest.config.js"]
+  },
+  "husky": {
+    "entry": [".husky/**/*"]
+  },
+  "size-limit": {
+    "entry": ["package.json"]
+  }
+}

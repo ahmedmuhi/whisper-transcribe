@@ -6,7 +6,7 @@ import { logger } from './logger.js';
 /**
  * Centralized error handler to emit standardized error events
  */
-export class ErrorHandler {
+class ErrorHandler {
   /**
    * Handle an error by logging and emitting an ERROR_OCCURRED event
    * @param {Error} error - The error object

@@ -215,7 +215,7 @@ export class AzureAPIClient {
         // Basic URI validation
         try {
             new URL(config.uri);
-        } catch (e) {
+        } catch {
             const error = new Error(`${MESSAGES.INVALID_URI_FORMAT} for ${config.model}`);
             eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri', model: config.model });
             throw error;

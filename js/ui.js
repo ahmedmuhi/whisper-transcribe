@@ -248,7 +248,7 @@ export class UI {
         });
         
         // Listen for API events
-        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, (data) => {
+        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, () => {
             this.hideSpinner();
         });
         // Listen for standardized errors
@@ -277,7 +277,7 @@ export class UI {
         });
         
         // Listen for theme changes
-        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, (data) => {
+        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, () => {
             this.applyTheme();
         });
 

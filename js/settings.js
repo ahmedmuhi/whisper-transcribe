@@ -9,7 +9,6 @@
  * @since 1.0.0
  */
 
-import { showTemporaryStatus } from './status-helper.js';
 import { STORAGE_KEYS, MESSAGES, ID } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
@@ -237,7 +236,7 @@ export class Settings {
             try {
                 const parsed = new URL(uri);
                 uri = `${parsed.origin}/`;
-            } catch (_) {
+            } catch {
                 // Leave as whitespace-stripped string if parsing fails
             }
             uriInput.value = uri;
@@ -282,7 +281,7 @@ export class Settings {
                 if (url.protocol !== 'https:') {
                     errors.push('URI must use HTTPS');
                 }
-            } catch (_) {
+            } catch {
                 errors.push('Invalid URI format');
             }
         }
@@ -331,7 +330,7 @@ export class Settings {
                 if (url.protocol !== 'https:') {
                     errors.push('URI must use HTTPS');
                 }
-            } catch (_) {
+            } catch {
                 errors.push('Invalid URI format');
             }
         }

@@ -1,5 +1,4 @@
-import { showTemporaryStatus } from './status-helper.js';
-import { MESSAGES } from './constants.js';
+import { MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';

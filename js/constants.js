@@ -290,59 +290,6 @@ export const STATE_TRANSITIONS = {
 };
 
 /**
- * Logging configuration constants for the centralized logging system.
- * 
- * @constant {Object} LOGGING
- * @property {Object} LEVELS - Log level enumeration
- * @property {Object} ENVIRONMENTS - Environment detection constants
- * @property {Object} CONFIG - Default logging configuration
- */
-export const LOGGING = {
-  /**
-   * Log levels for filtering message output
-   * @constant {Object} LEVELS
-   * @property {number} DEBUG - Detailed debugging information (0)
-   * @property {number} INFO - General information messages (1)
-   * @property {number} WARN - Warning messages for non-critical issues (2)
-   * @property {number} ERROR - Error messages for critical issues (3)
-   * @property {number} NONE - Disable all logging (4)
-   */
-  LEVELS: {
-    DEBUG: 0,
-    INFO: 1,
-    WARN: 2,
-    ERROR: 3,
-    NONE: 4
-  },
-  
-  /**
-   * Environment detection values
-   * @constant {Object} ENVIRONMENTS
-   * @property {string} DEVELOPMENT - Development environment identifier
-   * @property {string} PRODUCTION - Production environment identifier
-   */
-  ENVIRONMENTS: {
-    DEVELOPMENT: 'development',
-    PRODUCTION: 'production'
-  },
-  
-  /**
-   * Default logging configuration
-   * @constant {Object} CONFIG
-   * @property {number} DEFAULT_LEVEL_DEV - Default log level for development
-   * @property {number} DEFAULT_LEVEL_PROD - Default log level for production
-   * @property {boolean} INCLUDE_TIMESTAMP - Whether to include timestamps in logs
-   * @property {boolean} INCLUDE_MODULE_CONTEXT - Whether to include module context
-   */
-  CONFIG: {
-    DEFAULT_LEVEL_DEV: 0,   // DEBUG level for development
-    DEFAULT_LEVEL_PROD: 3,  // ERROR level for production
-    INCLUDE_TIMESTAMP: true,
-    INCLUDE_MODULE_CONTEXT: true
-  }
-};
-  
-/**
  * Timer configuration constants.
  * Centralizes magic values for timer intervals, display pattern, and stop delays.
  * @constant {Object} TIMER_CONFIG

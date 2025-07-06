@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A lightweight web application that converts spoken audio to text using Azure's Speech Services. Record directly from your browser and get transcriptions in real-time.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
@@ -11,21 +12,46 @@
     "test:coverage:summary": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageReporters=text-summary",
     "test:coverage:html": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageReporters=html",
     "docs": "jsdoc -c jsdoc.json",
-    "docs:clean": "rm -rf docs && npm run docs"
+    "docs:clean": "rm -rf docs && npm run docs",
+    "prepare": "husky",
+    "lint": "eslint \"js/**/*.js\"",
+    "lint:fix": "eslint --fix \"js/**/*.js\"",
+    "deps:analyze": "knip",
+    "deps:analyze:json": "knip --reporter json",
+    "deps:check": "knip",
+    "deps:check:prod": "knip --production --dependencies",
+    "deps:check:exports": "knip --exports",
+    "deps:check:files": "knip --files",
+    "deps:report": "knip --reporter markdown",
+    "deps:fix": "knip --fix",
+    "deps:fix:safe": "knip --fix --fix-type dependencies --no-exit-code",
+    "ci:deps": "knip --max-issues 0",
+    "ci:deps:report": "knip --reporter json",
+    "size": "size-limit",
+    "size:ci": "size-limit --why"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "devDependencies": {
-    "glob": "^8.1.0",
-    "inflight": "^1.0.6",
-    "jest": "^30.0.3",
-    "jest-environment-jsdom": "^30.0.2",
-    "jsdoc": "^4.0.4"
+    "@eslint/js": "^9.30.1",
+    "@jest/globals": "^30.0.4",
+    "@size-limit/file": "^11.2.0",
+    "eslint": "^9.30.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "glob": "^11.0.3",
+    "husky": "^9.1.7",
+    "jest": "^30.0.4",
+    "jest-environment-jsdom": "^30.0.4",
+    "jsdoc": "^4.0.4",
+    "knip": "^5.61.3",
+    "size-limit": "^11.2.0"
   },
   "overrides": {
-    "glob": "^8.1.0",
-    "inflight": "^1.0.6"
-  }
+    "glob": "^11.0.3"
+  },
+  "size-limit": [
+    {
+      "path": "dist/*.js",
+      "limit": "100 kB"
+    }
+  ]
 }

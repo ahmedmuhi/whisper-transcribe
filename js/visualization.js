@@ -76,10 +76,10 @@ export class VisualizationController {
         }
         window.removeEventListener('resize', this.resizeHandler);
         if (this.source) {
-            try { this.source.disconnect(); } catch (e) { /* already disconnected */ }
+            try { this.source.disconnect(); } catch { /* already disconnected */ }
         }
         if (this.audioContext && this.audioContext.state !== 'closed') {
-            try { this.audioContext.close(); } catch (e) { /* already closed */ }
+            try { this.audioContext.close(); } catch { /* already closed */ }
         }
         // Clear the canvas
         this.canvasCtx.fillStyle = this.isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;

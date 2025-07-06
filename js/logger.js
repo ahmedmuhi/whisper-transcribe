@@ -251,5 +251,5 @@ class Logger {
 // Create singleton logger instance
 const logger = new Logger();
 
-// Export both the Logger class and singleton instance
-export { Logger, LOG_LEVELS, logger };
+// Export only the singleton instance (Logger class and LOG_LEVELS are internal)
+export { logger };

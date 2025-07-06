@@ -12,8 +12,7 @@
  */
 
 // js/audio-handler.js
-import { showTemporaryStatus } from './status-helper.js';
-import { COLORS, RECORDING_STATES, MESSAGES, ID, TIMER_CONFIG } from './constants.js';
+import { RECORDING_STATES, MESSAGES, ID, TIMER_CONFIG } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
