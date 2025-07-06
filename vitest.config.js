@@ -9,13 +9,13 @@ export default defineConfig({
     // Setup files - equivalent to Jest's setupFilesAfterEnv
     setupFiles: ['./tests/vitest-setup.js'],
     
-    // Test file patterns - match Jest's testMatch, plus broader patterns for Phase 1
-    include: ['**/tests/**/*.vitest.js', '**/tests/**/*.{test,vitest}.js'],
+    // Test file patterns - only Vitest files for coverage
+    include: ['**/tests/**/*.vitest.js'],
     
     // Timeout configuration
     testTimeout: 10000,
     
-    // Coverage configuration to match Jest exactly
+    // Coverage configuration with 80% safety net thresholds
     coverage: {
       provider: 'v8',
       include: [
@@ -23,16 +23,25 @@ export default defineConfig({
       ],
       exclude: [
         'js/main.js',
-        '**/node_modules/**'
+        '**/node_modules/**',
+        '**/tests/**',
+        '**/coverage/**',
+        '**/*.config.js',
+        '**/*.test.js',
+        '**/*.vitest.js'
       ],
       reporter: ['text', 'html', 'lcov', 'json', 'clover'],
       reportsDirectory: 'coverage',
       thresholds: {
-        statements: 70,
-        branches: 54,
-        functions: 64,
-        lines: 70
-      }
+        statements: 85,
+        branches: 80,
+        functions: 70,
+        lines: 85
+      },
+      // Clean coverage directory before each run
+      clean: true,
+      // Enable all coverage types for comprehensive reporting
+      all: true
     },
     
     // Enable verbose output

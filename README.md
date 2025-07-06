@@ -36,12 +36,37 @@ A lightweight web application that converts spoken audio to text using Azure's S
 
 ## Development
 
+### Running Tests
+
 Run the unit tests with:
 
 ```bash
 npm install
-npm test
+npm test                        # Run all tests
+npm run test:coverage          # Run tests with coverage report
+npm run test:coverage:watch    # Run coverage in watch mode
+npm run test:coverage:summary  # Show coverage summary
+npm run test:coverage:html     # Generate HTML coverage report
 ```
+
+### Coverage Requirements
+
+This project enforces code coverage thresholds to ensure quality:
+- **Statements**: 85% minimum
+- **Branches**: 80% minimum  
+- **Functions**: 70% minimum
+- **Lines**: 85% minimum
+
+Coverage baseline is tracked in `metrics/coverage-baseline.json`. The current coverage meets these thresholds.
+
+### Git Hooks
+
+Pre-push hooks automatically run:
+- Linting checks (`npm run lint`)
+- Coverage tests (`npm run test:coverage`) 
+- Production dependency validation (`npm run deps:check:prod`)
+
+This safety net prevents code quality regressions from being pushed to the repository.
 
 ### DOM IDs
 

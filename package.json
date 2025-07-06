@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "test": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --ci --coverage",
-    "test:coverage:summary": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageReporters=text-summary",
-    "test:coverage:html": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageReporters=html",
+    "test:coverage:watch": "vitest --coverage --watch",
+    "test:coverage:threshold": "vitest run --coverage",
     "docs": "jsdoc -c jsdoc.json",
     "docs:clean": "rm -rf docs && npm run docs",
     "prepare": "husky",
@@ -38,7 +38,16 @@
     "test:compare": "npm run test:jest:pilot && npm run test:vitest:pilot:run",
     "test:vitest:phase1": "vitest run tests/error-handler.vitest.js tests/status-reset.vitest.js tests/audio-handler-stop.vitest.js tests/jsdoc-generation.vitest.js",
     "test:jest:phase1": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest tests/error-handler.test.js tests/status-reset.test.js tests/audio-handler-stop.test.js tests/jsdoc-generation.test.js",
-    "test:phase1:parallel": "npm run test:jest:phase1 && npm run test:vitest:phase1"
+    "test:phase1:parallel": "npm run test:jest:phase1 && npm run test:vitest:phase1",
+    "test:vitest:phase2": "vitest run tests/recording-state-machine.vitest.js tests/settings-dom-caching.vitest.js tests/visualization-stop.vitest.js tests/api-client-validation.vitest.js tests/settings-persistence.vitest.js tests/permission-manager.vitest.js",
+    "test:jest:phase2": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest tests/recording-state-machine.test.js tests/settings-dom-caching.test.js tests/visualization-stop.test.js tests/api-client-validation.test.js tests/settings-persistence.test.js tests/permission-manager.test.js",
+    "test:phase2:parallel": "npm run test:jest:phase2 & npm run test:vitest:phase2 & wait",
+    "test:phase2:performance": "time npm run test:jest:phase2 && time npm run test:vitest:phase2",
+    "test:vitest:phase3": "vitest run tests/api-client-errors.vitest.js tests/audio-handler-integration.vitest.js tests/error-recovery.vitest.js tests/recording-integration.vitest.js tests/settings-helper-methods.vitest.js tests/settings-validation.vitest.js tests/ui-event-bus.vitest.js tests/ui-event-bus-proper.vitest.js tests/visualization-stop-expanded.vitest.js",
+    "test:jest:phase3": "NODE_NO_WARNINGS=1 NODE_OPTIONS=--experimental-vm-modules jest tests/api-client-errors.test.js tests/audio-handler-integration.test.js tests/error-recovery.test.js tests/recording-integration.test.js tests/settings-helper-methods.test.js tests/settings-validation.test.js tests/ui-event-bus.test.js tests/ui-event-bus-proper.test.js tests/visualization-stop-expanded.test.js",
+    "test:phase3:parallel": "npm run test:jest:phase3 & npm run test:vitest:phase3 & wait",
+    "test:phase3:performance": "time npm run test:jest:phase3 && time npm run test:vitest:phase3",
+    "test:integration:complete": "npm run test:vitest:phase1 && npm run test:vitest:phase2 && npm run test:vitest:phase3"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

@@ -147,6 +147,11 @@ export class AudioHandler {
      */
     async startRecordingFlow() {
         try {
+            // If in error state, first transition to idle
+            if (this.stateMachine.getState() === RECORDING_STATES.ERROR) {
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+            }
+            
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
             
@@ -175,9 +180,10 @@ export class AudioHandler {
             // Standardized error handling
             errorHandler.handleError(err, { module: 'AudioHandler' });
             // Transition to error state
-            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: err.message });
+            const errorMessage = err?.message || err?.toString() || 'Unknown error';
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: errorMessage });
             // If configuration-related error, open settings
-            if (err.message.includes('configure') || err.message.includes('API key') || err.message.includes('URI')) {
+            if (errorMessage.includes('configure') || errorMessage.includes('API key') || errorMessage.includes('URI')) {
                 this.settings.openSettingsModal();
                 eventBus.emit(APP_EVENTS.API_CONFIG_MISSING);
             }
