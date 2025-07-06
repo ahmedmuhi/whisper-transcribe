@@ -1,4 +1,6 @@
-// helper for standardized error handling across modules
+/**
+ * @fileoverview Centralized error handling for application-wide error reporting
+ */
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { MESSAGES } from './constants.js';
 import { logger } from './logger.js';

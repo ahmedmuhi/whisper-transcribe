@@ -1,17 +1,7 @@
 /**
  * @fileoverview Audio recording and playback management for speech transcription.
- * Handles MediaRecorder integration, recording lifecycle, and audio processing.
- * 
- * @module AudioHandler
- * @requires EventBus
- * @requires RecordingStateMachine
- * @requires PermissionManager
- * @requires StatusHelper
- * @requires Constants
- * @since 1.0.0
  */
 
-// js/audio-handler.js
 import { RECORDING_STATES, MESSAGES, ID, TIMER_CONFIG } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
@@ -21,8 +11,6 @@ import { errorHandler } from './error-handler.js';
 
 /**
  * Audio recording and processing manager for speech transcription.
- * Coordinates MediaRecorder API, state management, timer functionality, and transcription requests.
- * Integrates with Azure Speech Services for audio-to-text conversion.
  * 
  * @class AudioHandler
  * @fires APP_EVENTS.RECORDING_STARTED
@@ -33,46 +21,29 @@ import { errorHandler } from './error-handler.js';
  * @fires APP_EVENTS.RECORDING_ERROR
  * @fires APP_EVENTS.API_REQUEST_START
  * @fires APP_EVENTS.UI_TRANSCRIPTION_READY
- * 
- * @example
- * const audioHandler = new AudioHandler(apiClient, ui, settings);
- * 
- * // Start recording
- * await audioHandler.startRecording();
- * 
- * // Stop and transcribe
- * await audioHandler.stopRecording();
- * 
- * // Check current state
- * if (audioHandler.stateMachine.canRecord()) {
- *   logger.info('Ready to record');
- * }
  */
 export class AudioHandler {
     /**
      * Creates a new AudioHandler instance.
      * 
-     * @param {AzureAPIClient} apiClient - Azure API client for transcription
-     * @param {UI} ui - UI controller instance for interface updates  
-     * @param {Settings} settings - Settings manager for configuration
+     * @param {AzureAPIClient} apiClient - API client for transcription
+     * @param {UI} ui - UI controller instance
+     * @param {Settings} settings - Settings manager
      */
     constructor(apiClient, ui, settings) {
         this.apiClient = apiClient;
         this.ui = ui;
         this.settings = settings;
         
-        // Recording state
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.recordingStartTime = null;
         this.timerInterval = null;
     this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         
-        // Controls
         this.cancelRequested = false;
         this.permissionManager = new PermissionManager(ui);
         
-        // State machine
         this.stateMachine = new RecordingStateMachine(this);
         
         this.setupEventListeners();

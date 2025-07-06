@@ -1,12 +1,5 @@
 /**
  * @fileoverview Settings management for API configuration and user preferences.
- * Handles model selection, API credentials, and settings persistence.
- * 
- * @module Settings
- * @requires EventBus
- * @requires StatusHelper
- * @requires Constants
- * @since 1.0.0
  */
 
 import { STORAGE_KEYS, MESSAGES, ID } from './constants.js';

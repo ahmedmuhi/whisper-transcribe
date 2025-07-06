@@ -1,17 +1,7 @@
-// js/visualization.js
+/**
+ * @fileoverview Real-time audio visualization controller using Web Audio API
+ */
 import { COLORS } from './constants.js';
-
-/**
- * VisualizationController handles real-time audio visualization on a canvas.
- * Usage:
- *   const controller = new VisualizationController(stream, canvas, isDarkTheme);
- *   controller.start();
- *   controller.stop();
- */
-/**
- * Handles real-time audio visualization on a canvas element using Web Audio API.
- * @module VisualizationController
- */
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
         this.stream = stream;

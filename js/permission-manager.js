@@ -1,3 +1,6 @@
+/**
+ * @fileoverview Manages microphone permissions and user notifications
+ */
 import { MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
@@ -5,8 +8,6 @@ import { errorHandler } from './error-handler.js';
 
 /**
  * Manages microphone permission requests and status notifications.
- * Uses browser Permissions API and MediaDevices to handle access flows.
- * @module PermissionManager
  */
 export class PermissionManager {
     constructor(ui) {

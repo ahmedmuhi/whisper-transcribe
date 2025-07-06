@@ -1,9 +1,5 @@
 /**
- * @fileoverview Application constants for the whisper-transcribe app.
- * Contains all constant values, configuration keys, UI element IDs, and state definitions.
- * 
- * @module Constants
- * @since 1.0.0
+ * @fileoverview Application constants including states, colors, and configuration keys
  */
 
 /**

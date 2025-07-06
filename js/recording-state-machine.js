@@ -1,11 +1,5 @@
 /**
  * @fileoverview Finite state machine for managing audio recording lifecycle.
- * Handles state transitions, validation, and coordination between recording states.
- * 
- * @module RecordingStateMachine
- * @requires EventBus
- * @requires Constants
- * @since 1.0.0
  */
 
 import { RECORDING_STATES, STATE_TRANSITIONS, MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
@@ -45,7 +39,6 @@ export class RecordingStateMachine {
         this.currentState = RECORDING_STATES.IDLE;
         this.previousState = null;
         
-        // Bind state handlers
         this.stateHandlers = {
             [RECORDING_STATES.IDLE]: this.handleIdleState.bind(this),
             [RECORDING_STATES.INITIALIZING]: this.handleInitializingState.bind(this),
@@ -100,18 +93,15 @@ export class RecordingStateMachine {
         const stateLogger = logger.child('RecordingStateMachine');
         stateLogger.debug(`State transition: ${this.currentState} → ${newState}`);
         
-        // Store previous state
         this.previousState = this.currentState;
         this.currentState = newState;
         
-        // Emit state change event
         eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
             newState,
             oldState: this.previousState,
             ...data
         });
         
-        // Execute state handler
         const handler = this.stateHandlers[newState];
         if (handler) {
             await handler(data);

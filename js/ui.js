@@ -1,13 +1,5 @@
 /**
  * @fileoverview User interface controller for the whisper-transcribe application.
- * Manages DOM interactions, visual states, and user interface updates.
- * 
- * @module UI
- * @requires EventBus
- * @requires PermissionManager
- * @requires StatusHelper
- * @requires Constants
- * @since 1.0.0
  */
 
 import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID } from './constants.js';

@@ -1,9 +1,5 @@
 /**
  * @fileoverview Central event management system for decoupled module communication.
- * Provides publish-subscribe pattern implementation with event history and debugging.
- * 
- * @module EventBus
- * @since 1.0.0
  */
 
 import { logger } from './logger.js';

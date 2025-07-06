@@ -1,11 +1,5 @@
 /**
  * @fileoverview Centralized logging utility for the Speech-to-Text application.
- * Provides configurable log levels with environment-based control to prevent
- * debug information exposure in production environments.
- * 
- * @module Logger
- * @since 1.0.0
- * @author Development Team
  */
 
 /**

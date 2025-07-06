@@ -1,8 +1,10 @@
+/**
+ * @fileoverview Helper functions for displaying temporary status messages
+ */
 import { COLORS, DEFAULT_RESET_STATUS } from './constants.js';
 
 /**
  * Display a temporary status message in a DOM element and optionally reset it.
- * @module StatusHelper
  * @param {HTMLElement} element - The target element for status messages
  * @param {string} message - Status text to display
  * @param {('info'|'success'|'error')} [type='info'] - Message type for color coding

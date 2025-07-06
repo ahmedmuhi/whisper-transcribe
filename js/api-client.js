@@ -1,11 +1,5 @@
 /**
  * @fileoverview Azure Speech Services API client for audio transcription.
- * Handles communication with Azure Whisper and GPT-4o APIs for speech-to-text conversion.
- * 
- * @module AzureAPIClient
- * @requires EventBus
- * @requires Constants
- * @since 1.0.0
  */
 
 import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES } from './constants.js';
@@ -15,24 +9,12 @@ import { errorHandler } from './error-handler.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
- * Supports both Azure Whisper and GPT-4o models with different configuration requirements.
+ * Supports both Azure Whisper and GPT-4o models.
  * 
  * @class AzureAPIClient
  * @fires APP_EVENTS.API_REQUEST_START
  * @fires APP_EVENTS.API_REQUEST_SUCCESS
  * @fires APP_EVENTS.API_REQUEST_ERROR
- * 
- * @example
- * const apiClient = new AzureAPIClient(settings);
- * 
- * try {
- *   const result = await apiClient.transcribe(audioBlob, (status) => {
- *     logger.debug('Transcription status:', status);
- *   });
- *   logger.info('Transcription completed:', result.text);
- * } catch (error) {
- *   logger.error('Transcription failed:', error.message);
- * }
  */
 export class AzureAPIClient {
     /**
@@ -46,32 +28,15 @@ export class AzureAPIClient {
     
     /**
      * Transcribes audio blob to text using configured Azure Speech Service.
-     * Supports both Whisper and GPT-4o models with automatic model-specific formatting.
      * 
      * @async
-     * @method transcribe
-     * @param {Blob} audioBlob - Audio data to transcribe (WebM format recommended)
-     * @param {Function} [onProgress] - Optional progress callback for status updates
-     * @returns {Promise<Object>} Promise resolving to transcription result
-     * @returns {Object} result - Transcription result object
-     * @returns {string} result.text - Transcribed text content
-     * @returns {string} result.model - Model used for transcription
-     * @throws {Error} When API configuration is missing or invalid
-     * @throws {Error} When API request fails or returns error status
+     * @param {Blob} audioBlob - Audio data to transcribe
+     * @param {Function} [onProgress] - Progress callback for status updates
+     * @returns {Promise<Object>} Transcription result with text and model properties
+     * @throws {Error} When API configuration is missing or request fails
      * @fires APP_EVENTS.API_REQUEST_START
      * @fires APP_EVENTS.API_REQUEST_SUCCESS
      * @fires APP_EVENTS.API_REQUEST_ERROR
-     * 
-     * @example
-     * // Basic transcription
-     * const result = await apiClient.transcribe(audioBlob);
-     * logger.info('Transcription result:', result.text);
-     * 
-     * @example
-     * // With progress tracking
-     * const result = await apiClient.transcribe(audioBlob, (status) => {
-     *   updateUIStatus(status);
-     * });
      */
     async transcribe(audioBlob, onProgress) {
         const config = this.settings.getModelConfig();
