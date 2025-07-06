@@ -20,10 +20,6 @@
     "entry": ["eslint.config.js"],
     "project": ["eslint.config.js"]
   },
-  "jest": {
-    "entry": ["tests/**/*.test.js", "tests/setupTests.js", "jest.config.js"],
-    "project": ["tests/**/*.js", "jest.config.js"]
-  },
   "husky": {
     "entry": [".husky/**/*"]
   },

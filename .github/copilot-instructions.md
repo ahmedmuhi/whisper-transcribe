@@ -49,8 +49,8 @@ All constants live in `js/constants.js`:
 npm install
 npm test
 
-# Tests use ES modules with Jest
-# Current test coverage: RecordingStateMachine, AudioHandler
+# Tests use ES modules with Vitest
+# Current test coverage: 230 tests across all modules
 ```
 
 ### Recording Flow State Transitions

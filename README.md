@@ -38,15 +38,15 @@ A lightweight web application that converts spoken audio to text using Azure's S
 
 ### Running Tests
 
-Run the unit tests with:
+This project uses **Vitest** for all testing needs. Run the unit tests with:
 
 ```bash
 npm install
 npm test                        # Run all tests
 npm run test:coverage          # Run tests with coverage report
+npm run test:watch             # Run tests in watch mode
 npm run test:coverage:watch    # Run coverage in watch mode
-npm run test:coverage:summary  # Show coverage summary
-npm run test:coverage:html     # Generate HTML coverage report
+npm run test:ui                # Run tests with Vitest UI
 ```
 
 ### Coverage Requirements
