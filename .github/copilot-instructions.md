@@ -47,11 +47,24 @@ All constants live in `js/constants.js`:
 ```bash
 # Install and run tests
 npm install
-npm test
+npm test                        # Run all tests
+npm run test:coverage          # Run tests with coverage report
+npm run test:watch             # Run tests in watch mode
+npm run test:coverage:watch    # Run coverage in watch mode
+npm run test:ui                # Run tests with Vitest UI
 
-# Tests use ES modules with Vitest
-# Current test coverage: 230 tests across all modules
+# Linting and dependencies
+npm run lint                   # Check code style
+npm run lint:fix              # Auto-fix linting issues
+npm run deps:check:prod       # Validate production dependencies
 ```
+
+### Testing Framework
+- **Vitest** (not Jest) for all testing with ES modules support
+- Happy-DOM for fast browser environment simulation
+- 38+ test files covering all modules with integration tests
+- **Coverage Thresholds**: statements 85%, branches 80%, functions 70%, lines 85%
+- Test files: `tests/**/*.vitest.js` pattern only
 
 ### Recording Flow State Transitions
 ```
@@ -99,8 +112,10 @@ IDLE → INITIALIZING → RECORDING ⇄ PAUSED → STOPPING → PROCESSING → I
 
 - `js/` - All JavaScript modules (ES6 modules, no bundler)
 - `css/styles.css` - Single CSS file with CSS custom properties
-- `tests/` - Jest tests (ES modules configuration)
+- `tests/` - Vitest tests (ES modules configuration, `*.vitest.js` pattern)
 - `index.html` - Single-page application entry point
+- **Coverage enforced**: Files under `js/` (excluding `main.js`) must meet thresholds
+- **Git hooks**: Pre-push runs linting, coverage tests, and dependency checks
 
 ## Common Pitfalls
 
@@ -114,6 +129,7 @@ IDLE → INITIALIZING → RECORDING ⇄ PAUSED → STOPPING → PROCESSING → I
 ## Testing Strategy
 
 - Unit tests focus on state machine logic and core business rules
-- Mock dependencies using Jest: `{ jest.fn() }` pattern
+- Mock dependencies using Vitest: `vi.fn()` pattern (not Jest mocks)
 - Test state transitions and boundary conditions
+- **Coverage baseline**: tracked in `metrics/coverage-baseline.json`
 - Current coverage: state machine validation, audio handler safety checks
