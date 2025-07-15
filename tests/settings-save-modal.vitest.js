@@ -53,6 +53,7 @@ beforeAll(async () => {
 describe('Settings Modal Save Functionality', () => {
     let settings;
     let mockModelSelect;
+    let mockSettingsModelSelect;
     let mockWhisperUriInput;
     let mockWhisperKeyInput;
     let mockGpt4oUriInput;
@@ -66,6 +67,7 @@ describe('Settings Modal Save Functionality', () => {
 
         // Create mock elements with specific test values
         mockModelSelect = createMockElement('whisper');
+        mockSettingsModelSelect = createMockElement('whisper');
         mockWhisperUriInput = createMockElement('https://test.openai.azure.com/whisper');
         mockWhisperKeyInput = createMockElement('sk-1234567890abcdef1234567890abcdef12345678');
         mockGpt4oUriInput = createMockElement('https://test.openai.azure.com/gpt4o');
@@ -78,6 +80,8 @@ describe('Settings Modal Save Functionality', () => {
             switch (id) {
                 case 'model-select':
                     return mockModelSelect;
+                case 'settings-model-select':
+                    return mockSettingsModelSelect;
                 case 'whisper-uri':
                     return mockWhisperUriInput;
                 case 'whisper-key':
@@ -105,7 +109,7 @@ describe('Settings Modal Save Functionality', () => {
     describe('Save Settings with Valid Configuration', () => {
         it('should save valid Whisper configuration and close modal', () => {
             // Set up valid Whisper configuration
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
             mockWhisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
 
@@ -147,7 +151,7 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should save valid GPT-4o configuration and close modal', () => {
             // Set up valid GPT-4o configuration
-            mockModelSelect.value = 'gpt-4o-transcribe';
+            mockSettingsModelSelect.value = 'gpt-4o-transcribe';
             mockGpt4oUriInput.value = 'https://test.openai.azure.com/gpt4o';
             mockGpt4oKeyInput.value = 'sk-9876543210fedcba9876543210fedcba87654321';
 
@@ -190,7 +194,7 @@ describe('Settings Modal Save Functionality', () => {
     describe('Save Settings with Invalid Configuration', () => {
         it('should not close modal when API key is missing', () => {
             // Set up invalid configuration - missing API key
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
             mockWhisperKeyInput.value = ''; // Empty API key
 
@@ -221,7 +225,7 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should not close modal when URI is invalid', () => {
             // Set up invalid configuration - invalid URI
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'http://insecure.com'; // HTTP instead of HTTPS
             mockWhisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
 
@@ -246,7 +250,7 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should not close modal when API key format is invalid', () => {
             // Set up invalid configuration - invalid API key format
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
             mockWhisperKeyInput.value = 'invalid-key-format';
 
@@ -273,7 +277,7 @@ describe('Settings Modal Save Functionality', () => {
     describe('Input Sanitization During Save', () => {
         it('should trim whitespace from inputs before saving', () => {
             // Set up configuration with whitespace
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = '  https://test.openai.azure.com/whisper  ';
             mockWhisperKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
 
@@ -296,7 +300,7 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should remove newlines and tabs from API key', () => {
             // Set up configuration with special characters
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
             mockWhisperKeyInput.value = 'sk-1234567890abcdef\n1234567890abcdef\t12345678';
 
@@ -314,7 +318,7 @@ describe('Settings Modal Save Functionality', () => {
     describe('Event Emission During Save Process', () => {
         it('should emit validation error event for invalid configuration', () => {
             // Set up invalid configuration
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = '';
             mockWhisperKeyInput.value = '';
 
@@ -335,7 +339,7 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should emit all required events for successful save', () => {
             // Set up valid configuration
-            mockModelSelect.value = 'whisper';
+            mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
             mockWhisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
 

@@ -63,7 +63,7 @@ describe('Settings Persistence & Management', () => {
         
         // Ensure all required elements exist and reset their values
         const requiredIds = [
-            ID.MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS,
+            ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS,
             ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, ID.GPT4O_SETTINGS,
             ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY
         ];
@@ -76,7 +76,7 @@ describe('Settings Persistence & Management', () => {
             element.style.display = '';
             
             // Set specific defaults after reset
-            if (id === ID.MODEL_SELECT) {
+            if (id === ID.MODEL_SELECT || id === ID.SETTINGS_MODEL_SELECT) {
                 element.value = 'whisper'; // Set default model
             }
         });
@@ -122,8 +122,10 @@ describe('Settings Persistence & Management', () => {
             const gpt4oApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
             const gpt4oApiUri = 'https://gpt4o.openai.azure.com/';
             
-            // Set up form values  
-            settings.modelSelect.value = 'gpt-4o';
+            // Set up form values - use settings modal select for saveSettings
+            const settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
+            settingsModelSelect.value = 'gpt-4o-transcribe';
+            
             const keyElement = document.getElementById(ID.GPT4O_KEY);
             const uriElement = document.getElementById(ID.GPT4O_URI);
             keyElement.value = gpt4oApiKey;
