@@ -416,7 +416,8 @@ export class Settings {
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
             message: MESSAGES.SETTINGS_SAVED,
             type: 'success',
-            temporary: true
+            temporary: true,
+            duration: 3000
         });
         
         // Emit settings saved event
@@ -490,6 +491,13 @@ export class Settings {
                 });
                 this.openSettingsModal();
             }, 500);
+        } else {
+            // Settings are complete - emit SETTINGS_LOADED event to notify UI
+            eventBus.emit(APP_EVENTS.SETTINGS_LOADED, {
+                model: config.model,
+                hasUri: !!config.uri,
+                hasApiKey: !!config.apiKey
+            });
         }
     }
 }

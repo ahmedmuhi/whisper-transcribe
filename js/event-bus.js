@@ -283,6 +283,7 @@ export const APP_EVENTS = {
     SETTINGS_UPDATED: 'settings:updated',
     SETTINGS_MODEL_CHANGED: 'settings:modelChanged',
     SETTINGS_SAVED: 'settings:saved',
+    SETTINGS_LOADED: 'settings:loaded',
     SETTINGS_VALIDATION_ERROR: 'settings:validationError',
     
     // Application events
