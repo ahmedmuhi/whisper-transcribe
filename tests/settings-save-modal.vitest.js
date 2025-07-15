@@ -147,6 +147,15 @@ describe('Settings Modal Save Functionality', () => {
                     hasApiKey: true
                 })
             );
+
+            expect(eventSpy).toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.objectContaining({
+                    model: 'whisper',
+                    hasUri: true,
+                    hasApiKey: true
+                })
+            );
         });
 
         it('should save valid GPT-4o configuration and close modal', () => {
@@ -188,6 +197,15 @@ describe('Settings Modal Save Functionality', () => {
                     hasApiKey: true
                 })
             );
+
+            expect(eventSpy).toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.objectContaining({
+                    model: 'gpt-4o-transcribe',
+                    hasUri: true,
+                    hasApiKey: true
+                })
+            );
         });
     });
 
@@ -221,6 +239,11 @@ describe('Settings Modal Save Functionality', () => {
                 APP_EVENTS.SETTINGS_SAVED,
                 expect.anything()
             );
+
+            expect(eventSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.anything()
+            );
         });
 
         it('should not close modal when URI is invalid', () => {
@@ -246,6 +269,11 @@ describe('Settings Modal Save Functionality', () => {
                     temporary: true
                 })
             );
+
+            expect(eventSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.anything()
+            );
         });
 
         it('should not close modal when API key format is invalid', () => {
@@ -270,6 +298,11 @@ describe('Settings Modal Save Functionality', () => {
                     type: 'error',
                     temporary: true
                 })
+            );
+
+            expect(eventSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.anything()
             );
         });
     });
@@ -367,6 +400,15 @@ describe('Settings Modal Save Functionality', () => {
 
             expect(eventSpy).toHaveBeenCalledWith(
                 APP_EVENTS.SETTINGS_UPDATED
+            );
+
+            expect(eventSpy).toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.objectContaining({
+                    model: 'whisper',
+                    hasUri: true,
+                    hasApiKey: true
+                })
             );
         });
     });

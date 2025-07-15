@@ -188,6 +188,16 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
                 })
             );
 
+            // Verify SETTINGS_LOADED event is emitted for persistence
+            expect(eventSpy).toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
+                expect.objectContaining({
+                    model: 'whisper',
+                    hasUri: true,
+                    hasApiKey: true
+                })
+            );
+
             // Verify settings updated event is emitted
             expect(eventSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
         });
@@ -311,6 +321,12 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             // Verify SETTINGS_SAVED event is NOT emitted
             expect(eventSpy).not.toHaveBeenCalledWith(
                 APP_EVENTS.SETTINGS_SAVED,
+                expect.anything()
+            );
+
+            // Verify SETTINGS_LOADED event is NOT emitted
+            expect(eventSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_LOADED,
                 expect.anything()
             );
         });

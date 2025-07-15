@@ -338,8 +338,8 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
             // Wait for event processing
             await vi.waitFor(() => {
-                expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.any(Object));
-            });
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.any(Object));
+        });
 
             // Assert - Complete save workflow should work:
             
@@ -360,6 +360,13 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             
             // 4. SETTINGS_SAVED event should be emitted
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.objectContaining({
+                model: 'whisper',
+                hasUri: true,
+                hasApiKey: true
+            }));
+
+            // 4b. SETTINGS_LOADED event should also be emitted
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, expect.objectContaining({
                 model: 'whisper',
                 hasUri: true,
                 hasApiKey: true
