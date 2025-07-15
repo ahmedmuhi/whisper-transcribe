@@ -263,6 +263,11 @@ export class UI {
             this.checkRecordingPrerequisites();
         });
         
+        // Also listen for SETTINGS_SAVED to ensure immediate microphone activation
+        eventBus.on(APP_EVENTS.SETTINGS_SAVED, () => {
+            this.checkRecordingPrerequisites();
+        });
+        
         eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, (data) => {
             const uiLogger = logger.child('UI');
             uiLogger.info('Model changed to:', data.model);
