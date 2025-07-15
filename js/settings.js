@@ -241,8 +241,8 @@ export class Settings {
 
     /**
      * Trim whitespace and normalize user provided settings inputs.
-     * Removes newlines and tabs from the API key and ensures the
-     * URI field uses a standard format of <origin>/ with no path.
+     * Removes newlines and tabs from the API key and URI while preserving
+     * the complete URI path and query parameters required for Azure OpenAI endpoints.
      *
      * @method sanitizeInputs
      */
@@ -263,11 +263,12 @@ export class Settings {
         }
 
         if (uriInput && typeof uriInput.value === 'string') {
-            // Remove all whitespace characters
+            // Remove all whitespace characters but preserve the complete URI
             let uri = uriInput.value.replace(/\s+/g, '');
             try {
-                const parsed = new URL(uri);
-                uri = `${parsed.origin}/`;
+                // Validate URI format but preserve complete URL including path and query parameters
+                new URL(uri);
+                // URI is valid, keep it as-is (don't truncate to origin)
             } catch {
                 // Leave as whitespace-stripped string if parsing fails
             }

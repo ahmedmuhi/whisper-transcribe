@@ -187,20 +187,20 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 expect(mockUriInput.value).toBe('https://test.azure.com/');
             });
 
-            it('should normalize URI to origin with trailing slash', () => {
+            it('should preserve complete URI path and query parameters', () => {
                 mockUriInput.value = 'https://test.azure.com/extra/path';
                 
                 settings.sanitizeInputs();
                 
-                expect(mockUriInput.value).toBe('https://test.azure.com/');
+                expect(mockUriInput.value).toBe('https://test.azure.com/extra/path');
             });
 
-            it('should handle URI with multiple slashes', () => {
+            it('should handle URI with multiple slashes by preserving them', () => {
                 mockUriInput.value = 'https://test.azure.com//extra//slashes//';
                 
                 settings.sanitizeInputs();
                 
-                expect(mockUriInput.value).toBe('https://test.azure.com/');
+                expect(mockUriInput.value).toBe('https://test.azure.com//extra//slashes//');
             });
 
             it('should remove newlines and tabs from URI', () => {
@@ -227,12 +227,12 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 expect(mockUriInput.value).toBe('');
             });
 
-            it('should preserve valid HTTPS URI with port', () => {
+            it('should preserve valid HTTPS URI with port and path', () => {
                 mockUriInput.value = 'https://test.azure.com:8080/path';
                 
                 settings.sanitizeInputs();
                 
-                expect(mockUriInput.value).toBe('https://test.azure.com:8080/');
+                expect(mockUriInput.value).toBe('https://test.azure.com:8080/path');
             });
         });
 
@@ -404,7 +404,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 
                 expect(errors).toHaveLength(0);
                 expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
-                expect(mockUriInput.value).toBe('https://valid.azure.com/');
+                expect(mockUriInput.value).toBe('https://valid.azure.com/extra/path');
             });
         });
 
@@ -472,7 +472,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 
                 expect(isValid).toBe(true);
                 expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
-                expect(mockUriInput.value).toBe('https://valid.azure.com/');
+                expect(mockUriInput.value).toBe('https://valid.azure.com/extra/path');
             });
         });
 
@@ -621,7 +621,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             
             expect(errors).toHaveLength(0);
             expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
-            expect(mockUriInput.value).toBe('https://valid.azure.com/');
+            expect(mockUriInput.value).toBe('https://valid.azure.com/path');
         });
 
         it('should sanitize inputs before validating configuration', () => {
@@ -632,7 +632,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             
             expect(isValid).toBe(true);
             expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
-            expect(mockUriInput.value).toBe('https://valid.azure.com/');
+            expect(mockUriInput.value).toBe('https://valid.azure.com/path');
         });
 
         it('should use same validation logic in both methods', () => {

@@ -362,14 +362,14 @@ describe('Settings Validation', () => {
             expect(settings.apiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
         });
 
-        it('should normalize URI format', () => {
+        it('should preserve URI format while cleaning whitespace', () => {
             settings.modelSelect.value = 'whisper';
             settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
             settings.apiUriInput.value = '  https://test.azure.com//extra//slashes  ';
 
             settings.sanitizeInputs();
 
-            expect(settings.apiUriInput.value).toBe('https://test.azure.com/');
+            expect(settings.apiUriInput.value).toBe('https://test.azure.com//extra//slashes');
         });
 
         it('should handle special characters in inputs', () => {
