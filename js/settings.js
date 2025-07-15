@@ -245,9 +245,10 @@ export class Settings {
      * the complete URI path and query parameters required for Azure OpenAI endpoints.
      *
      * @method sanitizeInputs
+     * @param {string} [model] - Optional model to use, defaults to current model from main interface
      */
-    sanitizeInputs() {
-        const currentModel = this.getCurrentModel();
+    sanitizeInputs(model = null) {
+        const currentModel = model || this.getCurrentModel();
 
         // Use injected inputs if defined, else use cached inputs; allow null to pass through
         const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
@@ -283,12 +284,12 @@ export class Settings {
      * Emits SETTINGS_VALIDATION_ERROR with details when invalid.
      *
      * @method validateConfiguration
+     * @param {string} [model] - Optional model to use, defaults to current model from main interface
      * @returns {boolean} True if configuration is valid
      */
-    validateConfiguration() {
-        this.sanitizeInputs();
-
-        const currentModel = this.getCurrentModel();
+    validateConfiguration(model = null) {
+        const currentModel = model || this.getCurrentModel();
+        this.sanitizeInputs(currentModel);
         const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
             ? this.apiKeyInput
             : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
@@ -298,14 +299,14 @@ export class Settings {
 
         const errors = [];
 
-    const apiKey = apiKeyInput.value.trim();
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         if (!apiKey) {
             errors.push('API key is required');
         } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
-    const uri = uriInput.value.trim();
+    const uri = uriInput ? uriInput.value.trim() : '';
         if (!uri) {
             errors.push('URI is required');
         } else {
@@ -332,12 +333,12 @@ export class Settings {
      * configuration without emitting any events.
      *
      * @method getValidationErrors
+     * @param {string} [model] - Optional model to use, defaults to current model from main interface
      * @returns {string[]} Array of error messages
      */
-    getValidationErrors() {
-        this.sanitizeInputs();
-
-        const currentModel = this.getCurrentModel();
+    getValidationErrors(model = null) {
+        const currentModel = model || this.getCurrentModel();
+        this.sanitizeInputs(currentModel);
         const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
             ? this.apiKeyInput
             : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
@@ -347,14 +348,14 @@ export class Settings {
 
         const errors = [];
 
-    const apiKey = apiKeyInput.value.trim();
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         if (!apiKey) {
             errors.push('API key is required');
         } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
-    const uri = uriInput.value.trim();
+    const uri = uriInput ? uriInput.value.trim() : '';
         if (!uri) {
             errors.push('URI is required');
         } else {
@@ -380,9 +381,9 @@ export class Settings {
      * @returns {void}
      */
     saveSettings() {
-        const currentModel = this.getCurrentModel();
+        const currentModel = this.getCurrentModelFromSettings();
 
-        this.sanitizeInputs();
+        this.sanitizeInputs(currentModel);
 
     const apiKeyInput = currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput;
     const uriInput = currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput;
@@ -390,9 +391,9 @@ export class Settings {
     const targetUri = uriInput ? uriInput.value.trim() : '';
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
 
-        if (!this.validateConfiguration()) {
+        if (!this.validateConfiguration(currentModel)) {
             // Display first error to user via status helper
-            const [firstError] = this.getValidationErrors();
+            const [firstError] = this.getValidationErrors(currentModel);
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: firstError || MESSAGES.FILL_REQUIRED_FIELDS,
                 type: 'error',

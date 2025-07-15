@@ -737,8 +737,20 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             document.getElementById.mockReturnValue(null);
             
             expect(() => settings.sanitizeInputs()).not.toThrow();
-            expect(() => settings.getValidationErrors()).toThrow(); // Will throw because null doesn't have .value.trim()
-            expect(() => settings.validateConfiguration()).toThrow(); // Will throw because null doesn't have .value.trim()
+            expect(() => settings.getValidationErrors()).not.toThrow(); // Now handles null gracefully
+            expect(() => settings.validateConfiguration()).not.toThrow(); // Now handles null gracefully
+            
+            // Validation should return false when inputs are null/missing
+            expect(settings.validateConfiguration()).toBe(false);
+            
+            // Should return errors for missing API key and URI
+            const errors = settings.getValidationErrors();
+            expect(errors).toEqual(
+                expect.arrayContaining([
+                    'API key is required',
+                    'URI is required'
+                ])
+            );
         });
     });
 });
