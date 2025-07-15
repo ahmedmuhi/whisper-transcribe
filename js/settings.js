@@ -34,6 +34,7 @@ export class Settings {
      */
     constructor() {
         this.modelSelect = document.getElementById(ID.MODEL_SELECT);
+        this.settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
         this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
         this.closeModalButton = document.getElementById(ID.CLOSE_MODAL);
         this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
@@ -76,6 +77,9 @@ export class Settings {
     loadSavedModel() {
         const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
         this.modelSelect.value = savedModel;
+        if (this.settingsModelSelect) {
+            this.settingsModelSelect.value = savedModel;
+        }
     }
     
     /**
@@ -89,7 +93,7 @@ export class Settings {
      * @fires APP_EVENTS.UI_SETTINGS_CLOSED
      */
     setupEventListeners() {
-        // Model change listener
+        // Main interface model change listener
         this.modelSelect.addEventListener('change', (e) => {
             const newModel = e.target.value;
             const oldModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
@@ -97,6 +101,11 @@ export class Settings {
             localStorage.setItem(STORAGE_KEYS.MODEL, newModel);
             const settingsLogger = logger.child('Settings');
             settingsLogger.info('Model changed to:', newModel);
+            
+            // Sync settings modal selector
+            if (this.settingsModelSelect) {
+                this.settingsModelSelect.value = newModel;
+            }
             this.updateSettingsVisibility();
             
             // Emit model changed event
@@ -105,6 +114,30 @@ export class Settings {
                 previousModel: oldModel
             });
         });
+
+        // Settings modal model change listener
+        if (this.settingsModelSelect) {
+            this.settingsModelSelect.addEventListener('change', (e) => {
+                const newModel = e.target.value;
+                const oldModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+                
+                localStorage.setItem(STORAGE_KEYS.MODEL, newModel);
+                const settingsLogger = logger.child('Settings');
+                settingsLogger.info('Settings modal model changed to:', newModel);
+                
+                // Sync main interface selector
+                if (this.modelSelect) {
+                    this.modelSelect.value = newModel;
+                }
+                this.updateSettingsVisibility();
+                
+                // Emit model changed event
+                eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+                    model: newModel,
+                    previousModel: oldModel
+                });
+            });
+        }
         
         // Settings button listener
         this.settingsButton.addEventListener('click', () => {
@@ -135,7 +168,7 @@ export class Settings {
      * @returns {void}
      */
     updateSettingsVisibility() {
-        const currentModel = this.getCurrentModel();
+        const currentModel = this.getCurrentModelFromSettings();
         if (this.whisperSettings) {
             this.whisperSettings.style.display = currentModel === 'whisper' ? 'block' : 'none';
         }
@@ -181,10 +214,16 @@ export class Settings {
      */
     loadSettingsToForm() {
         // Load saved settings into form fields
+        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
         const whisperUri = localStorage.getItem(STORAGE_KEYS.WHISPER_URI);
         const whisperKey = localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY);
         const gpt4oUri = localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
         const gpt4oKey = localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
+        
+        // Sync settings modal model selector with saved model
+        if (this.settingsModelSelect) {
+            this.settingsModelSelect.value = savedModel;
+        }
         
         if (this.whisperUriInput && whisperUri) {
             this.whisperUriInput.value = whisperUri;
@@ -400,6 +439,20 @@ export class Settings {
      */
     getCurrentModel() {
         return this.modelSelect.value;
+    }
+
+    /**
+     * Gets the currently selected transcription model from the settings modal.
+     * Falls back to main interface model selector if settings modal selector is not available.
+     * 
+     * @method getCurrentModelFromSettings
+     * @returns {string} Current model identifier ('whisper' or 'gpt-4o-transcribe')
+     */
+    getCurrentModelFromSettings() {
+        if (this.settingsModelSelect) {
+            return this.settingsModelSelect.value;
+        }
+        return this.getCurrentModel();
     }
     
     /**

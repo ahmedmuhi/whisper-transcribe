@@ -105,6 +105,7 @@ export const ID = Object.freeze({
 
   // Selectors / inputs
   MODEL_SELECT:     'model-select',
+  SETTINGS_MODEL_SELECT: 'settings-model-select',
   THEME_MODE:       'theme-mode',
   WHISPER_URI:      'whisper-uri',
   WHISPER_KEY:      'whisper-key',
