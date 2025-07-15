@@ -110,6 +110,9 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         // Create settings instance
         settings = new Settings();
         
+        // Mock checkInitialSettings to prevent setTimeout issues in tests
+        vi.spyOn(settings, 'checkInitialSettings').mockImplementation(() => {});
+        
         // Override DOM references for isolated testing
         settings.modelSelect = mockModelSelect;
         settings.apiKeyInput = mockApiKeyInput;
@@ -119,6 +122,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
     afterEach(() => {
         vi.clearAllMocks();
         applyDomSpies();
+        // Clear any pending timers to prevent test pollution
+        vi.clearAllTimers();
     });
 
     describe('sanitizeInputs Method', () => {

@@ -268,6 +268,11 @@ export class UI {
             this.checkRecordingPrerequisites();
         });
         
+        // Listen for SETTINGS_LOADED to handle page reload scenarios
+        eventBus.on(APP_EVENTS.SETTINGS_LOADED, () => {
+            this.checkRecordingPrerequisites();
+        });
+        
         eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, (data) => {
             const uiLogger = logger.child('UI');
             uiLogger.info('Model changed to:', data.model);
