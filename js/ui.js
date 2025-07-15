@@ -78,7 +78,12 @@ export class UI {
         // Setup event listeners
         this.setupEventListeners();
         this.setupEventBusListeners();
-        
+
+        // After listeners are ready, verify saved configuration
+        // This ensures SETTINGS_LOADED events emitted during initialization are
+        // processed correctly and the microphone activates when settings exist.
+        this.settings.checkInitialSettings();
+
         // Check all recording prerequisites (browser support, API config, etc.)
         this.checkRecordingPrerequisites();
         
