@@ -426,7 +426,14 @@ export class Settings {
             hasUri: !!targetUri,
             hasApiKey: !!apiKey
         });
-        
+
+        // Emit SETTINGS_LOADED to mirror initial load behavior
+        eventBus.emit(APP_EVENTS.SETTINGS_LOADED, {
+            model: currentModel,
+            hasUri: !!targetUri,
+            hasApiKey: !!apiKey
+        });
+
         // Also emit settings updated for compatibility
         eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
         
