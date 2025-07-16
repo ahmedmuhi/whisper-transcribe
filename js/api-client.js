@@ -78,14 +78,7 @@ export class AzureAPIClient {
                 const apiLogger = logger.child('AzureAPIClient');
                 apiLogger.error('API Error Details:', errorText);
                 const error = new Error(`API responded with status: ${response.status}`);
-                // Standardized error handling
-                errorHandler.handleError(error, { module: 'AzureAPIClient', status: response.status, details: errorText });
-                // Emit API_REQUEST_ERROR for consumer handling/tests
-                eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
-                    status: response.status,
-                    error: error.message,
-                    details: errorText
-                });
+                this._handleApiError(error, { status: response.status, details: errorText });
                 throw error;
             }
             
@@ -103,14 +96,37 @@ export class AzureAPIClient {
             return transcription;
             
         } catch (error) {
-            // Log and emit standardized error event
-            errorHandler.handleError(error, { module: 'AzureAPIClient' });
-            // Emit API_REQUEST_ERROR for consumer handling/tests
-            eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
-                error: error.message
-            });
+            this._handleApiError(error);
             throw error;
         }
+    }
+    
+    /**
+     * Handles API errors by logging and emitting standardized events.
+     * Consolidates error handling logic to ensure consistent error processing.
+     * 
+     * @private
+     * @method _handleApiError
+     * @param {Error} error - The error object to handle
+     * @param {Object} [context={}] - Additional error context
+     * @param {number} [context.status] - HTTP status code for API response errors
+     * @param {string} [context.details] - Additional error details from API response
+     */
+    _handleApiError(error, context = {}) {
+        // Log error with standardized context
+        const errorContext = { module: 'AzureAPIClient', ...context };
+        errorHandler.handleError(error, errorContext);
+        
+        // Emit standardized API_REQUEST_ERROR event
+        const errorPayload = { error: error.message };
+        if (context.status !== undefined) {
+            errorPayload.status = context.status;
+        }
+        if (context.details !== undefined) {
+            errorPayload.details = context.details;
+        }
+        
+        eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, errorPayload);
     }
     
     /**
