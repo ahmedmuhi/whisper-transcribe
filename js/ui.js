@@ -280,7 +280,15 @@ export class UI {
         
         eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, (data) => {
             const uiLogger = logger.child('UI');
-            uiLogger.info('Model changed to:', data.model);
+            uiLogger.info('Settings model changed to:', data.model);
+        });
+        
+        eventBus.on(APP_EVENTS.UI_MODEL_SWITCHED, (data) => {
+            const uiLogger = logger.child('UI');
+            uiLogger.info('UI model switched to:', data.model, '(session only)');
+            if (data.model !== data.savedModel) {
+                uiLogger.info('UI model differs from saved configuration:', data.savedModel);
+            }
         });
         
         // Listen for theme changes
