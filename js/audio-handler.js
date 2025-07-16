@@ -41,7 +41,6 @@ export class AudioHandler {
         this.timerInterval = null;
     this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         
-        this.cancelRequested = false;
         this.permissionManager = new PermissionManager(ui);
         
         this.stateMachine = new RecordingStateMachine(this);
