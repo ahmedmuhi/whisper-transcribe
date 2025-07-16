@@ -41,7 +41,6 @@ export class AudioHandler {
         this.timerInterval = null;
     this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         
-        this.cancelRequested = false;
         this.permissionManager = new PermissionManager(ui);
         
         this.stateMachine = new RecordingStateMachine(this);
@@ -54,18 +53,6 @@ export class AudioHandler {
         // Listen for API config missing events
         eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => {
             this.settings.openSettingsModal();
-        });
-        
-        // Listen for recording events that might come from other sources
-        eventBus.on(APP_EVENTS.RECORDING_RESUMED, () => {
-            if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
-                this.mediaRecorder.resume();
-                
-                // Resume timer from where it left off
-                const pausedTime = this.getTimerMilliseconds();
-                this.recordingStartTime = Date.now() - pausedTime;
-                this.startTimer();
-            }
         });
     }
     
@@ -448,6 +435,4 @@ export class AudioHandler {
         this.recordingStartTime = null;
         this.mediaRecorder = null;
     }
-    
-    // Visualization logic is now handled by VisualizationController in visualization.js
 }
