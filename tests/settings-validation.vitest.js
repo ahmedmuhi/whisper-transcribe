@@ -5,6 +5,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 // Mock localStorage
@@ -79,7 +80,7 @@ describe('Settings Validation', () => {
     describe('API Key Validation', () => {
         it('should accept valid API keys for Whisper model', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -89,7 +90,7 @@ describe('Settings Validation', () => {
 
         it('should accept valid API keys for GPT-4o model', () => {
             settings.modelSelect.value = 'gpt-4o';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -129,20 +130,21 @@ describe('Settings Validation', () => {
 
         it('should accept API keys with spaces (will be trimmed)', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            const mockKey = generateMockApiKeyForValidation();
+            settings.apiKeyInput.value = `  ${mockKey}  `;
             settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
             expect(isValid).toBe(true);
-            expect(settings.apiKeyInput.value.trim()).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+            expect(settings.apiKeyInput.value.trim()).toBe(mockKey);
         });
     });
 
     describe('URI Validation', () => {
         it('should accept valid HTTPS URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -152,7 +154,7 @@ describe('Settings Validation', () => {
 
         it('should accept URIs without trailing slash', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://myresource.openai.azure.com';
 
             const isValid = settings.validateConfiguration();
@@ -162,7 +164,7 @@ describe('Settings Validation', () => {
 
         it('should reject HTTP URIs (insecure)', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'http://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -172,7 +174,7 @@ describe('Settings Validation', () => {
 
         it('should reject empty URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = '';
 
             const isValid = settings.validateConfiguration();
@@ -182,7 +184,7 @@ describe('Settings Validation', () => {
 
         it('should reject malformed URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'not-a-valid-uri';
 
             const isValid = settings.validateConfiguration();
@@ -192,7 +194,7 @@ describe('Settings Validation', () => {
 
         it('should sanitize and normalize URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = '  https://myresource.openai.azure.com//extra//slashes  ';
 
             const isValid = settings.validateConfiguration();
@@ -230,7 +232,7 @@ describe('Settings Validation', () => {
 
         it('should emit validation error event for invalid URI', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'invalid-uri';
 
             const isValid = settings.validateConfiguration();
@@ -267,7 +269,7 @@ describe('Settings Validation', () => {
 
         it('should not emit validation error for valid configuration', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://valid.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -283,7 +285,7 @@ describe('Settings Validation', () => {
     describe('Model-Specific Validation', () => {
         it('should validate Whisper model requirements', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://whisper.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -293,7 +295,7 @@ describe('Settings Validation', () => {
 
         it('should validate GPT-4o model requirements', () => {
             settings.modelSelect.value = 'gpt-4o';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://gpt4o.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -303,7 +305,7 @@ describe('Settings Validation', () => {
 
         it('should handle unknown model gracefully', () => {
             settings.modelSelect.value = 'unknown-model';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'https://unknown.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
@@ -327,7 +329,7 @@ describe('Settings Validation', () => {
 
         it('should provide specific error messages for URI issues', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = 'http://insecure.com';
 
             const errors = settings.getValidationErrors();
@@ -354,17 +356,18 @@ describe('Settings Validation', () => {
     describe('Input Sanitization', () => {
         it('should trim whitespace from API keys', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            const mockKey = generateMockApiKeyForValidation();
+            settings.apiKeyInput.value = `  ${mockKey}  `;
             settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
 
             settings.sanitizeInputs();
 
-            expect(settings.apiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+            expect(settings.apiKeyInput.value).toBe(mockKey);
         });
 
         it('should preserve URI format while cleaning whitespace', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            settings.apiKeyInput.value = generateMockApiKeyForValidation();
             settings.apiUriInput.value = '  https://test.azure.com//extra//slashes  ';
 
             settings.sanitizeInputs();

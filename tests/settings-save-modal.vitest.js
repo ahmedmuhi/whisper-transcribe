@@ -5,7 +5,9 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES } from '../js/constants.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 
 // Mock localStorage
 const localStorageMock = {
@@ -69,9 +71,9 @@ describe('Settings Modal Save Functionality', () => {
         mockModelSelect = createMockElement('whisper');
         mockSettingsModelSelect = createMockElement('whisper');
         mockWhisperUriInput = createMockElement('https://test.openai.azure.com/whisper');
-        mockWhisperKeyInput = createMockElement('sk-1234567890abcdef1234567890abcdef12345678');
+        mockWhisperKeyInput = createMockElement(generateMockApiKeyForValidation());
         mockGpt4oUriInput = createMockElement('https://test.openai.azure.com/gpt4o');
-        mockGpt4oKeyInput = createMockElement('sk-9876543210fedcba9876543210fedcba87654321');
+        mockGpt4oKeyInput = createMockElement(generateMockApiKeyForValidation());
         mockSettingsModal = createMockElement();
         mockSettingsModal.style.display = 'block'; // Modal is open initially
 
@@ -111,7 +113,7 @@ describe('Settings Modal Save Functionality', () => {
             // Set up valid Whisper configuration
             mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
-            mockWhisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            mockWhisperKeyInput.value = generateMockApiKeyForValidation();
 
             // Call saveSettings
             settings.saveSettings();
@@ -123,7 +125,7 @@ describe('Settings Modal Save Functionality', () => {
             );
             expect(localStorageMock.setItem).toHaveBeenCalledWith(
                 STORAGE_KEYS.WHISPER_API_KEY,
-                'sk-1234567890abcdef1234567890abcdef12345678'
+                generateMockApiKeyForValidation()
             );
 
             // Verify modal is closed
@@ -160,9 +162,10 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should save valid GPT-4o configuration and close modal', () => {
             // Set up valid GPT-4o configuration
+            const gpt4oTestKey = generateMockApiKeyForValidation();
             mockSettingsModelSelect.value = 'gpt-4o-transcribe';
             mockGpt4oUriInput.value = 'https://test.openai.azure.com/gpt4o';
-            mockGpt4oKeyInput.value = 'sk-9876543210fedcba9876543210fedcba87654321';
+            mockGpt4oKeyInput.value = gpt4oTestKey;
 
             // Call saveSettings
             settings.saveSettings();
@@ -174,7 +177,7 @@ describe('Settings Modal Save Functionality', () => {
             );
             expect(localStorageMock.setItem).toHaveBeenCalledWith(
                 STORAGE_KEYS.GPT4O_API_KEY,
-                'sk-9876543210fedcba9876543210fedcba87654321'
+                gpt4oTestKey
             );
 
             // Verify modal is closed
@@ -250,7 +253,7 @@ describe('Settings Modal Save Functionality', () => {
             // Set up invalid configuration - invalid URI
             mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'http://insecure.com'; // HTTP instead of HTTPS
-            mockWhisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            mockWhisperKeyInput.value = generateMockApiKeyForValidation();
 
             // Call saveSettings
             settings.saveSettings();
@@ -310,9 +313,10 @@ describe('Settings Modal Save Functionality', () => {
     describe('Input Sanitization During Save', () => {
         it('should trim whitespace from inputs before saving', () => {
             // Set up configuration with whitespace
+            const mockKey = generateMockApiKeyForValidation();
             mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = '  https://test.openai.azure.com/whisper  ';
-            mockWhisperKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            mockWhisperKeyInput.value = `  ${mockKey}  `;
 
             // Call saveSettings
             settings.saveSettings();
@@ -324,7 +328,7 @@ describe('Settings Modal Save Functionality', () => {
             );
             expect(localStorageMock.setItem).toHaveBeenCalledWith(
                 STORAGE_KEYS.WHISPER_API_KEY,
-                'sk-1234567890abcdef1234567890abcdef12345678'
+                mockKey
             );
 
             // Verify modal is closed
@@ -333,9 +337,12 @@ describe('Settings Modal Save Functionality', () => {
 
         it('should remove newlines and tabs from API key', () => {
             // Set up configuration with special characters
+            const cleanMockKey = generateMockApiKeyForValidation();
+            const dirtyMockKey = cleanMockKey.substring(0, 20) + '\n' + cleanMockKey.substring(20, 40) + '\t' + cleanMockKey.substring(40);
+            
             mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
-            mockWhisperKeyInput.value = 'sk-1234567890abcdef\n1234567890abcdef\t12345678';
+            mockWhisperKeyInput.value = dirtyMockKey;
 
             // Call saveSettings
             settings.saveSettings();
@@ -343,7 +350,7 @@ describe('Settings Modal Save Functionality', () => {
             // Verify cleaned API key is saved
             expect(localStorageMock.setItem).toHaveBeenCalledWith(
                 STORAGE_KEYS.WHISPER_API_KEY,
-                'sk-1234567890abcdef1234567890abcdef12345678'
+                cleanMockKey
             );
         });
     });
@@ -374,7 +381,7 @@ describe('Settings Modal Save Functionality', () => {
             // Set up valid configuration
             mockSettingsModelSelect.value = 'whisper';
             mockWhisperUriInput.value = 'https://test.openai.azure.com/whisper';
-            mockWhisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            mockWhisperKeyInput.value = generateMockApiKeyForValidation();
 
             // Call saveSettings
             settings.saveSettings();

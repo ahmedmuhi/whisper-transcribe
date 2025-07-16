@@ -5,6 +5,7 @@
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { STORAGE_KEYS, ID } from '../js/constants.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 
 // Mock localStorage
 const localStorageMock = {
@@ -120,7 +121,7 @@ describe('Microphone Activation Issue Analysis', () => {
                     case STORAGE_KEYS.WHISPER_URI:
                         return 'https://test.openai.azure.com/whisper';
                     case STORAGE_KEYS.WHISPER_API_KEY:
-                        return 'sk-1234567890abcdef1234567890abcdef12345678';
+                        return generateMockApiKeyForValidation();
                     default:
                         return null;
                 }
@@ -178,7 +179,7 @@ describe('Microphone Activation Issue Analysis', () => {
                     case STORAGE_KEYS.WHISPER_URI:
                         return 'https://test.openai.azure.com/whisper';
                     case STORAGE_KEYS.WHISPER_API_KEY:
-                        return 'sk-1234567890abcdef1234567890abcdef12345678';
+                        return generateMockApiKeyForValidation();
                     default:
                         return null;
                 }
@@ -209,7 +210,7 @@ describe('Microphone Activation Issue Analysis', () => {
                     case STORAGE_KEYS.WHISPER_URI:
                         return 'https://test.openai.azure.com/whisper';
                     case STORAGE_KEYS.WHISPER_API_KEY:
-                        return 'sk-1234567890abcdef1234567890abcdef12345678';
+                        return generateMockApiKeyForValidation();
                     default:
                         return null;
                 }

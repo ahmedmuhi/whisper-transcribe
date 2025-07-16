@@ -5,6 +5,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, ID } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
@@ -99,7 +100,7 @@ describe('Settings Persistence & Management', () => {
     describe('LocalStorage Persistence', () => {
         test('should save Whisper settings to localStorage', () => {
             // Arrange
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
             
             // Set up form values
@@ -119,7 +120,7 @@ describe('Settings Persistence & Management', () => {
 
         test('should save GPT-4o settings to localStorage', () => {
             // Arrange
-            const gpt4oApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const gpt4oApiKey = generateMockApiKeyForValidation();
             const gpt4oApiUri = 'https://gpt4o.openai.azure.com/';
             
             // Set up form values - use settings modal select for saveSettings
@@ -141,7 +142,7 @@ describe('Settings Persistence & Management', () => {
 
         test('should load saved settings into the form on modal open', () => {
             // Arrange
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/'; // Use same URI as other tests
             
             // Mock localStorage to return saved settings
@@ -188,7 +189,7 @@ describe('Settings Persistence & Management', () => {
             const uriElement = document.getElementById(ID.WHISPER_URI);
             
             settings.modelSelect.value = 'whisper';
-            keyElement.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            keyElement.value = generateMockApiKeyForValidation();
             uriElement.value = 'https://myresource.openai.azure.com/';
 
             // Act
@@ -246,7 +247,7 @@ describe('Settings Persistence & Management', () => {
             const gpt4oUriInput = document.getElementById(ID.GPT4O_URI);
             const gpt4oKeyInput = document.getElementById(ID.GPT4O_KEY);
             gpt4oUriInput.value = 'https://test.openai.azure.com/openai/deployments/gpt-4o/audio/transcriptions?api-version=2024-06-01';
-            gpt4oKeyInput.value = 'sk-abcdefghijklmnopqrstuvwxyz123456';
+            gpt4oKeyInput.value = generateMockApiKeyForValidation();
             
             // Act - Save settings
             settings.saveSettings();
@@ -284,7 +285,7 @@ describe('Settings Persistence & Management', () => {
             const uriElement = document.getElementById(ID.WHISPER_URI);
             
             settings.modelSelect.value = 'whisper';
-            keyElement.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            keyElement.value = generateMockApiKeyForValidation();
             uriElement.value = 'http://insecure.openai.azure.com/'; // HTTP instead of HTTPS
 
             // Act
@@ -299,7 +300,7 @@ describe('Settings Persistence & Management', () => {
     describe('Configuration Retrieval', () => {
         test('should return the correct config for the Whisper model', () => {
             // Arrange
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://retrieval-whisper.openai.azure.com/';
             
             // Ensure the model select shows whisper 
@@ -331,7 +332,7 @@ describe('Settings Persistence & Management', () => {
 
         test('should return the correct config for the GPT-4o model', () => {
             // Arrange
-            const gpt4oApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const gpt4oApiKey = generateMockApiKeyForValidation();
             const gpt4oApiUri = 'https://retrieval-gpt4o.openai.azure.com/';
             
             // Update the model select element to match GPT-4o

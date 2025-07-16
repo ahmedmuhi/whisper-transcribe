@@ -5,6 +5,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { generateMockApiKey, generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID } from '../js/constants.js';
 
 // Mock localStorage
@@ -147,7 +148,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             // Step 2: User selects Whisper model and enters valid configuration
             mockElements.settingsModelSelect.value = 'whisper';
             mockElements.whisperUriInput.value = 'https://test.openai.azure.com/whisper';
-            mockElements.whisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            mockElements.whisperKeyInput.value = generateMockApiKeyForValidation();
 
             // Clear previous event calls to focus on save workflow
             eventSpy.mockClear();
@@ -175,7 +176,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             );
             expect(localStorageMock.setItem).toHaveBeenCalledWith(
                 STORAGE_KEYS.WHISPER_API_KEY,
-                'sk-1234567890abcdef1234567890abcdef12345678'
+                generateMockApiKeyForValidation()
             );
 
             // Verify settings saved event is emitted
@@ -206,7 +207,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             // Setup: Configure valid settings
             mockElements.settingsModelSelect.value = 'whisper';
             mockElements.whisperUriInput.value = 'https://test.openai.azure.com/whisper';
-            mockElements.whisperKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            mockElements.whisperKeyInput.value = generateMockApiKeyForValidation();
 
             // Mock localStorage to return the valid configuration for checkRecordingPrerequisites
             localStorageMock.getItem.mockImplementation((key) => {
@@ -216,7 +217,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
                     case STORAGE_KEYS.WHISPER_URI:
                         return 'https://test.openai.azure.com/whisper';
                     case STORAGE_KEYS.WHISPER_API_KEY:
-                        return 'sk-1234567890abcdef1234567890abcdef12345678';
+                        return generateMockApiKeyForValidation();
                     default:
                         return null;
                 }
@@ -240,7 +241,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             // Verify the UI would enable microphone button after checkRecordingPrerequisites
             // Since we're mocking the UI, we need to verify the logic would enable the mic
             const config = settings.getModelConfig();
-            expect(config.apiKey).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+            expect(config.apiKey).toBe(generateMockApiKeyForValidation());
             expect(config.uri).toBe('https://test.openai.azure.com/whisper');
             
             // The microphone should be enabled because configuration is valid
@@ -250,9 +251,10 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
 
         it('should test settings persistence across page reloads (Issue #4)', () => {
             // Step 1: Save settings
+            const persistenceTestKey = generateMockApiKey('PERSIST');
             mockElements.settingsModelSelect.value = 'whisper';
             mockElements.whisperUriInput.value = 'https://test.openai.azure.com/whisper/persist';
-            mockElements.whisperKeyInput.value = 'sk-9999999999persist9999999999persist99999999';
+            mockElements.whisperKeyInput.value = persistenceTestKey;
 
             settings.saveSettings();
 
@@ -263,7 +265,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             );
             expect(localStorageMock.setItem).toHaveBeenCalledWith(
                 STORAGE_KEYS.WHISPER_API_KEY,
-                'sk-9999999999persist9999999999persist99999999'
+                persistenceTestKey
             );
 
             // Step 2: Simulate page reload - create new Settings instance
@@ -275,7 +277,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
                     case STORAGE_KEYS.WHISPER_URI:
                         return 'https://test.openai.azure.com/whisper/persist';
                     case STORAGE_KEYS.WHISPER_API_KEY:
-                        return 'sk-9999999999persist9999999999persist99999999';
+                        return persistenceTestKey;
                     default:
                         return null;
                 }
@@ -288,7 +290,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             const config = reloadedSettings.getModelConfig();
             expect(config.model).toBe('whisper');
             expect(config.uri).toBe('https://test.openai.azure.com/whisper/persist');
-            expect(config.apiKey).toBe('sk-9999999999persist9999999999persist99999999');
+            expect(config.apiKey).toBe(persistenceTestKey);
         });
 
         it('should handle invalid settings correctly (should NOT trigger fixes)', () => {

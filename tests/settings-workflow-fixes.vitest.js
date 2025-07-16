@@ -5,7 +5,9 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, DEFAULT_RESET_STATUS } from '../js/constants.js';
+import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 
 // Mock dependencies
 vi.mock('../js/logger.js', () => ({
@@ -149,7 +151,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
     describe('Fix 1: SETTINGS_LOADED event emission on page reload', () => {
         test('should emit SETTINGS_LOADED when checkInitialSettings finds complete configuration', () => {
             // Arrange - Mock localStorage with complete configuration
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
             
             localStorageMock.getItem.mockImplementation((key) => {
@@ -228,7 +230,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
     describe('Fix 3: Success message duration is explicit', () => {
         test('should include explicit duration in success message', () => {
             // Arrange - Set up valid settings
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
             
             mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
@@ -251,7 +253,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
     describe('Complete workflow integration with fixes', () => {
         test('should handle complete page reload → settings loaded → microphone enabled workflow', () => {
             // Arrange - Simulate page reload with saved settings
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
             
             localStorageMock.getItem.mockImplementation((key) => {
@@ -303,7 +305,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
         test('should handle complete save settings → microphone enabled workflow', async () => {
             // Arrange - Set up valid settings for saving
-            const whisperApiKey = 'sk-1234567890abcdef1234567890abcdef12345678';
+            const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
             
             mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
