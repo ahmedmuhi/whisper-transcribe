@@ -286,6 +286,9 @@ export const APP_EVENTS = {
     SETTINGS_LOADED: 'settings:loaded',
     SETTINGS_VALIDATION_ERROR: 'settings:validationError',
     
+    // UI Model events - for session-only model switching without persistence
+    UI_MODEL_SWITCHED: 'ui:modelSwitched',
+    
     // Application events
     APP_INITIALIZED: 'app:initialized',
     APP_ERROR: 'app:error',

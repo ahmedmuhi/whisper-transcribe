@@ -96,22 +96,22 @@ export class Settings {
         // Main interface model change listener
         this.modelSelect.addEventListener('change', (e) => {
             const newModel = e.target.value;
-            const oldModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
             
-            localStorage.setItem(STORAGE_KEYS.MODEL, newModel);
+            // Do NOT persist to localStorage for main UI selector changes
             const settingsLogger = logger.child('Settings');
-            settingsLogger.info('Model changed to:', newModel);
+            settingsLogger.info('UI model switched to:', newModel, '(session only)');
             
-            // Sync settings modal selector
+            // Sync settings modal selector to show current UI selection
             if (this.settingsModelSelect) {
                 this.settingsModelSelect.value = newModel;
             }
             this.updateSettingsVisibility();
             
-            // Emit model changed event
-            eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+            // Emit UI-only model switched event (no persistence)
+            eventBus.emit(APP_EVENTS.UI_MODEL_SWITCHED, {
                 model: newModel,
-                previousModel: oldModel
+                savedModel: savedModel
             });
         });
 
@@ -119,23 +119,19 @@ export class Settings {
         if (this.settingsModelSelect) {
             this.settingsModelSelect.addEventListener('change', (e) => {
                 const newModel = e.target.value;
-                const oldModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
                 
-                localStorage.setItem(STORAGE_KEYS.MODEL, newModel);
+                // Do NOT persist to localStorage until save is clicked
                 const settingsLogger = logger.child('Settings');
-                settingsLogger.info('Settings modal model changed to:', newModel);
+                settingsLogger.info('Settings modal model changed to:', newModel, '(form only, not saved)');
                 
-                // Sync main interface selector
+                // Sync main interface selector to show current form selection
                 if (this.modelSelect) {
                     this.modelSelect.value = newModel;
                 }
                 this.updateSettingsVisibility();
                 
-                // Emit model changed event
-                eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
-                    model: newModel,
-                    previousModel: oldModel
-                });
+                // Do NOT emit any events until settings are saved
+                // This keeps the form state separate from persisted configuration
             });
         }
         
@@ -402,6 +398,10 @@ export class Settings {
             return;
         }
         
+        // Save the model selection (this is the only place model is persisted)
+        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+        localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
+        
         // Save model-specific settings
         if (currentModel === 'whisper') {
             localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
@@ -419,6 +419,14 @@ export class Settings {
             temporary: true,
             duration: 3000
         });
+        
+        // Emit model changed event only when explicitly saved
+        if (currentModel !== previousModel) {
+            eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+                model: currentModel,
+                previousModel: previousModel
+            });
+        }
         
         // Emit settings saved event
         eventBus.emit(APP_EVENTS.SETTINGS_SAVED, {

@@ -199,7 +199,7 @@ describe('Settings Persistence & Management', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
         });
 
-        test('should emit SETTINGS_MODEL_CHANGED when the model is changed', () => {
+        test('should emit UI_MODEL_SWITCHED when the main UI model is changed (no persistence)', () => {
             // Arrange - Create a fresh Settings instance and trigger the setup
             // First set up the localStorage state properly 
             localStorageMock.getItem.mockImplementation((key) => {
@@ -222,10 +222,41 @@ describe('Settings Persistence & Management', () => {
             // Act
             changeListener(event);
 
-            // Assert
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'gpt-4o');
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+            // Assert - Should NOT persist to localStorage from main UI selector
+            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'gpt-4o');
+            // Should emit UI_MODEL_SWITCHED instead of SETTINGS_MODEL_CHANGED
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_MODEL_SWITCHED, {
                 model: 'gpt-4o',
+                savedModel: 'whisper'
+            });
+            // Should NOT emit SETTINGS_MODEL_CHANGED
+            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, expect.any(Object));
+        });
+
+        test('should emit SETTINGS_MODEL_CHANGED only when settings are saved with different model', () => {
+            // Arrange - Setup valid configuration for saving
+            localStorageMock.getItem.mockImplementation((key) => {
+                if (key === STORAGE_KEYS.MODEL) return 'whisper';
+                return null;
+            });
+            
+            const settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
+            settingsModelSelect.value = 'gpt-4o-transcribe';
+            
+            const gpt4oUriInput = document.getElementById(ID.GPT4O_URI);
+            const gpt4oKeyInput = document.getElementById(ID.GPT4O_KEY);
+            gpt4oUriInput.value = 'https://test.openai.azure.com/openai/deployments/gpt-4o/audio/transcriptions?api-version=2024-06-01';
+            gpt4oKeyInput.value = 'sk-abcdefghijklmnopqrstuvwxyz123456';
+            
+            // Act - Save settings
+            settings.saveSettings();
+
+            // Assert - Model should be persisted on save
+            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'gpt-4o-transcribe');
+            
+            // Should emit SETTINGS_MODEL_CHANGED on save
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+                model: 'gpt-4o-transcribe',
                 previousModel: 'whisper'
             });
         });
