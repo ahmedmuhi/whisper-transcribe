@@ -62,6 +62,54 @@ export const API_PARAMS = {
 };
 
 /**
+ * Supported transcription model types for Azure Speech Services.
+ * Defines model identifiers used throughout the application for API routing and configuration.
+ * 
+ * @constant {Object} MODEL_TYPES
+ * @property {string} WHISPER_TRANSLATE - Azure Whisper model with translation capability
+ * @property {string} GPT4O_TRANSCRIBE - Azure GPT-4o model for enhanced transcription
+ * @property {string} WHISPER - Standard Azure Whisper model for transcription
+ * 
+ * @example
+ * import { MODEL_TYPES } from './constants.js';
+ * 
+ * if (config.model === MODEL_TYPES.WHISPER_TRANSLATE) {
+ *   // Skip language parameter for translation model
+ * }
+ */
+export const MODEL_TYPES = {
+  WHISPER_TRANSLATE: 'whisper-translate',
+  GPT4O_TRANSCRIBE:  'gpt-4o-transcribe',
+  WHISPER:           'whisper'
+};
+
+/**
+ * HTTP method constants for API requests.
+ * 
+ * @constant {Object} HTTP_METHODS
+ * @property {string} POST - HTTP POST method for form data uploads
+ */
+export const HTTP_METHODS = {
+  POST: 'POST'
+};
+
+/**
+ * Content type and response format constants for API communication.
+ * 
+ * @constant {Object} CONTENT_TYPES
+ * @property {string} APPLICATION_JSON - MIME type for JSON content
+ * @property {string} JSON_RESPONSE_FORMAT - Response format parameter value for JSON
+ * @property {string} TEMPERATURE_ZERO - Zero temperature setting for deterministic responses
+ * @property {string} CONTENT_TYPE_HEADER - HTTP header name for content type
+ */
+export const CONTENT_TYPES = {
+  APPLICATION_JSON:      'application/json',
+  JSON_RESPONSE_FORMAT:  'json',
+  TEMPERATURE_ZERO:      '0',
+  CONTENT_TYPE_HEADER:   'content-type'
+};
+
+/**
  * DOM element IDs for consistent element selection throughout the application.
  * Frozen object to prevent accidental modification.
  * 

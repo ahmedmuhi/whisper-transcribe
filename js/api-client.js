@@ -2,7 +2,7 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES } from './constants.js';
+import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES, MODEL_TYPES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -43,18 +43,18 @@ export class AzureAPIClient {
         
         const formData = new FormData();
         formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
-        if (config.model !== 'whisper-translate') {
+        if (config.model !== MODEL_TYPES.WHISPER_TRANSLATE) {
             formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
         }
         
         // Add response_format for GPT-4o to avoid truncation
-        if (config.model === 'gpt-4o-transcribe') {
-            formData.append(API_PARAMS.RESPONSE_FORMAT, 'json');
-            formData.append(API_PARAMS.TEMPERATURE, '0');
+        if (config.model === MODEL_TYPES.GPT4O_TRANSCRIBE) {
+            formData.append(API_PARAMS.RESPONSE_FORMAT, CONTENT_TYPES.JSON_RESPONSE_FORMAT);
+            formData.append(API_PARAMS.TEMPERATURE, CONTENT_TYPES.TEMPERATURE_ZERO);
         }
         
         try {
-            const statusMessage = config.model === 'whisper' ? 
+            const statusMessage = config.model === MODEL_TYPES.WHISPER ? 
                 MESSAGES.SENDING_TO_WHISPER : 
                 MESSAGES.SENDING_TO_GPT4O;
                 
@@ -68,22 +68,21 @@ export class AzureAPIClient {
             });
             
             const response = await fetch(config.uri, {
-                method: 'POST',
+                method: HTTP_METHODS.POST,
                 headers: { [API_PARAMS.API_KEY_HEADER]: config.apiKey },
                 body: formData
             });
             
             if (!response.ok) {
                 const errorText = await response.text();
-                const apiLogger = logger.child('AzureAPIClient');
-                apiLogger.error('API Error Details:', errorText);
+                logger.child('AzureAPIClient').error('API Error Details:', errorText);
                 const error = new Error(`API responded with status: ${response.status}`);
                 this._handleApiError(error, { status: response.status, details: errorText });
                 throw error;
             }
             
-            const contentType = response.headers.get('content-type') || '';
-            const data = contentType.includes('application/json')
+            const contentType = response.headers.get(CONTENT_TYPES.CONTENT_TYPE_HEADER) || '';
+            const data = contentType.includes(CONTENT_TYPES.APPLICATION_JSON)
                 ? await response.json()
                 : await response.text();
             const transcription = this.parseResponse(data, config.model);
@@ -141,13 +140,13 @@ export class AzureAPIClient {
      * 
      * @example
      * // Text response
-     * const text = apiClient.parseResponse("Hello world", "whisper");
+     * const text = apiClient.parseResponse("Hello world", MODEL_TYPES.WHISPER);
      * 
      * @example  
      * // JSON response with segments
      * const text = apiClient.parseResponse({
      *   segments: [{ text: "Hello" }, { text: "world" }]
-     * }, "gpt-4o-transcribe");
+     * }, MODEL_TYPES.GPT4O_TRANSCRIBE);
      */
     parseResponse(data, model) {
         // Text response
@@ -156,7 +155,7 @@ export class AzureAPIClient {
         }
 
         // Handle different JSON formats
-        if (model === 'gpt-4o-transcribe' && data.segments) {
+        if (model === MODEL_TYPES.GPT4O_TRANSCRIBE && data.segments) {
             // GPT-4o JSON format - merge all segments
             return data.segments.map(seg => seg.text).join(' ');
         } else if (data.text) {
