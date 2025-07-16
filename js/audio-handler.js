@@ -54,18 +54,6 @@ export class AudioHandler {
         eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => {
             this.settings.openSettingsModal();
         });
-        
-        // Listen for recording events that might come from other sources
-        eventBus.on(APP_EVENTS.RECORDING_RESUMED, () => {
-            if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
-                this.mediaRecorder.resume();
-                
-                // Resume timer from where it left off
-                const pausedTime = this.getTimerMilliseconds();
-                this.recordingStartTime = Date.now() - pausedTime;
-                this.startTimer();
-            }
-        });
     }
     
     setupEventListeners() {
@@ -447,6 +435,4 @@ export class AudioHandler {
         this.recordingStartTime = null;
         this.mediaRecorder = null;
     }
-    
-    // Visualization logic is now handled by VisualizationController in visualization.js
 }
