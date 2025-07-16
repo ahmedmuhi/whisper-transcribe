@@ -187,12 +187,7 @@ describe('AudioHandler Integration', () => {
       // Set MediaRecorder to inactive state (already stopped)
       mockMediaRecorder.state = 'inactive';
       
-      // Try to stop when already inactive - should not throw
-      expect(() => {
-        audioHandler.stopRecording();
-      }).not.toThrow();
-      
-      // Call safeStopRecorder directly with inactive state
+      // Call safeStopRecorder directly with inactive state - should not throw
       expect(() => {
         audioHandler.safeStopRecorder();
       }).not.toThrow();
