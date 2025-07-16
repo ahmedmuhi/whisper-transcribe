@@ -244,18 +244,6 @@ export class AudioHandler {
     }
 
     /**
-     * Requests the MediaRecorder to stop capturing audio if allowed by state machine.
-     * 
-     * @method stopRecording
-     * @returns {void}
-     */
-    stopRecording() {
-        if (this.stateMachine.canInvokeStop()) {
-            this.safeStopRecorder();
-        }
-    }
-
-    /**
      * Performs a graceful stop by flushing recorder data after a configured delay.
      * 
      * @async
@@ -314,7 +302,7 @@ export class AudioHandler {
     async cancelRecording() {
         if (this.stateMachine.canCancel()) {
             await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
-            this.stopRecording();
+            this.safeStopRecorder();
         }
     }
     
