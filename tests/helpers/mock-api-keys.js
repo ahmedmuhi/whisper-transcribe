@@ -70,3 +70,50 @@ export function generateInvalidMockApiKey(type = 'short') {
             return 'sk-MOCK123'; // Default to short
     }
 }
+
+/**
+ * Generates a mock Azure OpenAI API key.
+ * Azure OpenAI API keys are 32-character hexadecimal strings without the sk- prefix.
+ * 
+ * @returns {string} A mock Azure OpenAI API key that passes validation
+ * 
+ * @example
+ * const azureKey = generateMockAzureApiKey();
+ * // Returns: 'abcd1234efgh5678ijkl9012mnop3456'
+ */
+export function generateMockAzureApiKey() {
+    // Generate a 32-character hex string that looks like a real Azure key
+    // Using predictable values for testing but still valid format
+    return 'abcd1234efab5678cdab9012efab3456';
+}
+
+/**
+ * Generates a mock Azure OpenAI API key for validation tests.
+ * This key is designed to pass Azure OpenAI validation checks.
+ * 
+ * @returns {string} A mock Azure OpenAI API key that passes validation
+ */
+export function generateMockAzureApiKeyForValidation() {
+    return generateMockAzureApiKey();
+}
+
+/**
+ * Generates an invalid Azure OpenAI API key for negative testing.
+ * 
+ * @param {string} type - Type of invalid key: 'short', 'long', 'invalid-chars', 'empty'
+ * @returns {string} An invalid Azure OpenAI API key
+ */
+export function generateInvalidMockAzureApiKey(type = 'short') {
+    switch (type) {
+        case 'short':
+            return 'abcd1234efab5678'; // Too short (16 chars instead of 32)
+        case 'long':
+            return 'abcd1234efab5678cdab9012efab3456extra'; // Too long (37 chars)
+        case 'invalid-chars':
+            return 'GHIJ1234KLMN5678OPQR9012STUV3456'; // Contains invalid hex chars (G-V)
+        case 'empty':
+            return '';
+        default:
+            return 'abcd1234efab5678'; // Default to short
+    }
+}
