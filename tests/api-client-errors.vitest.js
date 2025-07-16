@@ -99,12 +99,15 @@ describe('AzureAPIClient Error Handling', () => {
             });
             
             // Attempt to transcribe without API key
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.CONFIGURE_SETTINGS_FIRST);
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.API_KEY_REQUIRED);
             
-            // transcribe() does not emit API_CONFIG_MISSING events, only throws error
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+            // transcribe() now uses validateConfig() which emits API_CONFIG_MISSING events
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_CONFIG_MISSING,
-                expect.anything()
+                expect.objectContaining({
+                    missing: 'apiKey',
+                    model: 'whisper'
+                })
             );
         });
         
@@ -117,12 +120,15 @@ describe('AzureAPIClient Error Handling', () => {
             });
             
             // Attempt to transcribe without URI
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.CONFIGURE_SETTINGS_FIRST);
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.URI_REQUIRED);
             
-            // transcribe() does not emit API_CONFIG_MISSING events, only throws error
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+            // transcribe() now uses validateConfig() which emits API_CONFIG_MISSING events
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_CONFIG_MISSING,
-                expect.anything()
+                expect.objectContaining({
+                    missing: 'uri',
+                    model: 'whisper'
+                })
             );
         });
         
