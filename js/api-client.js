@@ -39,11 +39,7 @@ export class AzureAPIClient {
      * @fires APP_EVENTS.API_REQUEST_ERROR
      */
     async transcribe(audioBlob, onProgress) {
-        const config = this.settings.getModelConfig();
-        
-        if (!config.apiKey || !config.uri) {
-            throw new Error(MESSAGES.CONFIGURE_SETTINGS_FIRST);
-        }
+        const config = this.validateConfig();
         
         const formData = new FormData();
         formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
