@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { ID } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
+import { generateMockApiKey, generateMockApiKeyForValidation, generateInvalidMockApiKey } from './helpers/mock-api-keys.js';
 
 // Mock localStorage
 const localStorageMock = {
@@ -129,43 +130,51 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
     describe('sanitizeInputs Method', () => {
         describe('API Key Sanitization', () => {
             it('should trim whitespace from API key', () => {
-                mockApiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+                const mockKey = generateMockApiKey('TRIM');
+                mockApiKeyInput.value = `  ${mockKey}  `;
                 
                 settings.sanitizeInputs();
                 
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(mockKey);
             });
 
             it('should remove newlines from API key', () => {
-                mockApiKeyInput.value = 'sk-1234567890ab\ncdef1234567890abcdef12345678';
+                const baseMockKey = generateMockApiKey('NEWLINE');
+                const keyWithNewline = baseMockKey.substring(0, 15) + '\n' + baseMockKey.substring(15);
+                mockApiKeyInput.value = keyWithNewline;
                 
                 settings.sanitizeInputs();
                 
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(baseMockKey);
             });
 
             it('should remove tabs from API key', () => {
-                mockApiKeyInput.value = 'sk-1234567890ab\tcdef1234567890abcdef12345678';
+                const baseMockKey = generateMockApiKey('TAB');
+                const keyWithTab = baseMockKey.substring(0, 15) + '\t' + baseMockKey.substring(15);
+                mockApiKeyInput.value = keyWithTab;
                 
                 settings.sanitizeInputs();
                 
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(baseMockKey);
             });
 
             it('should remove carriage returns from API key', () => {
-                mockApiKeyInput.value = 'sk-1234567890ab\rcdef1234567890abcdef12345678';
+                const baseMockKey = generateMockApiKey('CR');
+                const keyWithCR = baseMockKey.substring(0, 15) + '\r' + baseMockKey.substring(15);
+                mockApiKeyInput.value = keyWithCR;
                 
                 settings.sanitizeInputs();
                 
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(baseMockKey);
             });
 
             it('should handle multiple whitespace characters', () => {
-                mockApiKeyInput.value = '  \n\t\rsk-1234567890abcdef1234567890abcdef12345678\n\t\r  ';
+                const mockKey = generateMockApiKey('MULTI');
+                mockApiKeyInput.value = `  \n\t\r${mockKey}\n\t\r  `;
                 
                 settings.sanitizeInputs();
                 
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(mockKey);
             });
 
             it('should handle empty API key input', () => {
@@ -291,7 +300,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return error for API key that is too short', () => {
-                mockApiKeyInput.value = 'sk-123';
+                mockApiKeyInput.value = generateInvalidMockApiKey('short');
                 
                 const errors = settings.getValidationErrors();
                 
@@ -299,7 +308,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should accept valid API key format', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                const mockKey = generateMockApiKeyForValidation();
+                mockApiKeyInput.value = mockKey;
                 mockUriInput.value = 'https://valid.azure.com/';
                 
                 const errors = settings.getValidationErrors();
@@ -309,7 +319,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should accept API key with numbers and letters', () => {
-                mockApiKeyInput.value = 'sk-aBcD1234567890eFgH1234567890iJkL12345678';
+                const mockKey = generateMockApiKeyForValidation();
+                mockApiKeyInput.value = mockKey;
                 mockUriInput.value = 'https://valid.azure.com/';
                 
                 const errors = settings.getValidationErrors();
@@ -318,7 +329,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should reject API key without sk- prefix', () => {
-                mockApiKeyInput.value = '1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateInvalidMockApiKey('no-prefix');
                 
                 const errors = settings.getValidationErrors();
                 
@@ -328,7 +339,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
         describe('URI Validation', () => {
             it('should return error for empty URI', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = '';
                 
                 const errors = settings.getValidationErrors();
@@ -337,7 +348,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return error for HTTP URI (not HTTPS)', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'http://insecure.azure.com/';
                 
                 const errors = settings.getValidationErrors();
@@ -346,7 +357,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return error for malformed URI', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'not-a-valid-uri';
                 
                 // Mock URL constructor to throw for invalid URI
@@ -360,7 +371,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should accept valid HTTPS URI', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'https://valid.azure.com/';
                 
                 const errors = settings.getValidationErrors();
@@ -371,7 +382,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should accept HTTPS URI with port', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'https://valid.azure.com:8080/';
                 
                 const errors = settings.getValidationErrors();
@@ -393,7 +404,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return no errors for valid configuration', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'https://valid.azure.com/';
                 
                 const errors = settings.getValidationErrors();
@@ -402,13 +413,14 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should sanitize inputs before validation', () => {
-                mockApiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+                const mockKey = generateMockApiKey('SANITIZE');
+                mockApiKeyInput.value = `  ${mockKey}  `;
                 mockUriInput.value = '  https://valid.azure.com/extra/path  ';
                 
                 const errors = settings.getValidationErrors();
                 
                 expect(errors).toHaveLength(0);
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(mockKey);
                 expect(mockUriInput.value).toBe('https://valid.azure.com/extra/path');
             });
         });
@@ -449,7 +461,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
         describe('Valid Configuration', () => {
             it('should return true for valid configuration', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'https://valid.azure.com/';
                 
                 const isValid = settings.validateConfiguration();
@@ -458,7 +470,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should not emit validation error event for valid configuration', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'https://valid.azure.com/';
                 
                 settings.validateConfiguration();
@@ -470,13 +482,14 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should sanitize inputs before validation', () => {
-                mockApiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+                const mockKey = generateMockApiKey('VALIDATE');
+                mockApiKeyInput.value = `  ${mockKey}  `;
                 mockUriInput.value = '  https://valid.azure.com/extra/path  ';
                 
                 const isValid = settings.validateConfiguration();
                 
                 expect(isValid).toBe(true);
-                expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+                expect(mockApiKeyInput.value).toBe(mockKey);
                 expect(mockUriInput.value).toBe('https://valid.azure.com/extra/path');
             });
         });
@@ -501,7 +514,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return false for missing URI', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = '';
                 
                 const isValid = settings.validateConfiguration();
@@ -510,7 +523,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return false for HTTP URI', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'http://insecure.azure.com/';
                 
                 const isValid = settings.validateConfiguration();
@@ -519,7 +532,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should return false for malformed URI', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'not-a-valid-uri';
                 
                 global.URL.mockImplementationOnce(() => {
@@ -551,7 +564,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should emit validation error event for single error', () => {
-                mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+                mockApiKeyInput.value = generateMockApiKeyForValidation();
                 mockUriInput.value = 'http://insecure.com/';
                 
                 settings.validateConfiguration();
@@ -585,7 +598,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         describe('Model-Specific Validation', () => {
             it('should validate Whisper model configuration', () => {
                 mockModelSelect.value = 'whisper';
-                const whisperKey = createMockElement('sk-1234567890abcdef1234567890abcdef12345678');
+                const whisperKey = createMockElement(generateMockApiKeyForValidation());
                 const whisperUri = createMockElement('https://whisper.azure.com/');
                 mockElements[ID.WHISPER_KEY] = whisperKey;
                 mockElements[ID.WHISPER_URI] = whisperUri;
@@ -601,7 +614,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
             it('should validate GPT-4o model configuration', () => {
                 mockModelSelect.value = 'gpt-4o';
-                const gpt4oKey = createMockElement('sk-1234567890abcdef1234567890abcdef12345678');
+                const gpt4oKey = createMockElement(generateMockApiKeyForValidation());
                 const gpt4oUri = createMockElement('https://gpt4o.azure.com/');
                 mockElements[ID.GPT4O_KEY] = gpt4oKey;
                 mockElements[ID.GPT4O_URI] = gpt4oUri;
@@ -619,24 +632,26 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
     describe('Integration Between Methods', () => {
         it('should sanitize inputs before getting validation errors', () => {
-            mockApiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            const mockKey = generateMockApiKey('INTEGRATION');
+            mockApiKeyInput.value = `  ${mockKey}  `;
             mockUriInput.value = '  https://valid.azure.com/path  ';
             
             const errors = settings.getValidationErrors();
             
             expect(errors).toHaveLength(0);
-            expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+            expect(mockApiKeyInput.value).toBe(mockKey);
             expect(mockUriInput.value).toBe('https://valid.azure.com/path');
         });
 
         it('should sanitize inputs before validating configuration', () => {
-            mockApiKeyInput.value = '  sk-1234567890abcdef1234567890abcdef12345678  ';
+            const mockKey = generateMockApiKey('CONFIG');
+            mockApiKeyInput.value = `  ${mockKey}  `;
             mockUriInput.value = '  https://valid.azure.com/path  ';
             
             const isValid = settings.validateConfiguration();
             
             expect(isValid).toBe(true);
-            expect(mockApiKeyInput.value).toBe('sk-1234567890abcdef1234567890abcdef12345678');
+            expect(mockApiKeyInput.value).toBe(mockKey);
             expect(mockUriInput.value).toBe('https://valid.azure.com/path');
         });
 
@@ -719,7 +734,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         });
 
         it('should handle URL constructor exceptions gracefully', () => {
-            mockApiKeyInput.value = 'sk-1234567890abcdef1234567890abcdef12345678';
+            mockApiKeyInput.value = generateMockApiKeyForValidation();
             mockUriInput.value = 'malformed-uri';
             
             global.URL.mockImplementation(() => {

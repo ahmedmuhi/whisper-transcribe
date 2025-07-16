@@ -110,7 +110,7 @@ saveSettings() {
 2. Click Settings button
 3. Select "Whisper" model
 4. Enter valid Target URI: `https://your-resource.openai.azure.com/openai/deployments/whisper/audio/transcriptions?api-version=2024-06-01`
-5. Enter valid API Key: `sk-1234567890abcdef1234567890abcdef12345678`
+5. Enter valid API Key: `sk-your-actual-api-key-here`
 6. Click "Save Settings"
 7. **Expected**: Microphone button is enabled
 8. **Actual**: Microphone button remains disabled

@@ -2,6 +2,13 @@
 .DS_Store
 node_modules/
 
+# Environment variables (contains sensitive data)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Generated documentation and coverage files
 coverage/
 docs/
