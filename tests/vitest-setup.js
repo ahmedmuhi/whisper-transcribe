@@ -44,6 +44,13 @@ if (!global.localStorage) {
   global.localStorage = localStorageMock;
 }
 
+// Always reset localStorage after each test to avoid state leakage and unhandled errors
+afterEach(() => {
+  if (global.localStorage && typeof global.localStorage.clear === 'function') {
+    global.localStorage.clear();
+  }
+});
+
 // Canvas API basic mock for visualization tests
 if (!global.HTMLCanvasElement) {
   global.HTMLCanvasElement = class HTMLCanvasElement {
