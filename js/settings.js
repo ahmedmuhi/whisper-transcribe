@@ -298,7 +298,7 @@ export class Settings {
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         if (!apiKey) {
             errors.push('API key is required');
-        } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
+        } else if (!/^[A-F0-9]{32}$/i.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
@@ -347,7 +347,7 @@ export class Settings {
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         if (!apiKey) {
             errors.push('API key is required');
-        } else if (!/^sk-[A-Za-z0-9]{20,}$/.test(apiKey)) {
+        } else if (!/^[A-F0-9]{32}$/i.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
