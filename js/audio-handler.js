@@ -160,20 +160,15 @@ export class AudioHandler {
      * @returns {Promise<void>} Resolves when recorder has been stopped or an error event has been emitted
      */
     async stopRecordingFlow() {
-        const model = this.settings.getCurrentModel();
         await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
-        
+
     // Stop the timer immediately when stopping
     clearInterval(this.timerInterval);
     // Emit timer reset event immediately for UI
     eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
-        
+
         try {
-            if (model === 'gpt-4o-transcribe') {
-                await this.gracefulStop();
-            } else {
-                this.safeStopRecorder();
-            }
+            this.safeStopRecorder();
         } catch (err) {
             eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
         }
@@ -243,32 +238,6 @@ export class AudioHandler {
         }
     }
 
-    /**
-     * Performs a graceful stop by flushing recorder data after a configured delay.
-     * 
-     * @async
-     * @method gracefulStop
-     * @param {number} [delayMs=250] - Delay in milliseconds before requesting data flush
-     * @returns {Promise<void>} Resolves after recorder data has been requested or error emitted
-     */
-    async gracefulStop(delayMs = TIMER_CONFIG.GRACEFUL_STOP_DELAY_MS) {
-        if (!this.stateMachine.canInvokeStop()) return;
-        if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return;
-
-        // Request internal buffer flush immediately
-        try {
-            this.mediaRecorder.requestData();
-        } catch (err) {
-            eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
-            return;
-        }
-
-        // Delay stopping to capture remaining audio tail
-        setTimeout(() => {
-            this.safeStopRecorder();
-        }, delayMs);
-    }
-    
     /**
      * Toggles the pause state of the recording, pausing or resuming as appropriate.
      * 

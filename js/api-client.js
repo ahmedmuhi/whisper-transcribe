@@ -9,7 +9,7 @@ import { errorHandler } from './error-handler.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
- * Supports both Azure Whisper and GPT-4o models.
+ * Supports Azure Whisper models.
  * 
  * @class AzureAPIClient
  * @fires APP_EVENTS.API_REQUEST_START
@@ -47,16 +47,8 @@ export class AzureAPIClient {
             formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
         }
         
-        // Add response_format for GPT-4o to avoid truncation
-        if (config.model === MODEL_TYPES.GPT4O_TRANSCRIBE) {
-            formData.append(API_PARAMS.RESPONSE_FORMAT, CONTENT_TYPES.JSON_RESPONSE_FORMAT);
-            formData.append(API_PARAMS.TEMPERATURE, CONTENT_TYPES.TEMPERATURE_ZERO);
-        }
-        
         try {
-            const statusMessage = config.model === MODEL_TYPES.WHISPER ? 
-                MESSAGES.SENDING_TO_WHISPER : 
-                MESSAGES.SENDING_TO_GPT4O;
+            const statusMessage = MESSAGES.SENDING_TO_WHISPER;
                 
             if (onProgress) {
                 onProgress(statusMessage);
@@ -85,7 +77,7 @@ export class AzureAPIClient {
             const data = contentType.includes(CONTENT_TYPES.APPLICATION_JSON)
                 ? await response.json()
                 : await response.text();
-            const transcription = this.parseResponse(data, config.model);
+            const transcription = this.parseResponse(data);
             
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
                 model: config.model,
@@ -141,25 +133,14 @@ export class AzureAPIClient {
      * @example
      * // Text response
      * const text = apiClient.parseResponse("Hello world", MODEL_TYPES.WHISPER);
-     * 
-     * @example  
-     * // JSON response with segments
-     * const text = apiClient.parseResponse({
-     *   segments: [{ text: "Hello" }, { text: "world" }]
-     * }, MODEL_TYPES.GPT4O_TRANSCRIBE);
      */
-    parseResponse(data, model) {
+    parseResponse(data) {
         // Text response
         if (typeof data === 'string') {
             return data.trim();
         }
 
-        // Handle different JSON formats
-        if (model === MODEL_TYPES.GPT4O_TRANSCRIBE && data.segments) {
-            // GPT-4o JSON format - merge all segments
-            return data.segments.map(seg => seg.text).join(' ');
-        } else if (data.text) {
-            // Whisper or simple text response
+        if (data.text) {
             return data.text;
         }
 

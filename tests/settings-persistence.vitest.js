@@ -118,28 +118,6 @@ describe('Settings Persistence & Management', () => {
             expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, whisperApiUri);
         });
 
-        test('should save GPT-4o settings to localStorage', () => {
-            // Arrange
-            const gpt4oApiKey = generateMockApiKeyForValidation();
-            const gpt4oApiUri = 'https://gpt4o.openai.azure.com/';
-            
-            // Set up form values - use settings modal select for saveSettings
-            const settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
-            settingsModelSelect.value = 'gpt-4o-transcribe';
-            
-            const keyElement = document.getElementById(ID.GPT4O_KEY);
-            const uriElement = document.getElementById(ID.GPT4O_URI);
-            keyElement.value = gpt4oApiKey;
-            uriElement.value = gpt4oApiUri;
-
-            // Act
-            settings.saveSettings();
-
-            // Assert
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.GPT4O_API_KEY, gpt4oApiKey);
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.GPT4O_URI, gpt4oApiUri);
-        });
-
         test('should load saved settings into the form on modal open', () => {
             // Arrange
             const whisperApiKey = generateMockApiKeyForValidation();
@@ -234,34 +212,6 @@ describe('Settings Persistence & Management', () => {
             expect(eventBusEmitSpy).not.toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, expect.any(Object));
         });
 
-        test('should emit SETTINGS_MODEL_CHANGED only when settings are saved with different model', () => {
-            // Arrange - Setup valid configuration for saving
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                return null;
-            });
-            
-            const settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
-            settingsModelSelect.value = 'gpt-4o-transcribe';
-            
-            const gpt4oUriInput = document.getElementById(ID.GPT4O_URI);
-            const gpt4oKeyInput = document.getElementById(ID.GPT4O_KEY);
-            gpt4oUriInput.value = 'https://test.openai.azure.com/openai/deployments/gpt-4o/audio/transcriptions?api-version=2024-06-01';
-            gpt4oKeyInput.value = generateMockApiKeyForValidation();
-            
-            // Act - Save settings
-            settings.saveSettings();
-
-            // Assert - Model should be persisted on save
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'gpt-4o-transcribe');
-            
-            // Should emit SETTINGS_MODEL_CHANGED on save
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
-                model: 'gpt-4o-transcribe',
-                previousModel: 'whisper'
-            });
-        });
-
         test('should emit SETTINGS_VALIDATION_ERROR if required fields are empty', () => {
             // Arrange
             const keyElement = document.getElementById(ID.WHISPER_KEY);
@@ -330,36 +280,5 @@ describe('Settings Persistence & Management', () => {
             });
         });
 
-        test('should return the correct config for the GPT-4o model', () => {
-            // Arrange
-            const gpt4oApiKey = generateMockApiKeyForValidation();
-            const gpt4oApiUri = 'https://retrieval-gpt4o.openai.azure.com/';
-            
-            // Update the model select element to match GPT-4o
-            document.getElementById(ID.MODEL_SELECT).value = 'gpt-4o';
-            
-            // Mock localStorage to return GPT-4o model and its config
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'gpt-4o';
-                if (key === STORAGE_KEYS.GPT4O_API_KEY) return gpt4oApiKey;
-                if (key === STORAGE_KEYS.GPT4O_URI) return gpt4oApiUri;
-                return null;
-            });
-            
-            // Create a fresh Settings instance that will read from the mocked localStorage
-            const freshSettings = new Settings();
-            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
-            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
-            
-            // Act
-            const config = freshSettings.getModelConfig();
-
-            // Assert
-            expect(config).toEqual({
-                model: 'gpt-4o',
-                apiKey: gpt4oApiKey,
-                uri: gpt4oApiUri,
-            });
-        });
     });
 });

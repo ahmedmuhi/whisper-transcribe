@@ -224,26 +224,6 @@ describe('AudioHandler Integration', () => {
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.STOPPING);
     });
     
-    it('implements graceful stop with proper timing for GPT-4o model', async () => {
-      // Set model to GPT-4o
-      mockSettings.getCurrentModel.mockReturnValue('gpt-4o-transcribe');
-      
-      // Start recording
-      await audioHandler.startRecordingFlow();
-      
-      // Force mediaRecorder to active state
-      mockMediaRecorder.state = 'recording';
-      
-      // Call stopRecordingFlow which should use gracefulStop for GPT-4o
-      await audioHandler.stopRecordingFlow();
-      
-      // gracefulStop should have requested data and delayed the stop
-      expect(mockMediaRecorder.requestData).toHaveBeenCalled();
-      
-      // After delay, MediaRecorder.stop should be called
-      jest.advanceTimersByTime(800);
-      expect(mockMediaRecorder.stop).toHaveBeenCalled();
-    });
   });
   
   describe('Audio Chunk Processing', () => {

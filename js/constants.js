@@ -30,16 +30,12 @@ export const COLORS = {
  * @property {string} MODEL - Key for storing selected transcription model
  * @property {string} WHISPER_URI - Key for Whisper API endpoint URI
  * @property {string} WHISPER_API_KEY - Key for Whisper API authentication key
- * @property {string} GPT4O_URI - Key for GPT-4o API endpoint URI
- * @property {string} GPT4O_API_KEY - Key for GPT-4o API authentication key
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
  */
 export const STORAGE_KEYS = {
   MODEL:            'transcription_model',
   WHISPER_URI:      'whisper_uri',
   WHISPER_API_KEY:  'whisper_api_key',
-  GPT4O_URI:        'gpt4o_uri',
-  GPT4O_API_KEY:    'gpt4o_api_key',
   THEME_MODE:       'themeMode'
 };
 
@@ -49,15 +45,11 @@ export const STORAGE_KEYS = {
  * @constant {Object} API_PARAMS
  * @property {string} FILE - Form data field name for audio file upload
  * @property {string} LANGUAGE - Parameter name for transcription language
- * @property {string} RESPONSE_FORMAT - Parameter name for API response format
- * @property {string} TEMPERATURE - Parameter name for GPT-4o temperature setting
  * @property {string} API_KEY_HEADER - HTTP header name for API key authentication
  */
 export const API_PARAMS = {
   FILE:            'file',
   LANGUAGE:        'language',
-  RESPONSE_FORMAT: 'response_format',
-  TEMPERATURE:     'temperature',
   API_KEY_HEADER:  'api-key'
 };
 
@@ -67,19 +59,17 @@ export const API_PARAMS = {
  * 
  * @constant {Object} MODEL_TYPES
  * @property {string} WHISPER_TRANSLATE - Azure Whisper model with translation capability
- * @property {string} GPT4O_TRANSCRIBE - Azure GPT-4o model for enhanced transcription
  * @property {string} WHISPER - Standard Azure Whisper model for transcription
- * 
+ *
  * @example
  * import { MODEL_TYPES } from './constants.js';
- * 
+ *
  * if (config.model === MODEL_TYPES.WHISPER_TRANSLATE) {
  *   // Skip language parameter for translation model
  * }
  */
 export const MODEL_TYPES = {
   WHISPER_TRANSLATE: 'whisper-translate',
-  GPT4O_TRANSCRIBE:  'gpt-4o-transcribe',
   WHISPER:           'whisper'
 };
 
@@ -98,14 +88,10 @@ export const HTTP_METHODS = {
  * 
  * @constant {Object} CONTENT_TYPES
  * @property {string} APPLICATION_JSON - MIME type for JSON content
- * @property {string} JSON_RESPONSE_FORMAT - Response format parameter value for JSON
- * @property {string} TEMPERATURE_ZERO - Zero temperature setting for deterministic responses
  * @property {string} CONTENT_TYPE_HEADER - HTTP header name for content type
  */
 export const CONTENT_TYPES = {
   APPLICATION_JSON:      'application/json',
-  JSON_RESPONSE_FORMAT:  'json',
-  TEMPERATURE_ZERO:      '0',
   CONTENT_TYPE_HEADER:   'content-type'
 };
 
@@ -149,7 +135,6 @@ export const ID = Object.freeze({
   CLOSE_MODAL:      'close-modal',
   MODAL_TITLE:      'modal-title',
   WHISPER_SETTINGS: 'whisper-settings',
-  GPT4O_SETTINGS:   'gpt4o-settings',
 
   // Selectors / inputs
   MODEL_SELECT:     'model-select',
@@ -157,8 +142,6 @@ export const ID = Object.freeze({
   THEME_MODE:       'theme-mode',
   WHISPER_URI:      'whisper-uri',
   WHISPER_KEY:      'whisper-key',
-  GPT4O_URI:        'gpt4o-uri',
-  GPT4O_KEY:        'gpt4o-key',
 
   // Canvas / visualiser
   VISUALIZER:       'visualizer',
@@ -245,7 +228,6 @@ export const MESSAGES = {
   
   // API Communication
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
-  SENDING_TO_GPT4O: 'Sending to Azure GPT-4o API...',
   UNKNOWN_API_RESPONSE: 'Unknown response format from API',
   
   // Transcription
@@ -340,14 +322,12 @@ export const STATE_TRANSITIONS = {
  * @constant {Object} TIMER_CONFIG
  * @property {number} INTERVAL_MS - Interval in milliseconds for timer updates
  * @property {string} DEFAULT_DISPLAY - Initial timer display string
- * @property {number} GRACEFUL_STOP_DELAY_MS - Delay in milliseconds before recorder flush
  * @property {number} SECOND_MS - Number of milliseconds in one second
  * @property {number} MINUTE_MS - Number of milliseconds in one minute
  */
 export const TIMER_CONFIG = {
   INTERVAL_MS: 1000,
   DEFAULT_DISPLAY: '00:00',
-  GRACEFUL_STOP_DELAY_MS: 800,
   // Unit conversion constants
   SECOND_MS: 1000,
   MINUTE_MS: 60000

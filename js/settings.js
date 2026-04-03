@@ -9,7 +9,7 @@ import { logger } from './logger.js';
 /**
  * Settings manager for API configuration and user preferences.
  * Handles model selection, API credentials, validation, and persistence to localStorage.
- * Provides configuration for both Azure Whisper and GPT-4o transcription models.
+ * Provides configuration for Azure Whisper transcription models.
  * 
  * @class Settings
  * @fires APP_EVENTS.SETTINGS_UPDATED
@@ -44,11 +44,8 @@ export class Settings {
         this.statusElement = document.getElementById(ID.STATUS);
     // Cache settings containers and form inputs
     this.whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
-    this.gpt4oSettings = document.getElementById(ID.GPT4O_SETTINGS);
     this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
     this.whisperKeyInput = document.getElementById(ID.WHISPER_KEY);
-    this.gpt4oUriInput = document.getElementById(ID.GPT4O_URI);
-    this.gpt4oKeyInput = document.getElementById(ID.GPT4O_KEY);
         
         this.init();
     }
@@ -164,12 +161,8 @@ export class Settings {
      * @returns {void}
      */
     updateSettingsVisibility() {
-        const currentModel = this.getCurrentModelFromSettings();
         if (this.whisperSettings) {
-            this.whisperSettings.style.display = currentModel === 'whisper' ? 'block' : 'none';
-        }
-        if (this.gpt4oSettings) {
-            this.gpt4oSettings.style.display = currentModel === 'whisper' ? 'none' : 'block';
+            this.whisperSettings.style.display = 'block';
         }
     }
     
@@ -213,25 +206,17 @@ export class Settings {
         const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
         const whisperUri = localStorage.getItem(STORAGE_KEYS.WHISPER_URI);
         const whisperKey = localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY);
-        const gpt4oUri = localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
-        const gpt4oKey = localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
-        
+
         // Sync settings modal model selector with saved model
         if (this.settingsModelSelect) {
             this.settingsModelSelect.value = savedModel;
         }
-        
+
         if (this.whisperUriInput && whisperUri) {
             this.whisperUriInput.value = whisperUri;
         }
         if (this.whisperKeyInput && whisperKey) {
             this.whisperKeyInput.value = whisperKey;
-        }
-        if (this.gpt4oUriInput && gpt4oUri) {
-            this.gpt4oUriInput.value = gpt4oUri;
-        }
-        if (this.gpt4oKeyInput && gpt4oKey) {
-            this.gpt4oKeyInput.value = gpt4oKey;
         }
     }
 
@@ -241,18 +226,15 @@ export class Settings {
      * the complete URI path and query parameters required for Azure OpenAI endpoints.
      *
      * @method sanitizeInputs
-     * @param {string} [model] - Optional model to use, defaults to current model from main interface
      */
-    sanitizeInputs(model = null) {
-        const currentModel = model || this.getCurrentModel();
-
+    sanitizeInputs() {
         // Use injected inputs if defined, else use cached inputs; allow null to pass through
         const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
             ? this.apiKeyInput
-            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+            : this.whisperKeyInput;
         const uriInput = typeof this.apiUriInput !== 'undefined'
             ? this.apiUriInput
-            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
+            : this.whisperUriInput;
 
         if (apiKeyInput && typeof apiKeyInput.value === 'string') {
             // Remove all whitespace characters (spaces, tabs, newlines, etc.)
@@ -280,18 +262,16 @@ export class Settings {
      * Emits SETTINGS_VALIDATION_ERROR with details when invalid.
      *
      * @method validateConfiguration
-     * @param {string} [model] - Optional model to use, defaults to current model from main interface
      * @returns {boolean} True if configuration is valid
      */
-    validateConfiguration(model = null) {
-        const currentModel = model || this.getCurrentModel();
-        this.sanitizeInputs(currentModel);
+    validateConfiguration() {
+        this.sanitizeInputs();
         const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
             ? this.apiKeyInput
-            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+            : this.whisperKeyInput;
         const uriInput = typeof this.apiUriInput !== 'undefined'
             ? this.apiUriInput
-            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
+            : this.whisperUriInput;
 
         const errors = [];
 
@@ -329,18 +309,16 @@ export class Settings {
      * configuration without emitting any events.
      *
      * @method getValidationErrors
-     * @param {string} [model] - Optional model to use, defaults to current model from main interface
      * @returns {string[]} Array of error messages
      */
-    getValidationErrors(model = null) {
-        const currentModel = model || this.getCurrentModel();
-        this.sanitizeInputs(currentModel);
+    getValidationErrors() {
+        this.sanitizeInputs();
         const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
             ? this.apiKeyInput
-            : (currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput);
+            : this.whisperKeyInput;
         const uriInput = typeof this.apiUriInput !== 'undefined'
             ? this.apiUriInput
-            : (currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput);
+            : this.whisperUriInput;
 
         const errors = [];
 
@@ -379,17 +357,14 @@ export class Settings {
     saveSettings() {
         const currentModel = this.getCurrentModelFromSettings();
 
-        this.sanitizeInputs(currentModel);
+        this.sanitizeInputs();
 
-    const apiKeyInput = currentModel === 'whisper' ? this.whisperKeyInput : this.gpt4oKeyInput;
-    const uriInput = currentModel === 'whisper' ? this.whisperUriInput : this.gpt4oUriInput;
+    const targetUri = this.whisperUriInput ? this.whisperUriInput.value.trim() : '';
+    const apiKey = this.whisperKeyInput ? this.whisperKeyInput.value.trim() : '';
 
-    const targetUri = uriInput ? uriInput.value.trim() : '';
-    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
-
-        if (!this.validateConfiguration(currentModel)) {
+        if (!this.validateConfiguration()) {
             // Display first error to user via status helper
-            const [firstError] = this.getValidationErrors(currentModel);
+            const [firstError] = this.getValidationErrors();
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: firstError || MESSAGES.FILL_REQUIRED_FIELDS,
                 type: 'error',
@@ -397,19 +372,14 @@ export class Settings {
             });
             return;
         }
-        
+
         // Save the model selection (this is the only place model is persisted)
         const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
-        
-        // Save model-specific settings
-        if (currentModel === 'whisper') {
-            localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
-            localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
-        } else {
-            localStorage.setItem(STORAGE_KEYS.GPT4O_URI, targetUri);
-            localStorage.setItem(STORAGE_KEYS.GPT4O_API_KEY, apiKey);
-        }
+
+        // Save settings
+        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
+        localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
         
         this.closeSettingsModal();
         
@@ -453,7 +423,7 @@ export class Settings {
      * Gets the currently selected transcription model.
      * 
      * @method getCurrentModel
-     * @returns {string} Current model identifier ('whisper' or 'gpt-4o-transcribe')
+     * @returns {string} Current model identifier
      */
     getCurrentModel() {
         return this.modelSelect.value;
@@ -464,7 +434,7 @@ export class Settings {
      * Falls back to main interface model selector if settings modal selector is not available.
      * 
      * @method getCurrentModelFromSettings
-     * @returns {string} Current model identifier ('whisper' or 'gpt-4o-transcribe')
+     * @returns {string} Current model identifier
      */
     getCurrentModelFromSettings() {
         if (this.settingsModelSelect) {
@@ -481,17 +451,10 @@ export class Settings {
      */
     getModelConfig() {
         const model = this.getCurrentModel();
-        const apiKey = model === 'whisper' ?
-            localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY) :
-            localStorage.getItem(STORAGE_KEYS.GPT4O_API_KEY);
-        const uri = model === 'whisper' ?
-            localStorage.getItem(STORAGE_KEYS.WHISPER_URI) :
-            localStorage.getItem(STORAGE_KEYS.GPT4O_URI);
-            
         return {
             model,
-            apiKey,
-            uri
+            apiKey: localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY),
+            uri: localStorage.getItem(STORAGE_KEYS.WHISPER_URI)
         };
     }
     

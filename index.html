@@ -43,7 +43,6 @@
                 <label for="model-select">Model:</label>
                 <select id="model-select">
                     <option value="whisper">Whisper (Stable)</option>
-                    <option value="gpt-4o-transcribe">GPT-4o (Better accuracy)</option>
                 </select>
             </div>
             
@@ -112,7 +111,6 @@
                 <label for="settings-model-select">Transcription Model:</label>
                 <select id="settings-model-select" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color);">
                     <option value="whisper">Whisper (Stable)</option>
-                    <option value="gpt-4o-transcribe">GPT-4o (Better accuracy)</option>
                 </select>
             </div>
             
@@ -127,20 +125,6 @@
                 <div class="form-group">
                     <label for="whisper-key">API Key:</label>
                     <input type="password" id="whisper-key" placeholder="Enter Whisper API key">
-                </div>
-            </div>
-            
-            <!-- GPT-4o Settings -->
-            <div id="gpt4o-settings" style="display: none;">
-                <h4 style="margin-top: 1.5rem;">GPT-4o Settings</h4>
-                <div class="form-group">
-                    <label for="gpt4o-uri">Target URI:</label>
-                    <input type="text" id="gpt4o-uri" placeholder="https://your-resource.openai.azure.com/openai/deployments/gpt-4o-transcribe/audio/transcriptions?api-version=2025-03-01-preview">
-                    <small>Copy the full URL from Azure Portal</small>
-                </div>
-                <div class="form-group">
-                    <label for="gpt4o-key">API Key:</label>
-                    <input type="password" id="gpt4o-key" placeholder="Enter GPT-4o API key">
                 </div>
             </div>
             

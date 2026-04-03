@@ -58,8 +58,6 @@ describe('Settings Modal Save Functionality', () => {
     let mockSettingsModelSelect;
     let mockWhisperUriInput;
     let mockWhisperKeyInput;
-    let mockGpt4oUriInput;
-    let mockGpt4oKeyInput;
     let mockSettingsModal;
     let eventSpy;
 
@@ -72,8 +70,6 @@ describe('Settings Modal Save Functionality', () => {
         mockSettingsModelSelect = createMockElement('whisper');
         mockWhisperUriInput = createMockElement('https://test.openai.azure.com/whisper');
         mockWhisperKeyInput = createMockElement(generateMockApiKeyForValidation());
-        mockGpt4oUriInput = createMockElement('https://test.openai.azure.com/gpt4o');
-        mockGpt4oKeyInput = createMockElement(generateMockApiKeyForValidation());
         mockSettingsModal = createMockElement();
         mockSettingsModal.style.display = 'block'; // Modal is open initially
 
@@ -88,10 +84,6 @@ describe('Settings Modal Save Functionality', () => {
                     return mockWhisperUriInput;
                 case 'whisper-key':
                     return mockWhisperKeyInput;
-                case 'gpt4o-uri':
-                    return mockGpt4oUriInput;
-                case 'gpt4o-key':
-                    return mockGpt4oKeyInput;
                 case 'settings-modal':
                     return mockSettingsModal;
                 default:
@@ -160,56 +152,6 @@ describe('Settings Modal Save Functionality', () => {
             );
         });
 
-        it('should save valid GPT-4o configuration and close modal', () => {
-            // Set up valid GPT-4o configuration
-            const gpt4oTestKey = generateMockApiKeyForValidation();
-            mockSettingsModelSelect.value = 'gpt-4o-transcribe';
-            mockGpt4oUriInput.value = 'https://test.openai.azure.com/gpt4o';
-            mockGpt4oKeyInput.value = gpt4oTestKey;
-
-            // Call saveSettings
-            settings.saveSettings();
-
-            // Verify localStorage calls
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.GPT4O_URI,
-                'https://test.openai.azure.com/gpt4o'
-            );
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.GPT4O_API_KEY,
-                gpt4oTestKey
-            );
-
-            // Verify modal is closed
-            expect(mockSettingsModal.style.display).toBe('none');
-
-            // Verify success events are emitted
-            expect(eventSpy).toHaveBeenCalledWith(
-                APP_EVENTS.UI_STATUS_UPDATE,
-                expect.objectContaining({
-                    message: MESSAGES.SETTINGS_SAVED,
-                    type: 'success'
-                })
-            );
-
-            expect(eventSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_SAVED,
-                expect.objectContaining({
-                    model: 'gpt-4o-transcribe',
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
-
-            expect(eventSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_LOADED,
-                expect.objectContaining({
-                    model: 'gpt-4o-transcribe',
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
-        });
     });
 
     describe('Save Settings with Invalid Configuration', () => {
