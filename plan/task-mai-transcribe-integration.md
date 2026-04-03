@@ -34,11 +34,13 @@ Replace GPT-4o support with MAI-Transcribe-1 (Azure Speech LLM Speech API).
 
 ### Milestone 2.2 — Add tests for MAI-Transcribe
 
-- [ ] Add MAI-Transcribe test cases for API client (request format, response parsing)
-- [ ] Add MAI-Transcribe test cases for settings (save, load, validation, visibility)
-- [ ] Run full test suite — all tests pass
+- [x] Added 14 MAI-Transcribe test cases in `tests/mai-transcribe.vitest.js`:
+  - Request format: correct auth header, form fields, definition JSON, status message
+  - Response parsing: combinedPhrases, multiple phrases, text fallback, edge cases
+  - Validation: config validation, missing key rejection
+- [x] All 265 tests passing (251 existing + 14 new), lint clean
 
-> **Commit & push.** Feature complete.
+> **Done.** Feature complete.
 
 ---
 
@@ -92,6 +94,12 @@ Issues identified by review agents during this work. Not caused by our changes, 
 
 - `COLORS.CANVAS_DARK_BG` (`#0f172a`) is identical to `COLORS.DARK_BG`, and `CANVAS_LIGHT_BG` (`#f8fafc`) is identical to `LIGHT_BG`.
 - **Fix:** Reference the base color instead of duplicating the hex value.
+
+### ui.js — Unused `setStatusHTML()` with innerHTML sink
+
+- `setStatusHTML(html)` at line ~489 sets `innerHTML` directly — an XSS sink.
+- The method is **dead code** (never called anywhere), but should be removed to eliminate the dormant attack surface.
+- **Fix:** Delete `setStatusHTML()` entirely. All callers use the safe `setStatus()` with `textContent`.
 
 ---
 
