@@ -317,9 +317,11 @@ export class Settings {
         const errors = [];
 
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+        const isMai = this.getCurrentModelFromSettings() === MODEL_TYPES.MAI_TRANSCRIBE;
         if (!apiKey) {
             errors.push(MESSAGES.API_KEY_REQUIRED);
-        } else if (!/^[A-F0-9]{32}$/i.test(apiKey)) {
+        } else if (!isMai && !/^[A-F0-9]{32}$/i.test(apiKey)) {
+            // Whisper keys are 32-char hex; Speech keys are longer alphanumeric
             errors.push('Invalid API key format');
         }
 
