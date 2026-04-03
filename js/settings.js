@@ -182,10 +182,10 @@ export class Settings {
      * @returns {void}
      */
     openSettingsModal() {
-        this.updateSettingsVisibility();
         this.loadSettingsToForm();
+        this.updateSettingsVisibility();
         this.settingsModal.style.display = 'block';
-        
+
         eventBus.emit(APP_EVENTS.UI_SETTINGS_OPENED);
     }
     
@@ -210,14 +210,12 @@ export class Settings {
      * @method loadSettingsToForm
      */
     loadSettingsToForm() {
-        // Load saved settings into form fields
-        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
         const whisperUri = localStorage.getItem(STORAGE_KEYS.WHISPER_URI);
         const whisperKey = localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY);
 
-        // Sync settings modal model selector with saved model
+        // Sync modal selector with main UI selector (user's current choice)
         if (this.settingsModelSelect) {
-            this.settingsModelSelect.value = savedModel;
+            this.settingsModelSelect.value = this.getCurrentModel();
         }
 
         if (this.whisperUriInput && whisperUri) {
