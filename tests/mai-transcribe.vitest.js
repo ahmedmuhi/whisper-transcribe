@@ -4,17 +4,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
-import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { MODEL_TYPES, MESSAGES, API_PARAMS, STORAGE_KEYS, ID } from '../js/constants.js';
+import { MODEL_TYPES, MESSAGES, API_PARAMS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
-// Mock Settings
 const mockSettings = {
     getModelConfig: vi.fn(),
     getCurrentModel: vi.fn()
 };
 
-// Mock URL constructor
 global.URL = vi.fn((url) => {
     if (!url || !url.startsWith('http')) {
         throw new Error('Invalid URL');
@@ -22,10 +19,8 @@ global.URL = vi.fn((url) => {
     return { href: url };
 });
 
-// Mock fetch
 global.fetch = vi.fn();
 
-// Mock FormData
 const formDataEntries = [];
 global.FormData = vi.fn(() => ({
     append: vi.fn((key, value, filename) => {
@@ -34,7 +29,26 @@ global.FormData = vi.fn(() => ({
     entries: () => formDataEntries[Symbol.iterator]()
 }));
 
-// Mock dependencies
+function mockMaiTranscribeConfig(overrides = {}) {
+    mockSettings.getModelConfig.mockReturnValue({
+        model: MODEL_TYPES.MAI_TRANSCRIBE,
+        apiKey: 'test-mai-key',
+        uri: 'https://mai-test.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe',
+        ...overrides
+    });
+}
+
+function mockMaiJsonResponse(text = 'test') {
+    global.fetch.mockResolvedValue({
+        ok: true,
+        headers: { get: () => 'application/json' },
+        json: () => Promise.resolve({
+            combinedPhrases: [{ text }],
+            phrases: []
+        })
+    });
+}
+
 vi.mock('../js/logger.js', () => ({
     logger: {
         info: vi.fn(),
@@ -67,20 +81,8 @@ describe('MAI-Transcribe-1 Integration', () => {
 
     describe('API Client — Request Format', () => {
         it('should use Ocp-Apim-Subscription-Key header for MAI-Transcribe', async () => {
-            mockSettings.getModelConfig.mockReturnValue({
-                model: MODEL_TYPES.MAI_TRANSCRIBE,
-                apiKey: 'test-mai-key',
-                uri: 'https://mai-test.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe'
-            });
-
-            global.fetch.mockResolvedValue({
-                ok: true,
-                headers: { get: () => 'application/json' },
-                json: () => Promise.resolve({
-                    combinedPhrases: [{ text: 'hello world' }],
-                    phrases: []
-                })
-            });
+            mockMaiTranscribeConfig();
+            mockMaiJsonResponse('hello world');
 
             await apiClient.transcribe(new Blob(['audio']), vi.fn());
 
@@ -116,20 +118,8 @@ describe('MAI-Transcribe-1 Integration', () => {
         });
 
         it('should send audio and definition fields for MAI-Transcribe', async () => {
-            mockSettings.getModelConfig.mockReturnValue({
-                model: MODEL_TYPES.MAI_TRANSCRIBE,
-                apiKey: 'test-mai-key',
-                uri: 'https://mai-test.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe'
-            });
-
-            global.fetch.mockResolvedValue({
-                ok: true,
-                headers: { get: () => 'application/json' },
-                json: () => Promise.resolve({
-                    combinedPhrases: [{ text: 'test' }],
-                    phrases: []
-                })
-            });
+            mockMaiTranscribeConfig();
+            mockMaiJsonResponse();
 
             await apiClient.transcribe(new Blob(['audio']), vi.fn());
 
@@ -146,45 +136,21 @@ describe('MAI-Transcribe-1 Integration', () => {
         });
 
         it('should NOT send file/language fields for MAI-Transcribe', async () => {
-            mockSettings.getModelConfig.mockReturnValue({
-                model: MODEL_TYPES.MAI_TRANSCRIBE,
-                apiKey: 'test-mai-key',
-                uri: 'https://mai-test.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe'
-            });
-
-            global.fetch.mockResolvedValue({
-                ok: true,
-                headers: { get: () => 'application/json' },
-                json: () => Promise.resolve({
-                    combinedPhrases: [{ text: 'test' }],
-                    phrases: []
-                })
-            });
+            mockMaiTranscribeConfig();
+            mockMaiJsonResponse();
 
             await apiClient.transcribe(new Blob(['audio']), vi.fn());
 
             const fileEntry = formDataEntries.find(e => e.key === API_PARAMS.FILE);
-            const languageEntry = formDataEntries.find(e => e.key === 'language');
+            const languageEntry = formDataEntries.find(e => e.key === API_PARAMS.LANGUAGE);
 
             expect(fileEntry).toBeUndefined();
             expect(languageEntry).toBeUndefined();
         });
 
         it('should show MAI-Transcribe status message', async () => {
-            mockSettings.getModelConfig.mockReturnValue({
-                model: MODEL_TYPES.MAI_TRANSCRIBE,
-                apiKey: 'test-mai-key',
-                uri: 'https://mai-test.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe'
-            });
-
-            global.fetch.mockResolvedValue({
-                ok: true,
-                headers: { get: () => 'application/json' },
-                json: () => Promise.resolve({
-                    combinedPhrases: [{ text: 'test' }],
-                    phrases: []
-                })
-            });
+            mockMaiTranscribeConfig();
+            mockMaiJsonResponse();
 
             const onProgress = vi.fn();
             await apiClient.transcribe(new Blob(['audio']), onProgress);
@@ -251,22 +217,14 @@ describe('MAI-Transcribe-1 Integration', () => {
 
     describe('API Client — Validation', () => {
         it('should validate MAI-Transcribe configuration', () => {
-            mockSettings.getModelConfig.mockReturnValue({
-                model: MODEL_TYPES.MAI_TRANSCRIBE,
-                apiKey: 'test-mai-key',
-                uri: 'https://mai-test.cognitiveservices.azure.com'
-            });
+            mockMaiTranscribeConfig();
 
             const config = apiClient.validateConfig();
             expect(config.model).toBe(MODEL_TYPES.MAI_TRANSCRIBE);
         });
 
         it('should reject missing MAI-Transcribe API key', () => {
-            mockSettings.getModelConfig.mockReturnValue({
-                model: MODEL_TYPES.MAI_TRANSCRIBE,
-                apiKey: '',
-                uri: 'https://mai-test.cognitiveservices.azure.com'
-            });
+            mockMaiTranscribeConfig({ apiKey: '' });
 
             expect(() => apiClient.validateConfig()).toThrow(MESSAGES.API_KEY_REQUIRED);
         });
