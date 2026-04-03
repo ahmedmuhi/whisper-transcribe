@@ -33,10 +33,12 @@ export const COLORS = {
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
  */
 export const STORAGE_KEYS = {
-  MODEL:            'transcription_model',
-  WHISPER_URI:      'whisper_uri',
-  WHISPER_API_KEY:  'whisper_api_key',
-  THEME_MODE:       'themeMode'
+  MODEL:                'transcription_model',
+  WHISPER_URI:          'whisper_uri',
+  WHISPER_API_KEY:      'whisper_api_key',
+  MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
+  MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
+  THEME_MODE:           'themeMode'
 };
 
 /**
@@ -50,7 +52,10 @@ export const STORAGE_KEYS = {
 export const API_PARAMS = {
   FILE:            'file',
   LANGUAGE:        'language',
-  API_KEY_HEADER:  'api-key'
+  API_KEY_HEADER:  'api-key',
+  MAI_API_KEY_HEADER: 'Ocp-Apim-Subscription-Key',
+  MAI_AUDIO_FIELD:    'audio',
+  MAI_DEFINITION_FIELD: 'definition'
 };
 
 /**
@@ -70,7 +75,9 @@ export const API_PARAMS = {
  */
 export const MODEL_TYPES = {
   WHISPER_TRANSLATE: 'whisper-translate',
-  WHISPER:           'whisper'
+  WHISPER:           'whisper',
+  MAI_TRANSCRIBE:    'mai-transcribe',
+  MAI_TRANSCRIBE_API_MODEL: 'mai-transcribe-1'
 };
 
 /**
@@ -135,6 +142,7 @@ export const ID = Object.freeze({
   CLOSE_MODAL:      'close-modal',
   MODAL_TITLE:      'modal-title',
   WHISPER_SETTINGS: 'whisper-settings',
+  MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
 
   // Selectors / inputs
   MODEL_SELECT:     'model-select',
@@ -142,6 +150,8 @@ export const ID = Object.freeze({
   THEME_MODE:       'theme-mode',
   WHISPER_URI:      'whisper-uri',
   WHISPER_KEY:      'whisper-key',
+  MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
+  MAI_TRANSCRIBE_KEY: 'mai-transcribe-key',
 
   // Canvas / visualiser
   VISUALIZER:       'visualizer',
@@ -228,6 +238,7 @@ export const MESSAGES = {
   
   // API Communication
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
+  SENDING_TO_MAI_TRANSCRIBE: 'Sending to Azure MAI-Transcribe API...',
   UNKNOWN_API_RESPONSE: 'Unknown response format from API',
   
   // Transcription

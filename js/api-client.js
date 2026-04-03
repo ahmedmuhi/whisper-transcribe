@@ -9,7 +9,7 @@ import { errorHandler } from './error-handler.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
- * Supports Azure Whisper models.
+ * Supports Azure Whisper and MAI-Transcribe models.
  * 
  * @class AzureAPIClient
  * @fires APP_EVENTS.API_REQUEST_START
@@ -40,31 +40,48 @@ export class AzureAPIClient {
      */
     async transcribe(audioBlob, onProgress) {
         const config = this.validateConfig();
-        
+        const isMaiTranscribe = config.model === MODEL_TYPES.MAI_TRANSCRIBE;
+
         const formData = new FormData();
-        formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
-        if (config.model !== MODEL_TYPES.WHISPER_TRANSLATE) {
-            formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
+        let headers;
+        let statusMessage;
+
+        if (isMaiTranscribe) {
+            formData.append(API_PARAMS.MAI_AUDIO_FIELD, audioBlob, DEFAULT_FILENAME);
+            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({
+                enhancedMode: {
+                    enabled: true,
+                    model: MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL,
+                    task: 'transcribe'
+                }
+            }));
+            headers = { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey };
+            statusMessage = MESSAGES.SENDING_TO_MAI_TRANSCRIBE;
+        } else {
+            formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
+            if (config.model !== MODEL_TYPES.WHISPER_TRANSLATE) {
+                formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
+            }
+            headers = { [API_PARAMS.API_KEY_HEADER]: config.apiKey };
+            statusMessage = MESSAGES.SENDING_TO_WHISPER;
         }
-        
+
         try {
-            const statusMessage = MESSAGES.SENDING_TO_WHISPER;
-                
             if (onProgress) {
                 onProgress(statusMessage);
             }
-            
+
             eventBus.emit(APP_EVENTS.API_REQUEST_START, {
                 model: config.model,
                 message: statusMessage
             });
-            
+
             const response = await fetch(config.uri, {
                 method: HTTP_METHODS.POST,
-                headers: { [API_PARAMS.API_KEY_HEADER]: config.apiKey },
+                headers,
                 body: formData
             });
-            
+
             if (!response.ok) {
                 const errorText = await response.text();
                 logger.child('AzureAPIClient').error('API Error Details:', errorText);
@@ -72,20 +89,20 @@ export class AzureAPIClient {
                 this._handleApiError(error, { status: response.status, details: errorText });
                 throw error;
             }
-            
+
             const contentType = response.headers.get(CONTENT_TYPES.CONTENT_TYPE_HEADER) || '';
             const data = contentType.includes(CONTENT_TYPES.APPLICATION_JSON)
                 ? await response.json()
                 : await response.text();
             const transcription = this.parseResponse(data);
-            
+
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
                 model: config.model,
                 transcriptionLength: transcription.length
             });
-            
+
             return transcription;
-            
+
         } catch (error) {
             this._handleApiError(error);
             throw error;
@@ -134,6 +151,12 @@ export class AzureAPIClient {
             return data.trim();
         }
 
+        // MAI-Transcribe response format
+        if (data.combinedPhrases && data.combinedPhrases.length > 0) {
+            return data.combinedPhrases.map(p => p.text).join(' ');
+        }
+
+        // Whisper JSON response
         if (data.text) {
             return data.text;
         }

@@ -43,6 +43,7 @@
                 <label for="model-select">Model:</label>
                 <select id="model-select">
                     <option value="whisper">Whisper (Stable)</option>
+                    <option value="mai-transcribe">MAI-Transcribe (Preview)</option>
                 </select>
             </div>
             
@@ -111,6 +112,7 @@
                 <label for="settings-model-select">Transcription Model:</label>
                 <select id="settings-model-select" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--card-bg); color: var(--text-color);">
                     <option value="whisper">Whisper (Stable)</option>
+                    <option value="mai-transcribe">MAI-Transcribe (Preview)</option>
                 </select>
             </div>
             
@@ -127,7 +129,21 @@
                     <input type="password" id="whisper-key" placeholder="Enter Whisper API key">
                 </div>
             </div>
-            
+
+            <!-- MAI-Transcribe Settings -->
+            <div id="mai-transcribe-settings" style="display: none;">
+                <h4 style="margin-top: 1.5rem;">MAI-Transcribe Settings</h4>
+                <div class="form-group">
+                    <label for="mai-transcribe-uri">Target URI:</label>
+                    <input type="text" id="mai-transcribe-uri" placeholder="https://your-resource.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15">
+                    <small>Copy the endpoint from Azure Foundry Portal</small>
+                </div>
+                <div class="form-group">
+                    <label for="mai-transcribe-key">API Key:</label>
+                    <input type="password" id="mai-transcribe-key" placeholder="Enter Speech resource key">
+                </div>
+            </div>
+
             <button id="save-settings" class="save-button">Save Settings</button>
         </div>
     </div>

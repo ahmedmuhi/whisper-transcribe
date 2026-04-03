@@ -46,6 +46,9 @@ export class Settings {
     this.whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
     this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
     this.whisperKeyInput = document.getElementById(ID.WHISPER_KEY);
+    this.maiTranscribeSettings = document.getElementById(ID.MAI_TRANSCRIBE_SETTINGS);
+    this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
+    this.maiTranscribeKeyInput = document.getElementById(ID.MAI_TRANSCRIBE_KEY);
         
         this.init();
     }
@@ -161,8 +164,13 @@ export class Settings {
      * @returns {void}
      */
     updateSettingsVisibility() {
+        const currentModel = this.getCurrentModelFromSettings();
+        const isMai = currentModel === MODEL_TYPES.MAI_TRANSCRIBE;
         if (this.whisperSettings) {
-            this.whisperSettings.style.display = 'block';
+            this.whisperSettings.style.display = isMai ? 'none' : 'block';
+        }
+        if (this.maiTranscribeSettings) {
+            this.maiTranscribeSettings.style.display = isMai ? 'block' : 'none';
         }
     }
     
@@ -218,6 +226,15 @@ export class Settings {
         if (this.whisperKeyInput && whisperKey) {
             this.whisperKeyInput.value = whisperKey;
         }
+
+        const maiUri = localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI);
+        const maiKey = localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY);
+        if (this.maiTranscribeUriInput && maiUri) {
+            this.maiTranscribeUriInput.value = maiUri;
+        }
+        if (this.maiTranscribeKeyInput && maiKey) {
+            this.maiTranscribeKeyInput.value = maiKey;
+        }
     }
 
     /**
@@ -227,14 +244,27 @@ export class Settings {
      *
      * @method sanitizeInputs
      */
+    /**
+     * Resolves the active API key and URI input elements based on selected model.
+     * Prefers injected test inputs when defined.
+     *
+     * @private
+     * @returns {{ apiKeyInput: HTMLElement|null, uriInput: HTMLElement|null }}
+     */
+    _getActiveInputs() {
+        const isMai = this.getCurrentModelFromSettings() === MODEL_TYPES.MAI_TRANSCRIBE;
+        return {
+            apiKeyInput: typeof this.apiKeyInput !== 'undefined'
+                ? this.apiKeyInput
+                : (isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput),
+            uriInput: typeof this.apiUriInput !== 'undefined'
+                ? this.apiUriInput
+                : (isMai ? this.maiTranscribeUriInput : this.whisperUriInput)
+        };
+    }
+
     sanitizeInputs() {
-        // Use injected inputs if defined, else use cached inputs; allow null to pass through
-        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
-            ? this.apiKeyInput
-            : this.whisperKeyInput;
-        const uriInput = typeof this.apiUriInput !== 'undefined'
-            ? this.apiUriInput
-            : this.whisperUriInput;
+        const { apiKeyInput, uriInput } = this._getActiveInputs();
 
         if (apiKeyInput && typeof apiKeyInput.value === 'string') {
             // Remove all whitespace characters (spaces, tabs, newlines, etc.)
@@ -282,12 +312,7 @@ export class Settings {
      */
     getValidationErrors() {
         this.sanitizeInputs();
-        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
-            ? this.apiKeyInput
-            : this.whisperKeyInput;
-        const uriInput = typeof this.apiUriInput !== 'undefined'
-            ? this.apiUriInput
-            : this.whisperUriInput;
+        const { apiKeyInput, uriInput } = this._getActiveInputs();
 
         const errors = [];
 
@@ -337,13 +362,21 @@ export class Settings {
             return;
         }
 
-    const targetUri = this.whisperUriInput ? this.whisperUriInput.value.trim() : '';
-    const apiKey = this.whisperKeyInput ? this.whisperKeyInput.value.trim() : '';
+        const isMai = currentModel === MODEL_TYPES.MAI_TRANSCRIBE;
+        const uriInput = isMai ? this.maiTranscribeUriInput : this.whisperUriInput;
+        const keyInput = isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput;
+    const targetUri = uriInput ? uriInput.value.trim() : '';
+    const apiKey = keyInput ? keyInput.value.trim() : '';
 
         const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
-        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
-        localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
+        if (isMai) {
+            localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, targetUri);
+            localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY, apiKey);
+        } else {
+            localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
+            localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
+        }
         
         this.closeSettingsModal();
         
@@ -411,10 +444,11 @@ export class Settings {
      */
     getModelConfig() {
         const model = this.getCurrentModel();
+        const isMai = model === MODEL_TYPES.MAI_TRANSCRIBE;
         return {
             model,
-            apiKey: localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY),
-            uri: localStorage.getItem(STORAGE_KEYS.WHISPER_URI)
+            apiKey: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY : STORAGE_KEYS.WHISPER_API_KEY),
+            uri: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_URI : STORAGE_KEYS.WHISPER_URI)
         };
     }
     
