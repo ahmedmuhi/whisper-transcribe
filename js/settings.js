@@ -2,7 +2,7 @@
  * @fileoverview Settings management for API configuration and user preferences.
  */
 
-import { STORAGE_KEYS, MESSAGES, ID } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 
@@ -72,7 +72,7 @@ export class Settings {
      * @method loadSavedModel
      */
     loadSavedModel() {
-        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
         this.modelSelect.value = savedModel;
         if (this.settingsModelSelect) {
             this.settingsModelSelect.value = savedModel;
@@ -93,7 +93,7 @@ export class Settings {
         // Main interface model change listener
         this.modelSelect.addEventListener('change', (e) => {
             const newModel = e.target.value;
-            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
             
             // Do NOT persist to localStorage for main UI selector changes
             const settingsLogger = logger.child('Settings');
@@ -203,7 +203,7 @@ export class Settings {
      */
     loadSettingsToForm() {
         // Load saved settings into form fields
-        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
+        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
         const whisperUri = localStorage.getItem(STORAGE_KEYS.WHISPER_URI);
         const whisperKey = localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY);
 
@@ -265,42 +265,11 @@ export class Settings {
      * @returns {boolean} True if configuration is valid
      */
     validateConfiguration() {
-        this.sanitizeInputs();
-        const apiKeyInput = typeof this.apiKeyInput !== 'undefined'
-            ? this.apiKeyInput
-            : this.whisperKeyInput;
-        const uriInput = typeof this.apiUriInput !== 'undefined'
-            ? this.apiUriInput
-            : this.whisperUriInput;
-
-        const errors = [];
-
-    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
-        if (!apiKey) {
-            errors.push('API key is required');
-        } else if (!/^[A-F0-9]{32}$/i.test(apiKey)) {
-            errors.push('Invalid API key format');
-        }
-
-    const uri = uriInput ? uriInput.value.trim() : '';
-        if (!uri) {
-            errors.push('URI is required');
-        } else {
-            try {
-                const url = new URL(uri);
-                if (url.protocol !== 'https:') {
-                    errors.push('URI must use HTTPS');
-                }
-            } catch {
-                errors.push('Invalid URI format');
-            }
-        }
-
+        const errors = this.getValidationErrors();
         if (errors.length > 0) {
             eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, { errors });
             return false;
         }
-
         return true;
     }
 
@@ -324,14 +293,14 @@ export class Settings {
 
     const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         if (!apiKey) {
-            errors.push('API key is required');
+            errors.push(MESSAGES.API_KEY_REQUIRED);
         } else if (!/^[A-F0-9]{32}$/i.test(apiKey)) {
             errors.push('Invalid API key format');
         }
 
     const uri = uriInput ? uriInput.value.trim() : '';
         if (!uri) {
-            errors.push('URI is required');
+            errors.push(MESSAGES.URI_REQUIRED);
         } else {
             try {
                 const url = new URL(uri);
@@ -339,7 +308,7 @@ export class Settings {
                     errors.push('URI must use HTTPS');
                 }
             } catch {
-                errors.push('Invalid URI format');
+                errors.push(MESSAGES.INVALID_URI_FORMAT);
             }
         }
 
@@ -357,27 +326,22 @@ export class Settings {
     saveSettings() {
         const currentModel = this.getCurrentModelFromSettings();
 
-        this.sanitizeInputs();
-
-    const targetUri = this.whisperUriInput ? this.whisperUriInput.value.trim() : '';
-    const apiKey = this.whisperKeyInput ? this.whisperKeyInput.value.trim() : '';
-
-        if (!this.validateConfiguration()) {
-            // Display first error to user via status helper
-            const [firstError] = this.getValidationErrors();
+        const errors = this.getValidationErrors();
+        if (errors.length > 0) {
+            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, { errors });
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: firstError || MESSAGES.FILL_REQUIRED_FIELDS,
+                message: errors[0] || MESSAGES.FILL_REQUIRED_FIELDS,
                 type: 'error',
                 temporary: true
             });
             return;
         }
 
-        // Save the model selection (this is the only place model is persisted)
-        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || 'whisper';
-        localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
+    const targetUri = this.whisperUriInput ? this.whisperUriInput.value.trim() : '';
+    const apiKey = this.whisperKeyInput ? this.whisperKeyInput.value.trim() : '';
 
-        // Save settings
+        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
+        localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
         localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
         localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
         
@@ -412,11 +376,7 @@ export class Settings {
             hasApiKey: !!apiKey
         });
 
-        // Also emit settings updated for compatibility
         eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
-        
-        // Remove old custom event
-        // document.dispatchEvent(new CustomEvent('settingsUpdated'));
     }
     
     /**

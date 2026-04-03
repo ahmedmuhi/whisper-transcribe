@@ -121,18 +121,12 @@ export class AzureAPIClient {
     }
     
     /**
-     * Parses API response data based on the model type and response format.
-     * Handles both text and JSON responses from different Azure Speech Service models.
-     * 
+     * Parses API response data from text or JSON format.
+     *
      * @method parseResponse
      * @param {string|Object} data - Raw response data from API
-     * @param {string} model - Model identifier for format-specific parsing
      * @returns {string} Parsed transcription text
      * @throws {Error} When response format is unrecognized
-     * 
-     * @example
-     * // Text response
-     * const text = apiClient.parseResponse("Hello world", MODEL_TYPES.WHISPER);
      */
     parseResponse(data) {
         // Text response

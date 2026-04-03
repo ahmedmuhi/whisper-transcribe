@@ -6,30 +6,17 @@ Replace GPT-4o support with MAI-Transcribe-1 (Azure Speech LLM Speech API).
 
 ## Phase 1: Remove GPT-4o Support
 
-### Milestone 1.1 — Strip GPT-4o from source files
+### Milestone 1.1 + 1.2 — Strip GPT-4o from source files and tests
 
-- [ ] **constants.js** — Remove `GPT4O_TRANSCRIBE` model type, `GPT4O_*` storage keys, `GPT4O_*` DOM IDs, `SENDING_TO_GPT4O` message, `RESPONSE_FORMAT`/`TEMPERATURE` API params
-- [ ] **api-client.js** — Remove GPT-4o FormData logic (`response_format`, `temperature`) and `segments` branch in `parseResponse`
-- [ ] **audio-handler.js** — Remove GPT-4o branch in `stopRecordingFlow()` and delete `gracefulStop()` method entirely
-- [ ] **settings.js** — Remove all `gpt4o*` DOM refs, simplify model branching (currently `whisper` vs `gpt4o` ternaries everywhere)
-- [ ] **index.html** — Remove GPT-4o option from both `<select>` dropdowns, remove `gpt4o-settings` section
+- [x] **constants.js** — Removed `GPT4O_TRANSCRIBE` model type, `GPT4O_*` storage keys, DOM IDs, message, unused API params
+- [x] **api-client.js** — Removed GPT-4o FormData logic and `segments` branch in `parseResponse`
+- [x] **audio-handler.js** — Removed GPT-4o branch in `stopRecordingFlow()` and deleted `gracefulStop()`
+- [x] **settings.js** — Removed all `gpt4o*` DOM refs, simplified to Whisper-only
+- [x] **index.html** — Removed GPT-4o option from both dropdowns, removed `gpt4o-settings` section
+- [x] Removed GPT-4o test cases from `settings-persistence`, `settings-save-modal`, `audio-handler-integration`
+- [x] All 251 tests passing, lint clean
 
-> **Commit & push.** Verify Whisper still works end-to-end.
-
-### Milestone 1.2 — Clean up tests
-
-- [ ] Remove/update GPT-4o test cases in `settings-helper-methods.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `settings-persistence.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `settings-save-modal.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `settings-dom-caching.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `settings-workflow-issues.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `settings-workflow-fixes.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `settings-validation.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `api-client-validation.vitest.js`
-- [ ] Remove/update GPT-4o test cases in `audio-handler-integration.vitest.js`
-- [ ] Run full test suite — all tests pass
-
-> **Commit & push.** Clean baseline: Whisper-only app with passing tests.
+> **Done.** Committed & pushed as `cff9ce0`.
 
 ---
 
