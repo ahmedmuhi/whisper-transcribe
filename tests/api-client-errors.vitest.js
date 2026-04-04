@@ -30,7 +30,10 @@ global.URL = vi.fn((url) => {
     return { href: url };
 });
 
-// Mock dependencies
+vi.mock('../js/audio-converter.js', () => ({
+    convertToWav: vi.fn(async (blob) => new Blob([blob], { type: 'audio/wav' }))
+}));
+
 vi.mock('../js/logger.js', () => ({
     logger: {
         info: vi.fn(),
@@ -498,6 +501,41 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_SUCCESS,
                 expect.any(Object)
+            );
+        });
+    });
+
+    describe('Error Event Deduplication (Issue 1 regression guard)', () => {
+        it('should emit API_REQUEST_ERROR exactly once per failed request', async () => {
+            global.fetch.mockResolvedValue({
+                ok: false,
+                status: 422,
+                text: vi.fn().mockResolvedValue('{"error":{"message":"Unsupported format"}}')
+            });
+
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow();
+
+            const errorEmits = eventBusEmitSpy.mock.calls.filter(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            expect(errorEmits).toHaveLength(1);
+        });
+
+        it('should include API context in the single error emission', async () => {
+            global.fetch.mockResolvedValue({
+                ok: false,
+                status: 500,
+                text: vi.fn().mockResolvedValue('Server error')
+            });
+
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow();
+
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.API_REQUEST_ERROR,
+                expect.objectContaining({
+                    status: 500,
+                    details: 'Server error'
+                })
             );
         });
     });

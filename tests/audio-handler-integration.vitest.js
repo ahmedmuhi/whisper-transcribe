@@ -442,7 +442,27 @@ describe('AudioHandler Integration', () => {
       // Should be back in idle state
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
     });
-    
+
+    it('should NOT emit API_REQUEST_ERROR from audio handler (Issue 2 regression guard)', async () => {
+      mockSettings.getModelConfig.mockReturnValue({
+        model: 'whisper',
+        apiKey: 'test-key',
+        uri: 'https://test.azure.com'
+      });
+      mockApiClient.transcribe.mockRejectedValue(new Error('Transcription failed'));
+
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      await audioHandler.stopRecordingFlow();
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const errorEmits = eventBusEmitSpy.mock.calls.filter(
+        ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+      );
+      expect(errorEmits).toHaveLength(0);
+    });
+
     it('stops tracks in the stream after processing', async () => {
       // Create a mock stream with track stop spy
       const trackStopSpy = vi.fn();
