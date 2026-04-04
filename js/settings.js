@@ -221,13 +221,17 @@ export class Settings {
         if (this.panelBackdrop) {
             this.panelBackdrop.addEventListener('click', () => this.closeSidePanel());
         }
+        // Refresh device list when mic permission is granted (labels become available)
+        eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => this.populateDeviceList());
+
         // Escape key
         this._panelEscHandler = (e) => {
             if (e.key === 'Escape' && this.sidePanel?.classList.contains('open')) {
                 this.closeSidePanel();
             }
         };
-        if (typeof document.addEventListener === 'function') {
+        // Guard needed: some test environments provide a partial document mock
+        if (document.addEventListener) {
             document.addEventListener('keydown', this._panelEscHandler);
         }
     }
@@ -236,13 +240,11 @@ export class Settings {
         if (this.sidePanel) this.sidePanel.classList.add('open');
         if (this.panelBackdrop) this.panelBackdrop.classList.add('open');
         this.populateDeviceList();
-        eventBus.emit(APP_EVENTS.PANEL_OPENED);
     }
 
     closeSidePanel() {
         if (this.sidePanel) this.sidePanel.classList.remove('open');
         if (this.panelBackdrop) this.panelBackdrop.classList.remove('open');
-        eventBus.emit(APP_EVENTS.PANEL_CLOSED);
     }
 
     /**
@@ -362,13 +364,6 @@ export class Settings {
     }
 
     /**
-     * Trim whitespace and normalize user provided settings inputs.
-     * Removes newlines and tabs from the API key and URI while preserving
-     * the complete URI path and query parameters required for Azure OpenAI endpoints.
-     *
-     * @method sanitizeInputs
-     */
-    /**
      * Resolves the active API key and URI input elements based on selected model.
       * Uses model-specific cached DOM references for Whisper or MAI-Transcribe.
      *
@@ -476,10 +471,9 @@ export class Settings {
         }
 
         const isMai = currentModel === MODEL_TYPES.MAI_TRANSCRIBE;
-        const uriInput = isMai ? this.maiTranscribeUriInput : this.whisperUriInput;
-        const keyInput = isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput;
-    const targetUri = uriInput ? uriInput.value.trim() : '';
-    const apiKey = keyInput ? keyInput.value.trim() : '';
+        const { apiKeyInput: keyInput, uriInput } = this._getActiveInputs();
+        const targetUri = uriInput ? uriInput.value.trim() : '';
+        const apiKey = keyInput ? keyInput.value.trim() : '';
 
         const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
@@ -602,7 +596,7 @@ export class Settings {
             clearTimeout(this._initTimerId);
             this._initTimerId = null;
         }
-        if (this._panelEscHandler && typeof document.removeEventListener === 'function') {
+        if (this._panelEscHandler && document.removeEventListener) {
             document.removeEventListener('keydown', this._panelEscHandler);
         }
     }

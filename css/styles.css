@@ -165,22 +165,8 @@ body {
 }
 
 .panel-close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 32px;
     height: 32px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all var(--transition);
-}
-
-.panel-close-btn:hover {
-    background: var(--accent-subtle);
-    color: var(--accent);
 }
 
 .panel-content {
@@ -317,25 +303,6 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
-.panel-footer-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all var(--transition);
-}
-
-.panel-footer-btn:hover {
-    background: var(--accent-subtle);
-    color: var(--accent);
-}
-
 /* --- Header --- */
 header {
     position: sticky;
@@ -388,23 +355,38 @@ header {
     align-items: center;
 }
 
-.header-btn {
+/* Shared icon button base */
+.header-btn,
+.panel-close-btn,
+.panel-footer-btn,
+.close-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     cursor: pointer;
     transition: all var(--transition);
 }
 
-.header-btn:hover {
+.header-btn:hover,
+.panel-close-btn:hover,
+.panel-footer-btn:hover,
+.close-button:hover {
     background: var(--accent-subtle);
     color: var(--accent);
+}
+
+.header-btn,
+.panel-footer-btn {
+    width: 36px;
+    height: 36px;
+}
+
+.header-btn {
+    color: var(--text-secondary);
 }
 
 .header-icon {
@@ -840,24 +822,10 @@ header {
 }
 
 .close-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 32px;
     height: 32px;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
     font-size: 1.25rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all var(--transition);
     line-height: 1;
-}
-
-.close-button:hover {
-    background: var(--accent-subtle);
-    color: var(--accent);
 }
 
 /* --- Form --- */
