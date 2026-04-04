@@ -1,5 +1,6 @@
 /**
  * @fileoverview Real-time audio visualization controller using Web Audio API
+ * Renders amber-toned frequency bars with rounded caps
  */
 import { COLORS } from './constants.js';
 export class VisualizationController {
@@ -33,6 +34,7 @@ export class VisualizationController {
 
     /**
      * Begin audio visualization rendering loop.
+     * Draws amber-gradient frequency bars with rounded caps.
      * @method start
      * @returns {void}
      */
@@ -40,16 +42,44 @@ export class VisualizationController {
         const draw = () => {
             this.animationId = requestAnimationFrame(draw);
             this.analyser.getByteFrequencyData(this.dataArray);
+
+            // Clear with theme background
             this.canvasCtx.fillStyle = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
             this.canvasCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
             const barWidth = (this.canvas.width / this.bufferLength) * 2.5;
+            const gap = 1.5;
+            const barRadius = barWidth / 2;
             let x = 0;
+
             for (let i = 0; i < this.bufferLength; i++) {
-                const barHeight = (this.dataArray[i] / 255) * this.canvas.height * 0.8;
-                const hue = (i / this.bufferLength) * 360;
-                this.canvasCtx.fillStyle = `hsl(${hue}, 70%, 60%)`;
-                this.canvasCtx.fillRect(x, this.canvas.height - barHeight, barWidth, barHeight);
-                x += barWidth + 1;
+                const barHeight = (this.dataArray[i] / 255) * this.canvas.height * 0.85;
+
+                if (barHeight > 1) {
+                    // Amber gradient: warm gold to deep amber based on intensity
+                    const intensity = this.dataArray[i] / 255;
+                    const r = Math.round(245 - (intensity * 30));
+                    const g = Math.round(158 - (intensity * 80));
+                    const b = Math.round(11 + (intensity * 10));
+                    const alpha = 0.6 + (intensity * 0.4);
+
+                    this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+
+                    // Draw rounded bar
+                    const y = this.canvas.height - barHeight;
+                    this.canvasCtx.beginPath();
+                    this.canvasCtx.moveTo(x + barRadius, y);
+                    this.canvasCtx.lineTo(x + barWidth - barRadius, y);
+                    this.canvasCtx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + barRadius);
+                    this.canvasCtx.lineTo(x + barWidth, this.canvas.height);
+                    this.canvasCtx.lineTo(x, this.canvas.height);
+                    this.canvasCtx.lineTo(x, y + barRadius);
+                    this.canvasCtx.quadraticCurveTo(x, y, x + barRadius, y);
+                    this.canvasCtx.closePath();
+                    this.canvasCtx.fill();
+                }
+
+                x += barWidth + gap;
             }
         };
         draw();
