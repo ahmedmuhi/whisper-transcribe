@@ -156,7 +156,7 @@ export class AzureAPIClient {
     _extractErrorDetail(errorText) {
         try {
             const parsed = JSON.parse(errorText);
-            return parsed?.error?.message || parsed?.message || null;
+            return parsed?.error?.innerError?.message || parsed?.error?.message || parsed?.message || null;
         } catch {
             return null;
         }
