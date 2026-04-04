@@ -496,4 +496,23 @@ describe('AudioHandler Integration', () => {
       expect(trackStopSpy).toHaveBeenCalled();
     });
   });
+
+  describe('Lifecycle — destroy()', () => {
+    it('should unsubscribe API_CONFIG_MISSING listener (Issue 5 regression guard)', () => {
+      const offSpy = vi.spyOn(eventBus, 'off');
+
+      audioHandler.destroy();
+
+      expect(offSpy).toHaveBeenCalledWith(
+        APP_EVENTS.API_CONFIG_MISSING,
+        expect.any(Function)
+      );
+      expect(audioHandler._onApiConfigMissing).toBeNull();
+    });
+
+    it('should not throw if destroy() is called twice', () => {
+      audioHandler.destroy();
+      expect(() => audioHandler.destroy()).not.toThrow();
+    });
+  });
 });
