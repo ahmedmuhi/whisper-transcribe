@@ -291,12 +291,12 @@ describe('Error Recovery Scenarios', () => {
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Should show error and return to idle state
+      // Should show error with retry hint and stay in ERROR state
       expect(eventBusEmitSpy).toHaveBeenCalledWith(
         APP_EVENTS.UI_STATUS_UPDATE,
         expect.objectContaining({ message: expect.stringContaining('Network failure'), type: 'error' })
       );
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
       
       // Second attempt should succeed
       mockApiClient.transcribe.mockResolvedValueOnce('Successful transcription');
@@ -368,11 +368,62 @@ describe('Error Recovery Scenarios', () => {
         expect.objectContaining({ message: expect.stringContaining('Invalid API key'), type: 'error' })
       );
       
-      // Should return to idle state
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      // Should stay in ERROR state until user retries
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+    });
+
+    it('should show API detail and retry hint after transcription failure (Issue 11 regression guard)', async () => {
+      const mockStream = {
+        getTracks: vi.fn(() => [{ stop: vi.fn() }]),
+        getAudioTracks: vi.fn(() => [{ kind: 'audio' }])
+      };
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      const mockMediaRecorder = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        addEventListener: vi.fn((event, callback) => {
+          if (event === 'dataavailable') {
+            setTimeout(() => callback({ data: new Blob(['test']) }), 10);
+          }
+          if (event === 'stop') {
+            setTimeout(() => callback(), 10);
+          }
+        }),
+        state: 'inactive'
+      };
+      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+
+      mockApiClient.transcribe.mockRejectedValueOnce(
+        new Error('API error 422: The audio format is not supported')
+      );
+
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      await audioHandler.stopRecordingFlow();
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Final status should contain both API detail and retry hint
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({
+          message: expect.stringContaining('audio format is not supported'),
+          type: 'error'
+        })
+      );
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({
+          message: expect.stringContaining('Tap mic to retry'),
+          type: 'error'
+        })
+      );
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
     });
   });
-  
+
   describe('Configuration Recovery', () => {
     beforeEach(() => {
       jest.useFakeTimers();
@@ -401,12 +452,14 @@ describe('Error Recovery Scenarios', () => {
       // Settings modal should be opened
       expect(mockSettings.openSettingsModal).toHaveBeenCalled();
       
-      // Should go to error state
+      // Should stay in error state (no auto-recovery)
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
-      
-      // After timeout, should return to idle
-      jest.advanceTimersByTime(3000);
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+
+      // Should show error with retry hint
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('Tap mic to retry'), type: 'error' })
+      );
     });
     
     it('should recover after fixing configuration', async () => {
@@ -418,14 +471,10 @@ describe('Error Recovery Scenarios', () => {
       // Try to start recording
       await audioHandler.startRecordingFlow();
       
-      // Should go to error state
+      // Should stay in error state
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
-      
-      // Wait for timeout to return to idle
-      jest.advanceTimersByTime(3000);
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
-      
-      // Fix configuration
+
+      // Fix configuration — next attempt should succeed
       mockApiClient.validateConfig.mockImplementationOnce(() => true);
       
       // Setup for successful recording

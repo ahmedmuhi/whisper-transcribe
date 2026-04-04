@@ -495,11 +495,9 @@ describe('Recording Integration', () => {
       
       // Settings modal should be opened (triggered by API_CONFIG_MISSING event)
       expect(mockSettings.openSettingsModal).toHaveBeenCalled();
-      
-      // Should transition back to idle after error (via setTimeout)
-      jest.advanceTimersByTime(3000);
-      await waitForAsyncOperations(1, 0);
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+
+      // Should stay in error state (no auto-recovery — user clicks mic to retry)
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
     });
     
     it('should handle microphone access errors', async () => {
@@ -542,8 +540,8 @@ describe('Recording Integration', () => {
         expect.objectContaining({ message: expect.stringContaining('API request failed'), type: 'error' })
       );
       
-      // Should still return to idle state after error
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      // Should stay in ERROR state until user retries
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
       
       // Clean up should have occurred
       expect(audioHandler.audioChunks.length).toBe(0);

@@ -265,6 +265,7 @@ export const MESSAGES = {
   MICROPHONE_NOT_SUITABLE: '⚠️ No microphone meets the requirements. Try with a different microphone.',
   // Generic error message for unexpected errors
   ERROR_OCCURRED: 'An unexpected error occurred',
+  TAP_MIC_TO_RETRY: 'Tap mic to retry',
 };
 
 /**

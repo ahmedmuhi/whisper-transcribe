@@ -325,10 +325,11 @@ export class RecordingStateMachine {
      * Checks if recording can be started from current state.
      * 
      * @method canRecord
-     * @returns {boolean} True if recording can be started (state is IDLE)
+     * @returns {boolean} True if recording can be started (state is IDLE or ERROR)
      */
     canRecord() {
-        return this.currentState === RECORDING_STATES.IDLE;
+        return this.currentState === RECORDING_STATES.IDLE
+            || this.currentState === RECORDING_STATES.ERROR;
     }
     
     /**

@@ -140,9 +140,10 @@ export class AudioHandler {
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: errorMessage });
             // Config errors are handled by validateConfig() which emits
             // API_CONFIG_MISSING before throwing — the event listener opens settings
-            setTimeout(() => {
-                this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
-            }, 3000);
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: `${MESSAGES.ERROR_PREFIX}${errorMessage}. ${MESSAGES.TAP_MIC_TO_RETRY}`,
+                type: 'error'
+            });
         }
     }
     
@@ -308,15 +309,16 @@ export class AudioHandler {
      */
     async processAndSendAudio(stream) {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        
-        await this.sendToAzureAPI(audioBlob);
+
+        const result = await this.sendToAzureAPI(audioBlob);
         stream.getTracks().forEach(track => track.stop());
-        
-        // Clear the array to free memory
         this.audioChunks.length = 0;
-        
-        // Return to idle state
-        await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+
+        if (result.success) {
+            await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+        } else {
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: result.error });
+        }
     }
     
     async sendToAzureAPI(audioBlob) {
@@ -327,29 +329,31 @@ export class AudioHandler {
                     type: 'info'
                 });
             });
-            
+
             eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, {
                 text: transcriptionText
             });
-            
+
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: MESSAGES.TRANSCRIPTION_COMPLETE,
                 type: 'success',
                 temporary: true
             });
-            
+
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS);
-            
-    } catch (error) {
+            return { success: true };
+
+        } catch (error) {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Transcription error:', error);
 
+            const errorMessage = `${MESSAGES.ERROR_PREFIX}${error.message}. ${MESSAGES.TAP_MIC_TO_RETRY}`;
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: `${MESSAGES.ERROR_PREFIX}${error.message}`,
+                message: errorMessage,
                 type: 'error'
             });
-            // Cleanup resources on transcription error
             this.cleanup();
+            return { success: false, error: errorMessage };
         } finally {
             eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }

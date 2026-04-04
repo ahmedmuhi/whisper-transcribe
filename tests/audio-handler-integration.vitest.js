@@ -439,8 +439,8 @@ describe('AudioHandler Integration', () => {
       // Should hide spinner even after error
       expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_HIDE);
       
-      // Should be back in idle state
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      // Should be in ERROR state (persistent — user clicks mic to retry)
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
     });
 
     it('should NOT emit API_REQUEST_ERROR from audio handler (Issue 2 regression guard)', async () => {
