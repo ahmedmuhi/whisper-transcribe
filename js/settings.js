@@ -217,12 +217,25 @@ export class Settings {
     setupPanelListeners() {
         // Click hamburger → pin the sidebar open
         if (this.panelToggle) {
-            this.panelToggle.addEventListener('click', () => this.pinSidebar());
+            this.panelToggle.addEventListener('click', () => {
+                this._clearHoverTimers();
+                this.pinSidebar();
+            });
 
-            // Hover hamburger → show floating preview
+            // Hover hamburger → show floating preview after delay
             this.panelToggle.addEventListener('mouseenter', () => {
                 if (!this._isSidebarPinned()) {
-                    this._showHoverPreview();
+                    this._hoverOpenTimer = setTimeout(() => {
+                        this._showHoverPreview();
+                    }, 400);
+                }
+            });
+
+            this.panelToggle.addEventListener('mouseleave', () => {
+                // Cancel the open delay if mouse leaves before it fires
+                if (this._hoverOpenTimer) {
+                    clearTimeout(this._hoverOpenTimer);
+                    this._hoverOpenTimer = null;
                 }
             });
         }
@@ -237,14 +250,24 @@ export class Settings {
             this.panelBackdrop.addEventListener('click', () => this.unpinSidebar());
         }
 
-        // Mouse leaves sidebar during hover-preview → hide it
+        // Sidebar hover interactions
         if (this.sidePanel) {
+            // Click sidebar while in hover-preview → pin it
+            this.sidePanel.addEventListener('click', (e) => {
+                if (this.sidePanel.classList.contains('hover-preview')) {
+                    // Don't pin if clicking interactive elements inside the panel
+                    const tag = e.target.tagName;
+                    if (tag === 'SELECT' || tag === 'INPUT' || tag === 'OPTION') return;
+                    this.pinSidebar();
+                }
+            });
+
+            // Mouse leaves sidebar during hover-preview → hide after delay
             this.sidePanel.addEventListener('mouseleave', () => {
                 if (this.sidePanel.classList.contains('hover-preview')) {
-                    // Small delay so moving between hamburger and panel doesn't flicker
                     this._hoverCloseTimer = setTimeout(() => {
                         this._hideHoverPreview();
-                    }, 200);
+                    }, 300);
                 }
             });
 
@@ -276,6 +299,17 @@ export class Settings {
         // Restore pinned state from localStorage
         if (localStorage.getItem(STORAGE_KEYS.SIDEBAR_PINNED) === 'true') {
             this.pinSidebar(false);
+        }
+    }
+
+    _clearHoverTimers() {
+        if (this._hoverOpenTimer) {
+            clearTimeout(this._hoverOpenTimer);
+            this._hoverOpenTimer = null;
+        }
+        if (this._hoverCloseTimer) {
+            clearTimeout(this._hoverCloseTimer);
+            this._hoverCloseTimer = null;
         }
     }
 
@@ -668,9 +702,6 @@ export class Settings {
             this._offPermissionGranted();
             this._offPermissionGranted = null;
         }
-        if (this._hoverCloseTimer) {
-            clearTimeout(this._hoverCloseTimer);
-            this._hoverCloseTimer = null;
-        }
+        this._clearHoverTimers();
     }
 }
