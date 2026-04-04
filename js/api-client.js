@@ -90,7 +90,11 @@ export class AzureAPIClient {
             if (!response.ok) {
                 const errorText = await response.text();
                 logger.child('AzureAPIClient').error('API Error Details:', errorText);
-                const error = new Error(`API responded with status: ${response.status}`);
+                const detail = this._extractErrorDetail(errorText);
+                const message = detail
+                    ? `API error ${response.status}: ${detail}`
+                    : `API responded with status: ${response.status}`;
+                const error = new Error(message);
                 this._handleApiError(error, { status: response.status, details: errorText });
                 throw error;
             }
@@ -141,7 +145,23 @@ export class AzureAPIClient {
         
         eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, errorPayload);
     }
-    
+
+    /**
+     * Extracts a human-readable error message from an API error response body.
+     *
+     * @private
+     * @param {string} errorText - Raw error response body
+     * @returns {string|null} Extracted message or null if unparseable
+     */
+    _extractErrorDetail(errorText) {
+        try {
+            const parsed = JSON.parse(errorText);
+            return parsed?.error?.message || parsed?.message || null;
+        } catch {
+            return null;
+        }
+    }
+
     /**
      * Parses API response data from text or JSON format.
      *

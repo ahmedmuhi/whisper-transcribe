@@ -356,8 +356,7 @@ export class AudioHandler {
             
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: `${MESSAGES.ERROR_PREFIX}${error.message}`,
-                type: 'error',
-                temporary: true
+                type: 'error'
             });
             // Cleanup resources on transcription error
             this.cleanup();
