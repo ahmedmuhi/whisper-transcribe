@@ -309,11 +309,16 @@ header {
     top: 0;
     z-index: 100;
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 1rem 1.5rem;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .wordmark {
@@ -347,12 +352,6 @@ header {
 
 .wordmark-dot {
     color: var(--accent);
-}
-
-.header-actions {
-    display: flex;
-    gap: 4px;
-    align-items: center;
 }
 
 /* Shared icon button base */
