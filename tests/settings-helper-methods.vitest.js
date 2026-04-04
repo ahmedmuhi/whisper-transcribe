@@ -74,17 +74,18 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         
         // Set up mock elements mapping
         mockElements[ID.MODEL_SELECT] = mockModelSelect;
+        mockElements[ID.SETTINGS_MODEL_SELECT] = mockModelSelect;
         mockElements[ID.WHISPER_KEY] = mockApiKeyInput;
         mockElements[ID.WHISPER_URI] = mockUriInput;
-        mockElements[ID.GPT4O_KEY] = createMockElement('');
-        mockElements[ID.GPT4O_URI] = createMockElement('');
+        mockElements[ID.MAI_TRANSCRIBE_KEY] = createMockElement('');
+        mockElements[ID.MAI_TRANSCRIBE_URI] = createMockElement('');
         mockElements[ID.SETTINGS_MODAL] = createMockElement();
         mockElements[ID.CLOSE_MODAL] = createMockElement();
         mockElements[ID.SAVE_SETTINGS] = createMockElement();
         mockElements[ID.SETTINGS_BUTTON] = createMockElement();
         mockElements[ID.STATUS] = createMockElement();
         mockElements[ID.WHISPER_SETTINGS] = createMockElement();
-        mockElements[ID.GPT4O_SETTINGS] = createMockElement();
+        mockElements[ID.MAI_TRANSCRIBE_SETTINGS] = createMockElement();
         
         // Mock URL constructor with realistic behavior
         global.URL.mockImplementation((url) => {
@@ -116,6 +117,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         
         // Override DOM references for isolated testing
         settings.modelSelect = mockModelSelect;
+        settings.settingsModelSelect = mockModelSelect;
         settings.whisperKeyInput = mockApiKeyInput;
         settings.whisperUriInput = mockUriInput;
     });
@@ -252,11 +254,14 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
         describe('Model-Specific Element Selection', () => {
             it('should use correct elements for Whisper model', () => {
-                mockModelSelect.value = 'whisper';
+                settings.settingsModelSelect.value = 'whisper';
                 const whisperKey = createMockElement('test-whisper-key');
                 const whisperUri = createMockElement('https://whisper.test.com/');
                 mockElements[ID.WHISPER_KEY] = whisperKey;
                 mockElements[ID.WHISPER_URI] = whisperUri;
+
+                settings.whisperKeyInput = whisperKey;
+                settings.whisperUriInput = whisperUri;
                 
                 settings.sanitizeInputs();
                 
@@ -265,18 +270,57 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 expect(whisperUri.value.trim).toBeDefined();
             });
 
-            it('should use correct elements for GPT-4o model', () => {
-                mockModelSelect.value = 'gpt-4o';
-                const gpt4oKey = createMockElement('test-gpt4o-key');
-                const gpt4oUri = createMockElement('https://gpt4o.test.com/');
-                mockElements[ID.GPT4O_KEY] = gpt4oKey;
-                mockElements[ID.GPT4O_URI] = gpt4oUri;
+            it('should use MAI inputs when MAI model is selected', () => {
+                settings.settingsModelSelect.value = 'mai-transcribe';
+                const whisperKey = createMockElement('  whisper-key  ');
+                const whisperUri = createMockElement('  https://whisper.test.com/  ');
+                const maiKey = createMockElement('  mai-key  ');
+                const maiUri = createMockElement('  https://mai.test.com/endpoint  ');
+
+                settings.whisperKeyInput = whisperKey;
+                settings.whisperUriInput = whisperUri;
+                settings.maiTranscribeKeyInput = maiKey;
+                settings.maiTranscribeUriInput = maiUri;
                 
                 settings.sanitizeInputs();
                 
-                // Should have sanitized the GPT-4o elements
-                expect(gpt4oKey.value.trim).toBeDefined();
-                expect(gpt4oUri.value.trim).toBeDefined();
+                expect(maiKey.value).toBe('mai-key');
+                expect(maiUri.value).toBe('https://mai.test.com/endpoint');
+                expect(whisperKey.value).toBe('  whisper-key  ');
+                expect(whisperUri.value).toBe('  https://whisper.test.com/  ');
+            });
+        });
+
+        describe('_getActiveInputs Method', () => {
+            it('should select whisper inputs for whisper model', () => {
+                settings.settingsModelSelect.value = 'whisper';
+
+                const result = settings._getActiveInputs();
+
+                expect(result.apiKeyInput).toBe(settings.whisperKeyInput);
+                expect(result.uriInput).toBe(settings.whisperUriInput);
+            });
+
+            it('should select MAI inputs for MAI model', () => {
+                settings.settingsModelSelect.value = 'mai-transcribe';
+                const maiKey = createMockElement('mai-key');
+                const maiUri = createMockElement('https://mai.test.com');
+                settings.maiTranscribeKeyInput = maiKey;
+                settings.maiTranscribeUriInput = maiUri;
+
+                const result = settings._getActiveInputs();
+
+                expect(result.apiKeyInput).toBe(maiKey);
+                expect(result.uriInput).toBe(maiUri);
+            });
+
+            it('should fall back to whisper inputs for unknown model', () => {
+                settings.settingsModelSelect.value = 'unknown-model';
+
+                const result = settings._getActiveInputs();
+
+                expect(result.apiKeyInput).toBe(settings.whisperKeyInput);
+                expect(result.uriInput).toBe(settings.whisperUriInput);
             });
         });
     });

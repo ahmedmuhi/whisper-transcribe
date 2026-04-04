@@ -244,7 +244,7 @@ export class Settings {
      */
     /**
      * Resolves the active API key and URI input elements based on selected model.
-     * Prefers injected test inputs when defined.
+      * Uses model-specific cached DOM references for Whisper or MAI-Transcribe.
      *
      * @private
      * @returns {{ apiKeyInput: HTMLElement|null, uriInput: HTMLElement|null }}
