@@ -6,7 +6,7 @@
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
-import { STORAGE_KEYS, ID } from '../js/constants.js';
+import { STORAGE_KEYS, ID, RECORDING_ENVIRONMENTS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 // Mock dependencies
@@ -66,7 +66,7 @@ describe('Settings Persistence & Management', () => {
         const requiredIds = [
             ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS,
             ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, ID.GPT4O_SETTINGS,
-            ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY
+            ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY, ID.RECORDING_ENVIRONMENT
         ];
         
         // Pre-populate by calling getElementById for each required element and reset values
@@ -137,6 +137,27 @@ describe('Settings Persistence & Management', () => {
             // Assert
             expect(document.getElementById(ID.WHISPER_KEY).value).toBe(whisperApiKey);
             expect(document.getElementById(ID.WHISPER_URI).value).toBe(whisperApiUri);
+        });
+
+        test('should persist recording environment across settings reload', () => {
+            // Arrange
+            localStorageMock.getItem.mockImplementation((key) => {
+                if (key === STORAGE_KEYS.MODEL) return 'whisper';
+                if (key === STORAGE_KEYS.RECORDING_ENVIRONMENT) return RECORDING_ENVIRONMENTS.NOISY;
+                return null;
+            });
+
+            const freshSettings = new Settings();
+            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
+            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
+
+            // Act
+            freshSettings.openSettingsModal();
+
+            // Assert
+            expect(document.getElementById(ID.RECORDING_ENVIRONMENT).value).toBe(RECORDING_ENVIRONMENTS.NOISY);
+
+            freshSettings.destroy();
         });
     });
 

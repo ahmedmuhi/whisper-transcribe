@@ -13,20 +13,20 @@ pumping volume, clipping consonants, and introducing artifacts.
 
 ### Milestone 1.1 — Update getUserMedia constraints
 
-- [ ] In `permission-manager.js`, update `getUserMedia` constraints:
+- [x] In `permission-manager.js`, update `getUserMedia` constraints:
   - `autoGainControl: false` (currently not set — defaults to true)
   - `noiseSuppression: false` (currently true)
   - `echoCancellation: false` (currently true — not needed for solo recording)
-- [ ] Keep `sampleRate: 44100` as-is (higher source quality for WAV conversion)
-- [ ] All existing tests pass
+- [x] Keep `sampleRate: 44100` as-is (higher source quality for WAV conversion)
+- [x] All existing tests pass
 
 > **Commit & push.** Immediate quality improvement with zero UI changes.
 
 ### Milestone 1.2 — Log applied constraints for debugging
 
-- [ ] After `getUserMedia` succeeds, read back actual applied settings via `track.getSettings()`
-- [ ] Log them through the existing logger (e.g. `permLogger.info('Applied audio settings:', settings)`)
-- [ ] This verifies the browser honoured our requests — constraints are hints, not guarantees
+- [x] After `getUserMedia` succeeds, read back actual applied settings via `track.getSettings()`
+- [x] Log them through the existing logger (e.g. `permLogger.info('Applied audio settings:', settings)`)
+- [x] This verifies the browser honoured our requests — constraints are hints, not guarantees
 
 > **Commit & push.** Debugging foundation in place.
 
@@ -39,21 +39,21 @@ which adjusts audio processing accordingly.
 
 ### Milestone 2.1 — Add recording environment to settings
 
-- [ ] Add `RECORDING_ENVIRONMENT` storage key to `constants.js`
-- [ ] Add dropdown to settings modal: "Recording Environment" with two options:
+- [x] Add `RECORDING_ENVIRONMENT` storage key to `constants.js`
+- [x] Add dropdown to settings modal: "Recording Environment" with two options:
   - **Quiet room (best quality)** — all processing off (default)
   - **Noisy environment** — noise suppression + AGC on, echo cancellation off
-- [ ] Store selection in localStorage
-- [ ] Wire the selected profile into `getUserMedia` constraints in `permission-manager.js`
+- [x] Store selection in localStorage
+- [x] Wire the selected profile into `getUserMedia` constraints in `permission-manager.js`
 
 > **Commit & push.** User can switch profiles.
 
 ### Milestone 2.2 — Add tests
 
-- [ ] Test that quiet room profile passes correct constraints
-- [ ] Test that noisy environment profile enables suppression + AGC
-- [ ] Test that profile persists across page reloads
-- [ ] Full test suite passes
+- [x] Test that quiet room profile passes correct constraints
+- [x] Test that noisy environment profile enables suppression + AGC
+- [x] Test that profile persists across page reloads
+- [x] Full test suite passes
 
 > **Commit & push.** Feature complete.
 
