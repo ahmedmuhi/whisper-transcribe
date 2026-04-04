@@ -49,6 +49,10 @@ function mockMaiJsonResponse(text = 'test') {
     });
 }
 
+vi.mock('../js/audio-converter.js', () => ({
+    convertToWav: vi.fn(async (blob) => new Blob([blob], { type: 'audio/wav' }))
+}));
+
 vi.mock('../js/logger.js', () => ({
     logger: {
         info: vi.fn(),
@@ -135,6 +139,18 @@ describe('MAI-Transcribe-1 Integration', () => {
             expect(definition.enhancedMode.task).toBe('transcribe');
         });
 
+        it('should send WAV-converted audio for MAI-Transcribe', async () => {
+            mockMaiTranscribeConfig();
+            mockMaiJsonResponse();
+
+            await apiClient.transcribe(new Blob(['audio']), vi.fn());
+
+            const audioEntry = formDataEntries.find(e => e.key === API_PARAMS.MAI_AUDIO_FIELD);
+            expect(audioEntry).toBeDefined();
+            expect(audioEntry.value.type).toBe('audio/wav');
+            expect(audioEntry.filename).toBe('recording.wav');
+        });
+
         it('should NOT send file/language fields for MAI-Transcribe', async () => {
             mockMaiTranscribeConfig();
             mockMaiJsonResponse();
@@ -155,6 +171,7 @@ describe('MAI-Transcribe-1 Integration', () => {
             const onProgress = vi.fn();
             await apiClient.transcribe(new Blob(['audio']), onProgress);
 
+            expect(onProgress).toHaveBeenCalledWith(MESSAGES.CONVERTING_AUDIO);
             expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
         });
     });

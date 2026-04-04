@@ -182,7 +182,8 @@ export const DEFAULT_LANGUAGE  = 'en';
  * @constant {string} DEFAULT_FILENAME
  * @default 'recording.webm'
  */
-export const DEFAULT_FILENAME  = 'recording.webm';   // used when uploading audio
+export const DEFAULT_FILENAME      = 'recording.webm';
+export const DEFAULT_WAV_FILENAME  = 'recording.wav';
 
 /**
  * Default status message displayed when the application is ready for recording.
@@ -238,6 +239,7 @@ export const MESSAGES = {
   
   // API Communication
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
+  CONVERTING_AUDIO: 'Converting audio format...',
   SENDING_TO_MAI_TRANSCRIBE: 'Sending to Azure MAI-Transcribe API...',
   UNKNOWN_API_RESPONSE: 'Unknown response format from API',
   

@@ -2,10 +2,11 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, MESSAGES, MODEL_TYPES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
+import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, DEFAULT_WAV_FILENAME, MESSAGES, MODEL_TYPES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
+import { convertToWav } from './audio-converter.js';
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
@@ -42,31 +43,35 @@ export class AzureAPIClient {
         const config = this.validateConfig();
         const isMaiTranscribe = config.model === MODEL_TYPES.MAI_TRANSCRIBE;
 
-        const formData = new FormData();
-        let headers;
-        let statusMessage;
-
-        if (isMaiTranscribe) {
-            formData.append(API_PARAMS.MAI_AUDIO_FIELD, audioBlob, DEFAULT_FILENAME);
-            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({
-                enhancedMode: {
-                    enabled: true,
-                    model: MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL,
-                    task: 'transcribe'
-                }
-            }));
-            headers = { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey };
-            statusMessage = MESSAGES.SENDING_TO_MAI_TRANSCRIBE;
-        } else {
-            formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
-            if (config.model !== MODEL_TYPES.WHISPER_TRANSLATE) {
-                formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
-            }
-            headers = { [API_PARAMS.API_KEY_HEADER]: config.apiKey };
-            statusMessage = MESSAGES.SENDING_TO_WHISPER;
-        }
-
         try {
+            const formData = new FormData();
+            let headers;
+            let statusMessage;
+
+            if (isMaiTranscribe) {
+                if (onProgress) {
+                    onProgress(MESSAGES.CONVERTING_AUDIO);
+                }
+                // MAI-Transcribe requires WAV format (rejects WebM/Opus)
+                const wavBlob = await convertToWav(audioBlob);
+                formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
+                formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({
+                    enhancedMode: {
+                        enabled: true,
+                        model: MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL,
+                        task: 'transcribe'
+                    }
+                }));
+                headers = { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey };
+                statusMessage = MESSAGES.SENDING_TO_MAI_TRANSCRIBE;
+            } else {
+                formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
+                if (config.model !== MODEL_TYPES.WHISPER_TRANSLATE) {
+                    formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
+                }
+                headers = { [API_PARAMS.API_KEY_HEADER]: config.apiKey };
+                statusMessage = MESSAGES.SENDING_TO_WHISPER;
+            }
             if (onProgress) {
                 onProgress(statusMessage);
             }
