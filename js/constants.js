@@ -41,7 +41,8 @@ export const STORAGE_KEYS = {
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
   MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
   THEME_MODE:           'themeMode',
-  RECORDING_ENVIRONMENT: 'recording_environment'
+  RECORDING_ENVIRONMENT: 'recording_environment',
+  INPUT_DEVICE:          'input_device'
 };
 
 /**
@@ -165,6 +166,14 @@ export const ID = Object.freeze({
   WHISPER_KEY:      'whisper-key',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
   MAI_TRANSCRIBE_KEY: 'mai-transcribe-key',
+
+  // Side panel
+  SIDE_PANEL:       'side-panel',
+  PANEL_TOGGLE:     'panel-toggle',
+  PANEL_CLOSE:      'panel-close',
+  PANEL_BACKDROP:   'panel-backdrop',
+  NOISE_TOGGLE:     'noise-toggle',
+  INPUT_DEVICE:     'input-device',
 
   // Canvas / visualiser
   VISUALIZER:       'visualizer',

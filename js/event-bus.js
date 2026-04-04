@@ -293,6 +293,14 @@ export const APP_EVENTS = {
     APP_INITIALIZED: 'app:initialized',
     APP_ERROR: 'app:error',
     APP_PREREQUISITES_CHECKED: 'app:prerequisitesChecked',
-    APP_READY: 'app:ready'
-    , ERROR_OCCURRED: 'app:errorOccurred'
+    APP_READY: 'app:ready',
+    ERROR_OCCURRED: 'app:errorOccurred',
+
+    // Panel events
+    PANEL_OPENED: 'panel:opened',
+    PANEL_CLOSED: 'panel:closed',
+
+    // Device events
+    DEVICE_CHANGED: 'device:changed',
+    DEVICES_ENUMERATED: 'device:enumerated'
 };

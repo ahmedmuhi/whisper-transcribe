@@ -3,6 +3,7 @@
  */
 
 import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from './constants.js';
+import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 
@@ -51,6 +52,14 @@ export class Settings {
     this.maiTranscribeKeyInput = document.getElementById(ID.MAI_TRANSCRIBE_KEY);
     this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
 
+        // Side panel elements
+        this.sidePanel = document.getElementById(ID.SIDE_PANEL);
+        this.panelToggle = document.getElementById(ID.PANEL_TOGGLE);
+        this.panelClose = document.getElementById(ID.PANEL_CLOSE);
+        this.panelBackdrop = document.getElementById(ID.PANEL_BACKDROP);
+        this.noiseToggle = document.getElementById(ID.NOISE_TOGGLE);
+        this.inputDeviceSelect = document.getElementById(ID.INPUT_DEVICE);
+
         this.init();
     }
     
@@ -63,9 +72,22 @@ export class Settings {
      */
     init() {
         this.loadSavedModel();
+        this.loadNoiseToggle();
         this.setupEventListeners();
+        this.setupPanelListeners();
         this.updateSettingsVisibility();
         this.checkInitialSettings();
+    }
+
+    /**
+     * Load the noise toggle state from the recording environment setting.
+     * @private
+     */
+    loadNoiseToggle() {
+        const env = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT) || RECORDING_ENVIRONMENTS.QUIET;
+        if (this.noiseToggle) {
+            this.noiseToggle.checked = env === RECORDING_ENVIRONMENTS.NOISY;
+        }
     }
     
     /**
@@ -136,8 +158,9 @@ export class Settings {
             });
         }
         
-        // Settings button listener
+        // Settings button listener (now inside the panel footer)
         this.settingsButton.addEventListener('click', () => {
+            this.closeSidePanel();
             this.openSettingsModal();
         });
         
@@ -147,7 +170,7 @@ export class Settings {
         });
         
         this.settingsModal.addEventListener('click', (e) => {
-            if (e.target === this.settingsModal) {
+            if (e.target === this.settingsModal || e.target.classList.contains('modal-backdrop')) {
                 this.closeSettingsModal();
             }
         });
@@ -156,6 +179,103 @@ export class Settings {
         this.saveSettingsButton.addEventListener('click', () => {
             this.saveSettings();
         });
+
+        // Noise toggle — live-save to localStorage
+        if (this.noiseToggle) {
+            this.noiseToggle.addEventListener('change', () => {
+                const env = this.noiseToggle.checked
+                    ? RECORDING_ENVIRONMENTS.NOISY
+                    : RECORDING_ENVIRONMENTS.QUIET;
+                localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, env);
+                if (this.recordingEnvironmentSelect) {
+                    this.recordingEnvironmentSelect.value = env;
+                }
+            });
+        }
+
+        // Input device — live-save to localStorage
+        if (this.inputDeviceSelect) {
+            this.inputDeviceSelect.addEventListener('change', () => {
+                const deviceId = this.inputDeviceSelect.value;
+                if (deviceId) {
+                    localStorage.setItem(STORAGE_KEYS.INPUT_DEVICE, deviceId);
+                } else {
+                    localStorage.removeItem(STORAGE_KEYS.INPUT_DEVICE);
+                }
+                eventBus.emit(APP_EVENTS.DEVICE_CHANGED, { deviceId });
+            });
+        }
+    }
+
+    /**
+     * Set up side panel open/close listeners.
+     * @private
+     */
+    setupPanelListeners() {
+        if (this.panelToggle) {
+            this.panelToggle.addEventListener('click', () => this.openSidePanel());
+        }
+        if (this.panelClose) {
+            this.panelClose.addEventListener('click', () => this.closeSidePanel());
+        }
+        if (this.panelBackdrop) {
+            this.panelBackdrop.addEventListener('click', () => this.closeSidePanel());
+        }
+        // Escape key
+        this._panelEscHandler = (e) => {
+            if (e.key === 'Escape' && this.sidePanel?.classList.contains('open')) {
+                this.closeSidePanel();
+            }
+        };
+        if (typeof document.addEventListener === 'function') {
+            document.addEventListener('keydown', this._panelEscHandler);
+        }
+    }
+
+    openSidePanel() {
+        if (this.sidePanel) this.sidePanel.classList.add('open');
+        if (this.panelBackdrop) this.panelBackdrop.classList.add('open');
+        this.populateDeviceList();
+        eventBus.emit(APP_EVENTS.PANEL_OPENED);
+    }
+
+    closeSidePanel() {
+        if (this.sidePanel) this.sidePanel.classList.remove('open');
+        if (this.panelBackdrop) this.panelBackdrop.classList.remove('open');
+        eventBus.emit(APP_EVENTS.PANEL_CLOSED);
+    }
+
+    /**
+     * Populate the input device dropdown with available audio devices.
+     * @private
+     */
+    async populateDeviceList() {
+        if (!this.inputDeviceSelect) return;
+        const devices = await PermissionManager.getAvailableDevices();
+        const savedDevice = localStorage.getItem(STORAGE_KEYS.INPUT_DEVICE) || '';
+
+        // Keep System Default option, clear the rest
+        const defaultOption = this.inputDeviceSelect.querySelector('option[value=""]');
+        this.inputDeviceSelect.innerHTML = '';
+        if (defaultOption) {
+            this.inputDeviceSelect.appendChild(defaultOption);
+        } else {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'System Default';
+            this.inputDeviceSelect.appendChild(opt);
+        }
+
+        for (const device of devices) {
+            // Skip the "default" pseudo-device if present
+            if (device.deviceId === 'default') continue;
+            const opt = document.createElement('option');
+            opt.value = device.deviceId;
+            opt.textContent = device.label;
+            this.inputDeviceSelect.appendChild(opt);
+        }
+
+        this.inputDeviceSelect.value = savedDevice;
     }
     
     /**
@@ -481,6 +601,9 @@ export class Settings {
         if (this._initTimerId) {
             clearTimeout(this._initTimerId);
             this._initTimerId = null;
+        }
+        if (this._panelEscHandler && typeof document.removeEventListener === 'function') {
+            document.removeEventListener('keydown', this._panelEscHandler);
         }
     }
 }

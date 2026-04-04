@@ -13,6 +13,77 @@
     <!-- Noise texture overlay -->
     <div class="noise-overlay" aria-hidden="true"></div>
 
+    <!-- Side Panel Backdrop -->
+    <div id="panel-backdrop" class="panel-backdrop" aria-hidden="true"></div>
+
+    <!-- Side Panel -->
+    <aside id="side-panel" class="side-panel" aria-label="Settings panel">
+        <div class="panel-header">
+            <span class="panel-title">Menu</span>
+            <button id="panel-close" class="panel-close-btn" aria-label="Close menu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Input Device -->
+            <div class="panel-section">
+                <label for="input-device" class="panel-label">Input Device</label>
+                <select id="input-device" class="panel-select">
+                    <option value="">System Default</option>
+                </select>
+            </div>
+
+            <!-- Noise Cancellation Toggle -->
+            <div class="panel-section">
+                <div class="panel-toggle-row">
+                    <div class="panel-toggle-info">
+                        <span class="panel-label">Noise Cancellation</span>
+                        <span class="panel-sublabel">Filter background hum and static</span>
+                    </div>
+                    <label class="toggle-switch" for="noise-toggle">
+                        <input type="checkbox" id="noise-toggle" role="switch">
+                        <span class="toggle-slider" aria-hidden="true"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Model Picker -->
+            <div class="panel-section">
+                <label for="model-select" class="panel-label">Model</label>
+                <select id="model-select" class="panel-select">
+                    <option value="whisper">Whisper (Stable)</option>
+                    <option value="mai-transcribe">MAI-Transcribe (Preview)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Panel Footer -->
+        <div class="panel-footer">
+            <button id="theme-toggle" class="panel-footer-btn" aria-label="Toggle theme">
+                <svg id="theme-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path id="moon-icon" style="display:block;" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <g id="sun-icon" style="display:none;">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </g>
+                </svg>
+            </button>
+            <button id="settings-button" class="panel-footer-btn" aria-label="API Settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </button>
+        </div>
+    </aside>
+
     <header>
         <div class="wordmark">
             <span class="wordmark-icon" aria-hidden="true">
@@ -24,31 +95,19 @@
             <h1>whisper<span class="wordmark-dot">.</span></h1>
         </div>
         <div class="header-actions">
-            <button id="theme-toggle" class="header-btn" aria-label="Toggle theme">
-                <svg id="theme-icon" class="header-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path id="moon-icon" style="display:block;" d="M12 11.807C10.7418 10.5483 9.88488 8.94484 9.53762 7.1993C9.19037 5.45375 9.36832 3.64444 10.049 2C8.10826 2.38205 6.3256 3.33431 4.92899 4.735C1.02399 8.64 1.02399 14.972 4.92899 18.877C8.83499 22.783 15.166 22.782 19.072 18.877C20.4723 17.4805 21.4245 15.6983 21.807 13.758C20.1625 14.4385 18.3533 14.6164 16.6077 14.2692C14.8622 13.9219 13.2588 13.0651 12 11.807V11.807Z"/>
-                    <path id="sun-icon" style="display:none;" d="M12 17C14.7614 17 17 14.7614 17 12C17 9.23858 14.7614 7 12 7C9.23858 7 7 9.23858 7 12C7 14.7614 9.23858 17 12 17Z M12 1V3 M12 21V23 M4.22 4.22L5.64 5.64 M18.36 18.36L19.78 19.78 M1 12H3 M21 12H23 M4.22 19.78L5.64 18.36 M18.36 5.64L19.78 4.22"/>
-                </svg>
-            </button>
-            <button id="settings-button" class="header-btn" aria-label="Settings">
-                <svg class="header-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/>
+            <button id="panel-toggle" class="header-btn" aria-label="Open menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
             </button>
         </div>
     </header>
 
     <div class="container" role="main">
-        <!-- Controls Area - Now the hero -->
+        <!-- Controls Area - Hero -->
         <div class="controls-area card-animate" style="--card-index: 0;">
-            <div class="model-selector">
-                <label for="model-select" class="sr-only">Model:</label>
-                <select id="model-select">
-                    <option value="whisper">Whisper (Stable)</option>
-                    <option value="mai-transcribe">MAI-Transcribe (Preview)</option>
-                </select>
-            </div>
-
             <!-- Visualizer -->
             <div id="visualizer-container" class="visualizer-container">
                 <canvas id="visualizer"></canvas>
@@ -110,12 +169,12 @@
         </div>
     </div>
 
-    <!-- Settings Modal -->
+    <!-- Settings Modal (API keys only now) -->
     <div id="settings-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-backdrop"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="modal-title">Settings</h3>
+                <h3 class="modal-title" id="modal-title">API Settings</h3>
                 <button id="close-modal" class="close-button" aria-label="Close settings dialog">&times;</button>
             </div>
 
@@ -129,16 +188,7 @@
                 </select>
             </div>
 
-            <!-- Recording Environment -->
-            <div class="form-group">
-                <label for="recording-environment">Environment</label>
-                <select id="recording-environment">
-                    <option value="quiet">Quiet room (best quality)</option>
-                    <option value="noisy">Noisy environment</option>
-                </select>
-            </div>
-
-            <!-- Model Selection -->
+            <!-- Model Selection (synced with panel) -->
             <div class="form-group">
                 <label for="settings-model-select">Model</label>
                 <select id="settings-model-select">
@@ -146,6 +196,9 @@
                     <option value="mai-transcribe">MAI-Transcribe (Preview)</option>
                 </select>
             </div>
+
+            <!-- Hidden recording environment (driven by noise toggle now) -->
+            <input type="hidden" id="recording-environment" value="quiet">
 
             <!-- Whisper Settings -->
             <div id="whisper-settings" style="display: none;">

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Manages microphone permissions and user notifications
  */
-import { MESSAGES, DEFAULT_RESET_STATUS, STORAGE_KEYS, RECORDING_ENVIRONMENTS } from './constants.js';
+import { MESSAGES, DEFAULT_RESET_STATUS, STORAGE_KEYS, RECORDING_ENVIRONMENTS, ID } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -25,6 +25,27 @@ export class PermissionManager {
      * @method checkBrowserSupport
      * @returns {boolean} True if required APIs are available
      */
+    /**
+     * Enumerate available audio input devices.
+     * Labels are only available after mic permission has been granted.
+     * @static
+     * @returns {Promise<Array<{deviceId: string, label: string}>>}
+     */
+    static async getAvailableDevices() {
+        try {
+            if (!navigator.mediaDevices?.enumerateDevices) return [];
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            return devices
+                .filter(d => d.kind === 'audioinput')
+                .map((d, i) => ({
+                    deviceId: d.deviceId,
+                    label: d.label || `Microphone ${i + 1}`
+                }));
+        } catch {
+            return [];
+        }
+    }
+
     static checkBrowserSupport() {
         return !!(window.MediaRecorder &&
                  navigator.mediaDevices &&
@@ -98,12 +119,16 @@ export class PermissionManager {
             const environment = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT)
                 || RECORDING_ENVIRONMENTS.QUIET;
             const isNoisy = environment === RECORDING_ENVIRONMENTS.NOISY;
+            const selectedDeviceId = localStorage.getItem(STORAGE_KEYS.INPUT_DEVICE);
             const audioConstraints = {
                 autoGainControl: isNoisy,
                 noiseSuppression: isNoisy,
                 echoCancellation: false,
                 sampleRate: 44100
             };
+            if (selectedDeviceId) {
+                audioConstraints.deviceId = { exact: selectedDeviceId };
+            }
             permLogger.debug('Requesting audio constraints:', audioConstraints);
 
             let stream;
