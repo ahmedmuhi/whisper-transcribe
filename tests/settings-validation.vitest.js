@@ -73,6 +73,7 @@ describe('Settings Validation', () => {
     });
 
     afterEach(() => {
+        settings.destroy();
         vi.clearAllMocks();
         applyDomSpies();
     });

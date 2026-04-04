@@ -96,6 +96,7 @@ describe('Settings Modal Save Functionality', () => {
     });
 
     afterEach(() => {
+        settings.destroy();
         vi.clearAllMocks();
         eventSpy.mockRestore();
     });

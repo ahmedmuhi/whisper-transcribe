@@ -144,7 +144,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
     });
 
     afterEach(() => {
-        // Clear event bus to prevent cross-test pollution
+        settings.destroy();
         eventBus.clear();
     });
 
@@ -177,6 +177,8 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                 hasUri: true,
                 hasApiKey: true
             });
+
+            newSettings.destroy();
         });
 
         test('should NOT emit SETTINGS_LOADED when configuration is incomplete', async () => {
@@ -207,6 +209,8 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                     type: 'info'
                 }));
             }, { timeout: 600 });
+
+            newSettings.destroy();
         });
     });
 
@@ -301,6 +305,8 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             // 3. Microphone should be enabled and status set
             expect(enableMicButtonSpy).toHaveBeenCalled();
             expect(setStatusSpy).toHaveBeenCalledWith(DEFAULT_RESET_STATUS);
+
+            reloadedSettings.destroy();
         });
 
         test('should handle complete save settings → microphone enabled workflow', async () => {

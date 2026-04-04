@@ -132,6 +132,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
     });
 
     afterEach(() => {
+        settings.destroy();
         vi.clearAllMocks();
         eventSpy.mockRestore();
     });
@@ -291,6 +292,8 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             expect(config.model).toBe('whisper');
             expect(config.uri).toBe('https://test.openai.azure.com/whisper/persist');
             expect(config.apiKey).toBe(persistenceTestKey);
+
+            reloadedSettings.destroy();
         });
 
         it('should handle invalid settings correctly (should NOT trigger fixes)', () => {

@@ -445,9 +445,10 @@ export class Settings {
     
     checkInitialSettings() {
         const config = this.getModelConfig();
-        
+
         if (!config.apiKey || !config.uri) {
-            setTimeout(() => {
+            this._initTimerId = setTimeout(() => {
+                this._initTimerId = null;
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                     message: MESSAGES.CONFIGURE_AZURE,
                     type: 'info'
@@ -461,6 +462,19 @@ export class Settings {
                 hasUri: !!config.uri,
                 hasApiKey: !!config.apiKey
             });
+        }
+    }
+
+    /**
+     * Cancels pending timers to prevent leaks.
+     * Call when the Settings instance is no longer needed.
+     *
+     * @method destroy
+     */
+    destroy() {
+        if (this._initTimerId) {
+            clearTimeout(this._initTimerId);
+            this._initTimerId = null;
         }
     }
 }

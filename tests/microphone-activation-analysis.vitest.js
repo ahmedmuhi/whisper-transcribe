@@ -103,9 +103,13 @@ describe('Microphone Activation Issue Analysis', () => {
         
         settings = new Settings();
         ui = new UI();
-        
+
         // Mock browser support to return true
         ui.checkBrowserSupport = vi.fn().mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        settings.destroy();
     });
 
     describe('Microphone State Management', () => {

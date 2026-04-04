@@ -66,5 +66,7 @@ describe('Settings DOM caching', () => {
 
     // Assert no further DOM queries
     expect(spyGetById).not.toHaveBeenCalled();
+
+    settings.destroy();
   });
 });

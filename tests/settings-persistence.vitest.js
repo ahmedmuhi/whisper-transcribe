@@ -210,6 +210,8 @@ describe('Settings Persistence & Management', () => {
             });
             // Should NOT emit SETTINGS_MODEL_CHANGED
             expect(eventBusEmitSpy).not.toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, expect.any(Object));
+
+            freshSettings.destroy();
         });
 
         test('should emit SETTINGS_VALIDATION_ERROR if required fields are empty', () => {
