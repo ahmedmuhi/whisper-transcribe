@@ -42,6 +42,7 @@ export default [
         URL: "readonly",
         URLSearchParams: "readonly",
         MediaRecorder: "readonly",
+        OfflineAudioContext: "readonly",
         // Node.js globals (for development tools)
         process: "readonly"
       }
