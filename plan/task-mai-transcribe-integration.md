@@ -66,3 +66,8 @@ Issues identified by review agents during Phases 1-3. Not caused by our changes,
 - `checkInitialSettings()` sets a 500ms `setTimeout` that calls `openSettingsModal()`. The timer ID is never stored, so it can't be cancelled.
 - In tests, this causes 3 `ReferenceError: localStorage is not defined` uncaught exceptions when the jsdom environment tears down before the timers fire. Vitest reports these as "Unhandled Errors" on every test run.
 - **Fix:** Store the timer ID on the instance (`this._initTimerId`) and clear it in a cleanup/dispose method. Tests should cancel it in `afterEach`.
+
+### Issue 11 — audio-handler.js: 3-second auto-recovery clears errors too quickly
+
+- The catch block in `startRecordingFlow()` uses `setTimeout(() => transitionTo(IDLE), 3000)` which auto-clears ALL errors after 3 seconds — including microphone failures and conversion errors where the user needs time to read the message.
+- **Fix:** Remove the `setTimeout`. Stay in ERROR state until the user clicks the mic again (which already handles ERROR → IDLE → retry). Append a hint like "Tap mic to retry" to the error message.
