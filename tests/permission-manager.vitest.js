@@ -5,7 +5,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { MESSAGES } from '../js/constants.js';
+import { MESSAGES, STORAGE_KEYS, RECORDING_ENVIRONMENTS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 // Mock dependencies using standard vi.mock()
@@ -385,7 +385,11 @@ describe('PermissionManager', () => {
     });
 
     describe('Audio Constraint Profiles', () => {
-        it('should request optimal constraints with DSP disabled', async () => {
+        afterEach(() => {
+            localStorage.removeItem(STORAGE_KEYS.RECORDING_ENVIRONMENT);
+        });
+
+        it('should request quiet room constraints by default (DSP disabled)', async () => {
             const mockStream = createMockStream();
             mockGetUserMedia.mockResolvedValueOnce(mockStream);
 
@@ -399,6 +403,37 @@ describe('PermissionManager', () => {
                     sampleRate: 44100
                 }
             });
+        });
+
+        it('should request noisy environment constraints when set', async () => {
+            localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, RECORDING_ENVIRONMENTS.NOISY);
+            const mockStream = createMockStream();
+            mockGetUserMedia.mockResolvedValueOnce(mockStream);
+
+            await permissionManager.requestMicrophoneAccess();
+
+            expect(mockGetUserMedia).toHaveBeenCalledWith({
+                audio: {
+                    autoGainControl: true,
+                    noiseSuppression: true,
+                    echoCancellation: false,
+                    sampleRate: 44100
+                }
+            });
+        });
+
+        it('should keep echo cancellation off in both profiles', async () => {
+            localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, RECORDING_ENVIRONMENTS.NOISY);
+            const mockStream = createMockStream();
+            mockGetUserMedia.mockResolvedValueOnce(mockStream);
+
+            await permissionManager.requestMicrophoneAccess();
+
+            expect(mockGetUserMedia).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    audio: expect.objectContaining({ echoCancellation: false })
+                })
+            );
         });
 
         it('should log applied audio settings after capture', async () => {

@@ -2,7 +2,7 @@
  * @fileoverview Settings management for API configuration and user preferences.
  */
 
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 
@@ -49,7 +49,8 @@ export class Settings {
     this.maiTranscribeSettings = document.getElementById(ID.MAI_TRANSCRIBE_SETTINGS);
     this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
     this.maiTranscribeKeyInput = document.getElementById(ID.MAI_TRANSCRIBE_KEY);
-        
+    this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
+
         this.init();
     }
     
@@ -233,6 +234,11 @@ export class Settings {
         if (this.maiTranscribeKeyInput && maiKey) {
             this.maiTranscribeKeyInput.value = maiKey;
         }
+
+        const savedEnv = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT) || RECORDING_ENVIRONMENTS.QUIET;
+        if (this.recordingEnvironmentSelect) {
+            this.recordingEnvironmentSelect.value = savedEnv;
+        }
     }
 
     /**
@@ -365,8 +371,12 @@ export class Settings {
             localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
         }
         
+        if (this.recordingEnvironmentSelect) {
+            localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, this.recordingEnvironmentSelect.value);
+        }
+
         this.closeSettingsModal();
-        
+
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
             message: MESSAGES.SETTINGS_SAVED,
             type: 'success',

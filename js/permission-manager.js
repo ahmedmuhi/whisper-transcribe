@@ -1,7 +1,7 @@
 /**
  * @fileoverview Manages microphone permissions and user notifications
  */
-import { MESSAGES, DEFAULT_RESET_STATUS } from './constants.js';
+import { MESSAGES, DEFAULT_RESET_STATUS, STORAGE_KEYS, RECORDING_ENVIRONMENTS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -94,18 +94,22 @@ export class PermissionManager {
             const permLogger = logger.child('PermissionManager');
             permLogger.debug('Current permission status:', currentStatus);
             
-            // Disable conferencing DSP for cleaner transcription audio
-            // (AGC pumps volume, noise suppression clips consonants,
-            // echo cancellation is unnecessary for solo recording)
+            // Select audio constraints based on recording environment profile
+            const environment = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT)
+                || RECORDING_ENVIRONMENTS.QUIET;
+            const isNoisy = environment === RECORDING_ENVIRONMENTS.NOISY;
+            const audioConstraints = {
+                autoGainControl: isNoisy,
+                noiseSuppression: isNoisy,
+                echoCancellation: false,
+                sampleRate: 44100
+            };
+            permLogger.debug('Requesting audio constraints:', audioConstraints);
+
             let stream;
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        autoGainControl: false,
-                        noiseSuppression: false,
-                        echoCancellation: false,
-                        sampleRate: 44100
-                    }
+                    audio: audioConstraints
                 });
             } catch (constraintError) {
                 // Some device/browser combos reject strict constraints —

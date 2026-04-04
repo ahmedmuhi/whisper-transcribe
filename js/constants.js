@@ -40,7 +40,17 @@ export const STORAGE_KEYS = {
   WHISPER_API_KEY:      'whisper_api_key',
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
   MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
-  THEME_MODE:           'themeMode'
+  THEME_MODE:           'themeMode',
+  RECORDING_ENVIRONMENT: 'recording_environment'
+};
+
+/**
+ * Recording environment profiles that control browser audio processing.
+ * @constant {Object} RECORDING_ENVIRONMENTS
+ */
+export const RECORDING_ENVIRONMENTS = {
+  QUIET: 'quiet',
+  NOISY: 'noisy'
 };
 
 /**
@@ -150,6 +160,7 @@ export const ID = Object.freeze({
   MODEL_SELECT:     'model-select',
   SETTINGS_MODEL_SELECT: 'settings-model-select',
   THEME_MODE:       'theme-mode',
+  RECORDING_ENVIRONMENT: 'recording-environment',
   WHISPER_URI:      'whisper-uri',
   WHISPER_KEY:      'whisper-key',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
