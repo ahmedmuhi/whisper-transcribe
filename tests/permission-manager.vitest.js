@@ -53,9 +53,16 @@ const createMockStream = (active = true) => {
         readyState: active ? 'live' : 'ended',
         stop: vi.fn(),
         enabled: true,
-        kind: 'audio'
+        kind: 'audio',
+        getSettings: vi.fn(() => ({
+            autoGainControl: false,
+            noiseSuppression: false,
+            echoCancellation: false,
+            sampleRate: 44100,
+            channelCount: 1
+        }))
     };
-    
+
     return {
         active,
         getTracks: vi.fn(() => [mockTrack]),
@@ -374,6 +381,87 @@ describe('PermissionManager', () => {
             // Should attempt to request permissions again
             expect(mockGetUserMedia).toHaveBeenCalled();
             expect(result).toBe(mockStream);
+        });
+    });
+
+    describe('Audio Constraint Profiles', () => {
+        it('should request optimal constraints with DSP disabled', async () => {
+            const mockStream = createMockStream();
+            mockGetUserMedia.mockResolvedValueOnce(mockStream);
+
+            await permissionManager.requestMicrophoneAccess();
+
+            expect(mockGetUserMedia).toHaveBeenCalledWith({
+                audio: {
+                    autoGainControl: false,
+                    noiseSuppression: false,
+                    echoCancellation: false,
+                    sampleRate: 44100
+                }
+            });
+        });
+
+        it('should log applied audio settings after capture', async () => {
+            const mockStream = createMockStream();
+            mockGetUserMedia.mockResolvedValueOnce(mockStream);
+
+            await permissionManager.requestMicrophoneAccess();
+
+            const track = mockStream.getAudioTracks()[0];
+            expect(track.getSettings).toHaveBeenCalled();
+        });
+
+        it('should fall back to basic constraints on OverconstrainedError', async () => {
+            const overconstrainedError = new Error('Constraints not satisfiable');
+            overconstrainedError.name = 'OverconstrainedError';
+
+            const mockStream = createMockStream();
+            mockGetUserMedia
+                .mockRejectedValueOnce(overconstrainedError)
+                .mockResolvedValueOnce(mockStream);
+
+            const result = await permissionManager.requestMicrophoneAccess();
+
+            // First call: optimal constraints rejected
+            expect(mockGetUserMedia).toHaveBeenNthCalledWith(1, {
+                audio: {
+                    autoGainControl: false,
+                    noiseSuppression: false,
+                    echoCancellation: false,
+                    sampleRate: 44100
+                }
+            });
+            // Second call: fallback to basic
+            expect(mockGetUserMedia).toHaveBeenNthCalledWith(2, { audio: true });
+            expect(result).toBe(mockStream);
+        });
+
+        it('should fall back on NotSupportedError', async () => {
+            const notSupportedError = new Error('Not supported');
+            notSupportedError.name = 'NotSupportedError';
+
+            const mockStream = createMockStream();
+            mockGetUserMedia
+                .mockRejectedValueOnce(notSupportedError)
+                .mockResolvedValueOnce(mockStream);
+
+            const result = await permissionManager.requestMicrophoneAccess();
+
+            expect(mockGetUserMedia).toHaveBeenCalledTimes(2);
+            expect(result).toBe(mockStream);
+        });
+
+        it('should NOT fall back on permission denied errors', async () => {
+            const permissionError = new Error('Permission denied');
+            permissionError.name = 'NotAllowedError';
+
+            mockGetUserMedia.mockRejectedValueOnce(permissionError);
+
+            const result = await permissionManager.requestMicrophoneAccess();
+
+            // Should only try once — no fallback for permission errors
+            expect(mockGetUserMedia).toHaveBeenCalledTimes(1);
+            expect(result).toBeNull();
         });
     });
 });

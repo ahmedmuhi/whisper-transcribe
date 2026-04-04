@@ -94,18 +94,47 @@ export class PermissionManager {
             const permLogger = logger.child('PermissionManager');
             permLogger.debug('Current permission status:', currentStatus);
             
-            // Request microphone access
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    sampleRate: 44100
-                } 
-            });
-            
+            // Disable conferencing DSP for cleaner transcription audio
+            // (AGC pumps volume, noise suppression clips consonants,
+            // echo cancellation is unnecessary for solo recording)
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        autoGainControl: false,
+                        noiseSuppression: false,
+                        echoCancellation: false,
+                        sampleRate: 44100
+                    }
+                });
+            } catch (constraintError) {
+                // Some device/browser combos reject strict constraints —
+                // fall back to defaults so recording still works
+                if (constraintError.name === 'OverconstrainedError' ||
+                    constraintError.name === 'ConstraintNotSatisfiedError' ||
+                    constraintError.name === 'NotSupportedError') {
+                    permLogger.warn('Optimal audio constraints rejected, falling back to defaults');
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } else {
+                    throw constraintError;
+                }
+            }
+
             this.microphoneStream = stream;
-            
-            // Permission was granted
+
+            // Log actual applied settings — browsers treat constraints as hints
+            const track = stream.getAudioTracks?.()?.[0];
+            if (track?.getSettings) {
+                const applied = track.getSettings();
+                permLogger.info('Applied audio settings:', {
+                    autoGainControl: applied.autoGainControl,
+                    noiseSuppression: applied.noiseSuppression,
+                    echoCancellation: applied.echoCancellation,
+                    sampleRate: applied.sampleRate,
+                    channelCount: applied.channelCount
+                });
+            }
+
             eventBus.emit(APP_EVENTS.PERMISSION_GRANTED);
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: MESSAGES.MICROPHONE_ACCESS_GRANTED,
