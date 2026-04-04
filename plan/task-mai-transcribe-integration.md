@@ -60,3 +60,9 @@ Issues identified by review agents during Phases 1-3. Not caused by our changes,
 - `setStatusHTML(html)` sets `innerHTML` directly — an XSS sink.
 - Dead code (never called anywhere). Should be removed to eliminate the dormant attack surface.
 - **Fix:** Delete `setStatusHTML()` entirely. All callers use the safe `setStatus()` with `textContent`.
+
+### Issue 10 — settings.js: Leaked setTimeout in checkInitialSettings()
+
+- `checkInitialSettings()` sets a 500ms `setTimeout` that calls `openSettingsModal()`. The timer ID is never stored, so it can't be cancelled.
+- In tests, this causes 3 `ReferenceError: localStorage is not defined` uncaught exceptions when the jsdom environment tears down before the timers fire. Vitest reports these as "Unhandled Errors" on every test run.
+- **Fix:** Store the timer ID on the instance (`this._initTimerId`) and clear it in a cleanup/dispose method. Tests should cancel it in `afterEach`.
