@@ -1,46 +1,55 @@
 # MAI-Transcribe-1 Integration
 
-Replace GPT-4o support with MAI-Transcribe-1 (Azure Speech LLM Speech API).
+## Completed
+
+- [x] **Phase 1** — Removed all GPT-4o support (`cff9ce0`, `76fad47`)
+- [x] **Phase 2** — Added MAI-Transcribe-1 model support (`767068e`, `da4ec1d`)
+- [x] **Bugfix** — Model-selector desync in settings save flow (`90e02ed`)
+- [x] **Bugfix** — API key validation for 84-char Speech keys (`7d685ee`)
 
 ---
 
-## Phase 1: Remove GPT-4o Support
+## Phase 3: Audio Format Conversion for MAI-Transcribe
 
-### Milestone 1.1 + 1.2 — Strip GPT-4o from source files and tests
+MAI-Transcribe rejects WebM/Opus (422 InvalidAudioFormat). Browser records as WebM natively.
+Strategy: convert WebM → WAV (16kHz mono 16-bit) before sending to MAI-Transcribe only.
+Whisper continues to receive WebM as-is.
 
-- [x] **constants.js** — Removed `GPT4O_TRANSCRIBE` model type, `GPT4O_*` storage keys, DOM IDs, message, unused API params
-- [x] **api-client.js** — Removed GPT-4o FormData logic and `segments` branch in `parseResponse`
-- [x] **audio-handler.js** — Removed GPT-4o branch in `stopRecordingFlow()` and deleted `gracefulStop()`
-- [x] **settings.js** — Removed all `gpt4o*` DOM refs, simplified to Whisper-only
-- [x] **index.html** — Removed GPT-4o option from both dropdowns, removed `gpt4o-settings` section
-- [x] Removed GPT-4o test cases from `settings-persistence`, `settings-save-modal`, `audio-handler-integration`
-- [x] All 251 tests passing, lint clean
+WAV at 16kHz mono: ~1.9 MB/min → 10 min = ~19 MB, 20 min = ~38 MB (well under 70 MB limit).
+No external libraries needed — uses browser-native AudioContext to decode + manual WAV encoding.
 
-> **Done.** Committed & pushed as `cff9ce0`.
+### Milestone 3.1 — Add WebM-to-WAV conversion utility
 
----
+- [ ] Create `js/audio-converter.js` with a function that takes a WebM Blob, decodes via AudioContext, resamples to 16kHz mono, and returns a WAV Blob
+- [ ] Keep it as a standalone module with no side effects (pure input → output)
+- [ ] Unit test the converter with mock AudioContext
 
-## Phase 2: Add MAI-Transcribe-1 Support
+> **Commit & push.** Converter works in isolation.
 
-### Milestone 2.1 — Wire up MAI-Transcribe in source files
+### Milestone 3.2 — Wire conversion into MAI-Transcribe flow
 
-- [x] **constants.js** — Added `MAI_TRANSCRIBE` model type, storage keys, DOM IDs, API params, status message
-- [x] **index.html** — Added MAI-Transcribe option to both dropdowns, added settings section
-- [x] **api-client.js** — Handles MAI-Transcribe request format (different auth header, form fields, response parsing)
-- [x] **settings.js** — Wired up MAI-Transcribe model config, extracted `_getActiveInputs()` helper
-- [x] All 251 tests passing, lint clean
+- [ ] In `api-client.js`, convert audioBlob to WAV before building FormData when model is MAI-Transcribe
+- [ ] Update `DEFAULT_FILENAME` or use a model-specific filename (`recording.wav` for MAI)
+- [ ] Whisper path remains unchanged (sends WebM as before)
+- [ ] Update status message to indicate conversion step (e.g. "Converting audio...")
 
-> **Done.** Committed & pushed as `767068e`.
+> **Commit & push.** Test MAI-Transcribe end-to-end with a real recording.
 
-### Milestone 2.2 — Add tests for MAI-Transcribe
+### Milestone 3.3 — Add tests and update existing tests
 
-- [x] Added 14 MAI-Transcribe test cases in `tests/mai-transcribe.vitest.js`:
-  - Request format: correct auth header, form fields, definition JSON, status message
-  - Response parsing: combinedPhrases, multiple phrases, text fallback, edge cases
-  - Validation: config validation, missing key rejection
-- [x] All 265 tests passing (251 existing + 14 new), lint clean
+- [ ] Add unit tests for audio-converter (WAV header structure, sample rate, channel count)
+- [ ] Add/update MAI-Transcribe integration tests to verify WAV blob is sent
+- [ ] Verify Whisper tests still pass with WebM
+- [ ] Run full test suite — all tests pass
 
-> **Done.** Feature complete.
+> **Commit & push.** Audio conversion feature complete.
+
+### Milestone 3.4 — Improve error surfacing
+
+- [ ] Make API error messages persist in the status bar (not temporary) so users see what went wrong
+- [ ] Include the API error detail (e.g. "InvalidAudioFormat") in the status message, not just "Error: API responded with status: 422"
+
+> **Commit & push.** Error UX improved.
 
 ---
 
@@ -75,11 +84,6 @@ Issues identified by review agents during this work. Not caused by our changes, 
 - `setupEventBusListeners()` registers an `API_CONFIG_MISSING` handler but there's no corresponding `off()` if AudioHandler is destroyed.
 - **Fix:** Add cleanup in a destroy/dispose method.
 
-### settings.js — `updateSettingsVisibility()` called excessively
-
-- Called from `init()`, both model change listeners, and `openSettingsModal()`. With only two models the overhead is trivial, but it's called more than necessary.
-- **Fix:** Only call on model change events and modal open.
-
 ### settings.js — Vestigial `apiKeyInput`/`apiUriInput` test injection seam
 
 - The `typeof this.apiKeyInput !== 'undefined'` guard in `_getActiveInputs()` exists solely for test injection. These properties are never set in production code.
@@ -100,13 +104,3 @@ Issues identified by review agents during this work. Not caused by our changes, 
 - `setStatusHTML(html)` at line ~489 sets `innerHTML` directly — an XSS sink.
 - The method is **dead code** (never called anywhere), but should be removed to eliminate the dormant attack surface.
 - **Fix:** Delete `setStatusHTML()` entirely. All callers use the safe `setStatus()` with `textContent`.
-
----
-
-## Notes
-
-- MAI-Transcribe-1 is in **public preview** (no SLA) — fine for this project
-- Audio limit: 70 MB (~2 hours of WebM/Opus) — well above typical 10-12 min recordings
-- Diarization not supported — not needed (single speaker)
-- Supports 25 languages with auto-detection
-- Custom prompting available via `prompt` field in `definition`
