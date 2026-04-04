@@ -473,6 +473,7 @@ describe('Recording Integration', () => {
     it('should handle API validation errors', async () => {
       // Make validateConfig throw an error with 'configure' in the message to trigger API_CONFIG_MISSING
       mockApiClient.validateConfig.mockImplementation(() => {
+        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey' });
         throw new Error('Failed to configure API key');
       });
       

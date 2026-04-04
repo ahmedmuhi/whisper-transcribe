@@ -383,16 +383,20 @@ describe('Error Recovery Scenarios', () => {
     });
 
     it('should automatically open settings modal when API configuration is missing', async () => {
-      // Make validateConfig throw a configuration error
+      // Make validateConfig emit config missing event and throw (matching real behaviour)
       mockApiClient.validateConfig.mockImplementationOnce(() => {
+        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey' });
         throw new Error('API key is required');
       });
       
       // Try to start recording
       await audioHandler.startRecordingFlow();
       
-      // Should emit API configuration missing event
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.API_CONFIG_MISSING);
+      // Should emit API configuration missing event (from validateConfig)
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.API_CONFIG_MISSING,
+        expect.objectContaining({ missing: 'apiKey' })
+      );
       
       // Settings modal should be opened
       expect(mockSettings.openSettingsModal).toHaveBeenCalled();

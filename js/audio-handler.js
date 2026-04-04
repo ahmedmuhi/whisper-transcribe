@@ -50,10 +50,10 @@ export class AudioHandler {
     }
     
     setupEventBusListeners() {
-        // Listen for API config missing events
-        eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => {
+        this._onApiConfigMissing = () => {
             this.settings.openSettingsModal();
-        });
+        };
+        eventBus.on(APP_EVENTS.API_CONFIG_MISSING, this._onApiConfigMissing);
     }
     
     setupEventListeners() {
@@ -135,17 +135,11 @@ export class AudioHandler {
             this.startRecording(stream);
             
         } catch (err) {
-            // Standardized error handling
             errorHandler.handleError(err, { module: 'AudioHandler' });
-            // Transition to error state
             const errorMessage = err?.message || err?.toString() || 'Unknown error';
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: errorMessage });
-            // If configuration-related error, open settings
-            if (errorMessage.includes('configure') || errorMessage.includes('API key') || errorMessage.includes('URI')) {
-                this.settings.openSettingsModal();
-                eventBus.emit(APP_EVENTS.API_CONFIG_MISSING);
-            }
-            // Return to idle after error
+            // Config errors are handled by validateConfig() which emits
+            // API_CONFIG_MISSING before throwing — the event listener opens settings
             setTimeout(() => {
                 this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             }, 3000);
@@ -386,5 +380,18 @@ export class AudioHandler {
         this.audioChunks.length = 0;
         this.recordingStartTime = null;
         this.mediaRecorder = null;
+    }
+
+    /**
+     * Removes event bus listeners to prevent leaks.
+     * Call when the AudioHandler instance is no longer needed.
+     *
+     * @method destroy
+     */
+    destroy() {
+        if (this._onApiConfigMissing) {
+            eventBus.off(APP_EVENTS.API_CONFIG_MISSING, this._onApiConfigMissing);
+            this._onApiConfigMissing = null;
+        }
     }
 }
