@@ -153,10 +153,21 @@ body {
     box-shadow: none;
 }
 
-/* Hover preview — floating overlay with shadow */
+/* Hover preview — compact floating panel below the header */
 .side-panel.hover-preview {
     transform: translateX(0);
+    top: 53px;
+    bottom: auto;
+    max-height: calc(100vh - 53px - 1rem);
+    border-radius: 0 0 var(--radius-lg) 0;
     box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+
+/* Hide the sidebar header (wordmark + «) in hover preview since
+   the header wordmark is already visible above */
+.side-panel.hover-preview .panel-header {
+    display: none;
 }
 
 /* When sidebar is pinned, shift main content */
