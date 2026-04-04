@@ -291,10 +291,10 @@ describe('Error Recovery Scenarios', () => {
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Should show error but return to idle state
+      // Should show error and return to idle state
       expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        APP_EVENTS.API_REQUEST_ERROR,
-        expect.objectContaining({ error: 'Network failure' })
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('Network failure'), type: 'error' })
       );
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
       
@@ -364,8 +364,8 @@ describe('Error Recovery Scenarios', () => {
       
       // Should show authentication error
       expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        APP_EVENTS.API_REQUEST_ERROR,
-        expect.objectContaining({ error: 'Invalid API key' })
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('Invalid API key'), type: 'error' })
       );
       
       // Should return to idle state

@@ -535,10 +535,10 @@ describe('Recording Integration', () => {
       // Wait for transcription error processing
       await waitForAsyncOperations(4, 100);
       
-      // API request error should be emitted
+      // Error should be shown in status
       expect(eventBus.emit).toHaveBeenCalledWith(
-        APP_EVENTS.API_REQUEST_ERROR,
-        expect.objectContaining({ error: 'API request failed' })
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('API request failed'), type: 'error' })
       );
       
       // Should still return to idle state after error

@@ -349,11 +349,7 @@ export class AudioHandler {
     } catch (error) {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Transcription error:', error);
-            
-            eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, {
-                error: error.message
-            });
-            
+
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: `${MESSAGES.ERROR_PREFIX}${error.message}`,
                 type: 'error'

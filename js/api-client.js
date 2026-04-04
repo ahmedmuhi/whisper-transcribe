@@ -95,7 +95,7 @@ export class AzureAPIClient {
                     ? `API error ${response.status}: ${detail}`
                     : `API responded with status: ${response.status}`;
                 const error = new Error(message);
-                this._handleApiError(error, { status: response.status, details: errorText });
+                error.apiContext = { status: response.status, details: errorText };
                 throw error;
             }
 
@@ -113,7 +113,7 @@ export class AzureAPIClient {
             return transcription;
 
         } catch (error) {
-            this._handleApiError(error);
+            this._handleApiError(error, error.apiContext);
             throw error;
         }
     }

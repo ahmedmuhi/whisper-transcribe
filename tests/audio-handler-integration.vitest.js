@@ -425,10 +425,10 @@ describe('AudioHandler Integration', () => {
       // Wait for async operations to complete
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Should emit API error event
+      // Should show error in status
       expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        APP_EVENTS.API_REQUEST_ERROR,
-        expect.objectContaining({ error: 'API error' })
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('API error'), type: 'error' })
       );
       
       // Should still clean up resources
