@@ -65,8 +65,8 @@ describe('Settings Validation', () => {
         settings.settingsForm = createMockElement();
         settings.settingsModal = createMockElement();
         settings.modelSelect = createMockElement();
-        settings.apiKeyInput = createMockElement();
-        settings.apiUriInput = createMockElement();
+        settings.whisperKeyInput = createMockElement();
+        settings.whisperUriInput = createMockElement();
         settings.languageSelect = createMockElement();
         settings.themeSelect = createMockElement();
         settings.closeModalBtn = createMockElement();
@@ -81,8 +81,8 @@ describe('Settings Validation', () => {
     describe('API Key Validation', () => {
         it('should accept valid API keys for Whisper model', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -91,8 +91,8 @@ describe('Settings Validation', () => {
 
         it('should accept valid API keys for GPT-4o model', () => {
             settings.modelSelect.value = 'gpt-4o';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -101,8 +101,8 @@ describe('Settings Validation', () => {
 
         it('should reject empty API keys', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = '';
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = '';
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -111,8 +111,8 @@ describe('Settings Validation', () => {
 
         it('should reject API keys that are too short', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-123';
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = 'sk-123';
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -121,8 +121,8 @@ describe('Settings Validation', () => {
 
         it('should reject API keys with invalid format', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'invalid-key-format';
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = 'invalid-key-format';
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -132,21 +132,21 @@ describe('Settings Validation', () => {
         it('should accept API keys with spaces (will be trimmed)', () => {
             settings.modelSelect.value = 'whisper';
             const mockKey = generateMockApiKeyForValidation();
-            settings.apiKeyInput.value = `  ${mockKey}  `;
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = `  ${mockKey}  `;
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
             expect(isValid).toBe(true);
-            expect(settings.apiKeyInput.value.trim()).toBe(mockKey);
+            expect(settings.whisperKeyInput.value.trim()).toBe(mockKey);
         });
     });
 
     describe('URI Validation', () => {
         it('should accept valid HTTPS URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -155,8 +155,8 @@ describe('Settings Validation', () => {
 
         it('should accept URIs without trailing slash', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com';
 
             const isValid = settings.validateConfiguration();
 
@@ -165,8 +165,8 @@ describe('Settings Validation', () => {
 
         it('should reject HTTP URIs (insecure)', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'http://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'http://myresource.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -175,8 +175,8 @@ describe('Settings Validation', () => {
 
         it('should reject empty URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = '';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = '';
 
             const isValid = settings.validateConfiguration();
 
@@ -185,8 +185,8 @@ describe('Settings Validation', () => {
 
         it('should reject malformed URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'not-a-valid-uri';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'not-a-valid-uri';
 
             const isValid = settings.validateConfiguration();
 
@@ -195,14 +195,14 @@ describe('Settings Validation', () => {
 
         it('should sanitize and normalize URIs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = '  https://myresource.openai.azure.com//extra//slashes  ';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = '  https://myresource.openai.azure.com//extra//slashes  ';
 
             const isValid = settings.validateConfiguration();
 
             expect(isValid).toBe(true);
             // URI should be normalized
-            expect(settings.apiUriInput.value.trim()).toContain('https://myresource.openai.azure.com/');
+            expect(settings.whisperUriInput.value.trim()).toContain('https://myresource.openai.azure.com/');
         });
     });
 
@@ -215,8 +215,8 @@ describe('Settings Validation', () => {
 
         it('should emit validation error event for missing API key', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = '';
-            settings.apiUriInput.value = 'https://valid.azure.com/';
+            settings.whisperKeyInput.value = '';
+            settings.whisperUriInput.value = 'https://valid.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -233,8 +233,8 @@ describe('Settings Validation', () => {
 
         it('should emit validation error event for invalid URI', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'invalid-uri';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'invalid-uri';
 
             const isValid = settings.validateConfiguration();
 
@@ -251,8 +251,8 @@ describe('Settings Validation', () => {
 
         it('should emit validation error event for multiple issues', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = '';  // Invalid API key
-            settings.apiUriInput.value = 'http://insecure.com';  // Invalid URI
+            settings.whisperKeyInput.value = '';  // Invalid API key
+            settings.whisperUriInput.value = 'http://insecure.com';  // Invalid URI
 
             const isValid = settings.validateConfiguration();
 
@@ -270,8 +270,8 @@ describe('Settings Validation', () => {
 
         it('should not emit validation error for valid configuration', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://valid.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://valid.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -286,8 +286,8 @@ describe('Settings Validation', () => {
     describe('Model-Specific Validation', () => {
         it('should validate Whisper model requirements', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://whisper.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -296,8 +296,8 @@ describe('Settings Validation', () => {
 
         it('should validate GPT-4o model requirements', () => {
             settings.modelSelect.value = 'gpt-4o';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://gpt4o.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://gpt4o.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -306,8 +306,8 @@ describe('Settings Validation', () => {
 
         it('should handle unknown model gracefully', () => {
             settings.modelSelect.value = 'unknown-model';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'https://unknown.openai.azure.com/';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'https://unknown.openai.azure.com/';
 
             const isValid = settings.validateConfiguration();
 
@@ -319,8 +319,8 @@ describe('Settings Validation', () => {
     describe('Error Message Handling', () => {
         it('should provide specific error messages for API key issues', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'invalid';
-            settings.apiUriInput.value = 'https://valid.azure.com/';
+            settings.whisperKeyInput.value = 'invalid';
+            settings.whisperUriInput.value = 'https://valid.azure.com/';
 
             const errors = settings.getValidationErrors();
 
@@ -330,8 +330,8 @@ describe('Settings Validation', () => {
 
         it('should provide specific error messages for URI issues', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = 'http://insecure.com';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = 'http://insecure.com';
 
             const errors = settings.getValidationErrors();
 
@@ -341,8 +341,8 @@ describe('Settings Validation', () => {
 
         it('should not expose sensitive information in error messages', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-sensitive-key-123';
-            settings.apiUriInput.value = 'https://private.azure.com/';
+            settings.whisperKeyInput.value = 'sk-sensitive-key-123';
+            settings.whisperUriInput.value = 'https://private.azure.com/';
 
             const errors = settings.getValidationErrors();
 
@@ -358,35 +358,35 @@ describe('Settings Validation', () => {
         it('should trim whitespace from API keys', () => {
             settings.modelSelect.value = 'whisper';
             const mockKey = generateMockApiKeyForValidation();
-            settings.apiKeyInput.value = `  ${mockKey}  `;
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = `  ${mockKey}  `;
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             settings.sanitizeInputs();
 
-            expect(settings.apiKeyInput.value).toBe(mockKey);
+            expect(settings.whisperKeyInput.value).toBe(mockKey);
         });
 
         it('should preserve URI format while cleaning whitespace', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = generateMockApiKeyForValidation();
-            settings.apiUriInput.value = '  https://test.azure.com//extra//slashes  ';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.whisperUriInput.value = '  https://test.azure.com//extra//slashes  ';
 
             settings.sanitizeInputs();
 
-            expect(settings.apiUriInput.value).toBe('https://test.azure.com//extra//slashes');
+            expect(settings.whisperUriInput.value).toBe('https://test.azure.com//extra//slashes');
         });
 
         it('should handle special characters in inputs', () => {
             settings.modelSelect.value = 'whisper';
-            settings.apiKeyInput.value = 'sk-test\nwith\tspecial\rchars';
-            settings.apiUriInput.value = 'https://myresource.openai.azure.com/';
+            settings.whisperKeyInput.value = 'sk-test\nwith\tspecial\rchars';
+            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
 
             settings.sanitizeInputs();
 
             // Should remove or handle special characters appropriately
-            expect(settings.apiKeyInput.value).not.toContain('\n');
-            expect(settings.apiKeyInput.value).not.toContain('\t');
-            expect(settings.apiKeyInput.value).not.toContain('\r');
+            expect(settings.whisperKeyInput.value).not.toContain('\n');
+            expect(settings.whisperKeyInput.value).not.toContain('\t');
+            expect(settings.whisperKeyInput.value).not.toContain('\r');
         });
     });
 });

@@ -252,12 +252,8 @@ export class Settings {
     _getActiveInputs() {
         const isMai = this.getCurrentModelFromSettings() === MODEL_TYPES.MAI_TRANSCRIBE;
         return {
-            apiKeyInput: typeof this.apiKeyInput !== 'undefined'
-                ? this.apiKeyInput
-                : (isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput),
-            uriInput: typeof this.apiUriInput !== 'undefined'
-                ? this.apiUriInput
-                : (isMai ? this.maiTranscribeUriInput : this.whisperUriInput)
+            apiKeyInput: isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput,
+            uriInput: isMai ? this.maiTranscribeUriInput : this.whisperUriInput
         };
     }
 

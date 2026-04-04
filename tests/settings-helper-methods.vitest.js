@@ -116,8 +116,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         
         // Override DOM references for isolated testing
         settings.modelSelect = mockModelSelect;
-        settings.apiKeyInput = mockApiKeyInput;
-        settings.apiUriInput = mockUriInput;
+        settings.whisperKeyInput = mockApiKeyInput;
+        settings.whisperUriInput = mockUriInput;
     });
 
     afterEach(() => {
@@ -604,8 +604,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 mockElements[ID.WHISPER_URI] = whisperUri;
                 
                 // Override the injected elements for this test
-                settings.apiKeyInput = whisperKey;
-                settings.apiUriInput = whisperUri;
+                settings.whisperKeyInput = whisperKey;
+                settings.whisperUriInput = whisperUri;
                 
                 const isValid = settings.validateConfiguration();
                 
@@ -620,8 +620,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 mockElements[ID.GPT4O_URI] = gpt4oUri;
                 
                 // Override the injected elements for this test
-                settings.apiKeyInput = gpt4oKey;
-                settings.apiUriInput = gpt4oUri;
+                settings.whisperKeyInput = gpt4oKey;
+                settings.whisperUriInput = gpt4oUri;
                 
                 const isValid = settings.validateConfiguration();
                 
@@ -678,8 +678,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             nullKeyElement.value = null;
             nullUriElement.value = null;
             
-            settings.apiKeyInput = nullKeyElement;
-            settings.apiUriInput = nullUriElement;
+            settings.whisperKeyInput = nullKeyElement;
+            settings.whisperUriInput = nullUriElement;
             
             // sanitizeInputs should handle null gracefully due to typeof check
             expect(() => settings.sanitizeInputs()).not.toThrow();
@@ -694,8 +694,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             undefinedKeyElement.value = undefined;
             undefinedUriElement.value = undefined;
             
-            settings.apiKeyInput = undefinedKeyElement;
-            settings.apiUriInput = undefinedUriElement;
+            settings.whisperKeyInput = undefinedKeyElement;
+            settings.whisperUriInput = undefinedUriElement;
             
             // sanitizeInputs should handle undefined gracefully due to typeof check
             expect(() => settings.sanitizeInputs()).not.toThrow();
@@ -710,8 +710,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             nullKeyElement.value = null;
             nullUriElement.value = null;
             
-            settings.apiKeyInput = nullKeyElement;
-            settings.apiUriInput = nullUriElement;
+            settings.whisperKeyInput = nullKeyElement;
+            settings.whisperUriInput = nullUriElement;
             
             // Current implementation will throw because it doesn't check for null before .trim()
             expect(() => settings.getValidationErrors()).toThrow('Cannot read properties of null');
@@ -725,8 +725,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             undefinedKeyElement.value = undefined;
             undefinedUriElement.value = undefined;
             
-            settings.apiKeyInput = undefinedKeyElement;
-            settings.apiUriInput = undefinedUriElement;
+            settings.whisperKeyInput = undefinedKeyElement;
+            settings.whisperUriInput = undefinedUriElement;
             
             // Current implementation will throw because it doesn't check for undefined before .trim()
             expect(() => settings.getValidationErrors()).toThrow('Cannot read properties of undefined');
@@ -750,8 +750,8 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
         it('should handle missing DOM elements gracefully', () => {
             // Clear the injected elements so it falls back to document.getElementById
-            settings.apiKeyInput = null;
-            settings.apiUriInput = null;
+            settings.whisperKeyInput = null;
+            settings.whisperUriInput = null;
             
             // Override document.getElementById to return null
             document.getElementById.mockReturnValue(null);
