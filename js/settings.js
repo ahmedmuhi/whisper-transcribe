@@ -270,16 +270,7 @@ export class Settings {
         }
 
         if (uriInput && typeof uriInput.value === 'string') {
-            // Remove all whitespace characters but preserve the complete URI
-            let uri = uriInput.value.replace(/\s+/g, '');
-            try {
-                // Validate URI format but preserve complete URL including path and query parameters
-                new URL(uri);
-                // URI is valid, keep it as-is (don't truncate to origin)
-            } catch {
-                // Leave as whitespace-stripped string if parsing fails
-            }
-            uriInput.value = uri;
+            uriInput.value = uriInput.value.replace(/\s+/g, '');
         }
     }
 

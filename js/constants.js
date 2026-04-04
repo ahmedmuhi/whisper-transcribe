@@ -13,14 +13,16 @@
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
  * @property {string} CANVAS_LIGHT_BG - Canvas background for light theme
  */
+const DARK_BG  = '#0f172a';
+const LIGHT_BG = '#f8fafc';
+
 export const COLORS = {
-  ERROR:        '#dc2626',
-  SUCCESS:      '#16a34a',
-  DARK_BG:      '#0f172a',
-  LIGHT_BG:     '#f8fafc',
-  // visualiser fill colours
-  CANVAS_DARK_BG: '#0f172a',
-  CANVAS_LIGHT_BG: '#f8fafc'
+  ERROR:          '#dc2626',
+  SUCCESS:        '#16a34a',
+  DARK_BG,
+  LIGHT_BG,
+  CANVAS_DARK_BG:  DARK_BG,
+  CANVAS_LIGHT_BG: LIGHT_BG
 };
 
 /**

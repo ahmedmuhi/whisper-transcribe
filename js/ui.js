@@ -477,20 +477,6 @@ export class UI {
     }
     
     /**
-     * Sets the status element content using HTML.
-     * Allows for rich formatting in status messages.
-     * 
-     * @method setStatusHTML
-     * @param {string} html - HTML content to display in status element
-     * 
-     * @example
-     * ui.setStatusHTML('<strong>Error:</strong> Configuration required');
-     */
-    setStatusHTML(html) {
-        this.statusElement.innerHTML = html;
-    }
-    
-    /**
      * Displays an error message to the user in a standardized way.
      * 
      * @method showError
