@@ -208,43 +208,108 @@ export class Settings {
     }
 
     /**
-     * Set up side panel open/close listeners.
+     * Set up Notion-style side panel with 3 states:
+     * - pinned: sidebar visible, pushes content
+     * - hover-preview: floating overlay on hamburger hover
+     * - closed: sidebar hidden
      * @private
      */
     setupPanelListeners() {
+        // Click hamburger → pin the sidebar open
         if (this.panelToggle) {
-            this.panelToggle.addEventListener('click', () => this.openSidePanel());
+            this.panelToggle.addEventListener('click', () => this.pinSidebar());
+
+            // Hover hamburger → show floating preview
+            this.panelToggle.addEventListener('mouseenter', () => {
+                if (!this._isSidebarPinned()) {
+                    this._showHoverPreview();
+                }
+            });
         }
+
+        // « collapse button → unpin / close
         if (this.panelClose) {
-            this.panelClose.addEventListener('click', () => this.closeSidePanel());
+            this.panelClose.addEventListener('click', () => this.unpinSidebar());
         }
+
+        // Backdrop click (mobile) → close
         if (this.panelBackdrop) {
-            this.panelBackdrop.addEventListener('click', () => this.closeSidePanel());
+            this.panelBackdrop.addEventListener('click', () => this.unpinSidebar());
         }
-        // Refresh device list when mic permission is granted (labels become available)
+
+        // Mouse leaves sidebar during hover-preview → hide it
+        if (this.sidePanel) {
+            this.sidePanel.addEventListener('mouseleave', () => {
+                if (this.sidePanel.classList.contains('hover-preview')) {
+                    // Small delay so moving between hamburger and panel doesn't flicker
+                    this._hoverCloseTimer = setTimeout(() => {
+                        this._hideHoverPreview();
+                    }, 200);
+                }
+            });
+
+            this.sidePanel.addEventListener('mouseenter', () => {
+                if (this._hoverCloseTimer) {
+                    clearTimeout(this._hoverCloseTimer);
+                    this._hoverCloseTimer = null;
+                }
+            });
+        }
+
+        // Refresh device list when mic permission is granted
         this._offPermissionGranted = eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => this.populateDeviceList());
 
-        // Escape key
+        // Escape key → close sidebar
         this._panelEscHandler = (e) => {
-            if (e.key === 'Escape' && this.sidePanel?.classList.contains('open')) {
-                this.closeSidePanel();
+            if (e.key === 'Escape') {
+                if (this._isSidebarPinned()) {
+                    this.unpinSidebar();
+                } else if (this.sidePanel?.classList.contains('hover-preview')) {
+                    this._hideHoverPreview();
+                }
             }
         };
-        // Guard needed: some test environments provide a partial document mock
         if (document.addEventListener) {
             document.addEventListener('keydown', this._panelEscHandler);
         }
+
+        // Restore pinned state from localStorage
+        if (localStorage.getItem(STORAGE_KEYS.SIDEBAR_PINNED) === 'true') {
+            this.pinSidebar(false);
+        }
     }
 
-    openSidePanel() {
-        if (this.sidePanel) this.sidePanel.classList.add('open');
-        if (this.panelBackdrop) this.panelBackdrop.classList.add('open');
+    _isSidebarPinned() {
+        return this.sidePanel?.classList.contains('pinned');
+    }
+
+    _showHoverPreview() {
+        if (!this.sidePanel) return;
+        this.sidePanel.classList.add('hover-preview');
         this.populateDeviceList();
     }
 
-    closeSidePanel() {
-        if (this.sidePanel) this.sidePanel.classList.remove('open');
-        if (this.panelBackdrop) this.panelBackdrop.classList.remove('open');
+    _hideHoverPreview() {
+        if (!this.sidePanel) return;
+        this.sidePanel.classList.remove('hover-preview');
+    }
+
+    pinSidebar(persist = true) {
+        if (!this.sidePanel) return;
+        this.sidePanel.classList.remove('hover-preview');
+        this.sidePanel.classList.add('pinned');
+        document.body.classList.add('sidebar-pinned');
+        if (this.panelBackdrop) this.panelBackdrop.classList.add('visible');
+        if (persist) localStorage.setItem(STORAGE_KEYS.SIDEBAR_PINNED, 'true');
+        this.populateDeviceList();
+    }
+
+    unpinSidebar() {
+        if (!this.sidePanel) return;
+        this.sidePanel.classList.remove('pinned', 'hover-preview');
+        document.body.classList.remove('sidebar-pinned');
+        if (this.panelBackdrop) this.panelBackdrop.classList.remove('visible');
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_PINNED, 'false');
     }
 
     /**
@@ -602,6 +667,10 @@ export class Settings {
         if (this._offPermissionGranted) {
             this._offPermissionGranted();
             this._offPermissionGranted = null;
+        }
+        if (this._hoverCloseTimer) {
+            clearTimeout(this._hoverCloseTimer);
+            this._hoverCloseTimer = null;
         }
     }
 }

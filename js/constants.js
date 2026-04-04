@@ -42,7 +42,8 @@ export const STORAGE_KEYS = {
   MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
-  INPUT_DEVICE:          'input_device'
+  INPUT_DEVICE:          'input_device',
+  SIDEBAR_PINNED:        'sidebar_pinned'
 };
 
 /**
