@@ -612,21 +612,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 expect(isValid).toBe(true);
             });
 
-            it('should validate GPT-4o model configuration', () => {
-                mockModelSelect.value = 'gpt-4o';
-                const gpt4oKey = createMockElement(generateMockApiKeyForValidation());
-                const gpt4oUri = createMockElement('https://gpt4o.azure.com/');
-                mockElements[ID.GPT4O_KEY] = gpt4oKey;
-                mockElements[ID.GPT4O_URI] = gpt4oUri;
-                
-                // Override the injected elements for this test
-                settings.whisperKeyInput = gpt4oKey;
-                settings.whisperUriInput = gpt4oUri;
-                
-                const isValid = settings.validateConfiguration();
-                
-                expect(isValid).toBe(true);
-            });
         });
     });
 

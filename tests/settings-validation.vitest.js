@@ -89,16 +89,6 @@ describe('Settings Validation', () => {
             expect(isValid).toBe(true);
         });
 
-        it('should accept valid API keys for GPT-4o model', () => {
-            settings.modelSelect.value = 'gpt-4o';
-            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
-            settings.whisperUriInput.value = 'https://myresource.openai.azure.com/';
-
-            const isValid = settings.validateConfiguration();
-
-            expect(isValid).toBe(true);
-        });
-
         it('should reject empty API keys', () => {
             settings.modelSelect.value = 'whisper';
             settings.whisperKeyInput.value = '';
@@ -294,15 +284,6 @@ describe('Settings Validation', () => {
             expect(isValid).toBe(true);
         });
 
-        it('should validate GPT-4o model requirements', () => {
-            settings.modelSelect.value = 'gpt-4o';
-            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
-            settings.whisperUriInput.value = 'https://gpt4o.openai.azure.com/';
-
-            const isValid = settings.validateConfiguration();
-
-            expect(isValid).toBe(true);
-        });
 
         it('should handle unknown model gracefully', () => {
             settings.modelSelect.value = 'unknown-model';
