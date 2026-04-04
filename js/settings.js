@@ -222,7 +222,7 @@ export class Settings {
             this.panelBackdrop.addEventListener('click', () => this.closeSidePanel());
         }
         // Refresh device list when mic permission is granted (labels become available)
-        eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => this.populateDeviceList());
+        this._offPermissionGranted = eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => this.populateDeviceList());
 
         // Escape key
         this._panelEscHandler = (e) => {
@@ -598,6 +598,10 @@ export class Settings {
         }
         if (this._panelEscHandler && document.removeEventListener) {
             document.removeEventListener('keydown', this._panelEscHandler);
+        }
+        if (this._offPermissionGranted) {
+            this._offPermissionGranted();
+            this._offPermissionGranted = null;
         }
     }
 }
