@@ -1,7 +1,7 @@
 /**
  * @fileoverview Manages microphone permissions and user notifications
  */
-import { MESSAGES, DEFAULT_RESET_STATUS, STORAGE_KEYS, RECORDING_ENVIRONMENTS, ID } from './constants.js';
+import { MESSAGES, DEFAULT_RESET_STATUS, STORAGE_KEYS, RECORDING_ENVIRONMENTS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
