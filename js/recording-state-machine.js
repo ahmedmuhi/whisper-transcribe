@@ -272,7 +272,7 @@ export class RecordingStateMachine {
         const errorMessage = data.error || 'An error occurred';
         eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: errorMessage });
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: `${MESSAGES.ERROR_PREFIX}${errorMessage}`,
+            message: `${MESSAGES.ERROR_PREFIX}${errorMessage}. ${MESSAGES.TAP_MIC_TO_RETRY}`,
             type: 'error'
         });
         eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);

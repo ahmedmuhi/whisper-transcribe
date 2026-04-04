@@ -137,13 +137,10 @@ export class AudioHandler {
         } catch (err) {
             errorHandler.handleError(err, { module: 'AudioHandler' });
             const errorMessage = err?.message || err?.toString() || 'Unknown error';
+            // handleErrorState emits UI_STATUS_UPDATE with prefix + retry hint
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: errorMessage });
             // Config errors are handled by validateConfig() which emits
             // API_CONFIG_MISSING before throwing — the event listener opens settings
-            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: `${MESSAGES.ERROR_PREFIX}${errorMessage}. ${MESSAGES.TAP_MIC_TO_RETRY}`,
-                type: 'error'
-            });
         }
     }
     
@@ -346,14 +343,9 @@ export class AudioHandler {
         } catch (error) {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Transcription error:', error);
-
-            const errorMessage = `${MESSAGES.ERROR_PREFIX}${error.message}. ${MESSAGES.TAP_MIC_TO_RETRY}`;
-            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: errorMessage,
-                type: 'error'
-            });
             this.cleanup();
-            return { success: false, error: errorMessage };
+            // handleErrorState emits UI_STATUS_UPDATE with prefix + retry hint
+            return { success: false, error: error.message };
         } finally {
             eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }
