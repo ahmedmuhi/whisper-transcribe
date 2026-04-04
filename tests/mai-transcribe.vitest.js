@@ -4,7 +4,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
-import { MODEL_TYPES, MESSAGES, API_PARAMS } from '../js/constants.js';
+import { MODEL_TYPES, MESSAGES, API_PARAMS, DEFAULT_WAV_FILENAME } from '../js/constants.js';
+import { convertToWav } from '../js/audio-converter.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 const mockSettings = {
@@ -119,6 +120,8 @@ describe('MAI-Transcribe-1 Integration', () => {
                     headers: { [API_PARAMS.API_KEY_HEADER]: 'test-whisper-key' }
                 })
             );
+
+            expect(convertToWav).not.toHaveBeenCalled();
         });
 
         it('should send audio and definition fields for MAI-Transcribe', async () => {
@@ -145,10 +148,11 @@ describe('MAI-Transcribe-1 Integration', () => {
 
             await apiClient.transcribe(new Blob(['audio']), vi.fn());
 
+            expect(convertToWav).toHaveBeenCalledTimes(1);
             const audioEntry = formDataEntries.find(e => e.key === API_PARAMS.MAI_AUDIO_FIELD);
             expect(audioEntry).toBeDefined();
             expect(audioEntry.value.type).toBe('audio/wav');
-            expect(audioEntry.filename).toBe('recording.wav');
+            expect(audioEntry.filename).toBe(DEFAULT_WAV_FILENAME);
         });
 
         it('should NOT send file/language fields for MAI-Transcribe', async () => {
