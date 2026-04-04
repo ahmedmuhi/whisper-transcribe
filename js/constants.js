@@ -4,12 +4,12 @@
 
 /**
  * Color constants for theme support and UI consistency.
- * 
+ *
  * @constant {Object} COLORS
- * @property {string} ERROR - Red color for error states (#dc2626)
- * @property {string} SUCCESS - Green color for success states (#16a34a)
- * @property {string} DARK_BG - Dark theme background color (#0f172a)
- * @property {string} LIGHT_BG - Light theme background color (#f8fafc)
+ * @property {string} ERROR - Red color for error states (#EF4444)
+ * @property {string} SUCCESS - Green color for success states (#10B981)
+ * @property {string} DARK_BG - Dark theme background color (#0A0A0B)
+ * @property {string} LIGHT_BG - Light theme background color (#FAFAF9)
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
  * @property {string} CANVAS_LIGHT_BG - Canvas background for light theme
  */
@@ -17,8 +17,8 @@ const DARK_BG  = '#0A0A0B';
 const LIGHT_BG = '#FAFAF9';
 
 export const COLORS = {
-  ERROR:          '#dc2626',
-  SUCCESS:        '#16a34a',
+  ERROR:          '#EF4444',
+  SUCCESS:        '#10B981',
   DARK_BG,
   LIGHT_BG,
   CANVAS_DARK_BG:  DARK_BG,

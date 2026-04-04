@@ -29,7 +29,8 @@
     --radius-lg: 16px;
     --radius-full: 9999px;
     --transition: 200ms ease-out;
-    --header-bg: transparent;
+    --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+    --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
     --mic-bg: var(--accent);
     --mic-hover-bg: #B45309;
     --visualizer-bg: var(--bg-inset);
@@ -75,7 +76,7 @@
 }
 
 body {
-    font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-family: var(--font-mono);
     font-weight: 400;
     font-size: 14px;
     line-height: 1.6;
@@ -123,8 +124,6 @@ header {
     padding: 1rem 1.5rem;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
 }
 
 .wordmark {
@@ -147,7 +146,7 @@ header {
 }
 
 .wordmark h1 {
-    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-display);
     font-size: 1.4rem;
     font-weight: 400;
     font-style: italic;
@@ -318,7 +317,7 @@ header {
 
 /* --- Timer --- */
 .timer {
-    font-family: 'Geist Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 1.8rem;
     font-weight: 300;
     color: var(--text-secondary);
@@ -393,8 +392,9 @@ header {
     border-radius: 50%;
     background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
     opacity: 0.6;
-    transition: all var(--transition);
+    transition: opacity var(--transition), transform var(--transition);
     z-index: -1;
+    will-change: transform, opacity;
 }
 
 .mic-ring {
@@ -403,7 +403,8 @@ header {
     border-radius: 50%;
     border: 2px solid var(--accent);
     opacity: 0.3;
-    transition: all var(--transition);
+    transition: opacity var(--transition), transform var(--transition);
+    will-change: transform, opacity;
 }
 
 .mic-button:hover {
@@ -415,12 +416,12 @@ header {
 
 .mic-button:hover .mic-glow {
     opacity: 0.8;
-    inset: -12px;
+    transform: scale(1.15);
 }
 
 .mic-button:hover .mic-ring {
     opacity: 0.5;
-    inset: -6px;
+    transform: scale(1.1);
 }
 
 .mic-button:disabled {
@@ -452,13 +453,11 @@ header {
 
 .mic-button.recording .mic-glow {
     background: radial-gradient(circle, var(--recording-glow) 0%, transparent 70%);
-    opacity: 1;
     animation: glowPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .mic-button.recording .mic-ring {
     border-color: var(--recording);
-    opacity: 0.5;
     animation: ringExpand 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -477,22 +476,22 @@ header {
 
 @keyframes glowPulse {
     0%, 100% {
-        inset: -8px;
+        transform: scale(1);
         opacity: 0.6;
     }
     50% {
-        inset: -16px;
+        transform: scale(1.4);
         opacity: 1;
     }
 }
 
 @keyframes ringExpand {
     0% {
-        inset: -4px;
+        transform: scale(1);
         opacity: 0.6;
     }
     100% {
-        inset: -20px;
+        transform: scale(2);
         opacity: 0;
     }
 }
@@ -539,7 +538,7 @@ header {
 }
 
 .transcript-title {
-    font-family: 'Instrument Serif', Georgia, serif;
+    font-family: var(--font-display);
     font-weight: 400;
     font-style: italic;
     font-size: 1.1rem;
@@ -581,7 +580,7 @@ header {
     min-height: 120px;
     resize: vertical;
     padding: 0.75rem;
-    font-family: 'Geist Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.85rem;
     line-height: 1.7;
     color: var(--text-primary);
@@ -655,7 +654,7 @@ header {
 }
 
 .modal-title {
-    font-family: 'Instrument Serif', Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.25rem;
     font-weight: 400;
     font-style: italic;
@@ -730,7 +729,7 @@ header {
 }
 
 .settings-section-title {
-    font-family: 'Instrument Serif', Georgia, serif;
+    font-family: var(--font-display);
     font-weight: 400;
     font-style: italic;
     font-size: 1rem;
@@ -760,34 +759,6 @@ header {
 .save-button:hover {
     background: var(--mic-hover-bg);
     box-shadow: 0 4px 12px var(--accent-glow);
-}
-
-/* --- Theme Toggle Icons --- */
-.theme-toggle {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary);
-}
-
-.theme-icon {
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
-}
-
-/* Alias for settings icon (used by old class names in JS) */
-.settings-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary);
-}
-
-.settings-icon {
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
 }
 
 /* --- Scrollbar --- */
@@ -895,7 +866,6 @@ button,
     min-height: 44px;
 }
 
-/* Ensure Geist Mono is used for key elements */
 h1, h2, h3, h4, h5, h6 {
     margin: 0;
 }

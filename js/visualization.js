@@ -43,7 +43,6 @@ export class VisualizationController {
             this.animationId = requestAnimationFrame(draw);
             this.analyser.getByteFrequencyData(this.dataArray);
 
-            // Clear with theme background
             this.canvasCtx.fillStyle = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
             this.canvasCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -56,7 +55,6 @@ export class VisualizationController {
                 const barHeight = (this.dataArray[i] / 255) * this.canvas.height * 0.85;
 
                 if (barHeight > 1) {
-                    // Amber gradient: warm gold to deep amber based on intensity
                     const intensity = this.dataArray[i] / 255;
                     const r = Math.round(245 - (intensity * 30));
                     const g = Math.round(158 - (intensity * 80));
@@ -101,8 +99,7 @@ export class VisualizationController {
         if (this.audioContext && this.audioContext.state !== 'closed') {
             try { this.audioContext.close(); } catch { /* already closed */ }
         }
-        // Clear the canvas
-        this.canvasCtx.fillStyle = this.isDarkTheme ? COLORS.DARK_BG : COLORS.LIGHT_BG;
+        this.canvasCtx.fillStyle = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
         this.canvasCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 }
