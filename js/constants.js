@@ -13,8 +13,8 @@
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
  * @property {string} CANVAS_LIGHT_BG - Canvas background for light theme
  */
-const DARK_BG  = '#0A0A0B';
-const LIGHT_BG = '#FAFAF9';
+const DARK_BG  = '#0C0F1A';
+const LIGHT_BG = '#EEF0FB';
 
 export const COLORS = {
   ERROR:          '#EF4444',
