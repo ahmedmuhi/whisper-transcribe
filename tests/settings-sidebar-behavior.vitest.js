@@ -126,7 +126,7 @@ describe('Settings sidebar behavior regressions', () => {
         settings.setupPanelListeners();
 
         sidePanel.dispatchClick({
-            closest: (selector) => selector === 'button,select,input,option,label,a,textarea' ? {} : null
+            closest: (selector) => selector.includes('button') ? {} : null
         });
 
         expect(pinSidebarSpy).not.toHaveBeenCalled();
