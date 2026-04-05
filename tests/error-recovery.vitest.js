@@ -76,7 +76,6 @@ beforeAll(async () => {
 
 describe('Error Recovery Scenarios', () => {
   let audioHandler;
-  let mockUI;
   let mockSettings;
   let mockApiClient;
   let permissionManager;
@@ -103,24 +102,6 @@ describe('Error Recovery Scenarios', () => {
     vi.clearAllMocks();
     applyDomSpies();
     
-    // Create mock UI
-    mockUI = {
-      micButton: document.getElementById('mic-button'),
-      pauseButton: document.getElementById('pause-button'),
-      cancelButton: document.getElementById('cancel-button'),
-      statusElement: document.getElementById('status'),
-      transcriptElement: document.getElementById('transcript'),
-      spinnerContainer: document.getElementById('spinner-container'),
-      settingsModal: document.getElementById('settings-modal'),
-      checkRecordingPrerequisites: vi.fn().mockReturnValue(true),
-      updateTimer: vi.fn(),
-      setStatus: vi.fn(),
-      setRecordingState: vi.fn(),
-      setPauseState: vi.fn(),
-      updateTranscription: vi.fn(),
-      openSettingsModal: vi.fn()
-    };
-    
     // Create mock settings
     mockSettings = {
       getCurrentModel: vi.fn().mockReturnValue('whisper'),
@@ -139,10 +120,10 @@ describe('Error Recovery Scenarios', () => {
     };
     
     // Create permission manager
-    permissionManager = new PermissionManager(mockUI);
-    
+    permissionManager = new PermissionManager();
+
     // Create AudioHandler instance
-    audioHandler = new AudioHandler(mockApiClient, mockUI, mockSettings);
+    audioHandler = new AudioHandler(mockApiClient, mockSettings);
     
     // Replace the permission manager with our controlled instance
     audioHandler.permissionManager = permissionManager;

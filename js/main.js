@@ -13,9 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const settings = new Settings();
     const ui = new UI();
     const apiClient = new AzureAPIClient(settings);
-    const audioHandler = new AudioHandler(apiClient, ui, settings);
-    
-    ui.init(settings, audioHandler);
+    // Reference kept to prevent GC (AudioHandler lives via event bus listeners)
+    // eslint-disable-next-line no-unused-vars
+    const audioHandler = new AudioHandler(apiClient, settings);
+
+    ui.init(settings);
     
     logger.info('Speech-to-Text App initialized');
 });

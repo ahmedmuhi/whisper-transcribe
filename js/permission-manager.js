@@ -10,8 +10,7 @@ import { errorHandler } from './error-handler.js';
  * Manages microphone permission requests and status notifications.
  */
 export class PermissionManager {
-    constructor(ui) {
-        this.ui = ui;
+    constructor() {
         this.permissionStatus = null;
         this.microphoneStream = null;
     }

@@ -65,12 +65,10 @@ export class UI {
      * 
      * @method init
      * @param {Settings} settings - Settings manager instance
-     * @param {AudioHandler} audioHandler - Audio handler instance
      * @returns {void}
      */
-    init(settings, audioHandler) {
+    init(settings) {
         this.settings = settings;
-        this.audioHandler = audioHandler;
         
         // Load theme
         this.loadTheme();
@@ -120,6 +118,23 @@ export class UI {
             });
         }
         
+        // Recording control buttons — emit events for AudioHandler
+        if (this.micButton) {
+            this.micButton.addEventListener('click', () => {
+                eventBus.emit(APP_EVENTS.MIC_BUTTON_CLICKED);
+            });
+        }
+        if (this.pauseButton) {
+            this.pauseButton.addEventListener('click', () => {
+                eventBus.emit(APP_EVENTS.PAUSE_BUTTON_CLICKED);
+            });
+        }
+        if (this.cancelButton) {
+            this.cancelButton.addEventListener('click', () => {
+                eventBus.emit(APP_EVENTS.CANCEL_BUTTON_CLICKED);
+            });
+        }
+
         // Transcript buttons
         if (this.grabTextButton) {
             this.grabTextButton.addEventListener('click', () => {
@@ -150,11 +165,6 @@ export class UI {
                 }
             });
         }
-        
-        // Remove the old settings event listener since we're using eventBus now
-        // document.addEventListener('settingsUpdated', () => {
-        //     this.checkRecordingPrerequisites();
-        // });
     }
     
     /**
@@ -295,7 +305,8 @@ export class UI {
             // Dynamically import VisualizationController to avoid circular imports
             try {
                 const { VisualizationController } = await import('./visualization.js');
-                const { stream, isDarkTheme } = data;
+                const { stream } = data;
+                const isDarkTheme = document.body.classList.contains('dark-theme');
                 if (this.visualizer && stream) {
                     this.visualizationController = new VisualizationController(stream, this.visualizer, isDarkTheme);
                     this.visualizationController.start();

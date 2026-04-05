@@ -61,7 +61,6 @@ beforeAll(async () => {
 
 describe('AudioHandler Integration', () => {
   let audioHandler;
-  let mockUI;
   let mockSettings;
   let mockApiClient;
   let eventBusEmitSpy;
@@ -118,24 +117,6 @@ describe('AudioHandler Integration', () => {
       configurable: true
     });
     
-    // Create mock UI
-    mockUI = {
-      micButton: document.getElementById('mic-button'),
-      pauseButton: document.getElementById('pause-button'),
-      cancelButton: document.getElementById('cancel-button'),
-      statusElement: document.getElementById('status'),
-      timerElement: document.getElementById('timer'),
-      transcriptElement: document.getElementById('transcript'),
-      spinnerContainer: document.getElementById('spinner-container'),
-      visualizer: document.getElementById('visualizer'),
-      checkRecordingPrerequisites: vi.fn().mockReturnValue(true),
-      updateTimer: vi.fn(),
-      setStatus: vi.fn(),
-      setRecordingState: vi.fn(),
-      setPauseState: vi.fn(),
-      updateTranscription: vi.fn()
-    };
-    
     // Create mock settings
     mockSettings = {
       getCurrentModel: vi.fn().mockReturnValue('whisper'),
@@ -153,7 +134,7 @@ describe('AudioHandler Integration', () => {
     };
     
     // Create AudioHandler instance
-    audioHandler = new AudioHandler(mockApiClient, mockUI, mockSettings);
+    audioHandler = new AudioHandler(mockApiClient, mockSettings);
     
     // Spy on event bus emissions
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
@@ -498,16 +479,14 @@ describe('AudioHandler Integration', () => {
   });
 
   describe('Lifecycle — destroy()', () => {
-    it('should unsubscribe API_CONFIG_MISSING listener (Issue 5 regression guard)', () => {
-      const offSpy = vi.spyOn(eventBus, 'off');
+    it('should unsubscribe all event bus listeners', () => {
+      expect(audioHandler._unsubscribers.length).toBe(4);
 
       audioHandler.destroy();
 
-      expect(offSpy).toHaveBeenCalledWith(
-        APP_EVENTS.API_CONFIG_MISSING,
-        expect.any(Function)
-      );
-      expect(audioHandler._onApiConfigMissing).toBeNull();
+      expect(audioHandler._unsubscribers).toEqual([]);
+      // Verify the API_CONFIG_MISSING listener was removed
+      expect(eventBus.events.has(APP_EVENTS.API_CONFIG_MISSING)).toBe(false);
     });
 
     it('should not throw if destroy() is called twice', () => {

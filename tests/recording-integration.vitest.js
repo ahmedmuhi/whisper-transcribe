@@ -234,7 +234,6 @@ beforeAll(async () => {
 
 describe('Recording Integration', () => {
   let audioHandler;
-  let mockUI;
   let mockSettings;
   let mockApiClient;
   let eventBusEmitSpy;
@@ -262,23 +261,6 @@ describe('Recording Integration', () => {
     jest.useFakeTimers(); // Use fake timers for all tests
     applyDomSpies();
     
-    // Create mock UI
-    mockUI = {
-      micButton: document.getElementById('mic-button'),
-      pauseButton: document.getElementById('pause-button'),
-      cancelButton: document.getElementById('cancel-button'),
-      statusElement: document.getElementById('status'),
-      timerElement: document.getElementById('timer'),
-      transcriptElement: document.getElementById('transcript'),
-      spinnerContainer: document.getElementById('spinner-container'),
-      checkRecordingPrerequisites: vi.fn().mockReturnValue(true),
-      updateTimer: vi.fn(),
-      setStatus: vi.fn(),
-      setRecordingState: vi.fn(),
-      setPauseState: vi.fn(),
-      updateTranscription: vi.fn()
-    };
-    
     // Create mock settings
     mockSettings = {
       getCurrentModel: vi.fn().mockReturnValue('whisper'),
@@ -296,7 +278,7 @@ describe('Recording Integration', () => {
     };
     
     // Create AudioHandler instance
-    audioHandler = new AudioHandler(mockApiClient, mockUI, mockSettings);
+    audioHandler = new AudioHandler(mockApiClient, mockSettings);
     
     // Set up a single spy on event bus emissions
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
@@ -501,8 +483,8 @@ describe('Recording Integration', () => {
     });
     
     it('should handle microphone access errors', async () => {
-      // Make checkRecordingPrerequisites return false
-      mockUI.checkRecordingPrerequisites.mockReturnValueOnce(false);
+      // Make prerequisites check fail by returning empty config
+      mockSettings.getModelConfig.mockReturnValueOnce({ apiKey: '', uri: '' });
       
       // Try to start recording
       await audioHandler.startRecordingFlow();

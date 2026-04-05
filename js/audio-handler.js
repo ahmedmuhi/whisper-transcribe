@@ -2,7 +2,7 @@
  * @fileoverview Audio recording and playback management for speech transcription.
  */
 
-import { RECORDING_STATES, MESSAGES, ID, TIMER_CONFIG } from './constants.js';
+import { RECORDING_STATES, MESSAGES, TIMER_CONFIG } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -27,44 +27,32 @@ export class AudioHandler {
      * Creates a new AudioHandler instance.
      * 
      * @param {AzureAPIClient} apiClient - API client for transcription
-     * @param {UI} ui - UI controller instance
      * @param {Settings} settings - Settings manager
      */
-    constructor(apiClient, ui, settings) {
+    constructor(apiClient, settings) {
         this.apiClient = apiClient;
-        this.ui = ui;
         this.settings = settings;
-        
+
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.recordingStartTime = null;
         this.timerInterval = null;
-    this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
-        
-        this.permissionManager = new PermissionManager(ui);
+        this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
+
+        this.permissionManager = new PermissionManager();
         
         this.stateMachine = new RecordingStateMachine(this);
         
-        this.setupEventListeners();
         this.setupEventBusListeners();
     }
-    
+
     setupEventBusListeners() {
-        this._onApiConfigMissing = () => {
-            this.settings.openSettingsModal();
-        };
-        eventBus.on(APP_EVENTS.API_CONFIG_MISSING, this._onApiConfigMissing);
-    }
-    
-    setupEventListeners() {
-        // Mic button
-        this.ui.micButton.addEventListener('click', () => this.toggleRecording());
-        
-        // Pause button
-        this.ui.pauseButton.addEventListener('click', () => this.togglePause());
-        
-        // Cancel button
-        this.ui.cancelButton.addEventListener('click', () => this.cancelRecording());
+        this._unsubscribers = [
+            eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => this.settings.openSettingsModal()),
+            eventBus.on(APP_EVENTS.MIC_BUTTON_CLICKED, () => this.toggleRecording()),
+            eventBus.on(APP_EVENTS.PAUSE_BUTTON_CLICKED, () => this.togglePause()),
+            eventBus.on(APP_EVENTS.CANCEL_BUTTON_CLICKED, () => this.cancelRecording()),
+        ];
     }
     
     /**
@@ -113,8 +101,21 @@ export class AudioHandler {
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
             
-            // Check prerequisites first
-            if (!this.ui.checkRecordingPrerequisites()) {
+            // Check prerequisites before starting
+            if (!PermissionManager.checkBrowserSupport()) {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.BROWSER_NOT_SUPPORTED, type: 'error'
+                });
+                eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'browser' });
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+                return;
+            }
+            const config = this.settings.getModelConfig();
+            if (!config.apiKey || !config.uri) {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.API_NOT_CONFIGURED, type: 'error'
+                });
+                eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
                 return;
             }
@@ -177,13 +178,8 @@ export class AudioHandler {
         this.audioChunks = [];
         this.mediaRecorder = new MediaRecorder(stream);
 
-        // Emit event to start visualization
-        const isDarkTheme = document.body.classList.contains('dark-theme');
-        eventBus.emit(APP_EVENTS.VISUALIZATION_START, {
-            stream,
-            visualizer: document.getElementById(ID.VISUALIZER),
-            isDarkTheme
-        });
+        // Emit event to start visualization (UI determines canvas + theme)
+        eventBus.emit(APP_EVENTS.VISUALIZATION_START, { stream });
 
         this.mediaRecorder.addEventListener('dataavailable', event => {
             this.audioChunks.push(event.data);
@@ -385,9 +381,7 @@ export class AudioHandler {
      * @method destroy
      */
     destroy() {
-        if (this._onApiConfigMissing) {
-            eventBus.off(APP_EVENTS.API_CONFIG_MISSING, this._onApiConfigMissing);
-            this._onApiConfigMissing = null;
-        }
+        this._unsubscribers.forEach(unsub => unsub());
+        this._unsubscribers = [];
     }
 }

@@ -98,7 +98,6 @@ import { PermissionManager } from '../js/permission-manager.js';
 
 describe('PermissionManager', () => {
     let permissionManager;
-    let mockUI;
     let eventBusEmitSpy;
     
     beforeEach(() => {
@@ -115,20 +114,11 @@ describe('PermissionManager', () => {
         mockPermissionResult.state = 'prompt';
         mockPermissions.query.mockResolvedValue(mockPermissionResult);
         
-        // Create mock UI with DOM elements
-        mockUI = {
-            statusElement: { 
-                textContent: '',
-                style: { color: '' },
-                _statusTimeout: null
-            }
-        };
-        
         // Spy on eventBus emissions
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
-        
+
         // Create PermissionManager instance
-        permissionManager = new PermissionManager(mockUI);
+        permissionManager = new PermissionManager();
     });
     
     afterEach(() => {

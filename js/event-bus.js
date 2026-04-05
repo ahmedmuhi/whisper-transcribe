@@ -264,6 +264,11 @@ export const APP_EVENTS = {
     UI_SETTINGS_OPENED: 'ui:settingsOpened',
     UI_SETTINGS_CLOSED: 'ui:settingsClosed',
     
+    // UI Button click events - decoupled from AudioHandler
+    MIC_BUTTON_CLICKED: 'ui:micButtonClicked',
+    PAUSE_BUTTON_CLICKED: 'ui:pauseButtonClicked',
+    CANCEL_BUTTON_CLICKED: 'ui:cancelButtonClicked',
+
     // UI Control events - for decoupled UI state management
     UI_TIMER_UPDATE: 'ui:timerUpdate',
     UI_TIMER_RESET: 'ui:timerReset',
