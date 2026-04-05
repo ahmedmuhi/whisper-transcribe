@@ -17,8 +17,8 @@ const DARK_BG  = '#0C0F1A';
 const LIGHT_BG = '#EEF0FB';
 
 // Must match --accent in css/styles.css (:root and .dark-theme)
-export const ACCENT_RGB_LIGHT = [91, 110, 245];   // #5B6EF5
-export const ACCENT_RGB_DARK  = [123, 143, 247];   // #7B8FF7
+export const ACCENT_RGB_LIGHT = Object.freeze([91, 110, 245]);   // #5B6EF5
+export const ACCENT_RGB_DARK  = Object.freeze([123, 143, 247]);   // #7B8FF7
 
 export const COLORS = {
   ERROR:          '#EF4444',

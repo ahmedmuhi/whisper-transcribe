@@ -58,9 +58,9 @@ export class VisualizationController {
 
                 if (barHeight > 1) {
                     const intensity = this.dataArray[i] / 255;
-                    const r = Math.round(baseR + (intensity * 30));
-                    const g = Math.round(baseG + (intensity * 20));
-                    const b = Math.round(baseB - (intensity * 15));
+                    const r = Math.min(255, Math.round(baseR + (intensity * 30)));
+                    const g = Math.min(255, Math.round(baseG + (intensity * 20)));
+                    const b = Math.max(0, Math.round(baseB - (intensity * 15)));
                     const alpha = 0.5 + (intensity * 0.5);
 
                     this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
