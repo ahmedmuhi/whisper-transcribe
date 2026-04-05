@@ -118,7 +118,7 @@ export class VisualizationController {
                 const halfHeight = Math.max(MIN_BAR_HEIGHT, amplitude * maxHalfHeight);
 
                 // Loud bars are vivid, quiet dots are barely visible
-                let alpha = amplitude < QUIET_THRESHOLD ? 0.12 : 0.55 + (amplitude * 0.45);
+                let alpha = amplitude < QUIET_THRESHOLD ? 0.08 : 0.75 + (amplitude * 0.25);
                 // Left-edge fade
                 if (x < fadeZone) {
                     alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
