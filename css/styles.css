@@ -37,6 +37,9 @@
     --modal-backdrop: rgba(28, 25, 23, 0.6);
     --noise-opacity: 0.02;
     --focus-ring: 0 0 0 2px var(--accent-glow);
+    --header-height: 53px;
+    --sidebar-width: 280px;
+    --transition-slow: 300ms ease-out;
 }
 
 /* Dark mode (default) */
@@ -123,7 +126,7 @@ body {
     background: rgba(0, 0, 0, 0.3);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 300ms ease-out;
+    transition: opacity var(--transition-slow);
 }
 
 .panel-backdrop.visible {
@@ -138,13 +141,13 @@ body {
     left: 0;
     bottom: 0;
     z-index: 200;
-    width: 280px;
+    width: var(--sidebar-width);
     background: var(--bg-surface);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     transform: translateX(-100%);
-    transition: transform 300ms ease-out, box-shadow 300ms ease-out;
+    transition: transform var(--transition-slow), box-shadow var(--transition-slow);
 }
 
 /* Pinned state — sidebar visible, content shifts */
@@ -156,9 +159,9 @@ body {
 /* Hover preview — compact floating panel below the header */
 .side-panel.hover-preview {
     transform: translateX(0);
-    top: 53px;
+    top: var(--header-height);
     bottom: auto;
-    max-height: calc(100vh - 53px - 1rem);
+    max-height: calc(100vh - var(--header-height) - 1rem);
     border-radius: 0 0 var(--radius-lg) 0;
     box-shadow: var(--shadow-lg);
     overflow: hidden;
@@ -170,13 +173,13 @@ body {
     display: none;
 }
 
-/* When sidebar is pinned, shift main content */
+/* When sidebar is pinned, shift main content via transform (GPU-composited) */
 body.sidebar-pinned header {
-    margin-left: 280px;
+    transform: translateX(var(--sidebar-width));
 }
 
 body.sidebar-pinned .container {
-    margin-left: 280px;
+    transform: translateX(var(--sidebar-width));
 }
 
 /* Hide header wordmark and hamburger when pinned */
@@ -194,7 +197,7 @@ body.sidebar-pinned .header-wordmark {
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem 0.75rem 1.25rem;
-    min-height: 53px;
+    min-height: var(--header-height);
 }
 
 /* Collapse button — « double chevron */
@@ -354,8 +357,8 @@ header {
     padding: 0.75rem 1rem;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
-    transition: margin-left 300ms ease-out;
-    min-height: 53px;
+    transition: transform var(--transition-slow);
+    min-height: var(--header-height);
 }
 
 .header-wordmark {
@@ -449,7 +452,7 @@ header {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    transition: margin-left 300ms ease-out;
+    transition: transform var(--transition-slow);
 }
 
 /* --- Card Animations --- */
@@ -978,7 +981,7 @@ header {
     /* On mobile, sidebar always overlays — never push content */
     body.sidebar-pinned header,
     body.sidebar-pinned .container {
-        margin-left: 0;
+        transform: none;
     }
 
     body.sidebar-pinned .panel-toggle-btn,
@@ -988,6 +991,12 @@ header {
 
     .side-panel.pinned {
         box-shadow: var(--shadow-lg);
+    }
+
+    /* Show backdrop on mobile when sidebar is pinned */
+    body.sidebar-pinned .panel-backdrop {
+        opacity: 1;
+        pointer-events: auto;
     }
 
     header {

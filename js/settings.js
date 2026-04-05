@@ -160,7 +160,7 @@ export class Settings {
         
         // Settings button listener (now inside the panel footer)
         this.settingsButton.addEventListener('click', () => {
-            this.closeSidePanel();
+            this.unpinSidebar();
             this.openSettingsModal();
         });
         
@@ -232,11 +232,7 @@ export class Settings {
             });
 
             this.panelToggle.addEventListener('mouseleave', () => {
-                // Cancel the open delay if mouse leaves before it fires
-                if (this._hoverOpenTimer) {
-                    clearTimeout(this._hoverOpenTimer);
-                    this._hoverOpenTimer = null;
-                }
+                this._clearHoverTimers();
             });
         }
 
@@ -272,10 +268,7 @@ export class Settings {
             });
 
             this.sidePanel.addEventListener('mouseenter', () => {
-                if (this._hoverCloseTimer) {
-                    clearTimeout(this._hoverCloseTimer);
-                    this._hoverCloseTimer = null;
-                }
+                this._clearHoverTimers();
             });
         }
 
@@ -320,6 +313,13 @@ export class Settings {
     _showHoverPreview() {
         if (!this.sidePanel) return;
         this.sidePanel.classList.add('hover-preview');
+        this._populateDeviceListIfStale();
+    }
+
+    _populateDeviceListIfStale() {
+        const now = Date.now();
+        if (this._deviceListPopulatedAt && now - this._deviceListPopulatedAt < 5000) return;
+        this._deviceListPopulatedAt = now;
         this.populateDeviceList();
     }
 
@@ -330,20 +330,19 @@ export class Settings {
 
     pinSidebar(persist = true) {
         if (!this.sidePanel) return;
+        this._clearHoverTimers();
         this.sidePanel.classList.remove('hover-preview');
         this.sidePanel.classList.add('pinned');
         document.body.classList.add('sidebar-pinned');
-        if (this.panelBackdrop) this.panelBackdrop.classList.add('visible');
         if (persist) localStorage.setItem(STORAGE_KEYS.SIDEBAR_PINNED, 'true');
-        this.populateDeviceList();
+        this._populateDeviceListIfStale();
     }
 
     unpinSidebar() {
         if (!this.sidePanel) return;
         this.sidePanel.classList.remove('pinned', 'hover-preview');
         document.body.classList.remove('sidebar-pinned');
-        if (this.panelBackdrop) this.panelBackdrop.classList.remove('visible');
-        localStorage.setItem(STORAGE_KEYS.SIDEBAR_PINNED, 'false');
+        localStorage.removeItem(STORAGE_KEYS.SIDEBAR_PINNED);
     }
 
     /**
