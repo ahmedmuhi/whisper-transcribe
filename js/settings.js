@@ -326,19 +326,24 @@ export class Settings {
     _hideHoverPreview() {
         if (!this.sidePanel) return;
         if (!this.sidePanel.classList.contains('hover-preview')) return;
-        // Slide out while keeping compact styles, then clean up after transition
+        this._hoverSlidingOut = true;
         this.sidePanel.style.transform = 'translateX(-100%)';
-        const cleanup = () => {
+        this.sidePanel.addEventListener('transitionend', (e) => {
+            if (e.propertyName !== 'transform') return;
+            this._hoverSlidingOut = false;
             this.sidePanel.classList.remove('hover-preview');
             this.sidePanel.style.transform = '';
-            this.sidePanel.removeEventListener('transitionend', cleanup);
-        };
-        this.sidePanel.addEventListener('transitionend', cleanup, { once: true });
+        }, { once: true });
     }
 
     pinSidebar(persist = true) {
         if (!this.sidePanel) return;
         this._clearHoverTimers();
+        // Cancel any in-progress hover slide-out
+        if (this._hoverSlidingOut) {
+            this._hoverSlidingOut = false;
+            this.sidePanel.style.transform = '';
+        }
         this.sidePanel.classList.remove('hover-preview');
         this.sidePanel.classList.add('pinned');
         document.body.classList.add('sidebar-pinned');
