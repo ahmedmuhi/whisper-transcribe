@@ -84,4 +84,28 @@ describe('Settings sidebar behavior regressions', () => {
         expect(sidePanel.style.transform).toBe('');
         expect(sidePanel.classList.contains('hover-preview')).toBe(true);
     });
+
+    it('removes hover transition listener when pinning during slide-out', () => {
+        const sidePanel = createMockSidePanel(['hover-preview']);
+        settings.sidePanel = sidePanel;
+
+        settings._hideHoverPreview();
+
+        expect(settings._hoverSlidingOut).toBe(true);
+        expect(sidePanel.hasTransitionEndListener()).toBe(true);
+        expect(typeof settings._onHoverTransitionEnd).toBe('function');
+
+        settings.pinSidebar(false);
+
+        expect(settings._hoverSlidingOut).toBe(false);
+        expect(settings._onHoverTransitionEnd).toBe(null);
+        expect(sidePanel.hasTransitionEndListener()).toBe(false);
+        expect(sidePanel.style.transform).toBe('');
+        expect(sidePanel.classList.contains('pinned')).toBe(true);
+        expect(sidePanel.classList.contains('hover-preview')).toBe(false);
+
+        // No-op: listener was removed by pinSidebar cleanup.
+        sidePanel.dispatchTransitionEnd('transform');
+        expect(sidePanel.classList.contains('pinned')).toBe(true);
+    });
 });
