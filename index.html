@@ -4,12 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech to Text</title>
+    <script>
+        (function () {
+            try {
+                const themeMode = localStorage.getItem('themeMode') || 'auto';
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const isDark = themeMode === 'dark' || (themeMode === 'auto' && prefersDark);
+
+                document.documentElement.classList.toggle('dark-theme', isDark);
+                document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+            } catch {
+                // If storage access fails, keep auto behavior from CSS/JS defaults.
+            }
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="dark-theme">
+<body>
     <!-- Noise texture overlay -->
     <div class="noise-overlay" aria-hidden="true"></div>
 

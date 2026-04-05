@@ -377,12 +377,14 @@ export class UI {
             isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
         
+        document.documentElement.classList.toggle('dark-theme', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+        document.body.classList.toggle('dark-theme', isDark);
+
         if (isDark) {
-            document.body.classList.add('dark-theme');
             if (this.moonIcon) this.moonIcon.style.display = 'none';
             if (this.sunIcon) this.sunIcon.style.display = 'block';
         } else {
-            document.body.classList.remove('dark-theme');
             if (this.moonIcon) this.moonIcon.style.display = 'block';
             if (this.sunIcon) this.sunIcon.style.display = 'none';
         }
