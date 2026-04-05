@@ -48,6 +48,10 @@ export class VisualizationController {
         this.canvas.width = this.canvas.parentElement.offsetWidth;
         this.canvas.height = this.canvas.parentElement.offsetHeight;
         this.maxBars = Math.floor(this.canvas.width / BAR_SLOT);
+        // Trim history if canvas shrunk so waveform stays current
+        if (this.amplitudeHistory.length > this.maxBars) {
+            this.amplitudeHistory.splice(0, this.amplitudeHistory.length - this.maxBars);
+        }
     }
 
     /**
@@ -122,7 +126,11 @@ export class VisualizationController {
                 const topY = centerY - halfHeight;
                 const barHeight = halfHeight * 2;
                 this.canvasCtx.beginPath();
-                this.canvasCtx.roundRect(x, topY, BAR_WIDTH, barHeight, radius);
+                if (this.canvasCtx.roundRect) {
+                    this.canvasCtx.roundRect(x, topY, BAR_WIDTH, barHeight, radius);
+                } else {
+                    this.canvasCtx.rect(x, topY, BAR_WIDTH, barHeight);
+                }
                 this.canvasCtx.fill();
             }
         };
