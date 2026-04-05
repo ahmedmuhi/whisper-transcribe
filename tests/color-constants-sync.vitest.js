@@ -1,19 +1,10 @@
 /**
- * @fileoverview Ensures JS accent RGB constants stay in sync with CSS --accent values.
+ * @fileoverview Ensures JS color constants stay in sync with CSS custom properties.
  */
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
-import { ACCENT_RGB_LIGHT, ACCENT_RGB_DARK, COLORS } from '../js/constants.js';
-
-function hexToRgb(hex) {
-    const h = hex.replace('#', '');
-    return [
-        parseInt(h.substring(0, 2), 16),
-        parseInt(h.substring(2, 4), 16),
-        parseInt(h.substring(4, 6), 16)
-    ];
-}
+import { COLORS } from '../js/constants.js';
 
 function extractCssVar(css, selector, varName) {
     const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -25,18 +16,6 @@ function extractCssVar(css, selector, varName) {
 
 describe('Color constants sync with CSS', () => {
     const css = readFileSync('css/styles.css', 'utf-8');
-
-    it('ACCENT_RGB_LIGHT matches :root --accent', () => {
-        const cssAccent = extractCssVar(css, ':root', '--accent');
-        expect(cssAccent).not.toBeNull();
-        expect(ACCENT_RGB_LIGHT).toEqual(hexToRgb(cssAccent));
-    });
-
-    it('ACCENT_RGB_DARK matches .dark-theme --accent', () => {
-        const cssAccent = extractCssVar(css, '.dark-theme', '--accent');
-        expect(cssAccent).not.toBeNull();
-        expect(ACCENT_RGB_DARK).toEqual(hexToRgb(cssAccent));
-    });
 
     it('COLORS.CANVAS_DARK_BG matches .dark-theme --bg-primary', () => {
         const cssBg = extractCssVar(css, '.dark-theme', '--bg-primary');

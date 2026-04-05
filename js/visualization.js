@@ -5,9 +5,8 @@
  */
 import { COLORS } from './constants.js';
 
-/** Saturated visualizer colors — punchier than the UI accent */
-const VIZ_RGB_LIGHT = [60, 80, 255];    // vivid blue
-const VIZ_RGB_DARK  = [90, 120, 255];   // bright blue
+const VIZ_RGB_LIGHT = [60, 80, 255];
+const VIZ_RGB_DARK  = [90, 120, 255];
 
 /** Interval between amplitude samples in milliseconds */
 const SAMPLE_INTERVAL_MS = 100;
@@ -21,6 +20,7 @@ const FADE_MIN_ALPHA = 0.3;
 const AMPLITUDE_SCALE = 15;
 const IDLE_ALPHA = 0.28;
 const ACTIVE_ALPHA_RANGE = 0.72;
+const ALPHA_CURVE_EXPONENT = 0.35;
 
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
@@ -36,6 +36,7 @@ export class VisualizationController {
         this.animationId = null;
         this.sampleTimerId = null;
         this.resizeHandler = this.updateCanvasSize.bind(this);
+        this.hasRoundRect = typeof this.canvasCtx.roundRect === 'function';
         this.source.connect(this.analyser);
 
         // Rolling amplitude history — each value 0..1
@@ -88,6 +89,14 @@ export class VisualizationController {
     start() {
         const [baseR, baseG, baseB] = this.isDarkTheme ? VIZ_RGB_DARK : VIZ_RGB_LIGHT;
         const bgColor = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
+        // Pre-build quantized fillStyle strings to avoid per-bar allocation in draw loop
+        const ALPHA_STEPS = 32;
+        const fillStyles = new Array(ALPHA_STEPS + 1);
+        for (let s = 0; s <= ALPHA_STEPS; s++) {
+            const a = (s / ALPHA_STEPS).toFixed(3);
+            fillStyles[s] = `rgba(${baseR}, ${baseG}, ${baseB}, ${a})`;
+        }
+        const quantize = (alpha) => fillStyles[Math.round(Math.min(1, alpha) * ALPHA_STEPS)];
 
         // Pre-fill with silent dots so the screen looks ready immediately
         this.amplitudeHistory = new Array(this.maxBars).fill(0);
@@ -121,20 +130,19 @@ export class VisualizationController {
 
                 const halfHeight = Math.max(MIN_BAR_HEIGHT, amplitude * maxHalfHeight);
 
-                // Keep idle dots connected while making spoken bars pop quickly.
-                let alpha = IDLE_ALPHA + Math.pow(amplitude, 0.35) * ACTIVE_ALPHA_RANGE;
+                let alpha = IDLE_ALPHA + Math.pow(amplitude, ALPHA_CURVE_EXPONENT) * ACTIVE_ALPHA_RANGE;
                 // Left-edge fade
                 if (x < fadeZone) {
                     alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
                 }
 
-                this.canvasCtx.fillStyle = `rgba(${baseR}, ${baseG}, ${baseB}, ${alpha})`;
+                this.canvasCtx.fillStyle = quantize(alpha);
 
                 const radius = Math.min(BAR_WIDTH / 2, halfHeight);
                 const topY = centerY - halfHeight;
                 const barHeight = halfHeight * 2;
                 this.canvasCtx.beginPath();
-                if (this.canvasCtx.roundRect) {
+                if (this.hasRoundRect) {
                     this.canvasCtx.roundRect(x, topY, BAR_WIDTH, barHeight, radius);
                 } else {
                     this.canvasCtx.rect(x, topY, BAR_WIDTH, barHeight);
