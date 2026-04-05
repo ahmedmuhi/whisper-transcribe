@@ -113,22 +113,10 @@ export class UI {
                 }
                 
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
-                const themeSelect = document.getElementById(ID.THEME_MODE);
-                if (themeSelect) themeSelect.value = newMode;
                 this.applyTheme();
                 
                 // Emit theme changed event
                 eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: newMode });
-            });
-        }
-        
-        // Theme mode selector
-        const themeSelect = document.getElementById(ID.THEME_MODE);
-        if (themeSelect) {
-            themeSelect.addEventListener('change', (e) => {
-                localStorage.setItem(STORAGE_KEYS.THEME_MODE, e.target.value);
-                this.applyTheme();
-                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: e.target.value });
             });
         }
         
@@ -365,10 +353,6 @@ export class UI {
     }
     
     loadTheme() {
-        const themeMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
-        const themeSelect = document.getElementById(ID.THEME_MODE);
-        if (themeSelect) themeSelect.value = themeMode;
-        
         this.applyTheme();
         
         // Listen for system theme changes
