@@ -325,7 +325,15 @@ export class Settings {
 
     _hideHoverPreview() {
         if (!this.sidePanel) return;
-        this.sidePanel.classList.remove('hover-preview');
+        if (!this.sidePanel.classList.contains('hover-preview')) return;
+        // Slide out while keeping compact styles, then clean up after transition
+        this.sidePanel.style.transform = 'translateX(-100%)';
+        const cleanup = () => {
+            this.sidePanel.classList.remove('hover-preview');
+            this.sidePanel.style.transform = '';
+            this.sidePanel.removeEventListener('transitionend', cleanup);
+        };
+        this.sidePanel.addEventListener('transitionend', cleanup, { once: true });
     }
 
     pinSidebar(persist = true) {

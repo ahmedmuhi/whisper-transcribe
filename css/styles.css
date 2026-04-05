@@ -173,13 +173,10 @@ body {
     display: none;
 }
 
-/* When sidebar is pinned, shift main content via transform (GPU-composited) */
-body.sidebar-pinned header {
-    transform: translateX(var(--sidebar-width));
-}
-
+/* When sidebar is pinned, shift main content */
+body.sidebar-pinned header,
 body.sidebar-pinned .container {
-    transform: translateX(var(--sidebar-width));
+    margin-left: var(--sidebar-width);
 }
 
 /* Hide header wordmark and hamburger when pinned */
@@ -357,7 +354,6 @@ header {
     padding: 0.75rem 1rem;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
-    transition: transform var(--transition-slow);
     min-height: var(--header-height);
 }
 
@@ -452,7 +448,6 @@ header {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    transition: transform var(--transition-slow);
 }
 
 /* --- Card Animations --- */
@@ -981,7 +976,7 @@ header {
     /* On mobile, sidebar always overlays — never push content */
     body.sidebar-pinned header,
     body.sidebar-pinned .container {
-        transform: none;
+        margin-left: 0;
     }
 
     body.sidebar-pinned .panel-toggle-btn,
