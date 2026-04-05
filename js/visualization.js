@@ -15,8 +15,6 @@ const FADE_ZONE_FRACTION = 0.2;
 const FADE_MIN_ALPHA = 0.3;
 /** RMS amplification — raw mic RMS is typically 0.01-0.05 for speech */
 const AMPLITUDE_SCALE = 15;
-/** Scaled amplitude below this is treated as silence */
-const QUIET_THRESHOLD = 0.05;
 
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
