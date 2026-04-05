@@ -13,6 +13,8 @@ const BAR_SLOT = BAR_WIDTH + BAR_GAP;
 const MIN_BAR_HEIGHT = 3;
 const FADE_ZONE_FRACTION = 0.2;
 const FADE_MIN_ALPHA = 0.3;
+/** RMS amplification — raw mic RMS is typically 0.01-0.05 for speech */
+const AMPLITUDE_SCALE = 8;
 
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
@@ -66,7 +68,8 @@ export class VisualizationController {
             const normalized = (this.timeDomainData[i] - 128) / 128;
             sumSquares += normalized * normalized;
         }
-        return Math.sqrt(sumSquares / this.timeDomainData.length);
+        const rms = Math.sqrt(sumSquares / this.timeDomainData.length);
+        return Math.min(1, rms * AMPLITUDE_SCALE);
     }
 
     /**
@@ -79,6 +82,9 @@ export class VisualizationController {
     start() {
         const [baseR, baseG, baseB] = this.isDarkTheme ? ACCENT_RGB_DARK : ACCENT_RGB_LIGHT;
         const bgColor = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
+
+        // Pre-fill with silent dots so the screen looks ready immediately
+        this.amplitudeHistory = new Array(this.maxBars).fill(0);
 
         this.sampleTimerId = setInterval(() => {
             const amplitude = this._sampleAmplitude();
