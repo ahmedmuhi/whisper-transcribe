@@ -312,6 +312,11 @@ export class Settings {
 
     _showHoverPreview() {
         if (!this.sidePanel) return;
+        // Cancel any in-progress slide-out
+        if (this._hoverSlidingOut) {
+            this._hoverSlidingOut = false;
+            this.sidePanel.style.transform = '';
+        }
         this.sidePanel.classList.add('hover-preview');
         this._populateDeviceListIfStale();
     }
