@@ -8,8 +8,8 @@
  * @constant {Object} COLORS
  * @property {string} ERROR - Red color for error states (#EF4444)
  * @property {string} SUCCESS - Green color for success states (#10B981)
- * @property {string} DARK_BG - Dark theme background color (#0A0A0B)
- * @property {string} LIGHT_BG - Light theme background color (#FAFAF9)
+ * @property {string} DARK_BG - Dark theme background color (#0C0F1A)
+ * @property {string} LIGHT_BG - Light theme background color (#EEF0FB)
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
  * @property {string} CANVAS_LIGHT_BG - Canvas background for light theme
  */
