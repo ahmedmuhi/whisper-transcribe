@@ -16,6 +16,9 @@
 const DARK_BG  = '#0C0F1A';
 const LIGHT_BG = '#EEF0FB';
 
+export const ACCENT_RGB_LIGHT = [91, 110, 245];
+export const ACCENT_RGB_DARK  = [123, 143, 247];
+
 export const COLORS = {
   ERROR:          '#EF4444',
   SUCCESS:        '#10B981',

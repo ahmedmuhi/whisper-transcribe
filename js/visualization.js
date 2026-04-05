@@ -2,7 +2,7 @@
  * @fileoverview Real-time audio visualization controller using Web Audio API
  * Renders blue-toned frequency bars with rounded caps
  */
-import { COLORS } from './constants.js';
+import { COLORS, ACCENT_RGB_LIGHT, ACCENT_RGB_DARK } from './constants.js';
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
         this.stream = stream;
@@ -39,10 +39,7 @@ export class VisualizationController {
      * @returns {void}
      */
     start() {
-        // Base RGB for bars — periwinkle blue, theme-dependent
-        const baseR = this.isDarkTheme ? 123 : 91;
-        const baseG = this.isDarkTheme ? 143 : 110;
-        const baseB = this.isDarkTheme ? 247 : 245;
+        const [baseR, baseG, baseB] = this.isDarkTheme ? ACCENT_RGB_DARK : ACCENT_RGB_LIGHT;
 
         const draw = () => {
             this.animationId = requestAnimationFrame(draw);
@@ -63,7 +60,7 @@ export class VisualizationController {
                     const intensity = this.dataArray[i] / 255;
                     const r = Math.round(baseR + (intensity * 30));
                     const g = Math.round(baseG + (intensity * 20));
-                    const b = baseB;
+                    const b = Math.round(baseB - (intensity * 15));
                     const alpha = 0.5 + (intensity * 0.5);
 
                     this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
