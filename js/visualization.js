@@ -15,6 +15,8 @@ const FADE_ZONE_FRACTION = 0.2;
 const FADE_MIN_ALPHA = 0.3;
 /** RMS amplification — raw mic RMS is typically 0.01-0.05 for speech */
 const AMPLITUDE_SCALE = 15;
+const IDLE_ALPHA = 0.28;
+const ACTIVE_ALPHA_RANGE = 0.72;
 
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
@@ -115,16 +117,16 @@ export class VisualizationController {
 
                 const halfHeight = Math.max(MIN_BAR_HEIGHT, amplitude * maxHalfHeight);
 
-                // Continuous alpha: faint at silence, quickly ramps to vivid
-                let alpha = 0.2 + Math.sqrt(amplitude) * 0.8;
+                // Keep idle dots connected while making spoken bars pop quickly.
+                let alpha = IDLE_ALPHA + Math.pow(amplitude, 0.35) * ACTIVE_ALPHA_RANGE;
                 // Left-edge fade
                 if (x < fadeZone) {
                     alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
                 }
 
-                const r = Math.max(0, Math.min(255, Math.round(baseR + (amplitude * 30))));
-                const g = Math.max(0, Math.min(255, Math.round(baseG + (amplitude * 20))));
-                const b = Math.max(0, Math.min(255, Math.round(baseB - (amplitude * 15))));
+                const r = Math.max(0, Math.min(255, Math.round(baseR + (amplitude * 85))));
+                const g = Math.max(0, Math.min(255, Math.round(baseG + (amplitude * 35))));
+                const b = Math.max(0, Math.min(255, Math.round(baseB - (amplitude * 55))));
 
                 this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
 
