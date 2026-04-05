@@ -131,9 +131,25 @@
     <div id="panel-backdrop" class="panel-backdrop" aria-hidden="true"></div>
 
     <div class="container" role="main">
-        <!-- Controls Area - Hero -->
-        <div class="controls-area card-animate" style="--card-index: 0;">
-            <!-- Visualizer -->
+        <!-- Transcription Area -->
+        <div class="transcript-area card-animate" style="--card-index: 0;">
+            <div class="transcript-header">
+                <h2 class="transcript-title">Transcription</h2>
+                <div>
+                    <button id="grab-text-button" class="clear-btn" aria-label="Cut text to clipboard">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Cut
+                    </button>
+                </div>
+            </div>
+            <textarea id="transcript" class="transcript-content" placeholder="Transcription will appear here..."></textarea>
+        </div>
+
+        <!-- Controls Area -->
+        <div class="controls-area card-animate" style="--card-index: 1;">
             <div id="visualizer-container" class="visualizer-container">
                 <canvas id="visualizer"></canvas>
             </div>
@@ -173,23 +189,6 @@
                 <div class="spinner"></div>
                 <div class="spinner-text">Processing your audio...</div>
             </div>
-        </div>
-
-        <!-- Transcription Area -->
-        <div class="transcript-area card-animate" style="--card-index: 1;">
-            <div class="transcript-header">
-                <h2 class="transcript-title">Transcription</h2>
-                <div>
-                    <button id="grab-text-button" class="clear-btn" aria-label="Cut text to clipboard">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        Cut
-                    </button>
-                </div>
-            </div>
-            <textarea id="transcript" class="transcript-content" placeholder="Transcription will appear here..."></textarea>
         </div>
     </div>
 
