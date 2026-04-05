@@ -15,6 +15,8 @@ const FADE_ZONE_FRACTION = 0.2;
 const FADE_MIN_ALPHA = 0.3;
 /** RMS amplification — raw mic RMS is typically 0.01-0.05 for speech */
 const AMPLITUDE_SCALE = 15;
+/** Scaled amplitude below this is treated as silence */
+const QUIET_THRESHOLD = 0.05;
 
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
@@ -116,7 +118,7 @@ export class VisualizationController {
                 const halfHeight = Math.max(MIN_BAR_HEIGHT, amplitude * maxHalfHeight);
 
                 // Loud bars are bright, quiet dots are subtle
-                let alpha = amplitude < 0.05 ? 0.35 : 0.4 + (amplitude * 0.6);
+                let alpha = amplitude < QUIET_THRESHOLD ? 0.35 : 0.4 + (amplitude * 0.6);
                 // Left-edge fade
                 if (x < fadeZone) {
                     alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
