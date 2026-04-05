@@ -71,12 +71,31 @@ export class Settings {
      * @method init
      */
     init() {
+        this.removeLegacyThemeSetting();
         this.loadSavedModel();
         this.loadNoiseToggle();
         this.setupEventListeners();
         this.setupPanelListeners();
         this.updateSettingsVisibility();
         this.checkInitialSettings();
+    }
+
+    /**
+     * Remove the legacy theme selector from the settings modal.
+     * Theme is controlled by the dedicated sidebar button.
+     * @private
+     */
+    removeLegacyThemeSetting() {
+        const themeModeSelect = document.getElementById(ID.THEME_MODE);
+        if (!themeModeSelect) return;
+        if (typeof themeModeSelect.closest !== 'function') return;
+
+        const themeGroup = themeModeSelect.closest('.form-group');
+        if (themeGroup) {
+            themeGroup.remove();
+        } else {
+            themeModeSelect.remove();
+        }
     }
 
     /**
