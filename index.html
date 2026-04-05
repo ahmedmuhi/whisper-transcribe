@@ -7,6 +7,7 @@
     <script>
         (function () {
             try {
+                // Key must match STORAGE_KEYS.THEME_MODE in js/constants.js
                 const themeMode = localStorage.getItem('themeMode') || 'auto';
                 const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 const isDark = themeMode === 'dark' || (themeMode === 'auto' && prefersDark);

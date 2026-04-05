@@ -379,7 +379,6 @@ export class UI {
         
         document.documentElement.classList.toggle('dark-theme', isDark);
         document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-        document.body.classList.toggle('dark-theme', isDark);
 
         if (isDark) {
             if (this.moonIcon) this.moonIcon.style.display = 'none';
