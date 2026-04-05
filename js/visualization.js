@@ -6,7 +6,7 @@
 import { COLORS, ACCENT_RGB_LIGHT, ACCENT_RGB_DARK } from './constants.js';
 
 /** Interval between amplitude samples in milliseconds */
-const SAMPLE_INTERVAL_MS = 50;
+const SAMPLE_INTERVAL_MS = 100;
 const BAR_WIDTH = 3;
 const BAR_GAP = 2;
 const BAR_SLOT = BAR_WIDTH + BAR_GAP;
@@ -14,7 +14,7 @@ const MIN_BAR_HEIGHT = 3;
 const FADE_ZONE_FRACTION = 0.2;
 const FADE_MIN_ALPHA = 0.3;
 /** RMS amplification — raw mic RMS is typically 0.01-0.05 for speech */
-const AMPLITUDE_SCALE = 8;
+const AMPLITUDE_SCALE = 15;
 
 export class VisualizationController {
     constructor(stream, canvas, isDarkTheme) {
@@ -115,11 +115,11 @@ export class VisualizationController {
 
                 const halfHeight = Math.max(MIN_BAR_HEIGHT, amplitude * maxHalfHeight);
 
-                let alpha;
+                // Loud bars are bright, quiet dots are subtle
+                let alpha = amplitude < 0.05 ? 0.35 : 0.4 + (amplitude * 0.6);
+                // Left-edge fade
                 if (x < fadeZone) {
-                    alpha = FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
-                } else {
-                    alpha = amplitude < 0.05 ? 0.6 : 0.5 + (amplitude * 0.5);
+                    alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
                 }
 
                 const r = Math.max(0, Math.min(255, Math.round(baseR + (amplitude * 30))));
