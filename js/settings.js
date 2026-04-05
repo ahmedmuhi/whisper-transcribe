@@ -310,13 +310,19 @@ export class Settings {
         return this.sidePanel?.classList.contains('pinned');
     }
 
+    _cancelHoverSlideOut() {
+        if (!this._hoverSlidingOut) return;
+        this._hoverSlidingOut = false;
+        this.sidePanel.style.transform = '';
+        if (this._onHoverTransitionEnd) {
+            this.sidePanel.removeEventListener('transitionend', this._onHoverTransitionEnd);
+            this._onHoverTransitionEnd = null;
+        }
+    }
+
     _showHoverPreview() {
         if (!this.sidePanel) return;
-        // Cancel any in-progress slide-out
-        if (this._hoverSlidingOut) {
-            this._hoverSlidingOut = false;
-            this.sidePanel.style.transform = '';
-        }
+        this._cancelHoverSlideOut();
         this.sidePanel.classList.add('hover-preview');
         this._populateDeviceListIfStale();
     }
@@ -334,24 +340,21 @@ export class Settings {
         if (this._hoverSlidingOut) return;
         this._hoverSlidingOut = true;
         this.sidePanel.style.transform = 'translateX(-100%)';
-        const onTransitionEnd = (e) => {
+        this._onHoverTransitionEnd = (e) => {
             if (e.propertyName !== 'transform') return;
-            this.sidePanel.removeEventListener('transitionend', onTransitionEnd);
+            this.sidePanel.removeEventListener('transitionend', this._onHoverTransitionEnd);
+            this._onHoverTransitionEnd = null;
             this._hoverSlidingOut = false;
             this.sidePanel.classList.remove('hover-preview');
             this.sidePanel.style.transform = '';
         };
-        this.sidePanel.addEventListener('transitionend', onTransitionEnd);
+        this.sidePanel.addEventListener('transitionend', this._onHoverTransitionEnd);
     }
 
     pinSidebar(persist = true) {
         if (!this.sidePanel) return;
         this._clearHoverTimers();
-        // Cancel any in-progress hover slide-out
-        if (this._hoverSlidingOut) {
-            this._hoverSlidingOut = false;
-            this.sidePanel.style.transform = '';
-        }
+        this._cancelHoverSlideOut();
         this.sidePanel.classList.remove('hover-preview');
         this.sidePanel.classList.add('pinned');
         document.body.classList.add('sidebar-pinned');
