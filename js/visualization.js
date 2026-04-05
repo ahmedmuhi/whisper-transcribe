@@ -128,11 +128,7 @@ export class VisualizationController {
                     alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
                 }
 
-                const r = Math.max(0, Math.min(255, Math.round(baseR + (amplitude * 85))));
-                const g = Math.max(0, Math.min(255, Math.round(baseG + (amplitude * 35))));
-                const b = Math.max(0, Math.min(255, Math.round(baseB - (amplitude * 55))));
-
-                this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                this.canvasCtx.fillStyle = `rgba(${baseR}, ${baseG}, ${baseB}, ${alpha})`;
 
                 const radius = Math.min(BAR_WIDTH / 2, halfHeight);
                 const topY = centerY - halfHeight;
