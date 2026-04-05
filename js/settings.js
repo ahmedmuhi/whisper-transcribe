@@ -179,7 +179,6 @@ export class Settings {
         
         // Settings button listener (now inside the panel footer)
         this.settingsButton.addEventListener('click', () => {
-            this.unpinSidebar();
             this.openSettingsModal();
         });
         
