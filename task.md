@@ -3,71 +3,49 @@
 ## Inspiration
 Budget app design with soft periwinkle/cornflower blue primary, lavender-tinted backgrounds, white cards, and warm amber secondary accents. Calming, airy, high-contrast layered feel.
 
-## Design Decisions
+## Phase 1: CSS Design Tokens
+Update `:root` (light mode) and `.dark-theme` (dark mode) CSS custom properties only.
+No layout, component, or JS changes.
 
-### Light Mode — Lavender Blue
-- **Background**: Lavender-tinted off-white `#EEF0FB` (not harsh white)
-- **Surface/Cards**: Clean white `#FFFFFF`
-- **Inset/Input bg**: `#F5F6FC`
-- **Primary accent**: Periwinkle/cornflower blue `#5B6EF5`
-- **Accent hover**: Deeper blue `#4A5BD4`
-- **Accent glow**: `rgba(91, 110, 245, 0.15)`
-- **Accent subtle**: `rgba(91, 110, 245, 0.06)`
-- **Recording**: `#EF4444` (stays red)
-- **Text primary**: Dark slate `#1E2A3A`
-- **Text secondary**: `#6B7280`
-- **Text muted**: `#9CA3AF`
-- **Borders**: `#E0E3F0` (cool-toned, not warm gray)
-- **Border subtle**: `#D1D5E8`
-- **Success**: `#10B981`
-- **Error**: `#EF4444`
-- **Shadows**: Cool-toned `rgba(91, 110, 245, 0.06)`
+**Light mode tokens**:
+- bg-primary: `#EEF0FB`, bg-surface: `#FFFFFF`, bg-inset: `#F5F6FC`
+- accent: `#5B6EF5`, accent hover: `#4A5BD4`
+- text-primary: `#1E2A3A`, text-secondary: `#6B7280`, text-muted: `#9CA3AF`
+- borders: `#E0E3F0` / `#D1D5E8`
+- shadows: cool-toned blue
 
-### Dark Mode — Deep Navy
-- **Background**: Deep navy `#0C0F1A`
-- **Surface/Cards**: `#151929`
-- **Inset/Input bg**: `#1C2137`
-- **Primary accent**: Brighter periwinkle `#7B8FF7`
-- **Accent hover**: `#95A5F9`
-- **Accent glow**: `rgba(123, 143, 247, 0.2)`
-- **Accent subtle**: `rgba(123, 143, 247, 0.06)`
-- **Recording**: `#EF4444`
-- **Text primary**: `#E4E7F1`
-- **Text secondary**: `#9CA3C4`
-- **Text muted**: `#6B7294`
-- **Borders**: `#252A40`
-- **Border subtle**: `#353B58`
-- **Success**: `#34D399`
-- **Error**: `#F87171`
-- **Shadows**: `rgba(0, 0, 0, 0.3)`
+**Dark mode tokens**:
+- bg-primary: `#0C0F1A`, bg-surface: `#151929`, bg-inset: `#1C2137`
+- accent: `#7B8FF7`, accent hover: `#95A5F9`
+- text-primary: `#E4E7F1`, text-secondary: `#9CA3C4`, text-muted: `#6B7294`
+- borders: `#252A40` / `#353B58`
 
-### What Changes
-- Mic button: periwinkle blue instead of amber
-- Mic icon stroke: white (stays)
-- Sidebar wordmark dot: accent color
-- Visualizer bars: blue gradient instead of amber
-- Toggle switch: accent color when on
-- All hover states: accent color
-- Focus rings: accent glow
-- Save button: accent color
-- Spinner: accent color
-- Selection highlight: accent glow
+**Files**: `css/styles.css` only
 
-### What Stays the Same
+---
+
+## Phase 2: Visualizer Colors
+Update visualization.js bar colors from amber gradient to blue gradient.
+Update constants.js canvas background colors to match new theme.
+
+**Files**: `js/visualization.js`, `js/constants.js`
+
+---
+
+## Phase 3: Inline Theme Script
+Update the `<head>` inline script background color to match new dark mode bg.
+Update the comment banner at top of styles.css.
+
+**Files**: `index.html`, `css/styles.css` (comment only)
+
+---
+
+## What Stays the Same (all phases)
 - Typography (Instrument Serif + Geist Mono)
 - Layout and spacing
 - Sidebar behavior (pin/hover/close)
 - Noise texture overlay
-- All JS logic
+- All JS logic (settings.js, ui.js, audio-handler.js, etc.)
 - Recording state stays red
-
-## Files to Modify
-- `css/styles.css` — update CSS custom properties in `:root` and `.dark-theme`
-- `js/visualization.js` — update bar colors from amber to blue gradient
-- `js/constants.js` — update COLORS.ERROR/SUCCESS and canvas backgrounds
-- `index.html` — update inline theme script background detection
-
-## Files NOT to Modify
-- All JS logic files (settings.js, ui.js, audio-handler.js, etc.)
 - HTML structure
 - Test files
