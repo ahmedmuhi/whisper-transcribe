@@ -1,15 +1,18 @@
 # Speech to Text Transcription App
 
-A lightweight web application that converts spoken audio to text using Azure's Speech Services. Record directly from your browser and get transcriptions in real-time.
+A lightweight web application that converts spoken audio to text using Azure's Speech Services. Record directly from your browser and get transcriptions in real-time. No build step required — runs as raw ES modules.
 
 ## Features
 
-- **Browser-based Recording**: Capture audio directly in your browser - no downloads needed
-- **Live Audio Visualization**: See your voice patterns as you speak
-- **Azure Speech-to-Text Integration**: Leverages Azure's powerful speech recognition
-- **Dark/Light Theme**: Choose your preferred viewing mode
-- **Recording Controls**: Pause, resume, or cancel recordings as needed
-- **Transcript Management**: Copy, cut, or clear your transcriptions
+- **Browser-based Recording**: Capture audio directly in your browser — no downloads needed
+- **Live Audio Visualization**: Real-time waveform display as you speak
+- **Multiple Models**: Azure Whisper (stable) and MAI-Transcribe (preview)
+- **Dark/Light Theme**: Lavender Blue light mode and Deep Navy dark mode
+- **Recording Controls**: Pause, resume, or cancel recordings
+- **Noise Cancellation**: Toggle browser audio processing for noisy environments
+- **Input Device Selection**: Choose which microphone to use
+- **Sidebar Settings Panel**: Notion-style collapsible sidebar with pin/hover/close states
+- **Transcript Management**: Cut transcription text to clipboard
 
 ## How It Works
 
@@ -26,13 +29,12 @@ A lightweight web application that converts spoken audio to text using Azure's S
 - Your Azure API key and endpoint information
 
 ### Configuration
-1. Click the settings icon in the header
-2. Enter your Azure credentials:
-   - Azure OpenAI Endpoint
-   - Deployment Name
-   - API Version
-   - API Key
-3. Click "Save Settings"
+1. Click the gear icon to open settings
+2. Select your transcription model (Azure Whisper or MAI-Transcribe)
+3. Enter your credentials:
+   - **Target URI**: Your full Azure endpoint URL
+   - **API Key**: Your Azure API key
+4. Click "Save Settings"
 
 ## Development
 
@@ -57,7 +59,7 @@ This project enforces code coverage thresholds to ensure quality:
 - **Functions**: 70% minimum
 - **Lines**: 85% minimum
 
-Coverage baseline is tracked in `metrics/coverage-baseline.json`. The current coverage meets these thresholds.
+Coverage is enforced via `vitest.config.js` thresholds.
 
 ### Git Hooks
 
