@@ -37,6 +37,9 @@
     --modal-backdrop: rgba(30, 42, 58, 0.5);
     --noise-opacity: 0.015;
     --focus-ring: 0 0 0 2px var(--accent-glow);
+    --overlay-backdrop: rgba(30, 42, 58, 0.3);
+    --control-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --icon-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.08));
     --header-height: 53px;
     --sidebar-width: 280px;
     --transition-slow: 300ms ease-out;
@@ -67,6 +70,9 @@
     --visualizer-bg: var(--bg-inset);
     --modal-backdrop: rgba(0, 0, 0, 0.7);
     --noise-opacity: 0.025;
+    --overlay-backdrop: rgba(0, 0, 0, 0.3);
+    --control-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --icon-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 /* --- Reset & Base --- */
@@ -123,7 +129,7 @@ body {
     position: fixed;
     inset: 0;
     z-index: 199;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-backdrop);
     opacity: 0;
     pointer-events: none;
 }
@@ -310,7 +316,7 @@ body.sidebar-pinned .header-wordmark {
     background: var(--bg-surface);
     border-radius: 50%;
     transition: transform var(--transition);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--control-shadow);
 }
 
 .toggle-switch input:checked + .toggle-slider {
@@ -637,7 +643,7 @@ header {
     height: 32px;
     stroke: var(--bg-primary);
     fill: none;
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+    filter: var(--icon-shadow);
 }
 
 /* Recording state */
