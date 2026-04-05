@@ -173,6 +173,11 @@ body.sidebar-pinned .container {
     margin-left: var(--sidebar-width);
 }
 
+header,
+.container {
+    transition: margin-left var(--transition-slow);
+}
+
 /* Hide header wordmark and hamburger when pinned */
 body.sidebar-pinned .panel-toggle-btn {
     display: none;
