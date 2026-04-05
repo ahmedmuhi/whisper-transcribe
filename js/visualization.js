@@ -3,7 +3,11 @@
  * Renders an amplitude waveform timeline that scrolls right-to-left,
  * inspired by the iPhone Voice Memos visualizer.
  */
-import { COLORS, ACCENT_RGB_LIGHT, ACCENT_RGB_DARK } from './constants.js';
+import { COLORS } from './constants.js';
+
+/** Saturated visualizer colors — punchier than the UI accent */
+const VIZ_RGB_LIGHT = [60, 80, 255];    // vivid blue
+const VIZ_RGB_DARK  = [90, 120, 255];   // bright blue
 
 /** Interval between amplitude samples in milliseconds */
 const SAMPLE_INTERVAL_MS = 100;
@@ -82,7 +86,7 @@ export class VisualizationController {
      * @returns {void}
      */
     start() {
-        const [baseR, baseG, baseB] = this.isDarkTheme ? ACCENT_RGB_DARK : ACCENT_RGB_LIGHT;
+        const [baseR, baseG, baseB] = this.isDarkTheme ? VIZ_RGB_DARK : VIZ_RGB_LIGHT;
         const bgColor = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
 
         // Pre-fill with silent dots so the screen looks ready immediately
