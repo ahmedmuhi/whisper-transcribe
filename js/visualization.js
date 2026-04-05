@@ -1,6 +1,6 @@
 /**
  * @fileoverview Real-time audio visualization controller using Web Audio API
- * Renders amber-toned frequency bars with rounded caps
+ * Renders blue-toned frequency bars with rounded caps
  */
 import { COLORS } from './constants.js';
 export class VisualizationController {
@@ -34,11 +34,16 @@ export class VisualizationController {
 
     /**
      * Begin audio visualization rendering loop.
-     * Draws amber-gradient frequency bars with rounded caps.
+     * Draws blue-gradient frequency bars with rounded caps.
      * @method start
      * @returns {void}
      */
     start() {
+        // Base RGB for bars — periwinkle blue, theme-dependent
+        const baseR = this.isDarkTheme ? 123 : 91;
+        const baseG = this.isDarkTheme ? 143 : 110;
+        const baseB = this.isDarkTheme ? 247 : 245;
+
         const draw = () => {
             this.animationId = requestAnimationFrame(draw);
             this.analyser.getByteFrequencyData(this.dataArray);
@@ -56,14 +61,13 @@ export class VisualizationController {
 
                 if (barHeight > 1) {
                     const intensity = this.dataArray[i] / 255;
-                    const r = Math.round(245 - (intensity * 30));
-                    const g = Math.round(158 - (intensity * 80));
-                    const b = Math.round(11 + (intensity * 10));
-                    const alpha = 0.6 + (intensity * 0.4);
+                    const r = Math.round(baseR + (intensity * 30));
+                    const g = Math.round(baseG + (intensity * 20));
+                    const b = baseB;
+                    const alpha = 0.5 + (intensity * 0.5);
 
                     this.canvasCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
 
-                    // Draw rounded bar
                     const y = this.canvas.height - barHeight;
                     this.canvasCtx.beginPath();
                     this.canvasCtx.moveTo(x + barRadius, y);
