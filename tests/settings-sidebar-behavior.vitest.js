@@ -35,6 +35,12 @@ function createMockSidePanel(initialClasses = []) {
                 handler({ propertyName });
             }
         },
+        dispatchClick: (target) => {
+            const handler = listeners.get('click');
+            if (handler) {
+                handler({ target });
+            }
+        },
         hasTransitionEndListener: () => listeners.has('transitionend')
     };
 }
@@ -107,5 +113,22 @@ describe('Settings sidebar behavior regressions', () => {
         // No-op: listener was removed by pinSidebar cleanup.
         sidePanel.dispatchTransitionEnd('transform');
         expect(sidePanel.classList.contains('pinned')).toBe(true);
+    });
+
+    it('does not pin sidebar when clicking interactive controls in hover preview', () => {
+        const sidePanel = createMockSidePanel(['hover-preview']);
+        settings.sidePanel = sidePanel;
+        settings.panelToggle = null;
+        settings.panelClose = null;
+        settings.panelBackdrop = null;
+
+        const pinSidebarSpy = vi.spyOn(settings, 'pinSidebar');
+        settings.setupPanelListeners();
+
+        sidePanel.dispatchClick({
+            closest: (selector) => selector === 'button,select,input,option,label,a,textarea' ? {} : null
+        });
+
+        expect(pinSidebarSpy).not.toHaveBeenCalled();
     });
 });

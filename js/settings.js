@@ -250,9 +250,12 @@ export class Settings {
             // Click sidebar while in hover-preview → pin it
             this.sidePanel.addEventListener('click', (e) => {
                 if (this.sidePanel.classList.contains('hover-preview')) {
-                    // Don't pin if clicking interactive elements inside the panel
-                    const tag = e.target.tagName;
-                    if (tag === 'SELECT' || tag === 'INPUT' || tag === 'OPTION') return;
+                    // Don't pin when interacting with controls inside the panel.
+                    // This keeps hover-preview behavior consistent for actions like opening settings.
+                    const interactiveTarget = typeof e.target.closest === 'function'
+                        ? e.target.closest('button,select,input,option,label,a,textarea')
+                        : null;
+                    if (interactiveTarget) return;
                     this.pinSidebar();
                 }
             });
