@@ -85,7 +85,7 @@ body {
     line-height: 1.6;
     color: var(--text-primary);
     background-color: var(--bg-primary);
-    transition: background-color var(--transition), color var(--transition);
+    transition: background-color var(--transition), color var(--transition), padding-left var(--transition-slow);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -167,15 +167,9 @@ body {
     display: none;
 }
 
-/* When sidebar is pinned, shift main content */
-body.sidebar-pinned header,
-body.sidebar-pinned .container {
-    margin-left: var(--sidebar-width);
-}
-
-header,
-.container {
-    transition: margin-left var(--transition-slow);
+/* When sidebar is pinned, shift app content without auto-margin snapping */
+body.sidebar-pinned {
+    padding-left: var(--sidebar-width);
 }
 
 /* Hide header wordmark and hamburger when pinned (visibility preserves layout) */
@@ -971,9 +965,8 @@ header {
 /* --- Responsive --- */
 @media (max-width: 600px) {
     /* On mobile, sidebar always overlays — never push content */
-    body.sidebar-pinned header,
-    body.sidebar-pinned .container {
-        margin-left: 0;
+    body.sidebar-pinned {
+        padding-left: 0;
     }
 
     body.sidebar-pinned .panel-toggle-btn,
