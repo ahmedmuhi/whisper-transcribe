@@ -115,8 +115,8 @@ export class VisualizationController {
 
                 const halfHeight = Math.max(MIN_BAR_HEIGHT, amplitude * maxHalfHeight);
 
-                // Continuous alpha: faint at silence, vivid at full amplitude
-                let alpha = 0.2 + (amplitude * 0.8);
+                // Continuous alpha: faint at silence, quickly ramps to vivid
+                let alpha = 0.2 + Math.sqrt(amplitude) * 0.8;
                 // Left-edge fade
                 if (x < fadeZone) {
                     alpha *= FADE_MIN_ALPHA + (x / fadeZone) * (1 - FADE_MIN_ALPHA);
