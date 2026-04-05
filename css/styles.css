@@ -178,13 +178,11 @@ header,
     transition: margin-left var(--transition-slow);
 }
 
-/* Hide header wordmark and hamburger when pinned */
-body.sidebar-pinned .panel-toggle-btn {
-    display: none;
-}
-
+/* Hide header wordmark and hamburger when pinned (visibility preserves layout) */
+body.sidebar-pinned .panel-toggle-btn,
 body.sidebar-pinned .header-wordmark {
-    display: none;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 /* Panel header */
@@ -980,7 +978,8 @@ header {
 
     body.sidebar-pinned .panel-toggle-btn,
     body.sidebar-pinned .header-wordmark {
-        display: flex;
+        visibility: visible;
+        pointer-events: auto;
     }
 
     .side-panel.pinned {
