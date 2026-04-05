@@ -331,14 +331,17 @@ export class Settings {
     _hideHoverPreview() {
         if (!this.sidePanel) return;
         if (!this.sidePanel.classList.contains('hover-preview')) return;
+        if (this._hoverSlidingOut) return;
         this._hoverSlidingOut = true;
         this.sidePanel.style.transform = 'translateX(-100%)';
-        this.sidePanel.addEventListener('transitionend', (e) => {
+        const onTransitionEnd = (e) => {
             if (e.propertyName !== 'transform') return;
+            this.sidePanel.removeEventListener('transitionend', onTransitionEnd);
             this._hoverSlidingOut = false;
             this.sidePanel.classList.remove('hover-preview');
             this.sidePanel.style.transform = '';
-        }, { once: true });
+        };
+        this.sidePanel.addEventListener('transitionend', onTransitionEnd);
     }
 
     pinSidebar(persist = true) {
