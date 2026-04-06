@@ -1,6 +1,6 @@
 // eslint.config.js  —  ESLint 9 “flat” configuration
 import js from "@eslint/js";                    // recommended rules
-import importPlugin from "eslint-plugin-import";
+
 import unusedImports from "eslint-plugin-unused-imports";
 
 export default [
@@ -17,7 +17,6 @@ export default [
   {
     files: ["**/*.js"],
     plugins: {
-      import: importPlugin,
       "unused-imports": unusedImports
     },
     languageOptions: {
@@ -49,7 +48,7 @@ export default [
     },
     rules: {
       "unused-imports/no-unused-imports": "error",
-      "import/no-unused-modules": ["error", { unusedExports: true }]
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }]
     }
   }
 ];
