@@ -154,11 +154,11 @@ describe('AudioHandler Integration', () => {
   
   describe('MediaRecorder Integration Edge Cases', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('handles different states of MediaRecorder safely', async () => {
@@ -285,11 +285,11 @@ describe('AudioHandler Integration', () => {
   
   describe('Timer Accuracy During Long Recordings', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('maintains accurate timer during recording sessions', async () => {
@@ -308,7 +308,7 @@ describe('AudioHandler Integration', () => {
       
       // Advance time 30 seconds and trigger timer update
       Date.now = vi.fn().mockReturnValue(1030000);
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer display should show 30 seconds
       expect(audioHandler.currentTimerDisplay).toBe('00:30');
@@ -319,14 +319,14 @@ describe('AudioHandler Integration', () => {
       
       // Advance time to 5 minutes and 15 seconds
       Date.now = vi.fn().mockReturnValue(1000000 + 5*60*1000 + 15*1000);
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should show 5:15
       expect(audioHandler.currentTimerDisplay).toBe('05:15');
       
       // Verify long recording is handled correctly (1 hour+)
       Date.now = vi.fn().mockReturnValue(1000000 + 65*60*1000);
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should show 65:00
       expect(audioHandler.currentTimerDisplay).toBe('65:00');
