@@ -78,6 +78,21 @@ These source modules have no or inadequate direct tests:
 | `js/recording-state-machine.js` | Only `canInvokeStop()` tested | Add: `transitionTo()` valid/invalid, `getState()`, all query methods, state handlers |
 | `js/status-helper.js` | 1 edge case test | Add: color mapping, duration=0, missing element handling |
 
+### Implementation Status (2026-04-06)
+
+Missing direct coverage implementation has been started and completed for the modules listed above.
+
+Added/expanded test suites:
+- `tests/logger.vitest.js`
+- `tests/event-bus.vitest.js`
+- `tests/visualization.vitest.js`
+- `tests/recording-state-machine.vitest.js` (expanded from single `canInvokeStop()` focus)
+- `tests/status-helper.vitest.js`
+
+Validation run:
+- `npm run test -- tests/logger.vitest.js tests/event-bus.vitest.js tests/visualization.vitest.js tests/recording-state-machine.vitest.js tests/status-helper.vitest.js`
+- Result: 5 files passed, 40 tests passed.
+
 ## Misplaced Test
 
 - `jsdoc-generation.vitest.js` — runs `npx jsdoc` as a subprocess. This is a build/tooling check, not a unit test. Should be a separate CI step or moved to a `tests/tooling/` directory.
