@@ -221,11 +221,11 @@ document.body.innerHTML = `
 `;
 
 // Import modules after setting up mocks
-let AudioHandler, RecordingStateMachine, PermissionManager, AzureAPIClient, eventBus, APP_EVENTS, RECORDING_STATES;
+let AudioHandler, RecordingStateMachine, PermissionManager, AzureAPIClient, eventBus, APP_EVENTS, RECORDING_STATES, MESSAGES;
 
 beforeAll(async () => {
   ({ eventBus, APP_EVENTS } = await import('../js/event-bus.js'));
-  ({ RECORDING_STATES } = await import('../js/constants.js'));
+  ({ RECORDING_STATES, MESSAGES } = await import('../js/constants.js'));
   ({ RecordingStateMachine } = await import('../js/recording-state-machine.js'));
   ({ PermissionManager } = await import('../js/permission-manager.js'));
   ({ AudioHandler } = await import('../js/audio-handler.js'));
@@ -707,6 +707,364 @@ describe('Recording Integration', () => {
       
       // Restore original emit
       eventBus.emit = originalEmit;
+    });
+  });
+});
+
+// ─── Error Recovery Scenarios (merged from error-recovery.vitest.js) ─────────
+
+describe('Error Recovery Scenarios', () => {
+  let audioHandler;
+  let mockSettings;
+  let mockApiClient;
+  let permissionManager;
+  let eventBusEmitSpy;
+
+  beforeEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    applyDomSpies();
+
+    mockSettings = {
+      getCurrentModel: vi.fn().mockReturnValue('whisper'),
+      openSettingsModal: vi.fn(),
+      getModelConfig: vi.fn().mockReturnValue({
+        apiKey: 'test-api-key',
+        uri: 'https://test-uri.com'
+      }),
+      saveSettings: vi.fn()
+    };
+
+    mockApiClient = {
+      validateConfig: vi.fn(),
+      transcribe: vi.fn().mockResolvedValue('Test transcription result')
+    };
+
+    permissionManager = new PermissionManager();
+
+    audioHandler = new AudioHandler(mockApiClient, mockSettings);
+    audioHandler.permissionManager = permissionManager;
+
+    eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    applyDomSpies();
+    resetEventBus();
+  });
+
+  describe('Permission Denial Recovery', () => {
+    it('should handle initial microphone permission denial', async () => {
+      const permissionError = new Error('Permission denied');
+      permissionError.name = 'NotAllowedError';
+      navigator.mediaDevices.getUserMedia.mockRejectedValueOnce(permissionError);
+
+      await audioHandler.startRecordingFlow();
+
+      // Should emit error occurred event with permission denial details
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.ERROR_OCCURRED,
+        expect.objectContaining({
+          code: 'NotAllowedError',
+          message: 'Permission denied'
+        })
+      );
+
+      // Should show permission denied status
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({
+          message: expect.stringContaining('permission denied'),
+          type: 'error'
+        })
+      );
+
+      // Should return to idle after permission denial (ready for retry)
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+
+      // Now mock permission granted and try again
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      await audioHandler.startRecordingFlow();
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+    });
+
+    it('should provide helpful instructions for permission recovery', async () => {
+      const permissionError = new Error('Permission denied');
+      permissionError.name = 'NotAllowedError';
+      navigator.mediaDevices.getUserMedia.mockRejectedValueOnce(permissionError);
+
+      const originalUserAgent = navigator.userAgent;
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        configurable: true
+      });
+
+      await audioHandler.startRecordingFlow();
+
+      // Should emit permission denied event with browser-specific info
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.PERMISSION_DENIED,
+        expect.objectContaining({
+          error: 'NotAllowedError',
+          message: 'Permission denied'
+        })
+      );
+
+      Object.defineProperty(navigator, 'userAgent', {
+        value: originalUserAgent,
+        configurable: true
+      });
+    });
+  });
+
+  describe('API Failure Recovery', () => {
+    it('should recover from network failures during transcription', async () => {
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      const mockMediaRecorder = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        addEventListener: vi.fn((event, callback) => {
+          if (event === 'dataavailable') {
+            setTimeout(() => callback({ data: new Blob(['test audio data']) }), 10);
+          }
+          if (event === 'stop') {
+            setTimeout(() => callback(), 10);
+          }
+        }),
+        state: 'inactive'
+      };
+      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+
+      mockApiClient.transcribe.mockRejectedValueOnce(new Error('Network failure'));
+
+      await audioHandler.startRecordingFlow();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+
+      mockMediaRecorder.state = 'recording';
+      await audioHandler.stopRecordingFlow();
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('Network failure'), type: 'error' })
+      );
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+
+      // Second attempt should succeed
+      mockApiClient.transcribe.mockResolvedValueOnce('Successful transcription');
+      mockMediaRecorder.state = 'inactive';
+
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      await audioHandler.stopRecordingFlow();
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_TRANSCRIPTION_READY,
+        expect.objectContaining({ text: 'Successful transcription' })
+      );
+    });
+
+    it('should recover from API authentication errors', async () => {
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      const mockMediaRecorder = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        addEventListener: vi.fn((event, callback) => {
+          if (event === 'dataavailable') {
+            setTimeout(() => callback({ data: new Blob(['test audio data']) }), 10);
+          }
+          if (event === 'stop') {
+            setTimeout(() => callback(), 10);
+          }
+        }),
+        state: 'inactive'
+      };
+      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+
+      mockApiClient.transcribe.mockRejectedValueOnce(new Error('Invalid API key'));
+
+      await audioHandler.startRecordingFlow();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+
+      mockMediaRecorder.state = 'recording';
+      await audioHandler.stopRecordingFlow();
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('Invalid API key'), type: 'error' })
+      );
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+    });
+
+    it('should show API detail and retry hint after transcription failure (Issue 11 regression guard)', async () => {
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      const mockMediaRecorder = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        addEventListener: vi.fn((event, callback) => {
+          if (event === 'dataavailable') {
+            setTimeout(() => callback({ data: new Blob(['test']) }), 10);
+          }
+          if (event === 'stop') {
+            setTimeout(() => callback(), 10);
+          }
+        }),
+        state: 'inactive'
+      };
+      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+
+      mockApiClient.transcribe.mockRejectedValueOnce(
+        new Error('API error 422: The audio format is not supported')
+      );
+
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      await audioHandler.stopRecordingFlow();
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({
+          message: expect.stringContaining('audio format is not supported'),
+          type: 'error'
+        })
+      );
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({
+          message: expect.stringContaining('Tap mic to retry'),
+          type: 'error'
+        })
+      );
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+    });
+  });
+
+  describe('Configuration Recovery', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should automatically open settings modal when API configuration is missing', async () => {
+      mockApiClient.validateConfig.mockImplementationOnce(() => {
+        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey' });
+        throw new Error('API key is required');
+      });
+
+      await audioHandler.startRecordingFlow();
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.API_CONFIG_MISSING,
+        expect.objectContaining({ missing: 'apiKey' })
+      );
+
+      expect(mockSettings.openSettingsModal).toHaveBeenCalled();
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: expect.stringContaining('Tap mic to retry'), type: 'error' })
+      );
+    });
+
+    it('should recover after fixing configuration', async () => {
+      mockApiClient.validateConfig.mockImplementationOnce(() => {
+        throw new Error('API key is required');
+      });
+
+      await audioHandler.startRecordingFlow();
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+
+      // Fix configuration — next attempt should succeed
+      mockApiClient.validateConfig.mockImplementationOnce(() => true);
+
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      const mockMediaRecorder = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        addEventListener: vi.fn(),
+        state: 'inactive'
+      };
+      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+
+      await audioHandler.startRecordingFlow();
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+    });
+  });
+
+  describe('State Machine Error Handling', () => {
+    it('should handle transitions to error state and recover', async () => {
+      await audioHandler.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
+        error: 'Test error message'
+      });
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.RECORDING_ERROR,
+        expect.objectContaining({ error: 'Test error message' })
+      );
+
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({
+          message: expect.stringContaining('Test error message'),
+          type: 'error'
+        })
+      );
+
+      const result = await audioHandler.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+      expect(result).toBe(true);
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+
+      navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
+
+      const mockMediaRecorder = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        addEventListener: vi.fn(),
+        state: 'inactive'
+      };
+      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+
+      mockApiClient.validateConfig.mockImplementationOnce(() => true);
+      await audioHandler.startRecordingFlow();
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+    });
+
+    it('should recover from invalid state transitions without breaking the app', async () => {
+      const stateMachine = new RecordingStateMachine(audioHandler);
+
+      const result = await stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+
+      expect(result).toBe(false);
+      expect(stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+
+      const validResult = await stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
+      expect(validResult).toBe(true);
+      expect(stateMachine.getState()).toBe(RECORDING_STATES.INITIALIZING);
     });
   });
 });
