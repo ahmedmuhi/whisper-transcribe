@@ -7,7 +7,7 @@ import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKey, generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, DEFAULT_RESET_STATUS } from '../js/constants.js';
-import { createStatefulMockElement } from './helpers/mock-settings-dom.js';
+import { createStatefulMockElement, createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
 // Mock dependencies
 vi.mock('../js/logger.js', () => ({
@@ -29,13 +29,7 @@ vi.mock('../js/status-helper.js', () => ({
     showTemporaryStatus: vi.fn(),
 }));
 
-// Mock localStorage
-const localStorageMock = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
-};
+const localStorageMock = createLocalStorageMock();
 
 Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
@@ -67,7 +61,10 @@ visualizerMock.getContext = vi.fn(() => ({
 mockElements.set(ID.VISUALIZER, visualizerMock);
 
 global.document = {
-    getElementById: vi.fn((id) => mockElements.get(id) || createStatefulMockElement(id)),
+    getElementById: vi.fn((id) => {
+        if (!mockElements.has(id)) mockElements.set(id, createStatefulMockElement(id));
+        return mockElements.get(id);
+    }),
     querySelector: vi.fn(() => createStatefulMockElement('query')),
     querySelectorAll: vi.fn(() => []),
     body: createStatefulMockElement('body')
@@ -468,9 +465,6 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
         const config = settings.getModelConfig();
         expect(config.apiKey).toBe(generateMockApiKeyForValidation());
         expect(config.uri).toBe('https://test.openai.azure.com/whisper');
-
-        expect(config.apiKey).toBeTruthy();
-        expect(config.uri).toBeTruthy();
     });
 
     it('should test settings persistence across page reloads (Issue #4)', () => {

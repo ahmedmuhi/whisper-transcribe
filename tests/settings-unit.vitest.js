@@ -8,7 +8,7 @@ import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { ID } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { generateMockApiKey, generateMockApiKeyForValidation, generateInvalidMockApiKey } from './helpers/mock-api-keys.js';
-import { createMockElement } from './helpers/mock-settings-dom.js';
+import { createMockElement, createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
 // ─── DOM Caching Tests (uses real happy-dom) ─────────────────────────────────
 
@@ -78,12 +78,7 @@ describe('Settings DOM Caching', () => {
 
 // ─── Helper Method Isolation Tests (uses mocked document) ────────────────────
 
-const localStorageMock = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn()
-};
+const localStorageMock = createLocalStorageMock();
 
 const mockElements = {};
 
@@ -169,7 +164,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
-        applyDomSpies();
         vi.clearAllTimers();
     });
 

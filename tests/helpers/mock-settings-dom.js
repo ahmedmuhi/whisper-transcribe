@@ -42,7 +42,10 @@ export const createStatefulMockElement = (id) => {
             add: vi.fn((cls) => classSet.add(cls)),
             remove: vi.fn((cls) => classSet.delete(cls)),
             contains: vi.fn((cls) => classSet.has(cls)),
-            toggle: vi.fn()
+            toggle: vi.fn((cls) => {
+                if (classSet.has(cls)) classSet.delete(cls);
+                else classSet.add(cls);
+            })
         },
         addEventListener: vi.fn(),
         setAttribute: vi.fn(),
@@ -56,3 +59,13 @@ export const createStatefulMockElement = (id) => {
         scrollHeight: 0
     };
 };
+
+/**
+ * Creates a standard localStorage mock with vi.fn() stubs.
+ */
+export const createLocalStorageMock = () => ({
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    clear: vi.fn(),
+});
