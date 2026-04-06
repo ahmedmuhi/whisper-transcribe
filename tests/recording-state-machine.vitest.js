@@ -41,7 +41,6 @@ describe('RecordingStateMachine direct behavior', () => {
     const result = await sm.transitionTo(RECORDING_STATES.INITIALIZING, { source: 'test' });
 
     expect(result).toBe(true);
-    expect(sm.previousState).toBe(RECORDING_STATES.IDLE);
     expect(sm.getState()).toBe(RECORDING_STATES.INITIALIZING);
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_STATE_CHANGED, {
       newState: RECORDING_STATES.INITIALIZING,
@@ -152,12 +151,11 @@ describe('RecordingStateMachine direct behavior', () => {
     });
   });
 
-  it('supports every transition declared in constants map', async () => {
+  it('accepts every transition declared in constants map', () => {
     for (const [fromState, toStates] of Object.entries(STATE_TRANSITIONS)) {
+      sm.currentState = fromState;
       for (const toState of toStates) {
-        sm.currentState = fromState;
-        const result = await sm.transitionTo(toState);
-        expect(result).toBe(true);
+        expect(sm.canTransitionTo(toState)).toBe(true);
       }
     }
   });

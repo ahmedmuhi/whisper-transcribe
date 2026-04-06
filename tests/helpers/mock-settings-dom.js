@@ -42,7 +42,11 @@ export const createStatefulMockElement = (id) => {
             add: vi.fn((cls) => classSet.add(cls)),
             remove: vi.fn((cls) => classSet.delete(cls)),
             contains: vi.fn((cls) => classSet.has(cls)),
-            toggle: vi.fn((cls) => {
+            toggle: vi.fn((cls, force) => {
+                if (force !== undefined) {
+                    if (force) { classSet.add(cls); return true; }
+                    classSet.delete(cls); return false;
+                }
                 if (classSet.has(cls)) { classSet.delete(cls); return false; }
                 classSet.add(cls); return true;
             })

@@ -80,18 +80,7 @@ These source modules have no or inadequate direct tests:
 
 ### Implementation Status (2026-04-06)
 
-Missing direct coverage implementation has been started and completed for the modules listed above.
-
-Added/expanded test suites:
-- `tests/logger.vitest.js`
-- `tests/event-bus.vitest.js`
-- `tests/visualization.vitest.js`
-- `tests/recording-state-machine.vitest.js` (expanded from single `canInvokeStop()` focus)
-- `tests/status-helper.vitest.js`
-
-Validation run:
-- `npm run test -- tests/logger.vitest.js tests/event-bus.vitest.js tests/visualization.vitest.js tests/recording-state-machine.vitest.js tests/status-helper.vitest.js`
-- Result: 5 files passed, 40 tests passed.
+Done. Added/expanded: `tests/logger.vitest.js`, `tests/event-bus.vitest.js`, `tests/visualization.vitest.js`, `tests/recording-state-machine.vitest.js`, `tests/status-helper.vitest.js`.
 
 ## Misplaced Test
 

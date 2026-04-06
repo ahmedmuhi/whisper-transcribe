@@ -56,46 +56,27 @@ function createCanvasMock({ width = 200, height = 100, withRoundRect = true } = 
 }
 
 describe('VisualizationController direct behavior', () => {
-  const originalAudioContext = globalThis.AudioContext;
-  const originalWebkitAudioContext = globalThis.webkitAudioContext;
-  const originalRaf = globalThis.requestAnimationFrame;
-  const originalCancelRaf = globalThis.cancelAnimationFrame;
-
   let rafSpy;
   let cancelRafSpy;
-  let addListenerSpy;
-  let removeListenerSpy;
 
   beforeEach(() => {
-    vi.useFakeTimers();
-
-    globalThis.AudioContext = MockAudioContext;
-    globalThis.webkitAudioContext = MockAudioContext;
-
     let rafId = 100;
-    rafSpy = vi.fn(() => {
-      rafId += 1;
-      return rafId;
-    });
+    rafSpy = vi.fn(() => ++rafId);
     cancelRafSpy = vi.fn();
-    globalThis.requestAnimationFrame = rafSpy;
-    globalThis.cancelAnimationFrame = cancelRafSpy;
 
-    addListenerSpy = vi.spyOn(window, 'addEventListener');
-    removeListenerSpy = vi.spyOn(window, 'removeEventListener');
+    vi.stubGlobal('AudioContext', MockAudioContext);
+    vi.stubGlobal('webkitAudioContext', MockAudioContext);
+    vi.stubGlobal('requestAnimationFrame', rafSpy);
+    vi.stubGlobal('cancelAnimationFrame', cancelRafSpy);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
-
-    globalThis.AudioContext = originalAudioContext;
-    globalThis.webkitAudioContext = originalWebkitAudioContext;
-    globalThis.requestAnimationFrame = originalRaf;
-    globalThis.cancelAnimationFrame = originalCancelRaf;
   });
 
   it('sets up audio graph and initial canvas sizing in constructor', () => {
+    const addListenerSpy = vi.spyOn(window, 'addEventListener');
     const { canvas } = createCanvasMock({ width: 250, height: 80 });
     const controller = new VisualizationController({}, canvas, false);
 
@@ -106,7 +87,7 @@ describe('VisualizationController direct behavior', () => {
   });
 
   it('starts lifecycle: pre-fills history, draws frame, and starts sampler interval', () => {
-    const { canvas, ctx } = createCanvasMock({ width: 200, height: 100, withRoundRect: true });
+    const { canvas, ctx } = createCanvasMock();
     const controller = new VisualizationController({}, canvas, true);
 
     controller.start();
@@ -140,7 +121,8 @@ describe('VisualizationController direct behavior', () => {
   });
 
   it('stops lifecycle and cleans up timers, raf, audio, and resize listener', async () => {
-    const { canvas, ctx } = createCanvasMock({ width: 200, height: 100 });
+    const removeListenerSpy = vi.spyOn(window, 'removeEventListener');
+    const { canvas, ctx } = createCanvasMock();
     const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
     const controller = new VisualizationController({}, canvas, false);
 
@@ -159,14 +141,11 @@ describe('VisualizationController direct behavior', () => {
   });
 
   it('supports repeated stop calls safely', async () => {
-    const { canvas } = createCanvasMock({ width: 200, height: 100 });
+    const { canvas } = createCanvasMock();
     const controller = new VisualizationController({}, canvas, false);
 
     controller.start();
     await controller.stop();
-
-    expect(async () => {
-      await controller.stop();
-    }).not.toThrow();
+    await controller.stop();
   });
 });
