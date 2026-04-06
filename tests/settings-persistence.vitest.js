@@ -8,6 +8,7 @@ import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, RECORDING_ENVIRONMENTS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
+import { createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
 // Mock dependencies
 vi.mock('../js/logger.js', () => ({
@@ -28,13 +29,7 @@ vi.mock('../js/status-helper.js', () => ({
     showTemporaryStatus: vi.fn(),
 }));
 
-// Mock localStorage
-const localStorageMock = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
-};
+const localStorageMock = createLocalStorageMock();
 
 Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
@@ -55,9 +50,7 @@ describe('Settings Persistence & Save Workflow', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
-        // Reset localStorage mock return values
         localStorageMock.getItem.mockReturnValue(null);
-        localStorageMock.clear();
 
         // Ensure all required elements exist and reset their values
         const requiredIds = [
@@ -87,6 +80,11 @@ describe('Settings Persistence & Save Workflow', () => {
 
         vi.spyOn(settings, 'checkInitialSettings').mockImplementation(() => {});
         vi.spyOn(settings, 'updateSettingsVisibility').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        settings.destroy();
+        eventBus.clear();
     });
 
     // ─── LocalStorage Persistence ────────────────────────────────────────────
