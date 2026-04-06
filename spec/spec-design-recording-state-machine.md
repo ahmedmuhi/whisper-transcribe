@@ -1,8 +1,8 @@
 ---
 title: Recording State Machine Design Specification
-version: 1.0
+version: 1.1
 date_created: 2025-07-07
-last_updated: 2025-07-07
+last_updated: 2026-04-06
 owner: Speech-to-Text Transcription App Team
 tags: [design, state-machine, recording, audio, architecture, app]
 ---
@@ -43,7 +43,7 @@ This specification defines the requirements for a finite state machine that mana
 - **REQ-004**: Each state SHALL have a dedicated handler method for state-specific logic
 - **REQ-005**: The state machine SHALL provide query methods for checking current state and transition capabilities
 - **REQ-006**: The state machine SHALL support asynchronous state transitions
-- **REQ-007**: The state machine SHALL handle errors gracefully and transition to ERROR state when invalid transitions are attempted
+- **REQ-007**: The state machine SHALL handle invalid transitions gracefully by logging the error and returning false without changing state
 
 ### State-Specific Requirements
 
@@ -53,7 +53,7 @@ This specification defines the requirements for a finite state machine that mana
 - **REQ-011**: PAUSED state SHALL maintain recording session while showing paused status
 - **REQ-012**: STOPPING state SHALL initiate recording termination and cleanup visualization
 - **REQ-013**: PROCESSING state SHALL show transcription progress and disable user controls
-- **REQ-014**: CANCELLING state SHALL abort recording and reset to IDLE state
+- **REQ-014**: CANCELLING state SHALL emit cancellation events and disable controls; the caller is responsible for transitioning to IDLE after cleanup
 - **REQ-015**: ERROR state SHALL display error information and enable recovery to IDLE
 
 ### Event Communication Requirements
@@ -67,7 +67,7 @@ This specification defines the requirements for a finite state machine that mana
 - **REQ-019**: All state transitions SHALL be validated against the STATE_TRANSITIONS matrix before execution
 - **REQ-020**: Invalid state transitions SHALL log errors and return false without changing state
 - **REQ-021**: State transition failures SHALL be handled without corrupting the current state
-- **REQ-022**: The state machine SHALL maintain previous state information for debugging and rollback
+- **REQ-022**: The state machine SHALL maintain previous state information for debugging and event payloads
 
 ### Constraints
 
@@ -81,7 +81,7 @@ This specification defines the requirements for a finite state machine that mana
 
 - **GUD-001**: Use async/await pattern for all state transition operations
 - **GUD-002**: Include context data in state transition events when relevant
-- **GUD-003**: Provide clear logging for state transitions in debug mode
+- **GUD-003**: Provide clear logging for state transitions using scoped loggers (`logger.child('RecordingStateMachine')`)
 - **GUD-004**: Use consistent naming patterns for state handler methods (handle[State]State)
 - **GUD-005**: Implement defensive programming practices for error handling
 
@@ -127,7 +127,6 @@ class RecordingStateMachine {
 {
     newState: string,           // Target state from RECORDING_STATES
     oldState: string,           // Previous state
-    timestamp?: number,         // Optional transition timestamp
     error?: string,            // Error message for ERROR state
     ...additionalData          // Context-specific data
 }
@@ -181,12 +180,13 @@ const STATE_TRANSITIONS = {
 
 - **AC-009**: Given the state machine is in RECORDING state, When isRecording() is called, Then it returns true
 - **AC-010**: Given the state machine is in PAUSED state, When canResume() is called, Then it returns true
-- **AC-011**: Given the state machine is in IDLE state, When canRecord() is called, Then it returns true
+- **AC-011**: Given the state machine is in IDLE or ERROR state, When canRecord() is called, Then it returns true
 - **AC-012**: Given the state machine is in PROCESSING state, When canCancel() is called, Then it returns false
+- **AC-012a**: Given the state machine is in RECORDING, PAUSED, STOPPING, or CANCELLING state, When canInvokeStop() is called, Then it returns true
 
 ### Error Handling
 
-- **AC-013**: Given a state handler throws an exception, When transitionTo() is called, Then the error is caught and logged without corrupting state
+- **AC-013**: Given a state handler throws an exception, When transitionTo() is called, Then the error propagates to the caller (the state has already been updated before the handler runs)
 - **AC-014**: Given an invalid state name is provided, When transitionTo() is called, Then the operation returns false and logs an error
 - **AC-015**: Given the AudioHandler reference is null, When the state machine is constructed, Then it handles the error gracefully
 
@@ -339,11 +339,15 @@ await Promise.all([
 ]);
 ```
 
-**State Handler Exceptions**: State handlers should not corrupt the state machine
+**State Handler Exceptions**: State is updated before the handler runs, so a throwing handler leaves the machine in the new state. The caller is responsible for catching and recovering.
 ```javascript
-// If handleRecordingState throws, state should remain consistent
-await stateMachine.transitionTo(RECORDING_STATES.RECORDING); // May fail but won't corrupt state
-expect(stateMachine.getState()).toBe(RECORDING_STATES.INITIALIZING); // Previous valid state
+// If handleRecordingState throws, state has already moved to RECORDING
+try {
+    await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
+} catch (error) {
+    // State is now RECORDING, not INITIALIZING — caller must handle recovery
+    await stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: error.message });
+}
 ```
 
 **Missing Dependencies**: Graceful degradation when dependencies are unavailable
