@@ -83,8 +83,8 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
             settingsModelSelect: createMockElement('whisper'),
             whisperUriInput: createMockElement(''),
             whisperKeyInput: createMockElement(''),
-            gpt4oUriInput: createMockElement(''),
-            gpt4oKeyInput: createMockElement(''),
+            maiTranscribeUriInput: createMockElement(''),
+            maiTranscribeKeyInput: createMockElement(''),
             settingsModal: createMockElement(),
             micButton: createMockElement(),
             statusElement: createMockElement()
@@ -105,10 +105,10 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
                     return mockElements.whisperUriInput;
                 case ID.WHISPER_KEY:
                     return mockElements.whisperKeyInput;
-                case ID.GPT4O_URI:
-                    return mockElements.gpt4oUriInput;
-                case ID.GPT4O_KEY:
-                    return mockElements.gpt4oKeyInput;
+                case ID.MAI_TRANSCRIBE_URI:
+                    return mockElements.maiTranscribeUriInput;
+                case ID.MAI_TRANSCRIBE_KEY:
+                    return mockElements.maiTranscribeKeyInput;
                 case ID.SETTINGS_MODAL:
                     return mockElements.settingsModal;
                 case ID.MIC_BUTTON:

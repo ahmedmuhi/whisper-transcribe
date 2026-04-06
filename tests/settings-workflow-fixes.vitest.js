@@ -7,7 +7,6 @@ import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, DEFAULT_RESET_STATUS } from '../js/constants.js';
-import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 
 // Mock dependencies
 vi.mock('../js/logger.js', () => ({
@@ -73,7 +72,7 @@ const mockElements = new Map();
 const requiredElementIds = [
     ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, 
     ID.SAVE_SETTINGS, ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, 
-    ID.GPT4O_SETTINGS, ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY,
+    ID.MAI_TRANSCRIBE_SETTINGS, ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY,
     ID.MIC_BUTTON, ID.THEME_TOGGLE, ID.PAUSE_BUTTON, ID.CANCEL_BUTTON, ID.GRAB_TEXT_BUTTON,
     ID.TRANSCRIPT, ID.TIMER, ID.VISUALIZER, ID.SPINNER_CONTAINER, ID.PAUSE_ICON, 
     ID.PLAY_ICON, ID.MOON_ICON, ID.SUN_ICON, ID.THEME_MODE

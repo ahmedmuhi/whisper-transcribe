@@ -21,16 +21,16 @@ describe('Settings DOM caching', () => {
       ID.SETTINGS_BUTTON,
       ID.STATUS,
       ID.WHISPER_SETTINGS,
-      ID.GPT4O_SETTINGS,
+      ID.MAI_TRANSCRIBE_SETTINGS,
       ID.WHISPER_URI,
       ID.WHISPER_KEY,
-      ID.GPT4O_URI,
-      ID.GPT4O_KEY
+      ID.MAI_TRANSCRIBE_URI,
+      ID.MAI_TRANSCRIBE_KEY
     ];
     elementIds.forEach((id) => {
       let el;
       // Inputs for uri/key ids
-      if ([ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY].includes(id)) {
+      if ([ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY].includes(id)) {
         el = document.createElement('input');
       } else {
         el = document.createElement('div');

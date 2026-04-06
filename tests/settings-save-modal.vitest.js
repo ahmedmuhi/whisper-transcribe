@@ -7,7 +7,6 @@ import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES } from '../js/constants.js';
-import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 
 // Mock localStorage
 const localStorageMock = {

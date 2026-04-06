@@ -65,8 +65,8 @@ describe('Settings Persistence & Management', () => {
         // Ensure all required elements exist and reset their values
         const requiredIds = [
             ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS,
-            ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, ID.GPT4O_SETTINGS,
-            ID.WHISPER_URI, ID.WHISPER_KEY, ID.GPT4O_URI, ID.GPT4O_KEY, ID.RECORDING_ENVIRONMENT
+            ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, ID.MAI_TRANSCRIBE_SETTINGS,
+            ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY, ID.RECORDING_ENVIRONMENT
         ];
         
         // Pre-populate by calling getElementById for each required element and reset values
@@ -217,16 +217,16 @@ describe('Settings Persistence & Management', () => {
             expect(changeCall).toBeDefined();
             const changeListener = changeCall[1];
             
-            const event = { target: { value: 'gpt-4o' } };
+            const event = { target: { value: 'mai-transcribe' } };
             
             // Act
             changeListener(event);
 
             // Assert - Should NOT persist to localStorage from main UI selector
-            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'gpt-4o');
+            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'mai-transcribe');
             // Should emit UI_MODEL_SWITCHED instead of SETTINGS_MODEL_CHANGED
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_MODEL_SWITCHED, {
-                model: 'gpt-4o',
+                model: 'mai-transcribe',
                 savedModel: 'whisper'
             });
             // Should NOT emit SETTINGS_MODEL_CHANGED
