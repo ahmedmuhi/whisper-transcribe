@@ -1,26 +1,28 @@
 {
   "source": {
     "include": ["./js/"],
-    "includePattern": "\\.js$",
-    "exclude": ["node_modules/", "tests/", "scripts/"]
+    "includePattern": ".+\\.js$"
   },
   "opts": {
     "destination": "./docs/",
-    "recurse": true
+    "recurse": true,
+    "readme": "./README.md",
+    "encoding": "utf8"
   },
-  "plugins": [
-    "plugins/markdown"
-  ],
+  "plugins": ["plugins/markdown"],
+  "tags": {
+    "allowUnknownTags": false,
+    "dictionaries": ["jsdoc", "closure"]
+  },
   "templates": {
-    "cleverLinks": false,
-    "monospaceLinks": false
+    "cleverLinks": true,
+    "monospaceLinks": false,
+    "default": {
+      "outputSourceFiles": true
+    }
   },
   "markdown": {
     "parser": "gfm",
-    "hardwrap": true
-  },
-  "metadata": {
-    "title": "Whisper Transcribe Documentation",
-    "description": "Speech-to-Text Transcription App using Azure Speech Services"
+    "hardwrap": false
   }
 }

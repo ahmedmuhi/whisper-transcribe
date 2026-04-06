@@ -1,18 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["index.html", "js/main.js"],
-  "project": ["js/**/*.js", "css/**/*.css"],
+  "entry": ["js/main.js"],
+  "project": ["js/**/*.js"],
   "ignore": [
     "coverage/**",
     "docs/**",
     "plan/**",
-    "scripts/**",
     "*.config.js",
-    "*.config.ts",
     ".husky/**"
-  ],
-  "ignoreDependencies": [
-    "glob"
   ],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": true,
@@ -23,7 +18,8 @@
   "husky": {
     "entry": [".husky/**/*"]
   },
-  "size-limit": {
-    "entry": ["package.json"]
+  "vitest": {
+    "entry": ["tests/**/*.vitest.js"],
+    "project": ["tests/**/*.vitest.js"]
   }
 }
