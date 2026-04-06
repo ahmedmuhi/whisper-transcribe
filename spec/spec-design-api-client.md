@@ -1,8 +1,8 @@
 ---
 title: Azure API Client Design Specification
-version: 1.0
+version: 1.1
 date_created: 2025-07-07
-last_updated: 2025-07-07
+last_updated: 2026-04-06
 owner: Speech-to-Text Transcription App Team
 tags: [design, api-client, azure, transcription, architecture, app]
 ---
@@ -28,7 +28,8 @@ The purpose of the `AzureAPIClient` is to abstract all details of communicating 
 - **Azure Speech Services**: Microsoft's cloud-based service for speech-to-text and other speech-related functionalities.
 - **Whisper**: A speech recognition model provided by OpenAI and accessible through Azure.
 - **Whisper-Translate**: A variant of the Whisper model that includes translation capabilities.
-- **GPT-4o**: A multimodal model by OpenAI, also accessible through Azure, capable of transcription.
+- **MAI-Transcribe**: A Microsoft Azure AI transcription model (mai-transcribe-1) that requires WAV audio input and uses a definition-based configuration payload.
+- **Audio Converter**: A utility module that converts WebM/Opus audio blobs to 16kHz mono WAV format, required by MAI-Transcribe.
 - **API Key**: A secret token used to authenticate requests to the Azure API.
 - **Endpoint URI**: The specific URL where the Azure Speech Service is hosted.
 - **CORS**: Cross-Origin Resource Sharing, a mechanism that allows resources to be requested from another domain.
@@ -38,13 +39,14 @@ The purpose of the `AzureAPIClient` is to abstract all details of communicating 
 ### Core Requirements
 
 - **REQ-001**: The client SHALL send audio data to the configured Azure Speech Services endpoint for transcription.
-- **REQ-002**: The client SHALL support "Whisper", "whisper-translate", and "GPT-4o" transcription models.
+- **REQ-002**: The client SHALL support "Whisper", "whisper-translate", and "MAI-Transcribe" transcription models.
 - **REQ-003**: The client SHALL retrieve API configuration (API Key, URI, model) from the `Settings` module.
 - **REQ-004**: The client SHALL validate the presence and format of the API Key and URI before making a request.
-- **REQ-005**: The client SHALL construct a `FormData` object to send the audio blob and relevant parameters, including language (except for whisper-translate), response format, and temperature for GPT-4o.
-- **REQ-006**: The client SHALL set the `api-key` header for authentication.
-- **REQ-007**: The client SHALL parse the API response, handling both plain text and JSON formats.
+- **REQ-005**: The client SHALL construct a `FormData` object to send the audio blob and relevant parameters. For Whisper models, the form includes a `file` field and `language` (except for whisper-translate). For MAI-Transcribe, the form includes an `audio` field (WAV-converted blob) and a JSON `definition` field.
+- **REQ-006**: The client SHALL set the appropriate authentication header: `api-key` for Whisper models, or `Ocp-Apim-Subscription-Key` for MAI-Transcribe.
+- **REQ-007**: The client SHALL parse the API response using structural detection, handling plain text, JSON with `text` field, and JSON with `combinedPhrases` array.
 - **REQ-008**: The client SHALL emit events for the start, success, and failure of an API request.
+- **REQ-008a**: The client SHALL convert audio to WAV format before sending to the MAI-Transcribe model, using the `audio-converter` module.
 
 ### Error Handling Requirements
 
@@ -87,7 +89,7 @@ class AzureAPIClient {
      * Transcribes an audio blob.
      * @param {Blob} audioBlob - The audio data to transcribe.
      * @param {Function} [onProgress] - Optional callback for progress updates.
-     * @returns {Promise<Object>} The transcription result with text and model properties.
+     * @returns {Promise<string>} The transcription text.
      */
     async transcribe(audioBlob, onProgress)
 
@@ -99,24 +101,40 @@ class AzureAPIClient {
     validateConfig()
 
     /**
-     * Parses the raw API response.
+     * Parses the raw API response using structural detection.
      * @param {string|Object} data - The raw response data.
-     * @param {string} model - The model used for the request.
      * @returns {string} The parsed transcription text.
+     * @throws {Error} When response format is unrecognized.
      */
-    parseResponse(data, model)
+    parseResponse(data)
+
+    /**
+     * Handles API errors by logging and emitting standardized events.
+     * @private
+     * @param {Error} error - The error object to handle.
+     * @param {Object} [context={}] - Additional error context (status, details).
+     */
+    _handleApiError(error, context)
+
+    /**
+     * Extracts a human-readable error message from an API error response body.
+     * @private
+     * @param {string} errorText - Raw error response body.
+     * @returns {string|null} Extracted message or null if unparseable.
+     */
+    _extractErrorDetail(errorText)
 }
 ```
 
 ### Model-Specific Parameters
 
-| Model | Required Parameters | Optional Parameters |
-|---|---|---|
-| `whisper` | `file`, `language`, `api-key` | - |
-| `whisper-translate` | `file`, `api-key` | - |
-| `gpt-4o-transcribe` | `file`, `language`, `api-key` | `response_format`, `temperature` |
+| Model | FormData Fields | Auth Header | Filename |
+|---|---|---|---|
+| `whisper` | `file` (audio blob), `language` | `api-key` | `recording.webm` |
+| `whisper-translate` | `file` (audio blob) | `api-key` | `recording.webm` |
+| `mai-transcribe` | `audio` (WAV blob), `definition` (JSON) | `Ocp-Apim-Subscription-Key` | `recording.wav` |
 
-**Note**: For GPT-4o models, `response_format` is set to "json" and `temperature` to "0" to ensure consistent, non-truncated responses.
+**Note**: For MAI-Transcribe, the `definition` field contains a JSON payload with `enhancedMode` configuration specifying model `mai-transcribe-1` and task `transcribe`. Audio must be converted from WebM to 16kHz mono WAV before submission.
 
 ### Event Emission Contracts
 
@@ -134,15 +152,15 @@ class AzureAPIClient {
 - **AC-003**: **Given** an invalid URI format, **When** `validateConfig` is called, **Then** it throws an error and emits `API_CONFIG_MISSING`.
 - **AC-004**: **Given** the `fetch` call is rejected due to a network error, **When** `transcribe` is called, **Then** it throws an error and emits `API_REQUEST_ERROR` with the network error message.
 - **AC-005**: **Given** the API responds with a 401 status code, **When** `transcribe` is called, **Then** it throws an error and emits `API_REQUEST_ERROR` with status 401 and details.
-- **AC-006**: **Given** the API responds with a JSON object for a GPT-4o request, **When** `parseResponse` is called, **Then** it correctly extracts and concatenates the text from the response segments.
-- **AC-007**: **Given** the API responds with plain text for a Whisper request, **When** `parseResponse` is called, **Then** it returns the trimmed text.
+- **AC-006**: **Given** the API responds with a JSON object containing `combinedPhrases` for a MAI-Transcribe request, **When** `parseResponse` is called, **Then** it correctly extracts and joins the text from each phrase in `combinedPhrases`.
+- **AC-007**: **Given** the API responds with plain text, **When** `parseResponse(data)` is called, **Then** it returns the trimmed text.
 - **AC-008**: **Given** a whisper-translate model request, **When** `transcribe` is called, **Then** the language parameter is NOT included in the FormData.
-- **AC-009**: **Given** a GPT-4o model request, **When** `transcribe` is called, **Then** response_format is set to "json" and temperature is set to "0".
+- **AC-009**: **Given** a MAI-Transcribe model request, **When** `transcribe` is called, **Then** the audio blob is converted to WAV format, submitted under the `audio` field with filename `recording.wav`, and a JSON `definition` field is included with `enhancedMode` configuration.
 
 ## 6. Test Automation Strategy
 
-- **Unit Tests**: Focus on `validateConfig` and `parseResponse` methods with various inputs. Mock the `Settings` module and `fetch` API.
-- **Integration Tests**: Test the `transcribe` method by mocking `fetch` responses to simulate successful calls, network errors, and different HTTP error codes (401, 403, 500). Verify that correct events are emitted on the `EventBus`.
+- **Unit Tests**: Focus on `validateConfig`, `parseResponse`, `_handleApiError`, and `_extractErrorDetail` methods with various inputs. Test `parseResponse` with plain text, JSON with `text` field, JSON with `combinedPhrases`, and unrecognized formats. Mock the `Settings` module and `fetch` API.
+- **Integration Tests**: Test the `transcribe` method by mocking `fetch` responses to simulate successful calls, network errors, and different HTTP error codes (401, 403, 500). Mock `convertToWav` from `audio-converter.js` for MAI-Transcribe test paths. Verify that correct events are emitted on the `EventBus`.
 - **Frameworks**: Use **Vitest** for testing and **`vi.fn()`** for mocking dependencies like `Settings` and the global `fetch` function.
 
 ## 7. Rationale & Context
@@ -156,6 +174,8 @@ A dedicated `AzureAPIClient` is crucial for maintaining a clean, modular archite
 - **DEP-002**: `EventBus` module: To emit lifecycle events.
 - **DEP-003**: `Constants` module: For API parameters and messages.
 - **DEP-004**: `ErrorHandler` module: For centralized error logging.
+- **DEP-005**: `audio-converter` module (`convertToWav`): To convert WebM audio to WAV format for MAI-Transcribe.
+- **DEP-006**: `Logger` module: For structured, context-aware debug logging.
 
 ### Browser API Dependencies
 - **API-001**: `fetch`: For making HTTP POST requests.
@@ -176,7 +196,7 @@ try {
     const transcription = await apiClient.transcribe(audioBlob, (progress) => {
         console.log(progress); // e.g., "Sending to Azure Whisper API..."
     });
-    console.log('Success:', transcription);
+    console.log('Success:', transcription); // transcription is a string
 } catch (error) {
     console.error('Transcription failed:', error.message);
 }
@@ -204,7 +224,7 @@ const malformedData = { some_unexpected_key: "some_value" };
 
 // parseResponse should throw an error with a clear message for unrecognized formats
 try {
-    const text = apiClient.parseResponse(malformedData, 'gpt-4o-transcribe');
+    const text = apiClient.parseResponse(malformedData);
 } catch (error) {
     expect(error.message).toBe('Unknown API response format. Please check your API configuration.');
 }
@@ -215,26 +235,45 @@ try {
 ```javascript
 // Whisper model - includes language parameter
 const whisperFormData = new FormData();
-whisperFormData.append('file', audioBlob, 'audio.wav');
+whisperFormData.append('file', audioBlob, 'recording.webm');
 whisperFormData.append('language', 'en');
 
 // Whisper-translate model - no language parameter
 const translateFormData = new FormData();
-translateFormData.append('file', audioBlob, 'audio.wav');
+translateFormData.append('file', audioBlob, 'recording.webm');
 // Note: language parameter is intentionally omitted
 
-// GPT-4o model - includes response format and temperature
-const gpt4oFormData = new FormData();
-gpt4oFormData.append('file', audioBlob, 'audio.wav');
-gpt4oFormData.append('language', 'en');
-gpt4oFormData.append('response_format', 'json');
-gpt4oFormData.append('temperature', '0');
+// MAI-Transcribe model - WAV audio with JSON definition
+const wavBlob = await convertToWav(audioBlob);
+const maiFormData = new FormData();
+maiFormData.append('audio', wavBlob, 'recording.wav');
+maiFormData.append('definition', JSON.stringify({
+    enhancedMode: {
+        enabled: true,
+        model: 'mai-transcribe-1',
+        task: 'transcribe'
+    }
+}));
+```
+
+### Edge Case: MAI-Transcribe combinedPhrases response
+
+```javascript
+// MAI-Transcribe JSON response with combinedPhrases
+const maiResponse = {
+    combinedPhrases: [
+        { text: "Hello world." },
+        { text: "How are you?" }
+    ]
+};
+const text = apiClient.parseResponse(maiResponse);
+// Returns: "Hello world. How are you?"
 ```
 
 ## 10. Validation Criteria
 
 - The implementation must pass all unit and integration tests defined in the test strategy.
-- The client must successfully transcribe audio using both Whisper and GPT-4o models with valid credentials.
+- The client must successfully transcribe audio using Whisper, Whisper-Translate, and MAI-Transcribe models with valid credentials.
 - All error conditions (network, API, configuration) must be handled gracefully and result in the correct event emissions.
 - Code coverage for `api-client.js` must meet or exceed the project's threshold of 85%.
 
