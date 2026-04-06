@@ -252,13 +252,13 @@ describe('Recording Integration', () => {
       await Promise.resolve();
     }
     if (timerAdvance > 0) {
-      jest.advanceTimersByTime(timerAdvance);
+      vi.advanceTimersByTime(timerAdvance);
     }
   };
   
   beforeEach(() => {
     vi.clearAllMocks();
-    jest.useFakeTimers(); // Use fake timers for all tests
+    vi.useFakeTimers(); // Use fake timers for all tests
     applyDomSpies();
     
     // Create mock settings
@@ -296,7 +296,7 @@ describe('Recording Integration', () => {
   
   afterEach(() => {
     vi.clearAllMocks();
-    jest.useRealTimers(); // Restore real timers after each test
+    vi.useRealTimers(); // Restore real timers after each test
     applyDomSpies();
     resetEventBus();
   });
@@ -445,11 +445,11 @@ describe('Recording Integration', () => {
   
   describe('Error Recovery During Recording', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should handle API validation errors', async () => {
@@ -534,11 +534,11 @@ describe('Recording Integration', () => {
 
   describe('Timer Integration', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should update timer correctly during recording', async () => {
@@ -557,7 +557,7 @@ describe('Recording Integration', () => {
       Date.now = vi.fn(() => mockStartTime + 5000);
       
       // Manually trigger timer update
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should be updated with correct format
       expect(eventBus.emit).toHaveBeenCalledWith(
@@ -569,7 +569,7 @@ describe('Recording Integration', () => {
       Date.now = vi.fn(() => mockStartTime + 65000);
       
       // Manually trigger timer update
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should show minutes and seconds
       expect(eventBus.emit).toHaveBeenCalledWith(
@@ -601,7 +601,7 @@ describe('Recording Integration', () => {
       
       // Advance time by 10 seconds
       Date.now = vi.fn(() => mockStartTime + 10000);
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should show 10 seconds
       expect(audioHandler.currentTimerDisplay).toBe('00:10');
@@ -614,7 +614,7 @@ describe('Recording Integration', () => {
       
       // Advance time by 5 more seconds while paused
       Date.now = vi.fn(() => mockStartTime + 15000);
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should still show 10 seconds (frozen)
       expect(audioHandler.currentTimerDisplay).toBe('00:10');
@@ -630,7 +630,7 @@ describe('Recording Integration', () => {
       
       // Advance time by 5 more seconds
       Date.now = vi.fn(() => mockStartTime + 20000);
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Timer should now show 15 seconds (10 before pause + 5 after resume)
       expect(audioHandler.currentTimerDisplay).toBe('00:15');

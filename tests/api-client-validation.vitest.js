@@ -157,7 +157,7 @@ describe('AzureAPIClient Configuration Validation', () => {
         it('should include model name in error messages', () => {
             // Setup invalid config
             mockSettings.getModelConfig.mockReturnValue({
-                model: 'gpt-4o',
+                model: 'mai-transcribe',
                 apiKey: '',
                 uri: ''
             });
@@ -167,14 +167,14 @@ describe('AzureAPIClient Configuration Validation', () => {
                 apiClient.validateConfig();
                 fail('Should have thrown an error');
             } catch (error) {
-                expect(error.message).toContain('gpt-4o');
+                expect(error.message).toContain('mai-transcribe');
             }
             
             // Should emit API_CONFIG_MISSING event with correct model
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_CONFIG_MISSING,
                 expect.objectContaining({
-                    model: 'gpt-4o'
+                    model: 'mai-transcribe'
                 })
             );
         });
@@ -197,20 +197,20 @@ describe('AzureAPIClient Configuration Validation', () => {
         });
     });
     
-    describe('GPT-4o Model Validation', () => {
-        it('should properly validate GPT-4o model configuration', () => {
-            // Setup GPT-4o config
+    describe('MAI-Transcribe Model Validation', () => {
+        it('should properly validate MAI-Transcribe model configuration', () => {
+            // Setup MAI-Transcribe config
             mockSettings.getModelConfig.mockReturnValue({
-                model: 'gpt-4o',
-                apiKey: 'gpt4o-api-key',
-                uri: 'https://gpt4o.azure.com'
+                model: 'mai-transcribe',
+                apiKey: 'mai-transcribe-api-key',
+                uri: 'https://mai-transcribe.azure.com'
             });
-            
+
             // Validate configuration
             const config = apiClient.validateConfig();
-            
+
             // Should return valid config with correct model
-            expect(config.model).toBe('gpt-4o');
+            expect(config.model).toBe('mai-transcribe');
         });
     });
     

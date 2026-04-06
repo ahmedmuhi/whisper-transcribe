@@ -200,6 +200,3 @@ global.integrationTestUtils = {
     });
   }
 };
-
-// Make vi globally available (Vitest's equivalent to Jest's jest)
-global.jest = vi;

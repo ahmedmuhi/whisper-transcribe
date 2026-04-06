@@ -407,11 +407,11 @@ describe('Error Recovery Scenarios', () => {
 
   describe('Configuration Recovery', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should automatically open settings modal when API configuration is missing', async () => {
