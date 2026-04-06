@@ -375,6 +375,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
 
     afterEach(() => {
         settings.destroy();
+        eventBus.clear();
         vi.clearAllMocks();
         eventSpy.mockRestore();
     });

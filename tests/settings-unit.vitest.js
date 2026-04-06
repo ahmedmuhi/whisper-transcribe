@@ -163,6 +163,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
     });
 
     afterEach(() => {
+        settings.destroy();
         vi.clearAllMocks();
         vi.clearAllTimers();
     });

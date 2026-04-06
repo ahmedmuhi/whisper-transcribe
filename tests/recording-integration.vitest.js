@@ -221,11 +221,11 @@ document.body.innerHTML = `
 `;
 
 // Import modules after setting up mocks
-let AudioHandler, RecordingStateMachine, PermissionManager, AzureAPIClient, eventBus, APP_EVENTS, RECORDING_STATES, MESSAGES;
+let AudioHandler, RecordingStateMachine, PermissionManager, AzureAPIClient, eventBus, APP_EVENTS, RECORDING_STATES;
 
 beforeAll(async () => {
   ({ eventBus, APP_EVENTS } = await import('../js/event-bus.js'));
-  ({ RECORDING_STATES, MESSAGES } = await import('../js/constants.js'));
+  ({ RECORDING_STATES } = await import('../js/constants.js'));
   ({ RecordingStateMachine } = await import('../js/recording-state-machine.js'));
   ({ PermissionManager } = await import('../js/permission-manager.js'));
   ({ AudioHandler } = await import('../js/audio-handler.js'));
