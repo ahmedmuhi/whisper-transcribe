@@ -50,6 +50,36 @@ function mockMaiJsonResponse(text = 'test') {
     });
 }
 
+function mockMaiJsonResponsePayload(text = 'test') {
+    return {
+        ok: true,
+        headers: { get: () => 'application/json' },
+        json: () => Promise.resolve({
+            combinedPhrases: [{ text }],
+            phrases: []
+        })
+    };
+}
+
+function mockErrorResponse(status, errorBody = {}, retryAfter = null) {
+    return {
+        ok: false,
+        status,
+        headers: {
+            get: (headerName) => {
+                if (headerName === 'Retry-After') {
+                    return retryAfter;
+                }
+                if (headerName === 'content-type') {
+                    return 'application/json';
+                }
+                return null;
+            }
+        },
+        text: () => Promise.resolve(JSON.stringify(errorBody))
+    };
+}
+
 vi.mock('../js/audio-converter.js', () => ({
     convertToWav: vi.fn(async (blob) => new Blob([blob], { type: 'audio/wav' }))
 }));
@@ -177,6 +207,52 @@ describe('MAI-Transcribe-1 Integration', () => {
 
             expect(onProgress).toHaveBeenCalledWith(MESSAGES.CONVERTING_AUDIO);
             expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
+        });
+
+        it('should retry 429 responses and honor Retry-After header', async () => {
+            mockMaiTranscribeConfig();
+            global.fetch
+                .mockResolvedValueOnce(mockErrorResponse(429, { message: 'Too many requests' }, '1'))
+                .mockResolvedValueOnce(mockMaiJsonResponsePayload('retried success'));
+
+            const sleepSpy = vi.spyOn(apiClient, '_sleep').mockResolvedValue();
+            const onProgress = vi.fn();
+
+            const result = await apiClient.transcribe(new Blob(['audio']), onProgress);
+
+            expect(result).toBe('retried success');
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(sleepSpy).toHaveBeenCalledWith(1000);
+            expect(onProgress).toHaveBeenCalledWith('Azure returned 429. Retrying in 1s (1/5)...');
+        });
+
+        it('should not retry non-retryable 4xx responses', async () => {
+            mockMaiTranscribeConfig();
+            global.fetch.mockResolvedValue(
+                mockErrorResponse(400, { error: { message: 'Bad request' } })
+            );
+
+            const sleepSpy = vi.spyOn(apiClient, '_sleep').mockResolvedValue();
+
+            await expect(apiClient.transcribe(new Blob(['audio']), vi.fn()))
+                .rejects.toThrow('API error 400: Bad request');
+
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(sleepSpy).not.toHaveBeenCalled();
+        });
+
+        it('should return a clearer message after repeated 429 responses', async () => {
+            mockMaiTranscribeConfig();
+            global.fetch.mockResolvedValue(
+                mockErrorResponse(429, { error: { message: 'Rate limit exceeded' } }, '3')
+            );
+
+            vi.spyOn(apiClient, '_sleep').mockResolvedValue();
+
+            await expect(apiClient.transcribe(new Blob(['audio']), vi.fn()))
+                .rejects.toThrow('API rate limit reached (429). Retry after 3s. Rate limit exceeded');
+
+            expect(global.fetch).toHaveBeenCalledTimes(6);
         });
     });
 

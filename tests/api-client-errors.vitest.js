@@ -72,6 +72,7 @@ describe('AzureAPIClient Error Handling', () => {
         
         // Create API client instance
         apiClient = new AzureAPIClient(mockSettings);
+        vi.spyOn(apiClient, '_sleep').mockResolvedValue();
         
         // Spy on eventBus emissions
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
@@ -301,11 +302,17 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 429,
+                headers: {
+                    get: vi.fn().mockReturnValue(null)
+                },
                 text: vi.fn().mockResolvedValue('Too many requests')
             });
             
             // Attempt to transcribe
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow('API responded with status: 429');
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(
+                'API rate limit reached (429). Please wait a moment and try again.'
+            );
+            expect(global.fetch).toHaveBeenCalledTimes(6);
             
             // Should emit API_REQUEST_ERROR event with specific status
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
@@ -368,11 +375,15 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 500,
+                headers: {
+                    get: vi.fn().mockReturnValue(null)
+                },
                 text: vi.fn().mockResolvedValue('Internal server error')
             });
             
             // Attempt to transcribe
             await expect(apiClient.transcribe(new Blob())).rejects.toThrow('API responded with status: 500');
+            expect(global.fetch).toHaveBeenCalledTimes(6);
             
             // Should emit API_REQUEST_ERROR event with specific status
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
@@ -389,11 +400,15 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 503,
+                headers: {
+                    get: vi.fn().mockReturnValue(null)
+                },
                 text: vi.fn().mockResolvedValue('Service unavailable')
             });
             
             // Attempt to transcribe
             await expect(apiClient.transcribe(new Blob())).rejects.toThrow('API responded with status: 503');
+            expect(global.fetch).toHaveBeenCalledTimes(6);
             
             // Should emit API_REQUEST_ERROR event with specific status
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
@@ -525,10 +540,14 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 500,
+                headers: {
+                    get: vi.fn().mockReturnValue(null)
+                },
                 text: vi.fn().mockResolvedValue('Server error')
             });
 
             await expect(apiClient.transcribe(new Blob())).rejects.toThrow();
+            expect(global.fetch).toHaveBeenCalledTimes(6);
 
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,

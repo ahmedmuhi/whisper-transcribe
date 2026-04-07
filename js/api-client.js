@@ -8,6 +8,10 @@ import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
 import { convertToWav } from './audio-converter.js';
 
+const MAX_TRANSCRIPTION_RETRIES = 5;
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const RETRY_BACKOFF_SCHEDULE_MS = [2000, 4000, 8000, 16000, 32000];
+
 /**
  * Azure Speech Services API client for transcribing audio to text.
  * Supports Azure Whisper and MAI-Transcribe models.
@@ -81,22 +85,14 @@ export class AzureAPIClient {
                 message: statusMessage
             });
 
-            const response = await fetch(config.uri, {
+            const response = await this._fetchWithRetry(config.uri, {
                 method: HTTP_METHODS.POST,
                 headers,
                 body: formData
-            });
+            }, onProgress);
 
             if (!response.ok) {
-                const errorText = await response.text();
-                logger.child('AzureAPIClient').error('API Error Details:', errorText);
-                const detail = this._extractErrorDetail(errorText);
-                const message = detail
-                    ? `API error ${response.status}: ${detail}`
-                    : `API responded with status: ${response.status}`;
-                const error = new Error(message);
-                error.apiContext = { status: response.status, details: errorText };
-                throw error;
+                throw await this._createApiError(response);
             }
 
             const contentType = response.headers.get(CONTENT_TYPES.CONTENT_TYPE_HEADER) || '';
@@ -160,6 +156,101 @@ export class AzureAPIClient {
         } catch {
             return null;
         }
+    }
+
+    async _fetchWithRetry(uri, options, onProgress) {
+        for (let attempt = 0; attempt <= MAX_TRANSCRIPTION_RETRIES; attempt++) {
+            const response = await fetch(uri, options);
+
+            if (response.ok || !this._isRetryableStatus(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
+                return response;
+            }
+
+            const delayMs = this._getRetryDelayMs(response, attempt);
+            logger.child('AzureAPIClient').warn(
+                `Transient API response ${response.status}. Retrying in ${Math.ceil(delayMs / 1000)}s.`,
+                { attempt: attempt + 1, maxRetries: MAX_TRANSCRIPTION_RETRIES }
+            );
+
+            if (onProgress) {
+                onProgress(this._formatRetryStatus(response.status, delayMs, attempt + 1));
+            }
+
+            await this._sleep(delayMs);
+        }
+
+        throw new Error('Retry loop exited unexpectedly');
+    }
+
+    async _createApiError(response) {
+        const errorText = await response.text();
+        const retryAfterSeconds = this._parseRetryAfterSeconds(response.headers?.get?.('Retry-After'));
+        logger.child('AzureAPIClient').error('API Error Details:', errorText);
+
+        const detail = this._extractErrorDetail(errorText);
+        let message;
+
+        if (response.status === 429) {
+            message = retryAfterSeconds !== null
+                ? `API rate limit reached (429). Retry after ${retryAfterSeconds}s.`
+                : 'API rate limit reached (429). Please wait a moment and try again.';
+
+            if (detail) {
+                message = `${message} ${detail}`;
+            }
+        } else {
+            message = detail
+                ? `API error ${response.status}: ${detail}`
+                : `API responded with status: ${response.status}`;
+        }
+
+        const error = new Error(message);
+        error.apiContext = {
+            status: response.status,
+            details: errorText,
+            retryAfter: retryAfterSeconds
+        };
+        return error;
+    }
+
+    _isRetryableStatus(status) {
+        return RETRYABLE_STATUS_CODES.has(status);
+    }
+
+    _getRetryDelayMs(response, attempt) {
+        const retryAfterSeconds = this._parseRetryAfterSeconds(response.headers?.get?.('Retry-After'));
+
+        if (retryAfterSeconds !== null) {
+            return retryAfterSeconds * 1000;
+        }
+
+        return RETRY_BACKOFF_SCHEDULE_MS[Math.min(attempt, RETRY_BACKOFF_SCHEDULE_MS.length - 1)];
+    }
+
+    _parseRetryAfterSeconds(retryAfterHeader) {
+        if (!retryAfterHeader) {
+            return null;
+        }
+
+        const numericValue = Number.parseFloat(retryAfterHeader);
+        if (Number.isFinite(numericValue) && numericValue >= 0) {
+            return Math.ceil(numericValue);
+        }
+
+        const retryAtMs = Date.parse(retryAfterHeader);
+        if (Number.isNaN(retryAtMs)) {
+            return null;
+        }
+
+        return Math.max(0, Math.ceil((retryAtMs - Date.now()) / 1000));
+    }
+
+    _formatRetryStatus(status, delayMs, attempt) {
+        return `Azure returned ${status}. Retrying in ${Math.ceil(delayMs / 1000)}s (${attempt}/${MAX_TRANSCRIPTION_RETRIES})...`;
+    }
+
+    _sleep(delayMs) {
+        return new Promise(resolve => setTimeout(resolve, delayMs));
     }
 
     /**
