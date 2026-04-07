@@ -258,6 +258,7 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 401,
+                headers: { get: vi.fn().mockReturnValue(null) },
                 text: vi.fn().mockResolvedValue('Invalid API key')
             });
             
@@ -279,6 +280,7 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 403,
+                headers: { get: vi.fn().mockReturnValue(null) },
                 text: vi.fn().mockResolvedValue('Subscription key is invalid')
             });
             
@@ -331,6 +333,7 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 400,
+                headers: { get: vi.fn().mockReturnValue(null) },
                 text: vi.fn().mockResolvedValue('Invalid audio format')
             });
             
@@ -352,6 +355,7 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 400,
+                headers: { get: vi.fn().mockReturnValue(null) },
                 text: vi.fn().mockResolvedValue('Empty audio file')
             });
             
@@ -525,6 +529,7 @@ describe('AzureAPIClient Error Handling', () => {
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 422,
+                headers: { get: vi.fn().mockReturnValue(null) },
                 text: vi.fn().mockResolvedValue('{"error":{"message":"Unsupported format"}}')
             });
 

@@ -39,17 +39,6 @@ function mockMaiTranscribeConfig(overrides = {}) {
     });
 }
 
-function mockMaiJsonResponse(text = 'test') {
-    global.fetch.mockResolvedValue({
-        ok: true,
-        headers: { get: () => 'application/json' },
-        json: () => Promise.resolve({
-            combinedPhrases: [{ text }],
-            phrases: []
-        })
-    });
-}
-
 function mockMaiJsonResponsePayload(text = 'test') {
     return {
         ok: true,
@@ -59,6 +48,10 @@ function mockMaiJsonResponsePayload(text = 'test') {
             phrases: []
         })
     };
+}
+
+function mockMaiJsonResponse(text = 'test') {
+    global.fetch.mockResolvedValue(mockMaiJsonResponsePayload(text));
 }
 
 function mockErrorResponse(status, errorBody = {}, retryAfter = null) {

@@ -11,6 +11,7 @@ import { convertToWav } from './audio-converter.js';
 const MAX_TRANSCRIPTION_RETRIES = 5;
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 const RETRY_BACKOFF_SCHEDULE_MS = [2000, 4000, 8000, 16000, 32000];
+const MAX_RETRY_AFTER_MS = 60_000;
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
@@ -162,24 +163,27 @@ export class AzureAPIClient {
         for (let attempt = 0; attempt <= MAX_TRANSCRIPTION_RETRIES; attempt++) {
             const response = await fetch(uri, options);
 
-            if (response.ok || !this._isRetryableStatus(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
+            if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
                 return response;
             }
 
             const delayMs = this._getRetryDelayMs(response, attempt);
+
+            // Consume the error body to release the connection before retrying
+            await response.text().catch(() => {});
+
             logger.child('AzureAPIClient').warn(
                 `Transient API response ${response.status}. Retrying in ${Math.ceil(delayMs / 1000)}s.`,
                 { attempt: attempt + 1, maxRetries: MAX_TRANSCRIPTION_RETRIES }
             );
 
             if (onProgress) {
-                onProgress(this._formatRetryStatus(response.status, delayMs, attempt + 1));
+                const waitSec = Math.ceil(delayMs / 1000);
+                onProgress(`Azure returned ${response.status}. Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
             }
 
             await this._sleep(delayMs);
         }
-
-        throw new Error('Retry loop exited unexpectedly');
     }
 
     async _createApiError(response) {
@@ -213,15 +217,11 @@ export class AzureAPIClient {
         return error;
     }
 
-    _isRetryableStatus(status) {
-        return RETRYABLE_STATUS_CODES.has(status);
-    }
-
     _getRetryDelayMs(response, attempt) {
         const retryAfterSeconds = this._parseRetryAfterSeconds(response.headers?.get?.('Retry-After'));
 
         if (retryAfterSeconds !== null) {
-            return retryAfterSeconds * 1000;
+            return Math.min(retryAfterSeconds * 1000, MAX_RETRY_AFTER_MS);
         }
 
         return RETRY_BACKOFF_SCHEDULE_MS[Math.min(attempt, RETRY_BACKOFF_SCHEDULE_MS.length - 1)];
@@ -243,10 +243,6 @@ export class AzureAPIClient {
         }
 
         return Math.max(0, Math.ceil((retryAtMs - Date.now()) / 1000));
-    }
-
-    _formatRetryStatus(status, delayMs, attempt) {
-        return `Azure returned ${status}. Retrying in ${Math.ceil(delayMs / 1000)}s (${attempt}/${MAX_TRANSCRIPTION_RETRIES})...`;
     }
 
     _sleep(delayMs) {
