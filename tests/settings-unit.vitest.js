@@ -5,7 +5,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { ID } from '../js/constants.js';
+import { ID, MESSAGES, MODEL_TYPES } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { generateMockApiKey, generateMockApiKeyForValidation, generateInvalidMockApiKey } from './helpers/mock-api-keys.js';
 import { createMockElement, createLocalStorageMock } from './helpers/mock-settings-dom.js';
@@ -379,6 +379,28 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 const errors = settings.getValidationErrors();
 
                 expect(errors).toContain('Invalid API key format');
+            });
+
+            it('should return error for API key with unsupported header characters', () => {
+                const unsupportedCharacter = '\u2014';
+                mockApiKeyInput.value = `test${unsupportedCharacter}key`;
+
+                const errors = settings.getValidationErrors();
+
+                expect(errors).toContain(MESSAGES.INVALID_API_KEY_CHARACTERS);
+            });
+
+            it('should reject unsupported header characters for MAI API keys', () => {
+                const unsupportedCharacter = '\u2014';
+                const maiKeyInput = createMockElement(`speech${unsupportedCharacter}key`);
+                const maiUriInput = createMockElement('https://valid.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15');
+                settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE;
+                settings.maiTranscribeKeyInput = maiKeyInput;
+                settings.maiTranscribeUriInput = maiUriInput;
+
+                const errors = settings.getValidationErrors();
+
+                expect(errors).toContain(MESSAGES.INVALID_API_KEY_CHARACTERS);
             });
 
             it('should return error for API key that is too short', () => {

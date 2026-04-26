@@ -111,6 +111,25 @@ describe('AzureAPIClient Configuration Validation', () => {
                 })
             );
         });
+
+        it('should throw a clear error for API keys unsafe for fetch headers', () => {
+            const unsupportedCharacter = '\u2014';
+            mockSettings.getModelConfig.mockReturnValue({
+                model: 'mai-transcribe',
+                apiKey: `speech${unsupportedCharacter}key`,
+                uri: 'https://test-api.azure.com'
+            });
+
+            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.INVALID_API_KEY_CHARACTERS);
+
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.API_CONFIG_MISSING,
+                expect.objectContaining({
+                    missing: 'validApiKey',
+                    model: 'mai-transcribe'
+                })
+            );
+        });
         
         it('should throw error for missing URI', () => {
             // Setup missing URI

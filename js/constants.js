@@ -72,6 +72,9 @@ export const API_PARAMS = {
   MAI_DEFINITION_FIELD: 'definition'
 };
 
+/** API keys are sent as header values, so keep them to visible ASCII with no whitespace. */
+export const API_KEY_VALUE_PATTERN = /^[\x21-\x7E]+$/;
+
 /**
  * Supported transcription model types for Azure Speech Services.
  * Defines model identifiers used throughout the application for API routing and configuration.
@@ -251,6 +254,7 @@ export const MESSAGES = {
   API_KEY_REQUIRED: 'API key is required',
   URI_REQUIRED: 'URI is required',
   INVALID_URI_FORMAT: 'Invalid URI format',
+  INVALID_API_KEY_CHARACTERS: 'API key contains unsupported characters. Paste only the raw Speech resource key.',
   
   // Recording States
   RECORDING_IN_PROGRESS: 'Recording... Click again to stop',

@@ -135,6 +135,26 @@ describe('AzureAPIClient Error Handling', () => {
                 })
             );
         });
+
+        it('should reject API keys unsafe for fetch headers before making a request', async () => {
+            const unsupportedCharacter = '\u2014';
+            mockSettings.getModelConfig.mockReturnValue({
+                model: 'mai-transcribe',
+                apiKey: `speech${unsupportedCharacter}key`,
+                uri: 'https://test-api.azure.com'
+            });
+
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.INVALID_API_KEY_CHARACTERS);
+
+            expect(global.fetch).not.toHaveBeenCalled();
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.API_CONFIG_MISSING,
+                expect.objectContaining({
+                    missing: 'validApiKey',
+                    model: 'mai-transcribe'
+                })
+            );
+        });
         
         it('should emit event when validateConfig is called with missing API key', () => {
             // Setup missing API key

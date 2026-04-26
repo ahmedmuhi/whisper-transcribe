@@ -2,7 +2,7 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_PARAMS, DEFAULT_LANGUAGE, DEFAULT_FILENAME, DEFAULT_WAV_FILENAME, MESSAGES, MODEL_TYPES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
+import { API_PARAMS, API_KEY_VALUE_PATTERN, DEFAULT_LANGUAGE, DEFAULT_FILENAME, DEFAULT_WAV_FILENAME, MESSAGES, MODEL_TYPES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -285,28 +285,43 @@ export class AzureAPIClient {
      */
     validateConfig() {
         const config = this.settings.getModelConfig();
+        const normalizedConfig = {
+            ...config,
+            apiKey: typeof config.apiKey === 'string'
+                ? config.apiKey.replace(/[\s\u200B-\u200D\uFEFF]+/g, '')
+                : config.apiKey,
+            uri: typeof config.uri === 'string'
+                ? config.uri.replace(/\s+/g, '')
+                : config.uri
+        };
         
-        if (!config.apiKey) {
-            const error = new Error(`${config.model} ${MESSAGES.API_KEY_REQUIRED}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey', model: config.model });
+        if (!normalizedConfig.apiKey) {
+            const error = new Error(`${normalizedConfig.model} ${MESSAGES.API_KEY_REQUIRED}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey', model: normalizedConfig.model });
+            throw error;
+        }
+
+        if (!API_KEY_VALUE_PATTERN.test(normalizedConfig.apiKey)) {
+            const error = new Error(MESSAGES.INVALID_API_KEY_CHARACTERS);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validApiKey', model: normalizedConfig.model });
             throw error;
         }
         
-        if (!config.uri) {
-            const error = new Error(`${config.model} ${MESSAGES.URI_REQUIRED}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri', model: config.model });
+        if (!normalizedConfig.uri) {
+            const error = new Error(`${normalizedConfig.model} ${MESSAGES.URI_REQUIRED}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri', model: normalizedConfig.model });
             throw error;
         }
         
         // Basic URI validation
         try {
-            new URL(config.uri);
+            new URL(normalizedConfig.uri);
         } catch {
-            const error = new Error(`${MESSAGES.INVALID_URI_FORMAT} for ${config.model}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri', model: config.model });
+            const error = new Error(`${MESSAGES.INVALID_URI_FORMAT} for ${normalizedConfig.model}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri', model: normalizedConfig.model });
             throw error;
         }
         
-        return config;
+        return normalizedConfig;
     }
 }

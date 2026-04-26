@@ -2,7 +2,7 @@
  * @fileoverview Settings management for API configuration and user preferences.
  */
 
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS, API_KEY_VALUE_PATTERN } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
@@ -506,8 +506,8 @@ export class Settings {
         const { apiKeyInput, uriInput } = this._getActiveInputs();
 
         if (apiKeyInput && typeof apiKeyInput.value === 'string') {
-            // Remove all whitespace characters (spaces, tabs, newlines, etc.)
-            apiKeyInput.value = apiKeyInput.value.replace(/\s+/g, '');
+            // Remove whitespace and common invisible paste artifacts.
+            apiKeyInput.value = apiKeyInput.value.replace(/[\s\u200B-\u200D\uFEFF]+/g, '');
         }
 
         if (uriInput && typeof uriInput.value === 'string') {
@@ -546,16 +546,18 @@ export class Settings {
 
         const errors = [];
 
-    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+        const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
         const isMai = this.getCurrentModelFromSettings() === MODEL_TYPES.MAI_TRANSCRIBE;
         if (!apiKey) {
             errors.push(MESSAGES.API_KEY_REQUIRED);
+        } else if (!API_KEY_VALUE_PATTERN.test(apiKey)) {
+            errors.push(MESSAGES.INVALID_API_KEY_CHARACTERS);
         } else if (!isMai && !/^[A-F0-9]{32}$/i.test(apiKey)) {
             // Whisper keys are 32-char hex; Speech keys are longer alphanumeric
             errors.push('Invalid API key format');
         }
 
-    const uri = uriInput ? uriInput.value.trim() : '';
+        const uri = uriInput ? uriInput.value.trim() : '';
         if (!uri) {
             errors.push(MESSAGES.URI_REQUIRED);
         } else {

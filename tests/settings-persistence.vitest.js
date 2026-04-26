@@ -6,7 +6,7 @@
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
-import { STORAGE_KEYS, MESSAGES, ID, RECORDING_ENVIRONMENTS } from '../js/constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
@@ -386,6 +386,25 @@ describe('Settings Persistence & Save Workflow', () => {
             expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
                 APP_EVENTS.SETTINGS_LOADED,
                 expect.anything()
+            );
+        });
+
+        test('should not save MAI API key with unsupported header characters', () => {
+            const unsupportedCharacter = '\u2014';
+            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE;
+            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
+            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = `speech${unsupportedCharacter}key`;
+            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
+
+            settings.saveSettings();
+
+            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
+            expect(localStorageMock.setItem).not.toHaveBeenCalled();
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_VALIDATION_ERROR,
+                expect.objectContaining({
+                    errors: expect.arrayContaining([MESSAGES.INVALID_API_KEY_CHARACTERS])
+                })
             );
         });
     });
