@@ -579,17 +579,16 @@ header {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all var(--transition);
+    transition: background-color var(--transition),
+                box-shadow var(--transition),
+                opacity var(--transition);
     z-index: 1;
-    box-shadow: 0 4px 20px var(--accent-glow),
-                0 0 0 0 var(--accent-glow);
+    box-shadow: inset 0 0 0 1px var(--accent-glow);
 }
 
 .mic-button:hover {
     background: var(--mic-hover-bg);
-    transform: scale(1.05);
-    box-shadow: 0 6px 28px var(--accent-glow),
-                0 0 0 4px var(--accent-glow);
+    box-shadow: inset 0 0 0 3px var(--accent-glow);
 }
 
 .mic-button:disabled {
@@ -604,23 +603,21 @@ header {
     stroke: var(--bg-primary);
     fill: none;
     filter: var(--icon-shadow);
+    transition: transform var(--transition);
+}
+
+.mic-button:hover .mic-icon {
+    transform: translateY(-1px);
+}
+
+.mic-button:active .mic-icon {
+    transform: translateY(1px) scale(0.96);
 }
 
 /* Recording state */
 .mic-button.recording {
     background: var(--recording);
-    animation: recordPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    box-shadow: 0 4px 20px var(--recording-glow),
-                0 0 0 0 var(--recording-glow);
-}
-
-@keyframes recordPulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.04);
-    }
+    box-shadow: inset 0 0 0 4px var(--recording-glow);
 }
 
 /* --- Spinner --- */
