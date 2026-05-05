@@ -61,6 +61,7 @@ describe('UI Event Bus Communication', () => {
         vi.spyOn(ui, 'hideSpinner');
         vi.spyOn(ui, 'setStatus');
         vi.spyOn(ui, 'displayTranscription');
+        vi.spyOn(ui, 'toggleRetryButton');
 
         // Set up event listeners after creating spies
         ui.setupEventBusListeners();
@@ -90,6 +91,17 @@ describe('UI Event Bus Communication', () => {
     });
 
     describe('Button Control Events', () => {
+        it('should emit retry button clicks', () => {
+            const emitSpy = vi.spyOn(eventBus, 'emit');
+
+            ui.setupEventListeners();
+            const retryClickHandler = ui.retryButton.addEventListener.mock.calls
+                .find(([event]) => event === 'click')[1];
+            retryClickHandler();
+
+            expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RETRY_BUTTON_CLICKED);
+        });
+
         it('should call enableMicButton when UI_BUTTON_ENABLE_MIC is emitted', () => {
             eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
             
@@ -196,6 +208,7 @@ describe('UI Event Bus Communication', () => {
                 oldState: 'processing'
             });
 
+            expect(ui.toggleRetryButton).toHaveBeenCalledWith(false);
             expect(ui.resetControlsAfterRecording).toHaveBeenCalled();
             expect(ui.enableMicButton).toHaveBeenCalled();
             expect(ui.hideSpinner).toHaveBeenCalled();
@@ -218,6 +231,7 @@ describe('UI Event Bus Communication', () => {
                 oldState: 'stopping'
             });
 
+            expect(ui.toggleRetryButton).toHaveBeenCalledWith(false);
             expect(ui.showSpinner).toHaveBeenCalled();
             expect(ui.disableMicButton).toHaveBeenCalled();
         });
@@ -234,12 +248,24 @@ describe('UI Event Bus Communication', () => {
         it('should handle error state transition correctly', () => {
             eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
                 newState: 'error',
-                oldState: 'recording'
+                oldState: 'recording',
+                canRetry: true
             });
 
+            expect(ui.toggleRetryButton).toHaveBeenCalledWith(true);
             expect(ui.resetControlsAfterRecording).toHaveBeenCalled();
             expect(ui.enableMicButton).toHaveBeenCalled();
             expect(ui.hideSpinner).toHaveBeenCalled();
+        });
+
+        it('should keep retry hidden when an error has no retry payload', () => {
+            eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
+                newState: 'error',
+                oldState: 'initializing',
+                canRetry: false
+            });
+
+            expect(ui.toggleRetryButton).toHaveBeenCalledWith(false);
         });
     });
 

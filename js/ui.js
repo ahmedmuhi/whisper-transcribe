@@ -47,6 +47,7 @@ export class UI {
         this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
         this.pauseButton = document.getElementById(ID.PAUSE_BUTTON);
         this.cancelButton = document.getElementById(ID.CANCEL_BUTTON);
+        this.retryButton = document.getElementById(ID.RETRY_BUTTON);
         this.timerElement = document.getElementById(ID.TIMER);
         this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
         this.visualizer = document.getElementById(ID.VISUALIZER);
@@ -134,6 +135,11 @@ export class UI {
                 eventBus.emit(APP_EVENTS.CANCEL_BUTTON_CLICKED);
             });
         }
+        if (this.retryButton) {
+            this.retryButton.addEventListener('click', () => {
+                eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+            });
+        }
 
         // Transcript buttons
         if (this.grabTextButton) {
@@ -199,6 +205,7 @@ export class UI {
             // Update UI based on state
             switch (newState) {
                 case 'idle':
+                    this.toggleRetryButton(false);
                     this.resetControlsAfterRecording();
                     this.enableMicButton();
                     this.hideSpinner();
@@ -222,6 +229,7 @@ export class UI {
                     }
                     break;
                 case 'processing':
+                    this.toggleRetryButton(false);
                     this.showSpinner();
                     this.disableMicButton();
                     break;
@@ -229,6 +237,7 @@ export class UI {
                     this.disableMicButton();
                     break;
                 case 'error':
+                    this.toggleRetryButton(Boolean(data.canRetry));
                     this.resetControlsAfterRecording();
                     this.enableMicButton();
                     this.hideSpinner();
@@ -547,6 +556,18 @@ export class UI {
         } else {
             this.micButton.classList.remove('recording');
         }
+    }
+
+    toggleRetryButton(show) {
+        if (!this.retryButton) {
+            return;
+        }
+
+        this.retryButton.style.display = show ? 'inline-flex' : 'none';
+        this.retryButton.disabled = !show;
+        this.retryButton.setAttribute('aria-hidden', show ? 'false' : 'true');
+        this.retryButton.setAttribute('title', MESSAGES.RETRY_TRANSCRIPTION);
+        this.retryButton.setAttribute('aria-label', MESSAGES.RETRY_TRANSCRIPTION);
     }
     
     /**

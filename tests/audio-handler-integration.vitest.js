@@ -282,6 +282,69 @@ describe('AudioHandler Integration', () => {
       );
     });
   });
+
+  describe('Transcription retry', () => {
+    it('preserves failed audio and retries the same blob', async () => {
+      const trackStopSpy = vi.fn();
+      const mockStream = {
+        getTracks: vi.fn(() => [{
+          kind: 'audio',
+          stop: trackStopSpy,
+          readyState: 'live'
+        }])
+      };
+      mockApiClient.transcribe
+        .mockRejectedValueOnce(new Error('Failed to fetch'))
+        .mockResolvedValueOnce('Recovered transcription');
+      audioHandler.audioChunks = [new Uint8Array([1, 2, 3])];
+
+      await audioHandler.processAndSendAudio(mockStream);
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+      expect(trackStopSpy).toHaveBeenCalled();
+      expect(audioHandler.pendingRetryBlob).toBeInstanceOf(Blob);
+      const failedAudioBlob = audioHandler.pendingRetryBlob;
+
+      await audioHandler.retryPendingTranscription();
+
+      expect(mockApiClient.transcribe).toHaveBeenCalledTimes(2);
+      expect(mockApiClient.transcribe.mock.calls[1][0]).toBe(failedAudioBlob);
+      expect(audioHandler.pendingRetryBlob).toBeNull();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_TRANSCRIPTION_READY,
+        { text: 'Recovered transcription' }
+      );
+    });
+
+    it('ignores retry clicks when there is no failed transcription payload', async () => {
+      await audioHandler.retryPendingTranscription();
+
+      expect(mockApiClient.transcribe).not.toHaveBeenCalled();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+    });
+
+    it('retries through the retry button event', async () => {
+      const mockStream = {
+        getTracks: vi.fn(() => [{
+          kind: 'audio',
+          stop: vi.fn(),
+          readyState: 'live'
+        }])
+      };
+      mockApiClient.transcribe
+        .mockRejectedValueOnce(new Error('Failed to fetch'))
+        .mockResolvedValueOnce('Recovered from event');
+      audioHandler.audioChunks = [new Uint8Array([4, 5, 6])];
+
+      await audioHandler.processAndSendAudio(mockStream);
+      eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockApiClient.transcribe).toHaveBeenCalledTimes(2);
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+    });
+  });
   
   describe('Timer Accuracy During Long Recordings', () => {
     beforeEach(() => {
@@ -480,7 +543,7 @@ describe('AudioHandler Integration', () => {
 
   describe('Lifecycle — destroy()', () => {
     it('should unsubscribe all event bus listeners', () => {
-      expect(audioHandler._unsubscribers.length).toBe(4);
+      expect(audioHandler._unsubscribers.length).toBe(5);
 
       audioHandler.destroy();
 

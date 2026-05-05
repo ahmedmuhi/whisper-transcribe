@@ -148,6 +148,7 @@ export const ID = Object.freeze({
   GRAB_TEXT_BUTTON: 'grab-text-button',
   SAVE_SETTINGS:    'save-settings',
   THEME_TOGGLE:     'theme-toggle',
+  RETRY_BUTTON:     'retry-button',
 
   // Status & text areas
   STATUS:           'status',
@@ -291,6 +292,8 @@ export const MESSAGES = {
   // Generic error message for unexpected errors
   ERROR_OCCURRED: 'An unexpected error occurred',
   TAP_MIC_TO_RETRY: 'Tap mic to retry',
+  CHECK_INTERNET_CONNECTION: 'Check your internet connection and try again.',
+  RETRY_TRANSCRIPTION: 'Retry transcription',
 };
 
 /**

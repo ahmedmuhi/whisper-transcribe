@@ -38,6 +38,7 @@ export class AudioHandler {
         this.recordingStartTime = null;
         this.timerInterval = null;
         this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
+        this.pendingRetryBlob = null;
 
         this.permissionManager = new PermissionManager();
         
@@ -52,6 +53,7 @@ export class AudioHandler {
             eventBus.on(APP_EVENTS.MIC_BUTTON_CLICKED, () => this.toggleRecording()),
             eventBus.on(APP_EVENTS.PAUSE_BUTTON_CLICKED, () => this.togglePause()),
             eventBus.on(APP_EVENTS.CANCEL_BUTTON_CLICKED, () => this.cancelRecording()),
+            eventBus.on(APP_EVENTS.RETRY_BUTTON_CLICKED, () => this.retryPendingTranscription()),
         ];
     }
     
@@ -97,6 +99,7 @@ export class AudioHandler {
             if (this.stateMachine.getState() === RECORDING_STATES.ERROR) {
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             }
+            this.pendingRetryBlob = null;
             
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
@@ -302,20 +305,52 @@ export class AudioHandler {
      */
     async processAndSendAudio(stream) {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        this.pendingRetryBlob = audioBlob;
 
         const result = await this.sendToAzureAPI(audioBlob);
         stream.getTracks().forEach(track => track.stop());
         this.audioChunks.length = 0;
 
         if (result.success) {
+            this.pendingRetryBlob = null;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
         } else {
-            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: result.error });
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
+                error: result.error,
+                canRetry: Boolean(this.pendingRetryBlob)
+            });
         }
+    }
+
+    async retryPendingTranscription() {
+        if (!this.pendingRetryBlob || this.stateMachine.getState() !== RECORDING_STATES.ERROR) {
+            return;
+        }
+
+        const retryBlob = this.pendingRetryBlob;
+        await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+        await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+
+        const result = await this.sendToAzureAPI(retryBlob);
+        if (result.success) {
+            this.pendingRetryBlob = null;
+            this.audioChunks.length = 0;
+            await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+            return;
+        }
+
+        await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
+            error: result.error,
+            canRetry: Boolean(this.pendingRetryBlob)
+        });
     }
     
     async sendToAzureAPI(audioBlob) {
         try {
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                throw new Error(MESSAGES.CHECK_INTERNET_CONNECTION);
+            }
+
             const transcriptionText = await this.apiClient.transcribe(audioBlob, (statusMessage) => {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                     message: statusMessage,
@@ -340,8 +375,14 @@ export class AudioHandler {
             const audioLogger = logger.child('AudioHandler');
             audioLogger.error('Transcription error:', error);
             this.cleanup();
+            const rawMessage = error?.message || MESSAGES.ERROR_OCCURRED;
+            const isNetworkError = error?.name === 'TypeError'
+                || /network|failed to fetch|load failed/i.test(rawMessage);
+            const errorMessage = isNetworkError && !/internet connection/i.test(rawMessage)
+                ? `${rawMessage}. ${MESSAGES.CHECK_INTERNET_CONNECTION}`
+                : rawMessage;
             // handleErrorState emits UI_STATUS_UPDATE with prefix + retry hint
-            return { success: false, error: error.message };
+            return { success: false, error: errorMessage };
         } finally {
             eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }

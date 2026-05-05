@@ -268,6 +268,7 @@ export const APP_EVENTS = {
     MIC_BUTTON_CLICKED: 'ui:micButtonClicked',
     PAUSE_BUTTON_CLICKED: 'ui:pauseButtonClicked',
     CANCEL_BUTTON_CLICKED: 'ui:cancelButtonClicked',
+    RETRY_BUTTON_CLICKED: 'ui:retryButtonClicked',
 
     // UI Control events - for decoupled UI state management
     UI_TIMER_UPDATE: 'ui:timerUpdate',
