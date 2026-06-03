@@ -2,11 +2,11 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_PARAMS, API_KEY_VALUE_PATTERN, DEFAULT_LANGUAGE, DEFAULT_FILENAME, DEFAULT_WAV_FILENAME, MESSAGES, MODEL_TYPES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
+import { API_KEY_VALUE_PATTERN, MESSAGES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
-import { convertToWav } from './audio-converter.js';
+import { modelAdapterRegistry } from './model-adapters/index.js';
 
 const MAX_TRANSCRIPTION_RETRIES = 5;
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
@@ -15,7 +15,7 @@ const MAX_RETRY_AFTER_MS = 60_000;
 
 /**
  * Azure Speech Services API client for transcribing audio to text.
- * Supports Azure Whisper and MAI-Transcribe models.
+ * Supports registered transcription model adapters.
  * 
  * @class AzureAPIClient
  * @fires APP_EVENTS.API_REQUEST_START
@@ -27,9 +27,11 @@ export class AzureAPIClient {
      * Creates a new AzureAPIClient instance.
      * 
      * @param {Settings} settings - Settings manager instance for API configuration
+     * @param {Map<string, Object>} [adapterRegistry=modelAdapterRegistry] - Model adapter registry
      */
-    constructor(settings) {
+    constructor(settings, adapterRegistry = modelAdapterRegistry) {
         this.settings = settings;
+        this.adapterRegistry = adapterRegistry;
     }
     
     /**
@@ -46,37 +48,10 @@ export class AzureAPIClient {
      */
     async transcribe(audioBlob, onProgress) {
         const config = this.validateConfig();
-        const isMaiTranscribe = config.model === MODEL_TYPES.MAI_TRANSCRIBE;
+        const adapter = this._getModelAdapter(config.model);
 
         try {
-            const formData = new FormData();
-            let headers;
-            let statusMessage;
-
-            if (isMaiTranscribe) {
-                if (onProgress) {
-                    onProgress(MESSAGES.CONVERTING_AUDIO);
-                }
-                // MAI-Transcribe requires WAV format (rejects WebM/Opus)
-                const wavBlob = await convertToWav(audioBlob);
-                formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
-                formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({
-                    enhancedMode: {
-                        enabled: true,
-                        model: MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL,
-                        task: 'transcribe'
-                    }
-                }));
-                headers = { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey };
-                statusMessage = MESSAGES.SENDING_TO_MAI_TRANSCRIBE;
-            } else {
-                formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
-                if (config.model !== MODEL_TYPES.WHISPER_TRANSLATE) {
-                    formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);
-                }
-                headers = { [API_PARAMS.API_KEY_HEADER]: config.apiKey };
-                statusMessage = MESSAGES.SENDING_TO_WHISPER;
-            }
+            const { headers, body, statusMessage } = await adapter.buildRequest(audioBlob, config, onProgress);
             if (onProgress) {
                 onProgress(statusMessage);
             }
@@ -89,7 +64,7 @@ export class AzureAPIClient {
             const response = await this._fetchWithRetry(config.uri, {
                 method: HTTP_METHODS.POST,
                 headers,
-                body: formData
+                body
             }, onProgress);
 
             if (!response.ok) {
@@ -100,7 +75,7 @@ export class AzureAPIClient {
             const data = contentType.includes(CONTENT_TYPES.APPLICATION_JSON)
                 ? await response.json()
                 : await response.text();
-            const transcription = this.parseResponse(data);
+            const transcription = adapter.parseResponse(data);
 
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
                 model: config.model,
@@ -249,6 +224,16 @@ export class AzureAPIClient {
         return new Promise(resolve => setTimeout(resolve, delayMs));
     }
 
+    _getModelAdapter(model) {
+        const adapter = this.adapterRegistry.get(model);
+
+        if (!adapter) {
+            throw new Error(`Unsupported transcription model: ${model}`);
+        }
+
+        return adapter;
+    }
+
     /**
      * Parses API response data from text or JSON format.
      *
@@ -258,19 +243,13 @@ export class AzureAPIClient {
      * @throws {Error} When response format is unrecognized
      */
     parseResponse(data) {
-        // Text response
-        if (typeof data === 'string') {
-            return data.trim();
-        }
-
-        // MAI-Transcribe response format
-        if (data.combinedPhrases && data.combinedPhrases.length > 0) {
-            return data.combinedPhrases.map(p => p.text).join(' ');
-        }
-
-        // Whisper JSON response
-        if (data.text) {
-            return data.text;
+        // Public helper keeps the legacy cross-shape parser behavior; transcribe() stays active-adapter strict.
+        for (const adapter of this.adapterRegistry.values()) {
+            try {
+                return adapter.parseResponse(data);
+            } catch {
+                // Keep trying registered parsers to preserve legacy shape-sniffing.
+            }
         }
 
         throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
