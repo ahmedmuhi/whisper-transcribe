@@ -252,6 +252,34 @@ describe('Settings Persistence & Save Workflow', () => {
                 uri: whisperApiUri,
             });
         });
+
+        test('should return MAI shared credentials for the MAI 1.5 model', () => {
+            const maiApiKey = 'speech-resource-key-for-mai-15';
+            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
+
+            document.getElementById(ID.MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+
+            localStorageMock.getItem.mockImplementation((key) => {
+                if (key === STORAGE_KEYS.MODEL) return MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+                if (key === STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY) return maiApiKey;
+                if (key === STORAGE_KEYS.MAI_TRANSCRIBE_URI) return maiApiUri;
+                return null;
+            });
+
+            const freshSettings = new Settings();
+            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
+            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
+
+            const config = freshSettings.getModelConfig();
+
+            expect(config).toEqual({
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+                apiKey: maiApiKey,
+                uri: maiApiUri,
+            });
+
+            freshSettings.destroy();
+        });
     });
 
     // ─── Save with Valid Configuration (from settings-save-modal) ────────────
@@ -299,6 +327,32 @@ describe('Settings Persistence & Save Workflow', () => {
                 APP_EVENTS.SETTINGS_LOADED,
                 expect.objectContaining({
                     model: 'whisper',
+                    hasUri: true,
+                    hasApiKey: true
+                })
+            );
+        });
+
+        test('should save MAI 1.5 model with shared MAI credentials', () => {
+            const maiApiKey = 'speech-resource-key-for-mai-15';
+            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
+            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = maiApiUri;
+            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = maiApiKey;
+            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
+
+            settings.saveSettings();
+
+            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MAI_TRANSCRIBE_URI, maiApiUri);
+            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY, maiApiKey);
+            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, maiApiUri);
+            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_API_KEY, maiApiKey);
+            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('none');
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.SETTINGS_SAVED,
+                expect.objectContaining({
+                    model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
                     hasUri: true,
                     hasApiKey: true
                 })

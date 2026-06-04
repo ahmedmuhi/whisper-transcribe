@@ -352,6 +352,19 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 expect(result.uriInput).toBe(maiUri);
             });
 
+            it('should select MAI inputs for MAI 1.5 model', () => {
+                settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+                const maiKey = createMockElement('mai-key');
+                const maiUri = createMockElement('https://mai.test.com');
+                settings.maiTranscribeKeyInput = maiKey;
+                settings.maiTranscribeUriInput = maiUri;
+
+                const result = settings._getActiveInputs();
+
+                expect(result.apiKeyInput).toBe(maiKey);
+                expect(result.uriInput).toBe(maiUri);
+            });
+
             it('should fall back to whisper inputs for unknown model', () => {
                 settings.settingsModelSelect.value = 'unknown-model';
 
@@ -401,6 +414,19 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 const errors = settings.getValidationErrors();
 
                 expect(errors).toContain(MESSAGES.INVALID_API_KEY_CHARACTERS);
+            });
+
+            it('should accept MAI 1.5 Speech resource keys without Whisper key format validation', () => {
+                const maiKeyInput = createMockElement('speech-resource-key-for-mai-15');
+                const maiUriInput = createMockElement('https://valid.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15');
+                settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+                settings.maiTranscribeKeyInput = maiKeyInput;
+                settings.maiTranscribeUriInput = maiUriInput;
+
+                const errors = settings.getValidationErrors();
+
+                expect(errors).not.toContain('Invalid API key format');
+                expect(errors).not.toContain(MESSAGES.INVALID_API_KEY_CHARACTERS);
             });
 
             it('should return error for API key that is too short', () => {

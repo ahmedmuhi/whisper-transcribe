@@ -412,7 +412,7 @@ export class Settings {
      */
     updateSettingsVisibility() {
         const currentModel = this.getCurrentModelFromSettings();
-        const isMai = currentModel === MODEL_TYPES.MAI_TRANSCRIBE;
+        const isMai = this._isMaiModel(currentModel);
         if (this.whisperSettings) {
             this.whisperSettings.style.display = isMai ? 'none' : 'block';
         }
@@ -495,7 +495,7 @@ export class Settings {
      * @returns {{ apiKeyInput: HTMLElement|null, uriInput: HTMLElement|null }}
      */
     _getActiveInputs() {
-        const isMai = this.getCurrentModelFromSettings() === MODEL_TYPES.MAI_TRANSCRIBE;
+        const isMai = this._isMaiModel(this.getCurrentModelFromSettings());
         return {
             apiKeyInput: isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput,
             uriInput: isMai ? this.maiTranscribeUriInput : this.whisperUriInput
@@ -547,7 +547,7 @@ export class Settings {
         const errors = [];
 
         const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
-        const isMai = this.getCurrentModelFromSettings() === MODEL_TYPES.MAI_TRANSCRIBE;
+        const isMai = this._isMaiModel(this.getCurrentModelFromSettings());
         if (!apiKey) {
             errors.push(MESSAGES.API_KEY_REQUIRED);
         } else if (!API_KEY_VALUE_PATTERN.test(apiKey)) {
@@ -596,7 +596,7 @@ export class Settings {
             return;
         }
 
-        const isMai = currentModel === MODEL_TYPES.MAI_TRANSCRIBE;
+        const isMai = this._isMaiModel(currentModel);
         const { apiKeyInput: keyInput, uriInput } = this._getActiveInputs();
         const targetUri = uriInput ? uriInput.value.trim() : '';
         const apiKey = keyInput ? keyInput.value.trim() : '';
@@ -681,12 +681,16 @@ export class Settings {
      */
     getModelConfig() {
         const model = this.getCurrentModel();
-        const isMai = model === MODEL_TYPES.MAI_TRANSCRIBE;
+        const isMai = this._isMaiModel(model);
         return {
             model,
             apiKey: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY : STORAGE_KEYS.WHISPER_API_KEY),
             uri: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_URI : STORAGE_KEYS.WHISPER_URI)
         };
+    }
+
+    _isMaiModel(model) {
+        return model === MODEL_TYPES.MAI_TRANSCRIBE || model === MODEL_TYPES.MAI_TRANSCRIBE_1_5;
     }
     
     checkInitialSettings() {
