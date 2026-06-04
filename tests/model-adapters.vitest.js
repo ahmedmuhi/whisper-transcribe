@@ -268,4 +268,37 @@ describe('AzureAPIClient model adapter registry', () => {
             text: 'Text field output.'
         })).toBe('Combined output.');
     });
+
+    it('keeps MAI-Transcribe 1.5 request shape with the 1.5 API model', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        const apiClient = new AzureAPIClient(settings);
+        const onProgress = vi.fn();
+        const audioBlob = new Blob(['audio']);
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'MAI 1.5 segment.' }],
+            phrases: []
+        });
+
+        const result = await apiClient.transcribe(audioBlob, onProgress);
+
+        expect(result).toBe('MAI 1.5 segment.');
+        expect(getFetchOptions().headers).toEqual({ [API_PARAMS.MAI_API_KEY_HEADER]: 'test-api-key' });
+        expect(getFormEntry(API_PARAMS.MAI_AUDIO_FIELD)).toEqual({
+            key: API_PARAMS.MAI_AUDIO_FIELD,
+            value: expect.objectContaining({ type: 'audio/wav' }),
+            filename: DEFAULT_WAV_FILENAME
+        });
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe'
+            }
+        });
+        expect(getFormEntry(API_PARAMS.FILE)).toBeUndefined();
+        expect(getFormEntry(API_PARAMS.LANGUAGE)).toBeUndefined();
+        expect(convertToWav).toHaveBeenCalledWith(audioBlob);
+        expect(onProgress).toHaveBeenCalledWith(MESSAGES.CONVERTING_AUDIO);
+        expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
+    });
 });

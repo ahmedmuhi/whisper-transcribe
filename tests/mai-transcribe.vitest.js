@@ -165,6 +165,24 @@ describe('MAI-Transcribe-1 Integration', () => {
             expect(definition.enhancedMode.task).toBe('transcribe');
         });
 
+        it('should send MAI-Transcribe 1.5 API model when 1.5 is selected', async () => {
+            mockMaiTranscribeConfig({ model: MODEL_TYPES.MAI_TRANSCRIBE_1_5 });
+            mockMaiJsonResponse();
+
+            await apiClient.transcribe(new Blob(['audio']), vi.fn());
+
+            const definitionEntry = formDataEntries.find(e => e.key === API_PARAMS.MAI_DEFINITION_FIELD);
+            const definition = JSON.parse(definitionEntry.value);
+
+            expect(definition).toEqual({
+                enhancedMode: {
+                    enabled: true,
+                    model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                    task: 'transcribe'
+                }
+            });
+        });
+
         it('should send WAV-converted audio for MAI-Transcribe', async () => {
             mockMaiTranscribeConfig();
             mockMaiJsonResponse();
