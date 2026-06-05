@@ -307,6 +307,30 @@ describe('AudioHandler Integration', () => {
 
       await audioHandler.retryPendingTranscription();
 
+      // Retry must actually ENTER processing via the legal error→processing edge.
+      // (The old code did error→idle then an illegal idle→processing that silently
+      //  no-oped, so the app never reached processing — yet still ended on idle,
+      //  which is exactly why the end-state assertions below passed despite the bug.)
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.RECORDING_STATE_CHANGED,
+        expect.objectContaining({
+          newState: RECORDING_STATES.PROCESSING,
+          oldState: RECORDING_STATES.ERROR
+        })
+      );
+      // Entering processing must drive the spinner + mic-disable side effects.
+      // UI_SPINNER_SHOW is emitted only by handleProcessingState, and this test
+      // never enters processing before the retry, so it uniquely proves the retry path.
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_SHOW);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
+      // No illegal-transition error should be surfaced to the user during retry.
+      const invalidTransitionEmits = eventBusEmitSpy.mock.calls.filter(
+        ([event, payload]) =>
+          event === APP_EVENTS.ERROR_OCCURRED &&
+          /Invalid state transition/i.test(payload?.message ?? '')
+      );
+      expect(invalidTransitionEmits).toHaveLength(0);
+
       expect(mockApiClient.transcribe).toHaveBeenCalledTimes(2);
       expect(mockApiClient.transcribe.mock.calls[1][0]).toBe(failedAudioBlob);
       expect(audioHandler.pendingRetryBlob).toBeNull();
@@ -342,6 +366,13 @@ describe('AudioHandler Integration', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(mockApiClient.transcribe).toHaveBeenCalledTimes(2);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.RECORDING_STATE_CHANGED,
+        expect.objectContaining({
+          newState: RECORDING_STATES.PROCESSING,
+          oldState: RECORDING_STATES.ERROR
+        })
+      );
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
     });
   });
