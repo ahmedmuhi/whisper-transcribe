@@ -156,6 +156,7 @@ export const ID = Object.freeze({
   RETRY_BUTTON:     'retry-button',
 
   // Guided-morph control cluster + discard dialog
+  CONTROL_CLUSTER:     'control-cluster',
   PRIMARY_ACTION:      'primary-action',
   SECONDARY_ACTION:    'secondary-action',
   DISCARD_ACTION:      'discard-action',

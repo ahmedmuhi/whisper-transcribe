@@ -35,7 +35,9 @@ export class UI {
         this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
         this.visualizer = document.getElementById(ID.VISUALIZER);
 
-        // Guided-morph recording controls (rendered from FSM state)
+        // Guided-morph recording controls (rendered from FSM state) — the
+        // Dynamic Island cluster reshapes around these fixed-size buttons.
+        this.controlCluster = document.getElementById(ID.CONTROL_CLUSTER);
         this.primaryAction = document.getElementById(ID.PRIMARY_ACTION);
         this.secondaryAction = document.getElementById(ID.SECONDARY_ACTION);
         this.discardAction = document.getElementById(ID.DISCARD_ACTION);
@@ -313,26 +315,158 @@ export class UI {
      * single source of truth for which controls are visible/labelled/enabled and
      * whether the spinner shows — replacing the former granular UI_BUTTON_* events.
      *
+     * Visually it is a Dynamic Island: the cluster reshapes (size + radius) and its
+     * contents cross-fade as the state changes. The size morph runs via FLIP +
+     * Web Animations API in {@link UI#_morphIsland}; the buttons keep a fixed size
+     * (the island animates around them — never the buttons' own geometry).
+     *
      * @method renderControls
      * @param {string} state - Current RECORDING_STATES value
      * @returns {void}
      */
     renderControls(state) {
         const cfg = this._controlConfig(state);
-        this._applyButton(this.primaryAction, cfg.primary);
-        this._applyButton(this.secondaryAction, cfg.secondary);
-        this._applyButton(this.discardAction, cfg.discard);
-        this._applyButton(this.retryAction, cfg.retry);
 
-        if (this.primaryAction && this.primaryAction.classList) {
-            this.primaryAction.classList.toggle('recording', Boolean(cfg.primary.recording));
+        // FLIP: measure → mutate → measure → animate the cluster's size between.
+        this._morphIsland(() => {
+            this._applyButton(this.primaryAction, cfg.primary);
+            this._applyButton(this.secondaryAction, cfg.secondary);
+            this._applyButton(this.discardAction, cfg.discard);
+            this._applyButton(this.retryAction, cfg.retry);
+
+            if (this.primaryAction && this.primaryAction.classList) {
+                this.primaryAction.classList.toggle('recording', Boolean(cfg.primary.recording));
+            }
+
+            // The island's resting shape per state (CSS owns colour/radius).
+            this._setIslandState(this._islandStateFor(state));
+
+            // The dots indicator replaces the primary's label only when shown.
+            if (this.controlCluster && this.controlCluster.classList) {
+                this.controlCluster.classList.toggle('island-has-indicator', Boolean(cfg.spinner));
+            }
+
+            if (cfg.spinner) {
+                this.showSpinner();
+            } else {
+                this.hideSpinner();
+            }
+        });
+    }
+
+    /**
+     * Maps an FSM state to a Dynamic-Island shape class.
+     *
+     * @method _islandStateFor
+     * @private
+     * @param {string} state
+     * @returns {('island-idle'|'island-recording'|'island-processing')}
+     */
+    _islandStateFor(state) {
+        const S = RECORDING_STATES;
+        if (state === S.RECORDING || state === S.PAUSED || state === S.CONFIRMING_DISCARD) {
+            return 'island-recording';
+        }
+        if (state === S.STOPPING || state === S.PROCESSING || state === S.INITIALIZING || state === S.CANCELLING) {
+            return 'island-processing';
+        }
+        return 'island-idle';
+    }
+
+    /**
+     * Swaps the single active island-shape class on the cluster.
+     *
+     * @method _setIslandState
+     * @private
+     * @param {string} islandClass
+     * @returns {void}
+     */
+    _setIslandState(islandClass) {
+        if (!this.controlCluster || !this.controlCluster.classList) return;
+        this.controlCluster.classList.remove('island-idle', 'island-recording', 'island-processing');
+        this.controlCluster.classList.add(islandClass);
+    }
+
+    /**
+     * FLIP size morph for the Dynamic Island. Measures the cluster, runs `mutate`
+     * (which changes the visible/labelled controls and the shape class), measures
+     * again, then animates width/height from old→new via the Web Animations API
+     * with a gentle settle. Only the CONTAINER animates — never the buttons —
+     * and only box-shadow/opacity/size, never the cluster's transform.
+     *
+     * Degrades gracefully: with no cluster, no element.animate, in tests (jsdom
+     * lacks layout), or under prefers-reduced-motion, the mutation applies
+     * instantly with a correct final layout and no animation.
+     *
+     * @method _morphIsland
+     * @private
+     * @param {Function} mutate - Applies the new state to the DOM.
+     * @returns {void}
+     */
+    _morphIsland(mutate) {
+        const cluster = this.controlCluster;
+        const canAnimate = cluster &&
+            typeof cluster.animate === 'function' &&
+            typeof cluster.getBoundingClientRect === 'function' &&
+            !this._prefersReducedMotion();
+
+        if (!canAnimate) {
+            mutate();
+            return;
         }
 
-        if (cfg.spinner) {
-            this.showSpinner();
-        } else {
-            this.hideSpinner();
+        const first = cluster.getBoundingClientRect();
+        mutate();
+        const last = cluster.getBoundingClientRect();
+
+        // Nothing meaningful changed — skip the animation (avoids idle jitter).
+        const dw = Math.abs(last.width - first.width);
+        const dh = Math.abs(last.height - first.height);
+        if (dw < 1 && dh < 1) return;
+
+        const DURATION = 360;
+        const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+        // Animate the cluster from its old size to the new one. fill defaults to
+        // none, so after the run the element reverts to its natural `auto` size
+        // (== `last`), leaving no locked inline width behind.
+        try {
+            cluster.animate(
+                [
+                    { width: `${first.width}px`, height: `${first.height}px` },
+                    { width: `${last.width}px`, height: `${last.height}px` }
+                ],
+                { duration: DURATION, easing: EASING }
+            );
+        } catch {
+            // If WAAPI rejects the keyframes, the mutation already applied — the
+            // final layout is correct, just without the tween.
+            return;
         }
+
+        // Cross-fade the contents over the same beat (opacity only — no geometry).
+        cluster.style.setProperty('--island-morph-ms', `${DURATION}ms`);
+        cluster.classList.add('island-morphing');
+        clearTimeout(this._islandMorphTimer);
+        this._islandMorphTimer = setTimeout(() => {
+            cluster.classList.remove('island-morphing');
+        }, DURATION);
+    }
+
+    /**
+     * Whether the user has requested reduced motion. Guards every JS-driven
+     * animation so reduced-motion users get instant, correct state changes.
+     *
+     * @method _prefersReducedMotion
+     * @private
+     * @returns {boolean}
+     */
+    _prefersReducedMotion() {
+        return Boolean(
+            typeof window !== 'undefined' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        );
     }
 
     /**
@@ -538,6 +672,10 @@ export class UI {
             this.statusElement._statusTimeout = null;
         }
         this.statusElement.textContent = message;
+        // Return to the base (AA-safe) colour: drop any temporary type modifier.
+        if (this.statusElement.classList) {
+            this.statusElement.classList.remove('status--error', 'status--success');
+        }
         this.statusElement.style.color = '';
     }
 
@@ -565,9 +703,34 @@ export class UI {
         this.transcriptElement.selectionEnd = this.transcriptElement.value.length;
         this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
 
+        // Text-arrival animation — a quiet settle that marks freshly-landed words.
+        this._playArrival();
+
         // Persist the freshly-updated transcript, then refresh Restore visibility.
         this.persistTranscript();
         this.updateRestoreAffordance();
+    }
+
+    /**
+     * Plays the one-shot text-arrival animation on the transcript box. Retriggers
+     * cleanly on each landing by toggling the class off then on across a frame.
+     * No-op under reduced motion or without the box.
+     *
+     * @method _playArrival
+     * @private
+     * @returns {void}
+     */
+    _playArrival() {
+        const el = this.transcriptElement;
+        if (!el || !el.classList || this._prefersReducedMotion()) return;
+        el.classList.remove('transcript-arrived');
+        // Force a reflow so removing + re-adding the class restarts the animation.
+        if (typeof el.offsetWidth === 'number') void el.offsetWidth;
+        el.classList.add('transcript-arrived');
+        clearTimeout(this._arrivalTimer);
+        this._arrivalTimer = setTimeout(() => {
+            if (el.classList) el.classList.remove('transcript-arrived');
+        }, 700);
     }
 
     /**

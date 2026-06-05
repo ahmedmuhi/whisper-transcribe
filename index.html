@@ -160,7 +160,23 @@
                     </button>
                 </div>
             </div>
-            <textarea id="transcript" class="transcript-content" placeholder="Transcription will appear here..."></textarea>
+            <div class="transcript-body">
+                <textarea id="transcript" class="transcript-content" placeholder=" "></textarea>
+                <!-- Onboarding empty-state: calmer than a bare placeholder. Hidden by
+                     CSS once the textarea holds text (:placeholder-shown sibling). -->
+                <div class="transcript-empty" aria-hidden="true">
+                    <span class="transcript-empty-mark">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </span>
+                    <p class="transcript-empty-title">Nothing transcribed yet</p>
+                    <p class="transcript-empty-hint">Tap the island below to start recording — your words land here.</p>
+                </div>
+            </div>
         </div>
 
         <!-- Controls Area -->
@@ -170,9 +186,13 @@
             </div>
 
             <div id="status" class="status" aria-live="polite">Loading...</div>
-            <div id="timer" class="timer">00:00</div>
 
-            <div class="control-cluster" role="group" aria-label="Recording controls">
+            <!-- Dynamic Island: a single pill that reshapes by FSM state, with its
+                 contents cross-fading between compact and expanded forms. -->
+            <div id="control-cluster" class="control-cluster island-idle" role="group" aria-label="Recording controls">
+                <!-- The timer folds into the island while recording/paused. -->
+                <div id="timer" class="timer island-timer">00:00</div>
+
                 <button id="primary-action" class="btn btn-primary">
                     <svg class="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -194,11 +214,17 @@
                 <button id="retry-action" class="btn btn-secondary" hidden>
                     <span class="btn-label">Retry</span>
                 </button>
-            </div>
 
-            <div id="spinner-container" class="spinner-container">
-                <div class="spinner"></div>
-                <div class="spinner-text">Processing your audio...</div>
+                <!-- Processing indicator: accent pulsing dots, folded into the island.
+                     Kept as #spinner-container so showSpinner()/hideSpinner() drive it. -->
+                <div id="spinner-container" class="spinner-container island-processing-indicator">
+                    <span class="island-dots" aria-hidden="true">
+                        <span class="island-dot"></span>
+                        <span class="island-dot"></span>
+                        <span class="island-dot"></span>
+                    </span>
+                    <span class="spinner-text">Transcribing…</span>
+                </div>
             </div>
         </div>
     </div>

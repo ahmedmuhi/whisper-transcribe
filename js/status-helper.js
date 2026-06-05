@@ -1,10 +1,25 @@
 /**
  * @fileoverview Helper functions for displaying temporary status messages
  */
-import { COLORS, DEFAULT_RESET_STATUS } from './constants.js';
+import { DEFAULT_RESET_STATUS } from './constants.js';
+
+/**
+ * Clears the status type modifier classes so the base (AA-safe) colour returns.
+ * @param {HTMLElement} element
+ */
+function clearStatusType(element) {
+    if (element.classList) {
+        element.classList.remove('status--error', 'status--success');
+    }
+}
 
 /**
  * Display a temporary status message in a DOM element and optionally reset it.
+ *
+ * Colour comes from AA-compliant CSS tokens via type modifier classes
+ * (`.status--error` / `.status--success`) — not inline hex — so error/success
+ * text meets WCAG-AA contrast in both themes.
+ *
  * @param {HTMLElement} element - The target element for status messages
  * @param {string} message - Status text to display
  * @param {('info'|'success'|'error')} [type='info'] - Message type for color coding
@@ -20,13 +35,12 @@ export function showTemporaryStatus(
 ) {
     element.textContent = message;
 
-    const colors = {
-        error: COLORS.ERROR,
-        success: COLORS.SUCCESS,
-        info: ''
-    };
-
-    element.style.color = colors[type] || '';
+    clearStatusType(element);
+    if ((type === 'error' || type === 'success') && element.classList) {
+        element.classList.add(`status--${type}`);
+    }
+    // Drop any stale inline colour from earlier inline-styled status writes.
+    element.style.color = '';
 
     // Clear any existing timeout on the element
     if (element._statusTimeout) {
@@ -40,6 +54,7 @@ export function showTemporaryStatus(
             // Only reset if the message has not been changed meanwhile
             if (element.textContent === originalMessage) {
                 element.textContent = resetMessage;
+                clearStatusType(element);
                 element.style.color = '';
             }
             element._statusTimeout = null;
