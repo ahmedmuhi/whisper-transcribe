@@ -328,8 +328,10 @@ export class AudioHandler {
         }
 
         const retryBlob = this.pendingRetryBlob;
-        await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
-        await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+        const enteredProcessing = await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+        if (!enteredProcessing) {
+            return;
+        }
 
         const result = await this.sendToAzureAPI(retryBlob);
         if (result.success) {
