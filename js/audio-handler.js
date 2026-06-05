@@ -264,9 +264,23 @@ export class AudioHandler {
      */
     async cancelRecording() {
         if (this.stateMachine.canCancel()) {
-            await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
-            this.safeStopRecorder();
+            await this._teardownToCancelling();
         }
+    }
+
+    /**
+     * Shared teardown: move to CANCELLING and stop the recorder; the recorder's
+     * 'stop' handler then routes to IDLE + cleanup. Used by both the cancel path
+     * and a confirmed discard, so the sequence lives in exactly one place.
+     *
+     * @async
+     * @private
+     * @method _teardownToCancelling
+     * @returns {Promise<void>}
+     */
+    async _teardownToCancelling() {
+        await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
+        this.safeStopRecorder();
     }
 
     /**
@@ -291,8 +305,7 @@ export class AudioHandler {
         // Substantial — remember where to return, then surface the confirm.
         this._discardReturnTo = this.stateMachine.getState();
         await this.stateMachine.transitionTo(RECORDING_STATES.CONFIRMING_DISCARD, {
-            durationLabel: this.currentTimerDisplay,
-            returnTo: this._discardReturnTo
+            durationLabel: this.currentTimerDisplay
         });
     }
 
@@ -305,8 +318,7 @@ export class AudioHandler {
      */
     async confirmDiscard() {
         if (this.stateMachine.getState() !== RECORDING_STATES.CONFIRMING_DISCARD) return;
-        await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
-        this.safeStopRecorder();
+        await this._teardownToCancelling();
     }
 
     /**
@@ -318,9 +330,7 @@ export class AudioHandler {
      */
     async keepRecording() {
         if (this.stateMachine.getState() !== RECORDING_STATES.CONFIRMING_DISCARD) return;
-        const target = this._discardReturnTo === RECORDING_STATES.PAUSED
-            ? RECORDING_STATES.PAUSED
-            : RECORDING_STATES.RECORDING;
+        const target = this._discardReturnTo || RECORDING_STATES.RECORDING;
         this._discardReturnTo = null;
         await this.stateMachine.transitionTo(target);
     }

@@ -260,21 +260,19 @@ export class RecordingStateMachine {
     /**
      * Handles the CONFIRMING_DISCARD state - a substantial recording is awaiting
      * the user's keep/discard decision. The recorder keeps running underneath;
-     * only the confirm dialog is surfaced. Carries the duration label (the stakes)
-     * and the state to return to if the user keeps recording.
+     * only the confirm dialog is surfaced. Announces the elapsed duration (the
+     * stakes); the audio handler tracks where to resume on "Keep".
      *
      * @async
      * @private
      * @method handleConfirmingDiscardState
      * @param {Object} [data={}]
      * @param {string} [data.durationLabel] - Elapsed time, e.g. "24:31"
-     * @param {string} [data.returnTo] - State to resume on "Keep"
      * @fires APP_EVENTS.DISCARD_CONFIRM_REQUESTED
      */
     async handleConfirmingDiscardState(data = {}) {
         eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, {
-            durationLabel: data.durationLabel || '',
-            returnTo: data.returnTo || RECORDING_STATES.RECORDING
+            durationLabel: data.durationLabel || ''
         });
     }
 

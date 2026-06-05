@@ -60,8 +60,7 @@ describe('Proportional discard flow', () => {
             await audioHandler.requestDiscard();
 
             expect(transitionSpy).toHaveBeenCalledWith(RECORDING_STATES.CONFIRMING_DISCARD, {
-                durationLabel: '24:31',
-                returnTo: RECORDING_STATES.RECORDING
+                durationLabel: '24:31'
             });
         });
 
@@ -73,9 +72,9 @@ describe('Proportional discard flow', () => {
             await audioHandler.requestDiscard();
 
             expect(transitionSpy).toHaveBeenCalledWith(RECORDING_STATES.CONFIRMING_DISCARD, {
-                durationLabel: '12:00',
-                returnTo: RECORDING_STATES.PAUSED
+                durationLabel: '12:00'
             });
+            expect(audioHandler._discardReturnTo).toBe(RECORDING_STATES.PAUSED);
         });
 
         it('ignores discard when neither recording nor paused', async () => {
@@ -150,11 +149,10 @@ describe('Proportional discard flow', () => {
             const sm = new RecordingStateMachine({});
             const emitSpy = vi.spyOn(eventBus, 'emit').mockImplementation(() => {});
 
-            await sm.handleConfirmingDiscardState({ durationLabel: '12:00', returnTo: RECORDING_STATES.PAUSED });
+            await sm.handleConfirmingDiscardState({ durationLabel: '12:00' });
 
             expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, {
-                durationLabel: '12:00',
-                returnTo: RECORDING_STATES.PAUSED
+                durationLabel: '12:00'
             });
         });
     });

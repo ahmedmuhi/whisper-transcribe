@@ -548,6 +548,20 @@ export class UI {
     }
 
     /**
+     * Emits a transient status toast. Collapses the repeated UI_STATUS_UPDATE
+     * boilerplate shared by the transcript actions.
+     *
+     * @method _emitStatus
+     * @private
+     * @param {string} message
+     * @param {string} [type='info']
+     * @returns {void}
+     */
+    _emitStatus(message, type = 'info') {
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, { message, type, temporary: true });
+    }
+
+    /**
      * Cut — copy the transcript to the clipboard and clear the box. The record
      * is persisted FIRST, so the words survive a clipboard failure or a later
      * clipboard clobber (recover them with Restore).
@@ -558,9 +572,7 @@ export class UI {
     cutTranscript() {
         const text = this.transcriptElement.value;
         if (!text) {
-            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: MESSAGES.NO_TEXT_TO_CUT, type: 'error', temporary: true
-            });
+            this._emitStatus(MESSAGES.NO_TEXT_TO_CUT, 'error');
             return Promise.resolve(false);
         }
         this.persistTranscript();
@@ -568,15 +580,11 @@ export class UI {
             .then(() => {
                 this.transcriptElement.value = '';
                 this.updateRestoreAffordance();
-                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                    message: MESSAGES.TEXT_CUT_SUCCESS, type: 'success', temporary: true
-                });
+                this._emitStatus(MESSAGES.TEXT_CUT_SUCCESS, 'success');
                 return true;
             })
             .catch(() => {
-                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                    message: MESSAGES.TEXT_CUT_FAILED, type: 'error', temporary: true
-                });
+                this._emitStatus(MESSAGES.TEXT_CUT_FAILED, 'error');
                 return false;
             });
     }
@@ -593,9 +601,7 @@ export class UI {
         this.persistTranscript();
         this.transcriptElement.value = '';
         this.updateRestoreAffordance();
-        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.TEXT_CLEARED, type: 'info', temporary: true
-        });
+        this._emitStatus(MESSAGES.TEXT_CLEARED);
     }
 
     /**
@@ -612,9 +618,7 @@ export class UI {
         this.transcriptElement.value = record.text;
         this.transcriptElement.focus();
         this.updateRestoreAffordance();
-        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.TRANSCRIPT_RESTORED, type: 'success', temporary: true
-        });
+        this._emitStatus(MESSAGES.TRANSCRIPT_RESTORED, 'success');
     }
 
     /**
@@ -626,9 +630,11 @@ export class UI {
      */
     updateRestoreAffordance() {
         if (!this.restoreButton) return;
-        const recoverable = Boolean(this.transcriptStore && this.transcriptStore.has());
         const boxEmpty = !this.transcriptElement || !this.transcriptElement.value;
-        this.restoreButton.hidden = !(recoverable && boxEmpty);
+        // Short-circuit on boxEmpty so we never touch storage on the typing hot
+        // path — has() reads + JSON-parses, and while the box has text the
+        // button is hidden regardless of what's saved.
+        this.restoreButton.hidden = !(boxEmpty && Boolean(this.transcriptStore && this.transcriptStore.has()));
     }
 
     updateTimer(timeString) {
