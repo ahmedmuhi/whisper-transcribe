@@ -346,7 +346,7 @@ export class UI {
      */
     _controlConfig(state) {
         const S = RECORDING_STATES;
-        const hidden = { hidden: true };
+        const hidden = Object.freeze({ hidden: true });
         const idle = {
             primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: !this.ready, recording: false },
             secondary: hidden,
@@ -354,41 +354,32 @@ export class UI {
             retry: hidden,
             spinner: false
         };
+        // "Busy" states show only a disabled primary (transient/processing) with an
+        // optional spinner; "active" states (recording/paused) show Done + a
+        // secondary (Pause/Resume) + Discard.
+        const busy = (label, spinner = false) => ({
+            ...idle,
+            primary: { label, hidden: false, disabled: true, recording: false },
+            spinner
+        });
+        const active = (secondaryLabel) => ({
+            primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
+            secondary: { label: secondaryLabel, hidden: false },
+            discard: { hidden: false },
+            retry: hidden,
+            spinner: false
+        });
 
         switch (state) {
-            case S.INITIALIZING:
-                return { ...idle, primary: { label: MESSAGES.CONTROL_STARTING, hidden: false, disabled: true, recording: false } };
-            case S.RECORDING:
-                return {
-                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
-                    secondary: { label: MESSAGES.CONTROL_PAUSE, hidden: false },
-                    discard: { hidden: false },
-                    retry: hidden,
-                    spinner: false
-                };
-            case S.PAUSED:
-                return {
-                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
-                    secondary: { label: MESSAGES.CONTROL_RESUME, hidden: false },
-                    discard: { hidden: false },
-                    retry: hidden,
-                    spinner: false
-                };
+            case S.INITIALIZING: return busy(MESSAGES.CONTROL_STARTING);
+            case S.RECORDING: return active(MESSAGES.CONTROL_PAUSE);
+            case S.PAUSED: return active(MESSAGES.CONTROL_RESUME);
             case S.CONFIRMING_DISCARD:
                 // The dialog owns the interaction; the cluster stays but inert.
-                return {
-                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true },
-                    secondary: hidden,
-                    discard: hidden,
-                    retry: hidden,
-                    spinner: false
-                };
-            case S.STOPPING:
-                return { ...idle, primary: { label: MESSAGES.CONTROL_FINISHING, hidden: false, disabled: true, recording: false } };
-            case S.PROCESSING:
-                return { ...idle, primary: { label: MESSAGES.CONTROL_TRANSCRIBING, hidden: false, disabled: true, recording: false }, spinner: true };
-            case S.CANCELLING:
-                return { ...idle, primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: true, recording: false } };
+                return { ...idle, primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true } };
+            case S.STOPPING: return busy(MESSAGES.CONTROL_FINISHING);
+            case S.PROCESSING: return busy(MESSAGES.CONTROL_TRANSCRIBING, true);
+            case S.CANCELLING: return busy(MESSAGES.CONTROL_START);
             case S.ERROR:
                 // Primary stays enabled regardless of `ready` so ERROR always has an
                 // escape (a fresh start re-runs the prerequisite checks). Retry shows
