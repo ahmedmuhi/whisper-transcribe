@@ -61,7 +61,7 @@ export function encodeWav(samples, sampleRate, bitDepth) {
  * @param {number} offset - Byte offset to write at
  * @param {string} str - ASCII string to write
  */
-export function writeString(view, offset, str) {
+function writeString(view, offset, str) {
     for (let i = 0; i < str.length; i++) {
         view.setUint8(offset + i, str.charCodeAt(i));
     }

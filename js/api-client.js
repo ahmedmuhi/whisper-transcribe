@@ -141,30 +141,20 @@ export class AzureAPIClient {
             try {
                 response = await this._fetchWithTimeout(uri, options);
             } catch (error) {
-                // A per-attempt timeout aborts the request (AbortError). Treat it as a
-                // retryable failure under the same cap, then surface a friendly timeout
-                // error so the caller routes the FSM to ERROR (never stuck in PROCESSING).
-                if (!this._isTimeoutError(error)) {
+                // Only a per-attempt timeout (AbortError) is retryable here; anything
+                // else propagates. On the final attempt, surface a friendly timeout
+                // error so the caller routes the FSM to ERROR (never stuck PROCESSING).
+                if (error?.name !== 'AbortError') {
                     throw error;
                 }
-
                 if (attempt === MAX_TRANSCRIPTION_RETRIES) {
                     throw this._createTimeoutError();
                 }
-
-                const delayMs = this._getRetryDelayMs(null, attempt);
-
-                logger.child('AzureAPIClient').warn(
-                    `Transcription request timed out after ${Math.ceil(TRANSCRIPTION_TIMEOUT_MS / 1000)}s. Retrying in ${Math.ceil(delayMs / 1000)}s.`,
-                    { attempt: attempt + 1, maxRetries: MAX_TRANSCRIPTION_RETRIES }
-                );
-
-                if (onProgress) {
-                    const waitSec = Math.ceil(delayMs / 1000);
-                    onProgress(`Request timed out. Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
-                }
-
-                await this._sleep(delayMs);
+                const timeoutSec = Math.ceil(TRANSCRIPTION_TIMEOUT_MS / 1000);
+                await this._retryAfter(this._getRetryDelayMs(null, attempt), attempt, {
+                    log: `Transcription request timed out after ${timeoutSec}s.`,
+                    progress: 'Request timed out.'
+                }, onProgress);
                 continue;
             }
 
@@ -172,22 +162,13 @@ export class AzureAPIClient {
                 return response;
             }
 
-            const delayMs = this._getRetryDelayMs(response, attempt);
-
             // Consume the error body to release the connection before retrying
             await response.text().catch(() => {});
 
-            logger.child('AzureAPIClient').warn(
-                `Transient API response ${response.status}. Retrying in ${Math.ceil(delayMs / 1000)}s.`,
-                { attempt: attempt + 1, maxRetries: MAX_TRANSCRIPTION_RETRIES }
-            );
-
-            if (onProgress) {
-                const waitSec = Math.ceil(delayMs / 1000);
-                onProgress(`Azure returned ${response.status}. Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
-            }
-
-            await this._sleep(delayMs);
+            await this._retryAfter(this._getRetryDelayMs(response, attempt), attempt, {
+                log: `Transient API response ${response.status}.`,
+                progress: `Azure returned ${response.status}.`
+            }, onProgress);
         }
     }
 
@@ -214,14 +195,27 @@ export class AzureAPIClient {
     }
 
     /**
-     * Detects whether an error represents an aborted (timed-out) request.
+     * Shared retry tail: warn-log the reason, emit a user-facing "Retrying in Ns"
+     * progress message, and sleep for the backoff delay. Keeps the retry-progress
+     * contract in one place for both the timeout and transient-status paths.
      *
      * @private
-     * @param {Error} error - Error thrown by fetch
-     * @returns {boolean} True when the request was aborted by the timeout
+     * @param {number} delayMs - Backoff delay before the next attempt
+     * @param {number} attempt - Zero-based attempt index
+     * @param {{log: string, progress: string}} reason - Reason prefixes for the log + progress lines
+     * @param {Function} [onProgress] - Optional progress callback
+     * @returns {Promise<void>}
      */
-    _isTimeoutError(error) {
-        return error?.name === 'AbortError';
+    async _retryAfter(delayMs, attempt, reason, onProgress) {
+        const waitSec = Math.ceil(delayMs / 1000);
+        logger.child('AzureAPIClient').warn(
+            `${reason.log} Retrying in ${waitSec}s.`,
+            { attempt: attempt + 1, maxRetries: MAX_TRANSCRIPTION_RETRIES }
+        );
+        if (onProgress) {
+            onProgress(`${reason.progress} Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
+        }
+        await this._sleep(delayMs);
     }
 
     /**
