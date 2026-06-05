@@ -47,6 +47,7 @@ export class RecordingStateMachine {
             [RECORDING_STATES.STOPPING]: this.handleStoppingState.bind(this),
             [RECORDING_STATES.PROCESSING]: this.handleProcessingState.bind(this),
             [RECORDING_STATES.CANCELLING]: this.handleCancellingState.bind(this),
+            [RECORDING_STATES.CONFIRMING_DISCARD]: this.handleConfirmingDiscardState.bind(this),
             [RECORDING_STATES.ERROR]: this.handleErrorState.bind(this)
         };
     }
@@ -256,6 +257,27 @@ export class RecordingStateMachine {
         eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
+    /**
+     * Handles the CONFIRMING_DISCARD state - a substantial recording is awaiting
+     * the user's keep/discard decision. The recorder keeps running underneath;
+     * only the confirm dialog is surfaced. Carries the duration label (the stakes)
+     * and the state to return to if the user keeps recording.
+     *
+     * @async
+     * @private
+     * @method handleConfirmingDiscardState
+     * @param {Object} [data={}]
+     * @param {string} [data.durationLabel] - Elapsed time, e.g. "24:31"
+     * @param {string} [data.returnTo] - State to resume on "Keep"
+     * @fires APP_EVENTS.DISCARD_CONFIRM_REQUESTED
+     */
+    async handleConfirmingDiscardState(data = {}) {
+        eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, {
+            durationLabel: data.durationLabel || '',
+            returnTo: data.returnTo || RECORDING_STATES.RECORDING
+        });
+    }
+
     /**
      * Handles the ERROR state - recording or processing error occurred.
      * Displays error message and resets UI to enable recovery.

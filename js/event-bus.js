@@ -244,6 +244,12 @@ export const APP_EVENTS = {
     RECORDING_RESUMED: 'recording:resumed',
     RECORDING_CANCELLED: 'recording:cancelled',
     RECORDING_ERROR: 'recording:error',
+
+    // Discard flow (proportional confirm)
+    DISCARD_BUTTON_CLICKED: 'ui:discardButtonClicked',
+    DISCARD_CONFIRM_REQUESTED: 'recording:discardConfirmRequested',
+    DISCARD_CONFIRMED: 'recording:discardConfirmed',
+    DISCARD_KEPT: 'recording:discardKept',
     
     // Permission events
     PERMISSION_GRANTED: 'permission:granted',

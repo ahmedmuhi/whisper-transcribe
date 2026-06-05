@@ -2,7 +2,7 @@
  * @fileoverview User interface controller for the whisper-transcribe application.
  */
 
-import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID } from './constants.js';
+import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID, TRANSCRIPT_SEGMENT_DIVIDER } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -40,6 +40,8 @@ export class UI {
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
+        this.clearButton = document.getElementById(ID.CLEAR_BUTTON);
+        this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
         this.settingsButton = document.getElementById(ID.SETTINGS_BUTTON);
         this.themeToggle = document.getElementById(ID.THEME_TOGGLE);
         this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
@@ -68,8 +70,9 @@ export class UI {
      * @param {Settings} settings - Settings manager instance
      * @returns {void}
      */
-    init(settings) {
+    init(settings, transcriptStore = null) {
         this.settings = settings;
+        this.transcriptStore = transcriptStore;
         
         // Load theme
         this.loadTheme();
@@ -77,6 +80,9 @@ export class UI {
         // Setup event listeners
         this.setupEventListeners();
         this.setupEventBusListeners();
+
+        // Restore an autosaved transcript across reloads/crashes (single slot).
+        this.restoreTranscriptIfEmpty();
 
         // After listeners are ready, verify saved configuration
         // This ensures SETTINGS_LOADED events emitted during initialization are
@@ -141,34 +147,24 @@ export class UI {
             });
         }
 
-        // Transcript buttons
+        // Transcript actions — Cut (grab + clear), Clear (wipe), Restore (recover).
         if (this.grabTextButton) {
-            this.grabTextButton.addEventListener('click', () => {
-                const text = this.transcriptElement.value;
-                if (text) {
-                    navigator.clipboard.writeText(text)
-                        .then(() => {
-                            this.transcriptElement.value = '';
-                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                                message: MESSAGES.TEXT_CUT_SUCCESS,
-                                type: 'success',
-                                temporary: true
-                            });
-                        })
-                        .catch(() => {
-                            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                                message: MESSAGES.TEXT_CUT_FAILED,
-                                type: 'error',
-                                temporary: true
-                            });
-                        });
-                } else {
-                    eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                        message: MESSAGES.NO_TEXT_TO_CUT,
-                        type: 'error',
-                        temporary: true
-                    });
-                }
+            this.grabTextButton.addEventListener('click', () => this.cutTranscript());
+        }
+        if (this.clearButton) {
+            this.clearButton.addEventListener('click', () => this.clearTranscript());
+        }
+        if (this.restoreButton) {
+            this.restoreButton.addEventListener('click', () => this.restoreTranscript());
+        }
+
+        // Autosave in-place edits to the transcript (debounced) so a crash or
+        // reload never loses words typed or corrected before grabbing the text.
+        if (this.transcriptElement) {
+            this.transcriptElement.addEventListener('input', () => {
+                this.updateRestoreAffordance();
+                clearTimeout(this._autosaveTimer);
+                this._autosaveTimer = setTimeout(() => this.persistTranscript(), 500);
             });
         }
     }
@@ -500,10 +496,11 @@ export class UI {
      * @returns {void}
      */
     displayTranscription(text) {
+        const incoming = text || 'No transcription returned';
         if (this.transcriptElement.value) {
-            this.transcriptElement.value += '\n\n' + (text || 'No transcription returned');
+            this.transcriptElement.value += TRANSCRIPT_SEGMENT_DIVIDER + incoming;
         } else {
-            this.transcriptElement.value = text || 'No transcription returned';
+            this.transcriptElement.value = incoming;
         }
         
         this.transcriptElement.focus();
@@ -512,8 +509,128 @@ export class UI {
         
         // Auto-scroll to bottom so newest text is always visible
         this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
+
+        // Persist the freshly-updated transcript as the single recovery slot,
+        // then refresh the Restore affordance (the box is now non-empty).
+        this.persistTranscript();
+        this.updateRestoreAffordance();
     }
     
+    /**
+     * Persists the current transcript text to the single-slot store (the seam
+     * that later swaps localStorage for a backend). No-op without a store.
+     *
+     * @method persistTranscript
+     * @returns {void}
+     */
+    persistTranscript() {
+        if (this.transcriptStore && this.transcriptElement && this.transcriptElement.value) {
+            this.transcriptStore.save(this.transcriptElement.value);
+        }
+    }
+
+    /**
+     * Restores an autosaved transcript into an empty box on load (reload/crash
+     * recovery — "exactly where you left off"). Leaves a non-empty box alone.
+     *
+     * @method restoreTranscriptIfEmpty
+     * @returns {void}
+     */
+    restoreTranscriptIfEmpty() {
+        if (!this.transcriptStore || !this.transcriptElement) return;
+        if (!this.transcriptElement.value) {
+            const record = this.transcriptStore.load();
+            if (record && record.text) {
+                this.transcriptElement.value = record.text;
+            }
+        }
+        this.updateRestoreAffordance();
+    }
+
+    /**
+     * Cut — copy the transcript to the clipboard and clear the box. The record
+     * is persisted FIRST, so the words survive a clipboard failure or a later
+     * clipboard clobber (recover them with Restore).
+     *
+     * @method cutTranscript
+     * @returns {Promise<boolean>} Resolves true when the text reached the clipboard.
+     */
+    cutTranscript() {
+        const text = this.transcriptElement.value;
+        if (!text) {
+            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: MESSAGES.NO_TEXT_TO_CUT, type: 'error', temporary: true
+            });
+            return Promise.resolve(false);
+        }
+        this.persistTranscript();
+        return navigator.clipboard.writeText(text)
+            .then(() => {
+                this.transcriptElement.value = '';
+                this.updateRestoreAffordance();
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.TEXT_CUT_SUCCESS, type: 'success', temporary: true
+                });
+                return true;
+            })
+            .catch(() => {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.TEXT_CUT_FAILED, type: 'error', temporary: true
+                });
+                return false;
+            });
+    }
+
+    /**
+     * Clear — wipe the box WITHOUT copying. Rare. The record is persisted first
+     * so a Clear is still recoverable via Restore.
+     *
+     * @method clearTranscript
+     * @returns {void}
+     */
+    clearTranscript() {
+        if (!this.transcriptElement.value) return;
+        this.persistTranscript();
+        this.transcriptElement.value = '';
+        this.updateRestoreAffordance();
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.TEXT_CLEARED, type: 'info', temporary: true
+        });
+    }
+
+    /**
+     * Restore — resurrect the last transcript into the box. Persistent and
+     * repeatable: Cut → clobbered clipboard → Restore → Cut again all work.
+     *
+     * @method restoreTranscript
+     * @returns {void}
+     */
+    restoreTranscript() {
+        if (!this.transcriptStore) return;
+        const record = this.transcriptStore.load();
+        if (!record || !record.text) return;
+        this.transcriptElement.value = record.text;
+        this.transcriptElement.focus();
+        this.updateRestoreAffordance();
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.TRANSCRIPT_RESTORED, type: 'success', temporary: true
+        });
+    }
+
+    /**
+     * Shows the persistent Restore affordance exactly when there is something to
+     * recover (box empty) and a saved record exists; hides it otherwise.
+     *
+     * @method updateRestoreAffordance
+     * @returns {void}
+     */
+    updateRestoreAffordance() {
+        if (!this.restoreButton) return;
+        const recoverable = Boolean(this.transcriptStore && this.transcriptStore.has());
+        const boxEmpty = !this.transcriptElement || !this.transcriptElement.value;
+        this.restoreButton.hidden = !(recoverable && boxEmpty);
+    }
+
     updateTimer(timeString) {
         this.timerElement.textContent = timeString;
     }

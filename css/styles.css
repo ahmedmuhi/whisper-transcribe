@@ -80,6 +80,11 @@
     padding: 0;
 }
 
+/* Respect the hidden attribute even on elements that set their own display. */
+[hidden] {
+    display: none !important;
+}
+
 body {
     font-family: var(--font-mono);
     font-weight: 400;
@@ -697,6 +702,25 @@ header {
     border-color: var(--accent);
     color: var(--accent);
     background: var(--accent-subtle);
+}
+
+/* Transcript action row: Restore · Clear · Cut */
+.transcript-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Cut — the primary transcript action, gently emphasised */
+.clear-btn-primary {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.clear-btn-primary:hover {
+    background: var(--accent);
+    color: var(--bg-surface);
+    border-color: var(--accent);
 }
 
 .transcript-content {

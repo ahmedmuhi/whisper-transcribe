@@ -574,7 +574,8 @@ describe('AudioHandler Integration', () => {
 
   describe('Lifecycle — destroy()', () => {
     it('should unsubscribe all event bus listeners', () => {
-      expect(audioHandler._unsubscribers.length).toBe(5);
+      // 5 original listeners + 3 discard-flow listeners (requestDiscard/confirm/keep)
+      expect(audioHandler._unsubscribers.length).toBe(8);
 
       audioHandler.destroy();
 

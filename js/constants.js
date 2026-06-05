@@ -43,7 +43,8 @@ export const STORAGE_KEYS = {
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
-  SIDEBAR_PINNED:        'sidebar_pinned'
+  SIDEBAR_PINNED:        'sidebar_pinned',
+  TRANSCRIPT_RECORD:     'transcript_record'
 };
 
 /**
@@ -148,6 +149,8 @@ export const ID = Object.freeze({
   CANCEL_BUTTON:    'cancel-button',
   SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
+  CLEAR_BUTTON:     'clear-button',
+  RESTORE_BUTTON:   'restore-button',
   SAVE_SETTINGS:    'save-settings',
   THEME_TOGGLE:     'theme-toggle',
   RETRY_BUTTON:     'retry-button',
@@ -215,6 +218,14 @@ export const DEFAULT_FILENAME      = 'recording.webm';
 export const DEFAULT_WAV_FILENAME  = 'recording.wav';
 
 /**
+ * Subtle visual divider inserted between appended transcript segments so
+ * multi-take recordings stay legible and easy to trim.
+ *
+ * @constant {string} TRANSCRIPT_SEGMENT_DIVIDER
+ */
+export const TRANSCRIPT_SEGMENT_DIVIDER = '\n\n──────────\n\n';
+
+/**
  * Default status message displayed when the application is ready for recording.
  * 
  * @constant {string} DEFAULT_RESET_STATUS
@@ -280,6 +291,8 @@ export const MESSAGES = {
   TEXT_CUT_SUCCESS: 'Text cut to clipboard',
   TEXT_CUT_FAILED: 'Failed to cut text',
   NO_TEXT_TO_CUT: 'No text to cut',
+  TEXT_CLEARED: 'Transcript cleared',
+  TRANSCRIPT_RESTORED: 'Transcript restored',
   
   // Permission Instructions
   PERMISSION_CHROME: 'Click the camera icon in the address bar and allow microphone access.',
@@ -327,6 +340,7 @@ export const RECORDING_STATES = {
   STOPPING: 'stopping',
   PROCESSING: 'processing',
   CANCELLING: 'cancelling',
+  CONFIRMING_DISCARD: 'confirmingDiscard',
   ERROR: 'error'
 };
 
@@ -354,11 +368,12 @@ export const RECORDING_STATES = {
 export const STATE_TRANSITIONS = {
   [RECORDING_STATES.IDLE]: [RECORDING_STATES.INITIALIZING, RECORDING_STATES.ERROR],
   [RECORDING_STATES.INITIALIZING]: [RECORDING_STATES.RECORDING, RECORDING_STATES.ERROR, RECORDING_STATES.IDLE],
-  [RECORDING_STATES.RECORDING]: [RECORDING_STATES.PAUSED, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING],
-  [RECORDING_STATES.PAUSED]: [RECORDING_STATES.RECORDING, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING],
+  [RECORDING_STATES.RECORDING]: [RECORDING_STATES.PAUSED, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING, RECORDING_STATES.CONFIRMING_DISCARD],
+  [RECORDING_STATES.PAUSED]: [RECORDING_STATES.RECORDING, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING, RECORDING_STATES.CONFIRMING_DISCARD],
   [RECORDING_STATES.STOPPING]: [RECORDING_STATES.PROCESSING, RECORDING_STATES.ERROR],
   [RECORDING_STATES.PROCESSING]: [RECORDING_STATES.IDLE, RECORDING_STATES.ERROR],
   [RECORDING_STATES.CANCELLING]: [RECORDING_STATES.IDLE],
+  [RECORDING_STATES.CONFIRMING_DISCARD]: [RECORDING_STATES.RECORDING, RECORDING_STATES.PAUSED, RECORDING_STATES.CANCELLING],
   [RECORDING_STATES.ERROR]: [RECORDING_STATES.IDLE, RECORDING_STATES.PROCESSING]
 };
 
@@ -378,3 +393,12 @@ export const TIMER_CONFIG = {
   SECOND_MS: 1000,
   MINUTE_MS: 60000
 };
+
+/**
+ * Recordings shorter than this elapsed duration are discarded instantly with no
+ * confirmation (nothing meaningful to lose). Longer recordings get a named-stakes
+ * confirm dialog — proportional challenge, never rote "are you sure?" noise.
+ *
+ * @constant {number} DISCARD_CONFIRM_MIN_MS
+ */
+export const DISCARD_CONFIRM_MIN_MS = 10000;
