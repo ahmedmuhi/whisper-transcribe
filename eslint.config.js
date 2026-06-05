@@ -36,6 +36,8 @@ export default [
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
         fetch: "readonly",
+        AbortController: "readonly",
+        AbortSignal: "readonly",
         FormData: "readonly",
         Blob: "readonly",
         URL: "readonly",

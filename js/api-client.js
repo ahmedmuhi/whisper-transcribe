@@ -2,7 +2,7 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_KEY_VALUE_PATTERN, MESSAGES, HTTP_METHODS, CONTENT_TYPES } from './constants.js';
+import { API_KEY_VALUE_PATTERN, MESSAGES, HTTP_METHODS, CONTENT_TYPES, TRANSCRIPTION_TIMEOUT_MS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -136,7 +136,37 @@ export class AzureAPIClient {
 
     async _fetchWithRetry(uri, options, onProgress) {
         for (let attempt = 0; attempt <= MAX_TRANSCRIPTION_RETRIES; attempt++) {
-            const response = await fetch(uri, options);
+            let response;
+
+            try {
+                response = await this._fetchWithTimeout(uri, options);
+            } catch (error) {
+                // A per-attempt timeout aborts the request (AbortError). Treat it as a
+                // retryable failure under the same cap, then surface a friendly timeout
+                // error so the caller routes the FSM to ERROR (never stuck in PROCESSING).
+                if (!this._isTimeoutError(error)) {
+                    throw error;
+                }
+
+                if (attempt === MAX_TRANSCRIPTION_RETRIES) {
+                    throw this._createTimeoutError();
+                }
+
+                const delayMs = this._getRetryDelayMs(null, attempt);
+
+                logger.child('AzureAPIClient').warn(
+                    `Transcription request timed out after ${Math.ceil(TRANSCRIPTION_TIMEOUT_MS / 1000)}s. Retrying in ${Math.ceil(delayMs / 1000)}s.`,
+                    { attempt: attempt + 1, maxRetries: MAX_TRANSCRIPTION_RETRIES }
+                );
+
+                if (onProgress) {
+                    const waitSec = Math.ceil(delayMs / 1000);
+                    onProgress(`Request timed out. Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
+                }
+
+                await this._sleep(delayMs);
+                continue;
+            }
 
             if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
                 return response;
@@ -159,6 +189,54 @@ export class AzureAPIClient {
 
             await this._sleep(delayMs);
         }
+    }
+
+    /**
+     * Performs a single fetch attempt guarded by a per-attempt timeout. A fresh
+     * AbortController is created for each attempt; the timer is always cleared in
+     * a finally block so it never leaks regardless of success, failure, or abort.
+     *
+     * @private
+     * @param {string} uri - Request URI
+     * @param {Object} options - fetch options (method, headers, body)
+     * @returns {Promise<Response>} The fetch response
+     * @throws {Error} AbortError on timeout, or the underlying fetch error
+     */
+    async _fetchWithTimeout(uri, options) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TRANSCRIPTION_TIMEOUT_MS);
+
+        try {
+            return await fetch(uri, { ...options, signal: controller.signal });
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    /**
+     * Detects whether an error represents an aborted (timed-out) request.
+     *
+     * @private
+     * @param {Error} error - Error thrown by fetch
+     * @returns {boolean} True when the request was aborted by the timeout
+     */
+    _isTimeoutError(error) {
+        return error?.name === 'AbortError';
+    }
+
+    /**
+     * Builds a friendly timeout error so callers never see a raw 'AbortError'.
+     * The thrown error carries apiContext so the standard error handler treats it
+     * like any other API failure.
+     *
+     * @private
+     * @returns {Error} Timeout error with a user-facing message
+     */
+    _createTimeoutError() {
+        const error = new Error(MESSAGES.REQUEST_TIMED_OUT);
+        error.name = 'TimeoutError';
+        error.apiContext = { timeout: true };
+        return error;
     }
 
     async _createApiError(response) {
@@ -193,7 +271,7 @@ export class AzureAPIClient {
     }
 
     _getRetryDelayMs(response, attempt) {
-        const retryAfterSeconds = this._parseRetryAfterSeconds(response.headers?.get?.('Retry-After'));
+        const retryAfterSeconds = this._parseRetryAfterSeconds(response?.headers?.get?.('Retry-After'));
 
         if (retryAfterSeconds !== null) {
             return Math.min(retryAfterSeconds * 1000, MAX_RETRY_AFTER_MS);

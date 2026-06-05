@@ -309,7 +309,18 @@ export const MESSAGES = {
   TAP_MIC_TO_RETRY: 'Tap mic to retry',
   CHECK_INTERNET_CONNECTION: 'Check your internet connection and try again.',
   RETRY_TRANSCRIPTION: 'Retry transcription',
+  REQUEST_TIMED_OUT: 'The request timed out. Check your connection and try again.',
 };
+
+/**
+ * Maximum time to wait for a single transcription request attempt before
+ * aborting it via AbortController. Prevents a hung request from stranding the
+ * app in the PROCESSING state (reload-only recovery).
+ *
+ * @constant {number} TRANSCRIPTION_TIMEOUT_MS
+ * @default 120000
+ */
+export const TRANSCRIPTION_TIMEOUT_MS = 120000;
 
 /**
  * Recording state machine states for managing the audio recording lifecycle.
