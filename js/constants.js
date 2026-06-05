@@ -155,6 +155,16 @@ export const ID = Object.freeze({
   THEME_TOGGLE:     'theme-toggle',
   RETRY_BUTTON:     'retry-button',
 
+  // Guided-morph control cluster + discard dialog
+  PRIMARY_ACTION:      'primary-action',
+  SECONDARY_ACTION:    'secondary-action',
+  DISCARD_ACTION:      'discard-action',
+  RETRY_ACTION:        'retry-action',
+  DISCARD_DIALOG:      'discard-dialog',
+  DISCARD_DIALOG_BODY: 'discard-dialog-body',
+  DISCARD_KEEP:        'discard-keep',
+  DISCARD_CONFIRM:     'discard-confirm',
+
   // Status & text areas
   STATUS:           'status',
   TRANSCRIPT:       'transcript',
@@ -277,7 +287,16 @@ export const MESSAGES = {
   FINISHING_RECORDING: 'Finishing...',
   PROCESSING_AUDIO: 'Processing audio...',
   INITIALIZING_MICROPHONE: 'Initializing microphone...',
-  
+
+  // Control labels (guided morph — the primary button morphs by state)
+  CONTROL_START: 'Start recording',
+  CONTROL_DONE: 'Done',
+  CONTROL_PAUSE: 'Pause',
+  CONTROL_RESUME: 'Resume',
+  CONTROL_STARTING: 'Starting…',
+  CONTROL_FINISHING: 'Finishing…',
+  CONTROL_TRANSCRIBING: 'Transcribing…',
+
   // API Communication
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
   CONVERTING_AUDIO: 'Converting audio format...',

@@ -108,9 +108,10 @@ describe('RecordingStateMachine direct behavior', () => {
       message: DEFAULT_RESET_STATUS,
       type: 'info'
     });
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_HIDE);
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_CONTROLS_RESET);
+    // Controls now render from the FSM state in the UI — the handler no longer
+    // emits granular UI_BUTTON_*/UI_CONTROLS_RESET/UI_SPINNER_* events.
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.UI_CONTROLS_RESET);
   });
 
   it('emits expected events for initializing, recording and paused handlers', async () => {
@@ -122,11 +123,12 @@ describe('RecordingStateMachine direct behavior', () => {
       message: MESSAGES.INITIALIZING_MICROPHONE,
       type: 'info'
     });
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_STARTED);
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_PAUSED);
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
+    // No granular UI_BUTTON_* events — the UI renders controls from the state.
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
   });
 
   it('emits expected events for stopping and processing handlers', async () => {
@@ -136,7 +138,8 @@ describe('RecordingStateMachine direct behavior', () => {
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_STOPPED);
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.VISUALIZATION_STOP);
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_START);
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_SHOW);
+    // Spinner is rendered from the PROCESSING state by the UI, not emitted here.
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_SHOW);
   });
 
   it('emits expected events for cancelling and error handlers', async () => {

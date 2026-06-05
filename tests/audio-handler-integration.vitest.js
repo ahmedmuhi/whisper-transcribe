@@ -318,11 +318,8 @@ describe('AudioHandler Integration', () => {
           oldState: RECORDING_STATES.ERROR
         })
       );
-      // Entering processing must drive the spinner + mic-disable side effects.
-      // UI_SPINNER_SHOW is emitted only by handleProcessingState, and this test
-      // never enters processing before the retry, so it uniquely proves the retry path.
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_SHOW);
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
+      // The PROCESSING transition above is the real proof the retry path ran; the
+      // spinner + disable are now rendered from that state by the UI (no FSM events).
       // No illegal-transition error should be surfaced to the user during retry.
       const invalidTransitionEmits = eventBusEmitSpy.mock.calls.filter(
         ([event, payload]) =>
@@ -511,9 +508,8 @@ describe('AudioHandler Integration', () => {
       expect(audioHandler.timerInterval).toBeNull();
       expect(audioHandler.mediaRecorder).toBeNull();
       
-      // Should hide spinner even after error
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SPINNER_HIDE);
-      
+      // Spinner is hidden by the UI rendering the ERROR state (no FSM spinner event).
+
       // Should be in ERROR state (persistent — user clicks mic to retry)
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
     });
@@ -574,8 +570,8 @@ describe('AudioHandler Integration', () => {
 
   describe('Lifecycle — destroy()', () => {
     it('should unsubscribe all event bus listeners', () => {
-      // 5 original listeners + 3 discard-flow listeners (requestDiscard/confirm/keep)
-      expect(audioHandler._unsubscribers.length).toBe(8);
+      // 4 original listeners (CANCEL_BUTTON_CLICKED retired) + 3 discard-flow listeners
+      expect(audioHandler._unsubscribers.length).toBe(7);
 
       audioHandler.destroy();
 

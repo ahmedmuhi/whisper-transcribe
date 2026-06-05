@@ -127,10 +127,6 @@ export class RecordingStateMachine {
             message: DEFAULT_RESET_STATUS,
             type: 'info'
         });
-        // Re-enable the button when returning to idle
-        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
-        eventBus.emit(APP_EVENTS.UI_CONTROLS_RESET);
     }
     
     /**
@@ -147,7 +143,6 @@ export class RecordingStateMachine {
             message: MESSAGES.INITIALIZING_MICROPHONE,
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
     }
     
     /**
@@ -166,8 +161,6 @@ export class RecordingStateMachine {
             message: 'Recording... Click to stop',
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
     }
     
     /**
@@ -186,7 +179,6 @@ export class RecordingStateMachine {
             message: 'Recording paused',
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
     }
     
     /**
@@ -206,14 +198,9 @@ export class RecordingStateMachine {
             message: MESSAGES.FINISHING_RECORDING,
             type: 'info'
         });
-        // Immediately reflect stopped state in the UI
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
 
         // Emit visualization stop event so UI can handle cleanup
         eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
-
-        // Don't disable the mic button here - let it stay clickable
-        // The button will be properly managed in processing/idle states
     }
     
     /**
@@ -232,9 +219,6 @@ export class RecordingStateMachine {
             message: MESSAGES.PROCESSING_AUDIO,
             type: 'info'
         });
-        // Disable button only during processing
-        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_SHOW);
     }
     
     /**
@@ -253,8 +237,6 @@ export class RecordingStateMachine {
             message: MESSAGES.RECORDING_CANCELLED,
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
     /**
@@ -295,8 +277,6 @@ export class RecordingStateMachine {
             message: `${MESSAGES.ERROR_PREFIX}${errorMessage}. ${MESSAGES.TAP_MIC_TO_RETRY}`,
             type: 'error'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
     // Helper methods for common state checks

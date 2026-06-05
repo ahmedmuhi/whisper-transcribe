@@ -2,7 +2,7 @@
  * @fileoverview User interface controller for the whisper-transcribe application.
  */
 
-import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID, TRANSCRIPT_SEGMENT_DIVIDER } from './constants.js';
+import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID, TRANSCRIPT_SEGMENT_DIVIDER, RECORDING_STATES } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -10,95 +10,93 @@ import { logger } from './logger.js';
 
 /**
  * User interface controller for managing DOM interactions and visual states.
- * Handles button states, status messages, theme switching, and user interactions.
- * Coordinates between user actions and application logic through event bus.
- * 
+ *
+ * The recording controls are a guided-morph cluster derived from a single source
+ * of truth — the FSM state — via {@link UI#renderControls}. There is no second
+ * channel of granular UI_BUTTON_* events; the state machine owns status/recording
+ * events, the UI owns rendering.
+ *
  * @class UI
  * @fires APP_EVENTS.UI_STATUS_UPDATE
  * @fires APP_EVENTS.UI_THEME_CHANGED
- * @fires APP_EVENTS.UI_SETTINGS_OPENED
- * @fires APP_EVENTS.UI_SETTINGS_CLOSED
- * 
- * @example
- * const ui = new UI();
- * ui.init(settings, audioHandler);
- * 
- * // Update recording state
- * ui.setRecordingState(true);
- * 
- * // Show status message
- * ui.updateStatus('Recording started', 'success');
  */
 export class UI {
     /**
-     * Creates a new UI controller instance.
-     * Initializes DOM element references and prepares for user interaction handling.
+     * Creates a new UI controller instance and resolves DOM references.
      */
     constructor() {
-        // Get all DOM elements
-        this.micButton = document.getElementById(ID.MIC_BUTTON);
+        // Transcript + status + visualiser
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
         this.clearButton = document.getElementById(ID.CLEAR_BUTTON);
         this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
+        this.timerElement = document.getElementById(ID.TIMER);
+        this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
+        this.visualizer = document.getElementById(ID.VISUALIZER);
+
+        // Guided-morph recording controls (rendered from FSM state)
+        this.primaryAction = document.getElementById(ID.PRIMARY_ACTION);
+        this.secondaryAction = document.getElementById(ID.SECONDARY_ACTION);
+        this.discardAction = document.getElementById(ID.DISCARD_ACTION);
+        this.retryAction = document.getElementById(ID.RETRY_ACTION);
+
+        // Proportional-discard confirm dialog
+        this.discardDialog = document.getElementById(ID.DISCARD_DIALOG);
+        this.discardDialogBody = document.getElementById(ID.DISCARD_DIALOG_BODY);
+        this.discardKeepButton = document.getElementById(ID.DISCARD_KEEP);
+        this.discardConfirmButton = document.getElementById(ID.DISCARD_CONFIRM);
+
+        // Settings / theme
         this.settingsButton = document.getElementById(ID.SETTINGS_BUTTON);
         this.themeToggle = document.getElementById(ID.THEME_TOGGLE);
         this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
         this.closeModalButton = document.getElementById(ID.CLOSE_MODAL);
         this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
-        this.pauseButton = document.getElementById(ID.PAUSE_BUTTON);
-        this.cancelButton = document.getElementById(ID.CANCEL_BUTTON);
-        this.retryButton = document.getElementById(ID.RETRY_BUTTON);
-        this.timerElement = document.getElementById(ID.TIMER);
-        this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
-        this.visualizer = document.getElementById(ID.VISUALIZER);
-        // Visualization controller instance
-        this.visualizationController = null;
-        
-        // Icons
-        this.pauseIcon = document.getElementById(ID.PAUSE_ICON);
-        this.playIcon = document.getElementById(ID.PLAY_ICON);
         this.moonIcon = document.getElementById(ID.MOON_ICON);
         this.sunIcon = document.getElementById(ID.SUN_ICON);
+
+        this.visualizationController = null;
+
+        // Control-surface inputs: the current FSM state, whether prerequisites
+        // (browser support + API config) are met, and whether the last error is
+        // retryable. renderControls() derives the cluster from these — they persist
+        // so a bare re-render (e.g. from _setReady) preserves Retry/escape controls.
+        this.currentState = RECORDING_STATES.IDLE;
+        this.ready = false;
+        this.canRetry = false;
     }
-    
+
     /**
-     * Initializes UI controller, sets up event listeners and loads initial theme and state.
-     * 
+     * Initializes UI controller, sets up listeners, loads theme and initial state.
+     *
      * @method init
      * @param {Settings} settings - Settings manager instance
+     * @param {TranscriptStore} [transcriptStore] - Single-slot transcript store
      * @returns {void}
      */
     init(settings, transcriptStore = null) {
         this.settings = settings;
         this.transcriptStore = transcriptStore;
-        
-        // Load theme
+
         this.loadTheme();
-        
-        // Setup event listeners
         this.setupEventListeners();
         this.setupEventBusListeners();
 
         // Restore an autosaved transcript across reloads/crashes (single slot).
         this.restoreTranscriptIfEmpty();
 
-        // After listeners are ready, verify saved configuration
-        // This ensures SETTINGS_LOADED events emitted during initialization are
-        // processed correctly and the microphone activates when settings exist.
+        // After listeners are ready, verify saved configuration so SETTINGS_LOADED
+        // events processed during init activate the microphone when settings exist.
         this.settings.checkInitialSettings();
-
-        // Check all recording prerequisites (browser support, API config, etc.)
         this.checkRecordingPrerequisites();
-        
-        // Emit app initialized event
+
         eventBus.emit(APP_EVENTS.APP_INITIALIZED);
     }
-    
+
     /**
-     * Sets up DOM event listeners for UI controls (buttons, theme toggle, etc.).
-     * 
+     * Sets up DOM event listeners for UI controls.
+     *
      * @method setupEventListeners
      * @returns {void}
      */
@@ -108,7 +106,6 @@ export class UI {
             this.themeToggle.addEventListener('click', () => {
                 const currentMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
                 let newMode;
-                
                 if (currentMode === 'auto') {
                     newMode = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
                 } else if (currentMode === 'light') {
@@ -116,34 +113,39 @@ export class UI {
                 } else {
                     newMode = 'light';
                 }
-                
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
                 this.applyTheme();
-                
-                // Emit theme changed event
                 eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: newMode });
             });
         }
-        
-        // Recording control buttons — emit events for AudioHandler
-        if (this.micButton) {
-            this.micButton.addEventListener('click', () => {
-                eventBus.emit(APP_EVENTS.MIC_BUTTON_CLICKED);
-            });
+
+        // Recording controls — each emits an intent event for AudioHandler.
+        // The primary morphs Start↔Done; both map onto MIC_BUTTON_CLICKED (toggle).
+        if (this.primaryAction) {
+            this.primaryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.MIC_BUTTON_CLICKED));
         }
-        if (this.pauseButton) {
-            this.pauseButton.addEventListener('click', () => {
-                eventBus.emit(APP_EVENTS.PAUSE_BUTTON_CLICKED);
-            });
+        if (this.secondaryAction) {
+            this.secondaryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.PAUSE_BUTTON_CLICKED));
         }
-        if (this.cancelButton) {
-            this.cancelButton.addEventListener('click', () => {
-                eventBus.emit(APP_EVENTS.CANCEL_BUTTON_CLICKED);
-            });
+        if (this.discardAction) {
+            this.discardAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.DISCARD_BUTTON_CLICKED));
         }
-        if (this.retryButton) {
-            this.retryButton.addEventListener('click', () => {
-                eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+        if (this.retryAction) {
+            this.retryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED));
+        }
+
+        // Discard confirm dialog — Keep resumes, Discard tears down, Escape = Keep.
+        if (this.discardKeepButton) {
+            this.discardKeepButton.addEventListener('click', () => this.closeDiscardDialog(APP_EVENTS.DISCARD_KEPT));
+        }
+        if (this.discardConfirmButton) {
+            this.discardConfirmButton.addEventListener('click', () => this.closeDiscardDialog(APP_EVENTS.DISCARD_CONFIRMED));
+        }
+        if (this.discardDialog) {
+            // Native <dialog> fires 'cancel' on Escape — treat it as Keep (safe default).
+            this.discardDialog.addEventListener('cancel', (event) => {
+                event.preventDefault();
+                this.closeDiscardDialog(APP_EVENTS.DISCARD_KEPT);
             });
         }
 
@@ -158,8 +160,7 @@ export class UI {
             this.restoreButton.addEventListener('click', () => this.restoreTranscript());
         }
 
-        // Autosave in-place edits to the transcript (debounced) so a crash or
-        // reload never loses words typed or corrected before grabbing the text.
+        // Autosave in-place edits (debounced) so a crash/reload never loses words.
         if (this.transcriptElement) {
             this.transcriptElement.addEventListener('input', () => {
                 this.updateRestoreAffordance();
@@ -168,21 +169,20 @@ export class UI {
             });
         }
     }
-    
+
     /**
      * Sets up event bus listeners to react to application events for UI updates.
-     * 
+     *
      * @method setupEventBusListeners
      * @private
      * @returns {void}
      */
     setupEventBusListeners() {
-        // Listen for status updates
         eventBus.on(APP_EVENTS.UI_STATUS_UPDATE, (data) => {
             if (data.temporary) {
                 showTemporaryStatus(
-                    this.statusElement, 
-                    data.message, 
+                    this.statusElement,
+                    data.message,
                     data.type || 'info',
                     data.duration || 3000,
                     data.resetMessage || DEFAULT_RESET_STATUS
@@ -191,101 +191,39 @@ export class UI {
                 this.setStatus(data.message);
             }
         });
-        
-        // Listen for recording state changes
+
+        // Recording controls derive solely from the FSM state — one source of truth.
         eventBus.on(APP_EVENTS.RECORDING_STATE_CHANGED, (data) => {
-            const { newState, oldState } = data;
-            const uiLogger = logger.child('UI');
-            uiLogger.debug(`Recording state changed from ${oldState} to ${newState}`);
-            
-            // Update UI based on state
-            switch (newState) {
-                case 'idle':
-                    this.toggleRetryButton(false);
-                    this.resetControlsAfterRecording();
-                    this.enableMicButton();
-                    this.hideSpinner();
-                    break;
-                case 'initializing':
-                    this.disableMicButton();
-                    break;
-                case 'recording':
-                    this.setRecordingState(true);
-                    this.setPauseState(false);
-                    this.enableMicButton();
-                    break;
-                case 'paused':
-                    this.setPauseState(true);
-                    break;
-                case 'stopping':
-                    // Keep button enabled during stopping state
-                    // Just show visual feedback that we're stopping
-                    if (this.micButton.classList) {
-                        this.micButton.classList.remove('recording');
-                    }
-                    break;
-                case 'processing':
-                    this.toggleRetryButton(false);
-                    this.showSpinner();
-                    this.disableMicButton();
-                    break;
-                case 'cancelling':
-                    this.disableMicButton();
-                    break;
-                case 'error':
-                    this.toggleRetryButton(Boolean(data.canRetry));
-                    this.resetControlsAfterRecording();
-                    this.enableMicButton();
-                    this.hideSpinner();
-                    break;
-            }
+            logger.child('UI').debug(`Recording state changed from ${data.oldState} to ${data.newState}`);
+            this.currentState = data.newState;
+            this.canRetry = Boolean(data.canRetry);
+            this.renderControls(data.newState);
         });
-        
-        // Listen for transcription ready
+
+        // Proportional-discard confirm dialog.
+        eventBus.on(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, (data) => {
+            this.openDiscardDialog(data.durationLabel);
+        });
+
         eventBus.on(APP_EVENTS.UI_TRANSCRIPTION_READY, (data) => {
             this.displayTranscription(data.text);
             this.hideSpinner();
         });
-        
-        // Listen for API events
-        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, () => {
-            this.hideSpinner();
-        });
-        // Listen for standardized errors
-        eventBus.on(APP_EVENTS.ERROR_OCCURRED, ({ message }) => {
-            // Display error message consistently
-            this.showError(message || MESSAGES.ERROR_OCCURRED);
-        });
-        
-        // Listen for permission events
-        eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => {
-            this.checkRecordingPrerequisites();
-        });
-        
-        eventBus.on(APP_EVENTS.PERMISSION_DENIED, () => {
-            this.disableMicButton();
-        });
-        
-        // Listen for settings events
-        eventBus.on(APP_EVENTS.SETTINGS_UPDATED, () => {
-            this.checkRecordingPrerequisites();
-        });
-        
-        // Also listen for SETTINGS_SAVED to ensure immediate microphone activation
-        eventBus.on(APP_EVENTS.SETTINGS_SAVED, () => {
-            this.checkRecordingPrerequisites();
-        });
-        
-        // Listen for SETTINGS_LOADED to handle page reload scenarios
-        eventBus.on(APP_EVENTS.SETTINGS_LOADED, () => {
-            this.checkRecordingPrerequisites();
-        });
-        
+
+        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, () => this.hideSpinner());
+        eventBus.on(APP_EVENTS.ERROR_OCCURRED, ({ message }) => this.showError(message || MESSAGES.ERROR_OCCURRED));
+
+        eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => this.checkRecordingPrerequisites());
+        eventBus.on(APP_EVENTS.PERMISSION_DENIED, () => this._setReady(false));
+
+        eventBus.on(APP_EVENTS.SETTINGS_UPDATED, () => this.checkRecordingPrerequisites());
+        eventBus.on(APP_EVENTS.SETTINGS_SAVED, () => this.checkRecordingPrerequisites());
+        eventBus.on(APP_EVENTS.SETTINGS_LOADED, () => this.checkRecordingPrerequisites());
+
         eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, (data) => {
-            const uiLogger = logger.child('UI');
-            uiLogger.info('Settings model changed to:', data.model);
+            logger.child('UI').info('Settings model changed to:', data.model);
         });
-        
+
         eventBus.on(APP_EVENTS.UI_MODEL_SWITCHED, (data) => {
             const uiLogger = logger.child('UI');
             uiLogger.info('UI model switched to:', data.model, '(session only)');
@@ -293,21 +231,14 @@ export class UI {
                 uiLogger.info('UI model differs from saved configuration:', data.savedModel);
             }
         });
-        
-        // Listen for theme changes
-        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, () => {
-            this.applyTheme();
-        });
 
-        // Listen for visualization events
+        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, () => this.applyTheme());
+
         eventBus.on(APP_EVENTS.VISUALIZATION_START, async (data) => {
-            // Clean up any existing visualization
             if (this.visualizationController) {
                 this.visualizationController.stop();
                 this.visualizationController = null;
             }
-            
-            // Dynamically import VisualizationController to avoid circular imports
             try {
                 const { VisualizationController } = await import('./visualization.js');
                 const { stream } = data;
@@ -317,8 +248,7 @@ export class UI {
                     this.visualizationController.start();
                 }
             } catch (error) {
-                const uiLogger = logger.child('UI');
-                uiLogger.error('Error starting visualization:', error);
+                logger.child('UI').error('Error starting visualization:', error);
             }
         });
 
@@ -330,48 +260,12 @@ export class UI {
             this.clearVisualization();
         });
 
-        // Listen for UI control events for decoupled UI management
-        eventBus.on(APP_EVENTS.UI_TIMER_UPDATE, (data) => {
-            this.updateTimer(data.display);
-        });
-
-        eventBus.on(APP_EVENTS.UI_TIMER_RESET, () => {
-            this.updateTimer('00:00');
-        });
-
-        eventBus.on(APP_EVENTS.UI_BUTTON_ENABLE_MIC, () => {
-            this.enableMicButton();
-        });
-
-        eventBus.on(APP_EVENTS.UI_BUTTON_DISABLE_MIC, () => {
-            this.disableMicButton();
-        });
-
-        eventBus.on(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, (data) => {
-            this.setRecordingState(data.isRecording);
-        });
-
-        eventBus.on(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, (data) => {
-            this.setPauseState(data.isPaused);
-        });
-
-        eventBus.on(APP_EVENTS.UI_CONTROLS_RESET, () => {
-            this.resetControlsAfterRecording();
-        });
-
-        eventBus.on(APP_EVENTS.UI_SPINNER_SHOW, () => {
-            this.showSpinner();
-        });
-
-        eventBus.on(APP_EVENTS.UI_SPINNER_HIDE, () => {
-            this.hideSpinner();
-        });
+        eventBus.on(APP_EVENTS.UI_TIMER_UPDATE, (data) => this.updateTimer(data.display));
+        eventBus.on(APP_EVENTS.UI_TIMER_RESET, () => this.updateTimer('00:00'));
     }
-    
+
     loadTheme() {
         this.applyTheme();
-        
-        // Listen for system theme changes
         if (window.matchMedia) {
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
                 if (localStorage.getItem(STORAGE_KEYS.THEME_MODE) === 'auto') {
@@ -384,15 +278,14 @@ export class UI {
     applyTheme() {
         const themeMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
         let isDark = false;
-        
         if (themeMode === 'dark') {
             isDark = true;
         } else if (themeMode === 'light') {
             isDark = false;
-        } else { // auto
+        } else {
             isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
-        
+
         document.documentElement.classList.toggle('dark-theme', isDark);
         document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
 
@@ -403,8 +296,7 @@ export class UI {
             if (this.moonIcon) this.moonIcon.style.display = 'block';
             if (this.sunIcon) this.sunIcon.style.display = 'none';
         }
-        
-        // Update canvas background if needed
+
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             if (canvasCtx) {
@@ -413,86 +305,260 @@ export class UI {
             }
         }
     }
-    
+
+    // ───────────────────────── Control rendering ─────────────────────────
+
+    /**
+     * Renders the guided-morph control cluster for a given FSM state. This is the
+     * single source of truth for which controls are visible/labelled/enabled and
+     * whether the spinner shows — replacing the former granular UI_BUTTON_* events.
+     *
+     * @method renderControls
+     * @param {string} state - Current RECORDING_STATES value
+     * @returns {void}
+     */
+    renderControls(state) {
+        const cfg = this._controlConfig(state);
+        this._applyButton(this.primaryAction, cfg.primary);
+        this._applyButton(this.secondaryAction, cfg.secondary);
+        this._applyButton(this.discardAction, cfg.discard);
+        this._applyButton(this.retryAction, cfg.retry);
+
+        if (this.primaryAction && this.primaryAction.classList) {
+            this.primaryAction.classList.toggle('recording', Boolean(cfg.primary.recording));
+        }
+
+        if (cfg.spinner) {
+            this.showSpinner();
+        } else {
+            this.hideSpinner();
+        }
+    }
+
+    /**
+     * Computes the control-cluster configuration for a state. Pure (depends only
+     * on the state, the canRetry flag, and this.ready) — easy to test.
+     *
+     * @method _controlConfig
+     * @private
+     * @param {string} state
+     * @returns {Object} { primary, secondary, discard, retry, spinner }
+     */
+    _controlConfig(state) {
+        const S = RECORDING_STATES;
+        const hidden = { hidden: true };
+        const idle = {
+            primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: !this.ready, recording: false },
+            secondary: hidden,
+            discard: hidden,
+            retry: hidden,
+            spinner: false
+        };
+
+        switch (state) {
+            case S.INITIALIZING:
+                return { ...idle, primary: { label: MESSAGES.CONTROL_STARTING, hidden: false, disabled: true, recording: false } };
+            case S.RECORDING:
+                return {
+                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
+                    secondary: { label: MESSAGES.CONTROL_PAUSE, hidden: false },
+                    discard: { hidden: false },
+                    retry: hidden,
+                    spinner: false
+                };
+            case S.PAUSED:
+                return {
+                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
+                    secondary: { label: MESSAGES.CONTROL_RESUME, hidden: false },
+                    discard: { hidden: false },
+                    retry: hidden,
+                    spinner: false
+                };
+            case S.CONFIRMING_DISCARD:
+                // The dialog owns the interaction; the cluster stays but inert.
+                return {
+                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true },
+                    secondary: hidden,
+                    discard: hidden,
+                    retry: hidden,
+                    spinner: false
+                };
+            case S.STOPPING:
+                return { ...idle, primary: { label: MESSAGES.CONTROL_FINISHING, hidden: false, disabled: true, recording: false } };
+            case S.PROCESSING:
+                return { ...idle, primary: { label: MESSAGES.CONTROL_TRANSCRIBING, hidden: false, disabled: true, recording: false }, spinner: true };
+            case S.CANCELLING:
+                return { ...idle, primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: true, recording: false } };
+            case S.ERROR:
+                // Primary stays enabled regardless of `ready` so ERROR always has an
+                // escape (a fresh start re-runs the prerequisite checks). Retry shows
+                // from the persisted this.canRetry, surviving bare re-renders.
+                return {
+                    ...idle,
+                    primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: false, recording: false },
+                    retry: { hidden: !this.canRetry, label: MESSAGES.RETRY_TRANSCRIPTION }
+                };
+            case S.IDLE:
+            default:
+                return idle;
+        }
+    }
+
+    /**
+     * Applies a button config: hidden/disabled/label. Labels write to a `.btn-label`
+     * child when present (so an icon sibling is preserved) and to aria-label.
+     *
+     * @method _applyButton
+     * @private
+     * @param {HTMLElement|null} btn
+     * @param {Object} cfg - { hidden, disabled, label }
+     * @returns {void}
+     */
+    _applyButton(btn, cfg) {
+        if (!btn) return;
+        btn.hidden = Boolean(cfg.hidden);
+        if (cfg.hidden) return;
+        if (typeof cfg.label === 'string') {
+            const labelEl = btn.querySelector ? btn.querySelector('.btn-label') : null;
+            if (labelEl) {
+                labelEl.textContent = cfg.label;
+            } else {
+                btn.textContent = cfg.label;
+            }
+            btn.setAttribute('aria-label', cfg.label);
+        }
+        btn.disabled = Boolean(cfg.disabled);
+    }
+
+    /**
+     * Records prerequisite readiness and re-renders the current state's controls.
+     *
+     * @method _setReady
+     * @private
+     * @param {boolean} ready
+     * @returns {void}
+     */
+    _setReady(ready) {
+        this.ready = ready;
+        this.renderControls(this.currentState);
+    }
+
+    // ───────────────────────── Discard dialog ─────────────────────────
+
+    /**
+     * Opens the proportional-discard confirm dialog with the stakes named.
+     *
+     * @method openDiscardDialog
+     * @param {string} [durationLabel] - Elapsed duration, e.g. "24:31"
+     * @returns {void}
+     */
+    openDiscardDialog(durationLabel) {
+        if (this.discardDialogBody) {
+            this.discardDialogBody.textContent = durationLabel
+                ? `Discard ${durationLabel} of recording?`
+                : 'Discard this recording?';
+        }
+        // If the modal cannot be presented (no native <dialog> support, or showModal
+        // throws), never strand the FSM in CONFIRMING_DISCARD with a live recorder —
+        // fall back to keeping the recording (the safe default).
+        if (!this.discardDialog || typeof this.discardDialog.showModal !== 'function') {
+            eventBus.emit(APP_EVENTS.DISCARD_KEPT);
+            return;
+        }
+        try {
+            if (!this.discardDialog.open) this.discardDialog.showModal();
+        } catch {
+            eventBus.emit(APP_EVENTS.DISCARD_KEPT);
+        }
+    }
+
+    /**
+     * Closes the discard dialog and emits the chosen outcome (Keep or Discard).
+     *
+     * @method closeDiscardDialog
+     * @param {string} resultEvent - APP_EVENTS.DISCARD_KEPT or DISCARD_CONFIRMED
+     * @returns {void}
+     */
+    closeDiscardDialog(resultEvent) {
+        if (this.discardDialog && typeof this.discardDialog.close === 'function' && this.discardDialog.open) {
+            this.discardDialog.close();
+        }
+        eventBus.emit(resultEvent);
+        // The discard button that held focus was hidden before the modal opened, so
+        // the browser drops focus to <body> on close — restore it to the primary.
+        if (this.primaryAction && !this.primaryAction.disabled && typeof this.primaryAction.focus === 'function') {
+            this.primaryAction.focus();
+        }
+    }
+
+    // ───────────────────────── Prerequisites ─────────────────────────
+
     checkBrowserSupport() {
         if (!PermissionManager.checkBrowserSupport()) {
             this.setStatus(MESSAGES.BROWSER_NOT_SUPPORTED);
-            this.disableMicButton();
             return false;
         }
         return true;
     }
 
-    // Comprehensive method to check all recording prerequisites
+    /**
+     * Checks all recording prerequisites (browser support + API config) and sets
+     * readiness, which drives whether the primary control is enabled.
+     *
+     * @method checkRecordingPrerequisites
+     * @returns {boolean} True when ready to record
+     */
     checkRecordingPrerequisites() {
-        // Check browser support first
         if (!this.checkBrowserSupport()) {
+            this._setReady(false);
             eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'browser' });
             return false;
         }
-        
-        // Check if API is configured
+
         const config = this.settings.getModelConfig();
+        // While in ERROR the FSM owns the status line ("…Tap mic to retry"); don't
+        // clobber it with a generic ready/config message on a prerequisite re-check.
+        const inError = this.currentState === RECORDING_STATES.ERROR;
         if (!config.apiKey || !config.uri) {
-            this.setStatus(MESSAGES.API_NOT_CONFIGURED);
-            this.disableMicButton();
+            if (!inError) this.setStatus(MESSAGES.API_NOT_CONFIGURED);
+            this._setReady(false);
             eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });
             return false;
         }
-        
-        // All prerequisites met - enable the button and set ready status
-        this.enableMicButton();
-        this.setStatus(DEFAULT_RESET_STATUS);
+
+        this._setReady(true);
+        if (!inError) this.setStatus(DEFAULT_RESET_STATUS);
         eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: true });
         eventBus.emit(APP_EVENTS.APP_READY);
         return true;
     }
 
-    // Method to re-enable microphone after fixing issues
     enableMicrophoneAfterFix() {
         if (this.checkRecordingPrerequisites()) {
-            const uiLogger = logger.child('UI');
-            uiLogger.info('Microphone re-enabled after fixing prerequisites');
+            logger.child('UI').info('Microphone re-enabled after fixing prerequisites');
         }
     }
-    
-    /**
-     * Sets the status message displayed to the user.
-     * Clears any existing temporary status timeout and displays the message.
-     * 
-     * @method setStatus
-     * @param {string} message - Status message to display
-     * 
-     * @example
-     * ui.setStatus('Ready to record');
-     * ui.setStatus('Recording in progress...');
-     */
+
+    // ───────────────────────── Status + transcript ─────────────────────────
+
     setStatus(message) {
         if (this.statusElement._statusTimeout) {
             clearTimeout(this.statusElement._statusTimeout);
             this.statusElement._statusTimeout = null;
         }
-
         this.statusElement.textContent = message;
         this.statusElement.style.color = '';
     }
-    
-    /**
-     * Displays an error message to the user in a standardized way.
-     * 
-     * @method showError
-     * @param {string} message - Error message to display
-     * @returns {void}
-     */
+
     showError(message) {
         this.setStatus(message || MESSAGES.ERROR_OCCURRED);
     }
-    
+
     /**
-     * Displays the transcribed text in the transcript textarea.
-     * 
+     * Displays transcribed text, appending below any existing text with a divider.
+     *
      * @method displayTranscription
-     * @param {string} text - Transcription text to display
+     * @param {string} text
      * @returns {void}
      */
     displayTranscription(text) {
@@ -502,23 +568,20 @@ export class UI {
         } else {
             this.transcriptElement.value = incoming;
         }
-        
+
         this.transcriptElement.focus();
         this.transcriptElement.selectionStart = this.transcriptElement.value.length;
         this.transcriptElement.selectionEnd = this.transcriptElement.value.length;
-        
-        // Auto-scroll to bottom so newest text is always visible
         this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
 
-        // Persist the freshly-updated transcript as the single recovery slot,
-        // then refresh the Restore affordance (the box is now non-empty).
+        // Persist the freshly-updated transcript, then refresh Restore visibility.
         this.persistTranscript();
         this.updateRestoreAffordance();
     }
-    
+
     /**
-     * Persists the current transcript text to the single-slot store (the seam
-     * that later swaps localStorage for a backend). No-op without a store.
+     * Persists the current transcript text to the single-slot store (the seam that
+     * later swaps localStorage for a backend). No-op without a store or with no text.
      *
      * @method persistTranscript
      * @returns {void}
@@ -531,7 +594,7 @@ export class UI {
 
     /**
      * Restores an autosaved transcript into an empty box on load (reload/crash
-     * recovery — "exactly where you left off"). Leaves a non-empty box alone.
+     * recovery). Leaves a non-empty box alone.
      *
      * @method restoreTranscriptIfEmpty
      * @returns {void}
@@ -562,9 +625,8 @@ export class UI {
     }
 
     /**
-     * Cut — copy the transcript to the clipboard and clear the box. The record
-     * is persisted FIRST, so the words survive a clipboard failure or a later
-     * clipboard clobber (recover them with Restore).
+     * Cut — copy the transcript to the clipboard and clear the box. The record is
+     * persisted FIRST, so the words survive a clipboard failure or later clobber.
      *
      * @method cutTranscript
      * @returns {Promise<boolean>} Resolves true when the text reached the clipboard.
@@ -590,8 +652,8 @@ export class UI {
     }
 
     /**
-     * Clear — wipe the box WITHOUT copying. Rare. The record is persisted first
-     * so a Clear is still recoverable via Restore.
+     * Clear — wipe the box WITHOUT copying. Rare. Record persisted first so a
+     * Clear stays recoverable via Restore.
      *
      * @method clearTranscript
      * @returns {void}
@@ -622,8 +684,8 @@ export class UI {
     }
 
     /**
-     * Shows the persistent Restore affordance exactly when there is something to
-     * recover (box empty) and a saved record exists; hides it otherwise.
+     * Shows the persistent Restore affordance exactly when the box is empty and a
+     * saved record exists; hides it otherwise.
      *
      * @method updateRestoreAffordance
      * @returns {void}
@@ -632,131 +694,31 @@ export class UI {
         if (!this.restoreButton) return;
         const boxEmpty = !this.transcriptElement || !this.transcriptElement.value;
         // Short-circuit on boxEmpty so we never touch storage on the typing hot
-        // path — has() reads + JSON-parses, and while the box has text the
-        // button is hidden regardless of what's saved.
+        // path — has() reads + JSON-parses, and while the box has text the button
+        // is hidden regardless of what's saved.
         this.restoreButton.hidden = !(boxEmpty && Boolean(this.transcriptStore && this.transcriptStore.has()));
     }
 
     updateTimer(timeString) {
         this.timerElement.textContent = timeString;
     }
-    
-    /**
-     * Shows the loading spinner during processing operations.
-     * 
-     * @method showSpinner
-     * 
-     * @example
-     * ui.showSpinner(); // Display spinner during API request
-     */
+
     showSpinner() {
         this.spinnerContainer.style.display = 'block';
     }
-    
-    /**
-     * Hides the loading spinner when processing is complete.
-     * 
-     * @method hideSpinner
-     * 
-     * @example
-     * ui.hideSpinner(); // Hide spinner after API response
-     */
+
     hideSpinner() {
         this.spinnerContainer.style.display = 'none';
     }
-    
-    /**
-     * Updates the recording state UI (e.g., toggles recording indicator).
-     * 
-     * @method setRecordingState
-     * @param {boolean} isRecording - True if recording is active
-     * @returns {void}
-     */
-    setRecordingState(isRecording) {
-        if (isRecording) {
-            this.micButton.classList.add('recording');
-            this.setStatus('Recording... Click again to stop');
-        } else {
-            this.micButton.classList.remove('recording');
-        }
-    }
 
-    toggleRetryButton(show) {
-        if (!this.retryButton) {
-            return;
-        }
+    // ───────────────────────── Settings + visualisation helpers ─────────────────────────
 
-        this.retryButton.style.display = show ? 'inline-flex' : 'none';
-        this.retryButton.disabled = !show;
-        this.retryButton.setAttribute('aria-hidden', show ? 'false' : 'true');
-        this.retryButton.setAttribute('title', MESSAGES.RETRY_TRANSCRIPTION);
-        this.retryButton.setAttribute('aria-label', MESSAGES.RETRY_TRANSCRIPTION);
-    }
-    
-    /**
-     * Updates the pause button UI state.
-     * 
-     * @method setPauseState
-     * @param {boolean} isPaused - True if recording is paused
-     * @returns {void}
-     */
-    setPauseState(isPaused) {
-        if (isPaused) {
-            this.pauseIcon.style.display = 'none';
-            this.playIcon.style.display = 'block';
-            this.pauseButton.setAttribute('aria-label', 'Resume');
-            this.setStatus('Recording paused');
-        } else {
-            this.pauseIcon.style.display = 'block';
-            this.playIcon.style.display = 'none';
-            this.pauseButton.setAttribute('aria-label', 'Pause');
-        }
-    }
-    
-    resetControlsAfterRecording() {
-        this.updateTimer('00:00');
-        this.setRecordingState(false);
-        this.setPauseState(false);
-    }
-    
-    /**
-     * Enables the microphone button and restores normal visual appearance.
-     * Used when the application is ready to accept recording commands.
-     * 
-     * @method enableMicButton
-     * 
-     * @example
-     * ui.enableMicButton(); // Enable button after initialization
-     */
-    enableMicButton() {
-        this.micButton.disabled = false;
-        this.micButton.style.opacity = 1;
-        this.micButton.style.cursor = 'pointer';
-    }
-    
-    /**
-     * Disables the microphone button and shows disabled visual state.
-     * Used during processing or when recording is not available.
-     * 
-     * @method disableMicButton
-     * 
-     * @example
-     * ui.disableMicButton(); // Disable during API processing
-     */
-    disableMicButton() {
-        this.micButton.disabled = true;
-        this.micButton.style.opacity = 0.5;
-        this.micButton.style.cursor = 'not-allowed';
-    }
-    
-    // Settings-related UI methods (we'll move these to settings module later)
     openSettingsModal() {
         if (this.settings) {
             this.settings.openSettingsModal();
         }
     }
-    
-    // Visualization helper (for canvas clearing)
+
     clearVisualization() {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
@@ -766,7 +728,6 @@ export class UI {
         }
     }
 
-    // Optionally, expose a method to externally stop visualization (for tests or other modules)
     stopVisualization() {
         if (this.visualizationController) {
             this.visualizationController.stop();
