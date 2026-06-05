@@ -2,7 +2,7 @@
  * @fileoverview Tests for audio-converter.js WebM-to-WAV conversion.
  */
 
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 
 // Mock OfflineAudioContext and decodeAudioData
 function createMockAudioBuffer(sampleRate = 48000, channels = 1, length = 4800) {
@@ -171,5 +171,134 @@ describe('Audio Converter — convertToWav', () => {
 
         const inputBlob = new Blob(['corrupt-data'], { type: 'audio/webm' });
         await expect(convertToWav(inputBlob)).rejects.toThrow('Unable to decode audio data');
+    });
+});
+
+describe('Audio Converter — Web Worker offload', () => {
+    const originalWorker = global.Worker;
+
+    afterAll(() => {
+        if (originalWorker === undefined) {
+            delete global.Worker;
+        } else {
+            global.Worker = originalWorker;
+        }
+    });
+
+    afterEach(() => {
+        if (originalWorker === undefined) {
+            delete global.Worker;
+        } else {
+            global.Worker = originalWorker;
+        }
+    });
+
+    /**
+     * Imports a fresh copy of the module so its lazily-constructed worker state
+     * does not leak between the worker/fallback scenarios.
+     */
+    async function freshConvertToWav() {
+        vi.resetModules();
+        const defaultBuffer = createMockAudioBuffer(16000, 1, 16000);
+        mockDecodeAudioData.mockResolvedValue(defaultBuffer);
+        mockStartRendering.mockResolvedValue(defaultBuffer);
+        const mod = await import('../js/audio-converter.js');
+        return mod.convertToWav;
+    }
+
+    it('should delegate the encode to the Worker and round-trip the WAV bytes', async () => {
+        let postedMessage = null;
+        let postedTransfer = null;
+        const listeners = { message: [], error: [] };
+        const workerInstances = [];
+
+        // A fake Worker that, on postMessage, synthesises a valid WAV ArrayBuffer
+        // from the received samples and delivers it via the 'message' listener.
+        global.Worker = vi.fn().mockImplementation(function FakeWorker() {
+            workerInstances.push(this);
+            this.addEventListener = (type, fn) => listeners[type].push(fn);
+            this.removeEventListener = (type, fn) => {
+                listeners[type] = listeners[type].filter(l => l !== fn);
+            };
+            this.postMessage = (data, transfer) => {
+                postedMessage = data;
+                postedTransfer = transfer;
+                const { samples, sampleRate, bitDepth } = data;
+                // Mirror the worker's encode using the same byte layout the
+                // synchronous fallback produces.
+                const bytesPerSample = bitDepth / 8;
+                const wav = new ArrayBuffer(44 + samples.length * bytesPerSample);
+                const view = new DataView(wav);
+                const write = (off, str) => {
+                    for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+                };
+                write(0, 'RIFF');
+                view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+                write(8, 'WAVE');
+                write(12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, 1, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * bytesPerSample, true);
+                view.setUint16(32, bytesPerSample, true);
+                view.setUint16(34, bitDepth, true);
+                write(36, 'data');
+                view.setUint32(40, samples.length * bytesPerSample, true);
+                let offset = 44;
+                for (let i = 0; i < samples.length; i++) {
+                    const clamped = Math.max(-1, Math.min(1, samples[i]));
+                    const int16 = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+                    view.setInt16(offset, int16, true);
+                    offset += bytesPerSample;
+                }
+                // Deliver asynchronously, mimicking a real worker message.
+                Promise.resolve().then(() => {
+                    for (const fn of listeners.message) fn({ data: wav });
+                });
+            };
+            this.terminate = vi.fn();
+        });
+
+        const convert = await freshConvertToWav();
+        const inputBlob = new Blob(['fake-audio'], { type: 'audio/webm' });
+        const result = await convert(inputBlob);
+        const arrayBuffer = await result.arrayBuffer();
+        const view = new DataView(arrayBuffer);
+
+        // The Worker was constructed and received the encode work.
+        expect(global.Worker).toHaveBeenCalledTimes(1);
+        expect(workerInstances).toHaveLength(1);
+        expect(postedMessage).not.toBeNull();
+        expect(postedMessage.sampleRate).toBe(16000);
+        expect(postedMessage.bitDepth).toBe(16);
+        expect(postedMessage.samples).toBeInstanceOf(Float32Array);
+        // The samples buffer is handed over as a Transferable.
+        expect(postedTransfer).toEqual([postedMessage.samples.buffer]);
+
+        // The bytes round-trip into a valid WAV the caller can use.
+        expect(result.type).toBe('audio/wav');
+        expect(String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))).toBe('RIFF');
+        expect(arrayBuffer.byteLength).toBe(44 + 16000 * 2);
+    });
+
+    it('should fall back to the synchronous encode when Worker construction throws', async () => {
+        global.Worker = vi.fn().mockImplementation(() => {
+            throw new Error('Worker unavailable');
+        });
+
+        const convert = await freshConvertToWav();
+        const inputBlob = new Blob(['fake-audio'], { type: 'audio/webm' });
+        const result = await convert(inputBlob);
+        const arrayBuffer = await result.arrayBuffer();
+        const view = new DataView(arrayBuffer);
+
+        // Construction was attempted but the encode still succeeded on-thread.
+        expect(global.Worker).toHaveBeenCalled();
+        expect(result.type).toBe('audio/wav');
+        expect(String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))).toBe('RIFF');
+        expect(view.getUint32(24, true)).toBe(16000); // sample rate
+        expect(view.getUint16(34, true)).toBe(16);    // bit depth
+        expect(arrayBuffer.byteLength).toBe(44 + 16000 * 2);
     });
 });
