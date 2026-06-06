@@ -29,7 +29,6 @@ export class UI {
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
-        this.clearButton = document.getElementById(ID.CLEAR_BUTTON);
         this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
         this.timerElement = document.getElementById(ID.TIMER);
         this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
@@ -151,12 +150,9 @@ export class UI {
             });
         }
 
-        // Transcript actions — Cut (grab + clear), Clear (wipe), Restore (recover).
+        // Transcript actions — Grab (copy + clear, recoverable) and Restore (recover).
         if (this.grabTextButton) {
-            this.grabTextButton.addEventListener('click', () => this.cutTranscript());
-        }
-        if (this.clearButton) {
-            this.clearButton.addEventListener('click', () => this.clearTranscript());
+            this.grabTextButton.addEventListener('click', () => this.grabTranscript());
         }
         if (this.restoreButton) {
             this.restoreButton.addEventListener('click', () => this.restoreTranscript());
@@ -829,16 +825,17 @@ export class UI {
     }
 
     /**
-     * Cut — copy the transcript to the clipboard and clear the box. The record is
-     * persisted FIRST, so the words survive a clipboard failure or later clobber.
+     * Grab — copy the transcript to the clipboard and clear the box. The record is
+     * persisted FIRST, so the words survive a clipboard failure or later clobber,
+     * and remain recoverable via Restore.
      *
-     * @method cutTranscript
+     * @method grabTranscript
      * @returns {Promise<boolean>} Resolves true when the text reached the clipboard.
      */
-    cutTranscript() {
+    grabTranscript() {
         const text = this.transcriptElement.value;
         if (!text) {
-            this._emitStatus(MESSAGES.NO_TEXT_TO_CUT, 'error');
+            this._emitStatus(MESSAGES.NO_TEXT_TO_GRAB, 'error');
             return Promise.resolve(false);
         }
         this.persistTranscript();
@@ -848,37 +845,18 @@ export class UI {
                 this._autosaveTimer = null;
                 this.transcriptElement.value = '';
                 this.updateRestoreAffordance();
-                this._emitStatus(MESSAGES.TEXT_CUT_SUCCESS, 'success');
+                this._emitStatus(MESSAGES.TEXT_GRAB_SUCCESS, 'success');
                 return true;
             })
             .catch(() => {
-                this._emitStatus(MESSAGES.TEXT_CUT_FAILED, 'error');
+                this._emitStatus(MESSAGES.TEXT_GRAB_FAILED, 'error');
                 return false;
             });
     }
 
     /**
-     * Clear — wipe the box WITHOUT copying and purge the recovery slot. Cut is the
-     * recoverable clear path; Clear is the explicit empty.
-     *
-     * @method clearTranscript
-     * @returns {void}
-     */
-    clearTranscript() {
-        const hasText = Boolean(this.transcriptElement.value);
-        const hasStoredText = Boolean(this.transcriptStore && this.transcriptStore.has());
-        if (!hasText && !hasStoredText) return;
-        this.transcriptElement.value = '';
-        if (this.transcriptStore) {
-            this.transcriptStore.clear();
-        }
-        this.updateRestoreAffordance();
-        this._emitStatus(MESSAGES.TEXT_CLEARED);
-    }
-
-    /**
      * Restore — resurrect the last transcript into the box. Persistent and
-     * repeatable: Cut → clobbered clipboard → Restore → Cut again all work.
+     * repeatable: Grab → clobbered clipboard → Restore → Grab again all work.
      *
      * @method restoreTranscript
      * @returns {void}

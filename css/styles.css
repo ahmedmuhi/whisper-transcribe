@@ -873,14 +873,14 @@ header {
     box-shadow: var(--focus-ring);
 }
 
-/* Transcript action row: Restore · Clear · Cut */
+/* Transcript action row: Restore · Grab */
 .transcript-actions {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-/* Cut — the primary transcript action, gently emphasised */
+/* Grab — the primary transcript action, gently emphasised */
 .clear-btn-primary {
     border-color: var(--accent);
     color: var(--accent);

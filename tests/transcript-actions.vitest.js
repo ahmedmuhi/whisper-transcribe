@@ -1,7 +1,7 @@
 /**
- * @fileoverview Phase 2 — Cut / Restore / Clear actions and append-with-divider.
- * Cut grabs+clears (record survives), Restore is persistent & repeatable, Clear
- * purges the box and recovery slot, and re-recordings append with a visible divider.
+ * @fileoverview Transcript actions — Grab / Restore and append-with-divider.
+ * Grab copies+clears (the record survives, recoverable via Restore), Restore is
+ * persistent & repeatable, and re-recordings append with a visible divider.
  */
 
 import { vi } from 'vitest';
@@ -36,7 +36,7 @@ function makeStorage(initial = {}) {
     };
 }
 
-describe('Transcript actions: Cut / Restore / Clear / append', () => {
+describe('Transcript actions: Grab / Restore / append', () => {
     let ui;
     let store;
     let writeText;
@@ -55,20 +55,20 @@ describe('Transcript actions: Cut / Restore / Clear / append', () => {
         resetEventBus();
     });
 
-    describe('Cut', () => {
+    describe('Grab', () => {
         it('copies to the clipboard, clears the box, but keeps the record', async () => {
             ui.transcriptElement.value = 'grab me';
-            const ok = await ui.cutTranscript();
+            const ok = await ui.grabTranscript();
             expect(ok).toBe(true);
             expect(writeText).toHaveBeenCalledWith('grab me');
             expect(ui.transcriptElement.value).toBe('');
-            expect(store.load()?.text).toBe('grab me');      // survives the Cut
+            expect(store.load()?.text).toBe('grab me');      // survives the Grab
             expect(ui.restoreButton.hidden).toBe(false);     // Restore now offered
         });
 
         it('does nothing on an empty box', async () => {
             ui.transcriptElement.value = '';
-            const ok = await ui.cutTranscript();
+            const ok = await ui.grabTranscript();
             expect(ok).toBe(false);
             expect(writeText).not.toHaveBeenCalled();
         });
@@ -76,19 +76,19 @@ describe('Transcript actions: Cut / Restore / Clear / append', () => {
         it('keeps the text in the box AND recoverable if the clipboard write fails', async () => {
             writeText.mockImplementationOnce(() => Promise.reject(new Error('blocked')));
             ui.transcriptElement.value = 'precious';
-            const ok = await ui.cutTranscript();
+            const ok = await ui.grabTranscript();
             expect(ok).toBe(false);
             expect(ui.transcriptElement.value).toBe('precious'); // not lost from the box
             expect(store.load()?.text).toBe('precious');         // and saved as a record
         });
 
-        it('cancels a pending empty autosave when Cut clears the box', async () => {
+        it('cancels a pending empty autosave when Grab clears the box', async () => {
             vi.useFakeTimers();
             try {
                 ui.transcriptElement.value = 'grab me';
                 ui._autosaveTimer = setTimeout(() => ui.persistTranscript(), 500);
 
-                const ok = await ui.cutTranscript();
+                const ok = await ui.grabTranscript();
                 await vi.advanceTimersByTimeAsync(500);
 
                 expect(ok).toBe(true);
@@ -101,31 +101,11 @@ describe('Transcript actions: Cut / Restore / Clear / append', () => {
         });
     });
 
-    describe('Clear', () => {
-        it('wipes the box without copying and clears the recovery slot', () => {
-            store.save('previous saved text');
-            ui.transcriptElement.value = 'discard from box';
-            ui.clearTranscript();
-            expect(writeText).not.toHaveBeenCalled();
-            expect(ui.transcriptElement.value).toBe('');
-            expect(store.load()).toBeNull();
-            expect(ui.restoreButton.hidden).toBe(true);
-        });
-
-        it('also clears a restore slot when the box is already empty', () => {
-            store.save('cut text');
-            ui.transcriptElement.value = '';
-            ui.clearTranscript();
-            expect(store.load()).toBeNull();
-            expect(ui.restoreButton.hidden).toBe(true);
-        });
-    });
-
     describe('Restore', () => {
         it('resurrects the last transcript and is repeatable (non-consuming)', async () => {
-            // First Cut leaves a recoverable record + empty box.
+            // First Grab leaves a recoverable record + empty box.
             ui.transcriptElement.value = 'round one';
-            await ui.cutTranscript();
+            await ui.grabTranscript();
             expect(ui.transcriptElement.value).toBe('');
 
             // Restore brings it back.
@@ -133,8 +113,8 @@ describe('Transcript actions: Cut / Restore / Clear / append', () => {
             expect(ui.transcriptElement.value).toBe('round one');
             expect(ui.restoreButton.hidden).toBe(true); // box non-empty now
 
-            // Cut again, restore again — the slot was never consumed.
-            await ui.cutTranscript();
+            // Grab again, restore again — the slot was never consumed.
+            await ui.grabTranscript();
             expect(ui.transcriptElement.value).toBe('');
             ui.restoreTranscript();
             expect(ui.transcriptElement.value).toBe('round one');

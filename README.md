@@ -18,9 +18,10 @@ there's something real to lose.
   scaling the buttons themselves.
 - **Autosave + restore** — your transcript is saved to the browser as you go and
   offered back after a reload, so a refresh never costs you work.
-- **Cut · Restore · Clear** — Cut lifts the transcript to your clipboard; Restore
-  brings back the last cut if you clobbered the clipboard by accident; Clear
-  empties the box. New transcriptions always append, separated by a divider.
+- **Grab · Restore** — Grab lifts the transcript to your clipboard and empties
+  the box; Restore brings it back if you clobbered the clipboard by accident, so
+  the take-it-away action is always recoverable. New transcriptions always
+  append, separated by a divider.
 - **Proportional confirm** — discarding a throwaway clip (under ~10s) just
   happens; discarding a substantial recording asks once, by name. No rote
   "are you sure?" dialogs.
