@@ -713,15 +713,19 @@ export class UI {
     // ───────────────────────── Status + transcript ─────────────────────────
 
     setStatus(message) {
+        // While a temporary toast (success/error feedback) owns the status line,
+        // defer this base message to become the toast's revert target instead of
+        // stripping the toast's colour. The toast reverts to it when it expires.
         if (this.statusElement._statusTimeout) {
-            clearTimeout(this.statusElement._statusTimeout);
-            this.statusElement._statusTimeout = null;
+            this.statusElement._pendingBaseStatus = message;
+            return;
         }
         this.statusElement.textContent = message;
         // Return to the base (AA-safe) colour: drop any temporary type modifier.
         if (this.statusElement.classList) {
             this.statusElement.classList.remove(...STATUS_TYPE_CLASSES);
         }
+        this.statusElement._pendingBaseStatus = undefined;
         this.statusElement.style.color = '';
     }
 
