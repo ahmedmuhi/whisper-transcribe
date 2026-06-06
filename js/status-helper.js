@@ -41,6 +41,9 @@ export function showTemporaryStatus(
     }
     // Drop any stale inline colour from earlier inline-styled status writes.
     element.style.color = '';
+    // A fresh toast takes ownership of the line: clear any base message that was
+    // deferred during a previous toast (see setStatus's defer-while-active rule).
+    element._pendingBaseStatus = undefined;
 
     // Clear any existing timeout on the element
     if (element._statusTimeout) {
@@ -53,10 +56,14 @@ export function showTemporaryStatus(
         element._statusTimeout = setTimeout(() => {
             // Only reset if the message has not been changed meanwhile
             if (element.textContent === originalMessage) {
-                element.textContent = resetMessage;
+                // Revert to the latest base message deferred while this toast was
+                // showing (a base setStatus during the toast), else the caller's
+                // reset message.
+                element.textContent = element._pendingBaseStatus ?? resetMessage;
                 clearStatusType(element);
                 element.style.color = '';
             }
+            element._pendingBaseStatus = undefined;
             element._statusTimeout = null;
         }, duration);
     }

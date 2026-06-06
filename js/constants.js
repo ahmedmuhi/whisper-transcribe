@@ -154,7 +154,6 @@ export const ID = Object.freeze({
   CANCEL_BUTTON:    'cancel-button',
   SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
-  CLEAR_BUTTON:     'clear-button',
   RESTORE_BUTTON:   'restore-button',
   SAVE_SETTINGS:    'save-settings',
   THEME_TOGGLE:     'theme-toggle',
@@ -309,10 +308,9 @@ export const MESSAGES = {
   TRANSCRIPTION_COMPLETE: 'Transcription complete',
   
   // Clipboard Operations
-  TEXT_CUT_SUCCESS: 'Text cut to clipboard',
-  TEXT_CUT_FAILED: 'Failed to cut text',
-  NO_TEXT_TO_CUT: 'No text to cut',
-  TEXT_CLEARED: 'Transcript cleared',
+  TEXT_GRAB_SUCCESS: 'Grabbed to clipboard',
+  TEXT_GRAB_FAILED: 'Failed to grab text',
+  NO_TEXT_TO_GRAB: 'No text to grab',
   TRANSCRIPT_RESTORED: 'Transcript restored',
   
   // Permission Instructions
