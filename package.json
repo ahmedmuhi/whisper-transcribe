@@ -1,8 +1,9 @@
 {
   "name": "whisper-transcribe",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "A lightweight web application that converts spoken audio to text using Azure's Speech Services. Record directly from your browser and get transcriptions in real-time.",
+  "license": "MIT",
+  "description": "A no-build browser app that turns speech into text with Azure Speech Services, wrapped in an interaction-led Dynamic Island UI.",
   "type": "module",
   "scripts": {
     "test": "vitest run",
