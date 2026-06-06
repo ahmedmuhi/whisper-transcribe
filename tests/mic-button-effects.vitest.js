@@ -25,38 +25,45 @@ describe('Primary control visual effects (hit-target safety)', () => {
     it('keeps the primary control from animating its hit target', () => {
         // Any rule targeting the primary control OR the standalone `.recording` class
         // it toggles (the breathing-pulse hook) must never animate its GEOMETRY:
-        // no `transition: all` and no `transform`. A box-shadow/opacity `animation`
-        // (the breath) IS allowed — it can't move the hit target. Property matches
-        // use a boundary so `text-transform` does not false-positive.
+        // no `transition: all`, and no transform OR the modern independent transform
+        // properties (scale/rotate/translate) — each can move/resize the hit target.
+        // A box-shadow/opacity `animation` (the breath) IS allowed. The leading
+        // boundary stops `text-transform`/`-webkit-transform`-style false positives.
         const rules = css.match(/\.(btn-primary|recording)[^{]*\{[^}]*\}/gs) || [];
         expect(rules.length).toBeGreaterThan(0);
         for (const rule of rules) {
             expect(rule).not.toMatch(/transition:\s*all\b/);
-            expect(rule).not.toMatch(/(^|[;{\s])transform\s*:/);
+            expect(rule).not.toMatch(/(^|[;{\s])(transform|scale|rotate|translate)\s*:/);
         }
     });
 
-    it('only animates box-shadow/opacity on the primary — keyframes never transform', () => {
+    it('only animates box-shadow/opacity on the primary — keyframes never move geometry', () => {
         // Collect every @keyframes name referenced by a primary/recording rule's
-        // `animation:` shorthand, then assert none of those keyframes touch
-        // transform/width/height/padding/margin/inset (anything that moves geometry).
+        // `animation:` shorthand OR `animation-name:` longhand (incl. comma-listed
+        // multi-animations), then assert none of those keyframes touch any geometry
+        // property — classic transform, independent scale/rotate/translate, sizing,
+        // or spacing. This is the guard for a regression that has bitten before.
         const rules = css.match(/\.(btn-primary|recording)[^{]*\{[^}]*\}/gs) || [];
+        const TIMING = /^(infinite|alternate|alternate-reverse|both|forwards|backwards|none|linear|ease|ease-in|ease-out|ease-in-out|step-start|step-end|normal|reverse|paused|running)$/;
         const referenced = new Set();
         for (const rule of rules) {
-            const anim = rule.match(/(^|[;{\s])animation\s*:\s*([^;]+);?/);
-            if (!anim) continue;
-            // The first non-time/-easing token of the shorthand is the name.
-            for (const token of anim[2].trim().split(/\s+/)) {
-                if (/^[A-Za-z][\w-]*$/.test(token) &&
-                    !/^(infinite|alternate|both|forwards|backwards|none|linear|ease|ease-in|ease-out|ease-in-out|normal|reverse|paused|running)$/.test(token) &&
-                    !/^(cubic-bezier|steps)\(/.test(token)) {
-                    referenced.add(token);
-                    break;
+            for (const decl of rule.matchAll(/(?:^|[;{\s])animation(?:-name)?\s*:\s*([^;]+)/g)) {
+                // A shorthand can list several comma-separated animations; take the
+                // name token (first non-time/-easing token) of each.
+                for (const segment of decl[1].split(',')) {
+                    for (const token of segment.trim().split(/\s+/)) {
+                        if (/^[A-Za-z][\w-]*$/.test(token) &&
+                            !TIMING.test(token) &&
+                            !/^(cubic-bezier|steps)\(/.test(token)) {
+                            referenced.add(token);
+                            break;
+                        }
+                    }
                 }
             }
         }
 
-        const forbidden = /(transform|width|height|padding|margin|inset|top|right|bottom|left)\s*:/;
+        const forbidden = /(^|[;{\s])(transform|scale|rotate|translate|width|height|padding|margin|gap|inset|top|right|bottom|left|min-width|min-height|max-width|max-height)\s*:/;
         for (const name of referenced) {
             const block = css.match(new RegExp(`@keyframes\\s+${name}\\s*\\{[\\s\\S]*?\\n\\}`));
             expect(block, `Expected @keyframes ${name} to be defined`).not.toBeNull();

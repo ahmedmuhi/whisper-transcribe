@@ -2,7 +2,7 @@
  * @fileoverview User interface controller for the whisper-transcribe application.
  */
 
-import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID, TRANSCRIPT_SEGMENT_DIVIDER, RECORDING_STATES } from './constants.js';
+import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID, TRANSCRIPT_SEGMENT_DIVIDER, RECORDING_STATES, STATUS_TYPE_CLASSES } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -415,6 +415,12 @@ export class UI {
             return;
         }
 
+        // Interrupt any morph still in flight: cancel it and drop the cross-fade
+        // class. Two rapid state changes (e.g. PROCESSING → IDLE on a fast API
+        // success) can land inside the 360ms window; without this we'd measure a
+        // mid-tween size and stack a second animation on the first, jumping.
+        this._cancelIslandMorph();
+
         const first = cluster.getBoundingClientRect();
         mutate();
         const last = cluster.getBoundingClientRect();
@@ -430,8 +436,9 @@ export class UI {
         // Animate the cluster from its old size to the new one. fill defaults to
         // none, so after the run the element reverts to its natural `auto` size
         // (== `last`), leaving no locked inline width behind.
+        let anim;
         try {
-            cluster.animate(
+            anim = cluster.animate(
                 [
                     { width: `${first.width}px`, height: `${first.height}px` },
                     { width: `${last.width}px`, height: `${last.height}px` }
@@ -445,12 +452,52 @@ export class UI {
         }
 
         // Cross-fade the contents over the same beat (opacity only — no geometry).
+        this._islandAnim = anim;
         cluster.style.setProperty('--island-morph-ms', `${DURATION}ms`);
         cluster.classList.add('island-morphing');
-        clearTimeout(this._islandMorphTimer);
-        this._islandMorphTimer = setTimeout(() => {
-            cluster.classList.remove('island-morphing');
-        }, DURATION);
+        // End the cross-fade when THIS animation finishes. A newer morph that
+        // supersedes it cancels it first (via _cancelIslandMorph), so a stale
+        // finish never strips the class off the morph that replaced it.
+        anim.onfinish = () => {
+            if (this._islandAnim !== anim) return;
+            this._islandAnim = null;
+            this._endIslandMorph();
+        };
+    }
+
+    /**
+     * Cancels any in-flight island size morph and clears its cross-fade state,
+     * so the next measure reads a resting size and animations never stack.
+     *
+     * @method _cancelIslandMorph
+     * @private
+     * @returns {void}
+     */
+    _cancelIslandMorph() {
+        const stale = this._islandAnim;
+        if (stale) {
+            this._islandAnim = null;
+            stale.onfinish = null; // its late finish must not touch the new morph
+            if (typeof stale.cancel === 'function') stale.cancel();
+        }
+        this._endIslandMorph();
+    }
+
+    /**
+     * Removes the transient cross-fade class and inline morph-duration property,
+     * leaving the cluster at its natural resting style.
+     *
+     * @method _endIslandMorph
+     * @private
+     * @returns {void}
+     */
+    _endIslandMorph() {
+        const cluster = this.controlCluster;
+        if (!cluster || !cluster.classList) return;
+        cluster.classList.remove('island-morphing');
+        if (cluster.style && typeof cluster.style.removeProperty === 'function') {
+            cluster.style.removeProperty('--island-morph-ms');
+        }
     }
 
     /**
@@ -674,7 +721,7 @@ export class UI {
         this.statusElement.textContent = message;
         // Return to the base (AA-safe) colour: drop any temporary type modifier.
         if (this.statusElement.classList) {
-            this.statusElement.classList.remove('status--error', 'status--success');
+            this.statusElement.classList.remove(...STATUS_TYPE_CLASSES);
         }
         this.statusElement.style.color = '';
     }

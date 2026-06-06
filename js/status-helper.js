@@ -1,7 +1,7 @@
 /**
  * @fileoverview Helper functions for displaying temporary status messages
  */
-import { DEFAULT_RESET_STATUS } from './constants.js';
+import { DEFAULT_RESET_STATUS, STATUS_TYPE_CLASSES } from './constants.js';
 
 /**
  * Clears the status type modifier classes so the base (AA-safe) colour returns.
@@ -9,7 +9,7 @@ import { DEFAULT_RESET_STATUS } from './constants.js';
  */
 function clearStatusType(element) {
     if (element.classList) {
-        element.classList.remove('status--error', 'status--success');
+        element.classList.remove(...STATUS_TYPE_CLASSES);
     }
 }
 

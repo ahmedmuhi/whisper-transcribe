@@ -3,11 +3,11 @@
  */
 
 /**
- * Color constants for theme support and UI consistency.
+ * Color constants for the canvas visualizer. Status-text colours live in CSS as
+ * the WCAG-AA --status-* tokens (status-helper.js toggles classes, not hex), so
+ * no error/success hex belongs here.
  *
  * @constant {Object} COLORS
- * @property {string} ERROR - Red color for error states (#EF4444)
- * @property {string} SUCCESS - Green color for success states (#10B981)
  * @property {string} DARK_BG - Dark theme background color (#0C0F1A)
  * @property {string} LIGHT_BG - Light theme background color (#EEF0FB)
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
@@ -17,13 +17,18 @@ const DARK_BG  = '#0C0F1A';
 const LIGHT_BG = '#EEF0FB';
 
 export const COLORS = {
-  ERROR:          '#EF4444',
-  SUCCESS:        '#10B981',
   DARK_BG,
   LIGHT_BG,
   CANVAS_DARK_BG:  DARK_BG,
   CANVAS_LIGHT_BG: LIGHT_BG
 };
+
+/**
+ * Status-text type modifier classes (AA-safe colour comes from CSS tokens keyed
+ * off these). Single source of truth so setStatus and clearStatusType agree.
+ * @constant {string[]} STATUS_TYPE_CLASSES
+ */
+export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
 
 /**
  * Local storage keys for persisting application settings.

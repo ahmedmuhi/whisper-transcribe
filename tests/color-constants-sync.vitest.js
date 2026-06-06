@@ -5,14 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import { COLORS } from '../js/constants.js';
-
-function extractCssVar(css, selector, varName) {
-    const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const blockMatch = css.match(new RegExp(selectorEscaped + '\\s*\\{([^}]+)\\}'));
-    if (!blockMatch) return null;
-    const varMatch = blockMatch[1].match(new RegExp(varName + ':\\s*(#[0-9A-Fa-f]{6})'));
-    return varMatch ? varMatch[1] : null;
-}
+import { extractCssVar } from './helpers/css-tokens.js';
 
 describe('Color constants sync with CSS', () => {
     const css = readFileSync('css/styles.css', 'utf-8');

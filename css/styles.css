@@ -21,11 +21,13 @@
     --recording-glow: rgba(239, 68, 68, 0.3);
     /* Accessible status text (WCAG-AA on --bg-surface #FFFFFF):
        --status-text #5B6478 ≈ 5.5:1, --status-error #C42B1C ≈ 5.3:1,
-       --status-success #0B7A53 ≈ 4.7:1. The raw --recording/--accent reds/greens
-       fail AA for normal text, so status uses these dedicated tokens. */
+       --status-success #0E7A6B ≈ 5.2:1. The raw --recording/--accent reds/greens
+       fail AA for normal text, so status uses these dedicated tokens. Success is
+       a desaturated teal that meets AA while staying in the lavender/navy family
+       (verified by tests/status-tokens.vitest.js). */
     --status-text: #5B6478;
     --status-error: #C42B1C;
-    --status-success: #0B7A53;
+    --status-success: #0E7A6B;
     --shadow-sm: 0 1px 2px rgba(91, 110, 245, 0.04);
     --shadow-md: 0 4px 12px rgba(91, 110, 245, 0.06);
     --shadow-lg: 0 8px 24px rgba(91, 110, 245, 0.08);
@@ -67,10 +69,11 @@
     --recording-glow: rgba(239, 68, 68, 0.35);
     /* Accessible status text (WCAG-AA on --bg-surface #151929):
        --status-text #AEB6D6 ≈ 7.4:1, --status-error #FF8A80 ≈ 6.2:1,
-       --status-success #4ADE9A ≈ 8.4:1. */
+       --status-success #5FD2C2 ≈ 9.5:1 (a soft teal, not vivid mint — in the
+       lavender/navy family). */
     --status-text: #AEB6D6;
     --status-error: #FF8A80;
-    --status-success: #4ADE9A;
+    --status-success: #5FD2C2;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -588,8 +591,8 @@ header {
     transition: background-color var(--transition),
                 border-color var(--transition),
                 box-shadow var(--transition-slow);
-    /* contain layout so the FLIP measure/animate stays cheap and self-scoped. */
-    will-change: width;
+    /* Clip the contents during the FLIP size morph (and keep the recording
+       breath's inset ring inside the pill). */
     overflow: hidden;
 }
 
@@ -605,13 +608,11 @@ header {
     box-shadow: var(--shadow-md);
 }
 
-/* Processing/busy — contracted pill. Non-indicator busy states (Starting…,
-   Finishing…) keep the disabled primary as their only content. */
-.control-cluster.island-processing {
-    background: var(--bg-inset);
-    border-color: var(--border-color);
-    box-shadow: var(--shadow-sm);
-}
+/* Processing/busy — uses the base .control-cluster resting shape (inset bg,
+   default border, small shadow); the class stays as a state hook for JS. The
+   only busy state that adds chrome is the dots indicator (.island-has-indicator
+   below). Non-indicator busy states (Starting…, Finishing…) keep the disabled
+   primary as their only content. */
 
 /* Transcribing — the only busy state with the dots indicator. The disabled
    primary is collapsed visually (DOM label kept for a11y + the render
@@ -733,7 +734,9 @@ header {
 /* Recording / paused — the primary signals an active session and BREATHES.
    The breath is box-shadow ONLY (no geometry): a steady-state pulse that
    coexists with the island's one-shot size morph. NEVER animate transform/
-   width/padding here — guarded by tests/mic-button-effects.vitest.js. */
+   width/padding here — guarded by tests/mic-button-effects.vitest.js.
+   It pulses an INSET ring so it renders inside the cluster's overflow:hidden
+   clip (an outset ring would be cropped by the pill edge and barely show). */
 .btn-primary.recording {
     background: var(--recording);
     border-color: var(--recording);
@@ -741,8 +744,8 @@ header {
 }
 
 @keyframes islandBreath {
-    0%, 100% { box-shadow: 0 0 0 0 var(--recording-glow); }
-    50%      { box-shadow: 0 0 0 7px transparent; }
+    0%, 100% { box-shadow: inset 0 0 0 0 var(--recording-glow); }
+    50%      { box-shadow: inset 0 0 0 4px var(--recording-glow); }
 }
 
 /* Secondary — Pause / Resume / Retry (ghost) */
@@ -803,12 +806,6 @@ header {
 @keyframes islandDot {
     0%, 100% { opacity: 0.25; }
     50%      { opacity: 1; }
-}
-
-/* Legacy keyframe retained for any non-island spinner usage; the island uses
-   dots, but reduced-motion still neutralises this below. */
-@keyframes spin {
-    to { transform: rotate(360deg); }
 }
 
 .spinner-text {
@@ -1240,10 +1237,6 @@ header {
         border-radius: var(--radius-md);
     }
 
-    .timer {
-        font-size: 1.4rem;
-    }
-
     .control-cluster {
         gap: 0.5rem;
     }
@@ -1298,7 +1291,7 @@ h1, h2, h3, h4, h5, h6 {
    just snaps to its new size); here we neutralise the CSS-driven motion: the
    island content cross-fade, the recording breath, the processing dots and
    timer dot, the text-arrival settle, and the pre-existing cardFadeIn /
-   modalSlideUp / spin. Layout stays correct — only motion is removed.
+   modalSlideUp. Layout stays correct — only motion is removed.
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
     *,
@@ -1328,10 +1321,6 @@ h1, h2, h3, h4, h5, h6 {
     .control-cluster.island-morphing .island-processing-indicator,
     .card-animate,
     .transcript-arrived {
-        animation: none !important;
-    }
-
-    .spinner {
         animation: none !important;
     }
 }
