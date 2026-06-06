@@ -167,7 +167,10 @@ export class UI {
             this.transcriptElement.addEventListener('input', () => {
                 this.updateRestoreAffordance();
                 clearTimeout(this._autosaveTimer);
-                this._autosaveTimer = setTimeout(() => this.persistTranscript(), 500);
+                this._autosaveTimer = setTimeout(() => {
+                    this.persistTranscript();
+                    this.updateRestoreAffordance();
+                }, 500);
             });
         }
     }
@@ -782,13 +785,13 @@ export class UI {
 
     /**
      * Persists the current transcript text to the single-slot store (the seam that
-     * later swaps localStorage for a backend). No-op without a store or with no text.
+     * later swaps localStorage for a backend). Empty text clears the recovery slot.
      *
      * @method persistTranscript
      * @returns {void}
      */
     persistTranscript() {
-        if (this.transcriptStore && this.transcriptElement && this.transcriptElement.value) {
+        if (this.transcriptStore && this.transcriptElement) {
             this.transcriptStore.save(this.transcriptElement.value);
         }
     }
@@ -841,6 +844,8 @@ export class UI {
         this.persistTranscript();
         return navigator.clipboard.writeText(text)
             .then(() => {
+                clearTimeout(this._autosaveTimer);
+                this._autosaveTimer = null;
                 this.transcriptElement.value = '';
                 this.updateRestoreAffordance();
                 this._emitStatus(MESSAGES.TEXT_CUT_SUCCESS, 'success');
@@ -853,16 +858,20 @@ export class UI {
     }
 
     /**
-     * Clear — wipe the box WITHOUT copying. Rare. Record persisted first so a
-     * Clear stays recoverable via Restore.
+     * Clear — wipe the box WITHOUT copying and purge the recovery slot. Cut is the
+     * recoverable clear path; Clear is the explicit empty.
      *
      * @method clearTranscript
      * @returns {void}
      */
     clearTranscript() {
-        if (!this.transcriptElement.value) return;
-        this.persistTranscript();
+        const hasText = Boolean(this.transcriptElement.value);
+        const hasStoredText = Boolean(this.transcriptStore && this.transcriptStore.has());
+        if (!hasText && !hasStoredText) return;
         this.transcriptElement.value = '';
+        if (this.transcriptStore) {
+            this.transcriptStore.clear();
+        }
         this.updateRestoreAffordance();
         this._emitStatus(MESSAGES.TEXT_CLEARED);
     }

@@ -61,20 +61,16 @@ export class AzureAPIClient {
                 message: statusMessage
             });
 
-            const response = await this._fetchWithRetry(config.uri, {
+            const data = await this._fetchWithRetry(config.uri, {
                 method: HTTP_METHODS.POST,
                 headers,
                 body
-            }, onProgress);
-
-            if (!response.ok) {
-                throw await this._createApiError(response);
-            }
-
-            const contentType = response.headers.get(CONTENT_TYPES.CONTENT_TYPE_HEADER) || '';
-            const data = contentType.includes(CONTENT_TYPES.APPLICATION_JSON)
-                ? await response.json()
-                : await response.text();
+            }, onProgress, async (response) => {
+                if (!response.ok) {
+                    throw await this._createApiError(response);
+                }
+                return this._readResponseData(response);
+            });
             const transcription = adapter.parseResponse(data);
 
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
@@ -134,12 +130,43 @@ export class AzureAPIClient {
         }
     }
 
-    async _fetchWithRetry(uri, options, onProgress) {
+    /**
+     * Reads the response body in the format advertised by the server.
+     *
+     * @private
+     * @param {Response} response - Successful API response
+     * @returns {Promise<string|Object>} Parsed JSON or plain text body
+     */
+    async _readResponseData(response) {
+        const contentType = response.headers.get(CONTENT_TYPES.CONTENT_TYPE_HEADER) || '';
+        return contentType.includes(CONTENT_TYPES.APPLICATION_JSON)
+            ? response.json()
+            : response.text();
+    }
+
+    async _fetchWithRetry(uri, options, onProgress, handleResponse) {
         for (let attempt = 0; attempt <= MAX_TRANSCRIPTION_RETRIES; attempt++) {
             let response;
 
             try {
-                response = await this._fetchWithTimeout(uri, options);
+                const attemptResult = await this._fetchWithTimeout(async (signal) => {
+                    response = await fetch(uri, { ...options, signal });
+
+                    if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
+                        return {
+                            shouldRetry: false,
+                            value: await handleResponse(response)
+                        };
+                    }
+
+                    // Consume the error body to release the connection before retrying.
+                    await this._consumeRetryBody(response);
+                    return { shouldRetry: true };
+                });
+
+                if (!attemptResult.shouldRetry) {
+                    return attemptResult.value;
+                }
             } catch (error) {
                 // Only a per-attempt timeout (AbortError) is retryable here; anything
                 // else propagates. On the final attempt, surface a friendly timeout
@@ -158,13 +185,6 @@ export class AzureAPIClient {
                 continue;
             }
 
-            if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
-                return response;
-            }
-
-            // Consume the error body to release the connection before retrying
-            await response.text().catch(() => {});
-
             await this._retryAfter(this._getRetryDelayMs(response, attempt), attempt, {
                 log: `Transient API response ${response.status}.`,
                 progress: `Azure returned ${response.status}.`
@@ -173,24 +193,42 @@ export class AzureAPIClient {
     }
 
     /**
-     * Performs a single fetch attempt guarded by a per-attempt timeout. A fresh
-     * AbortController is created for each attempt; the timer is always cleared in
-     * a finally block so it never leaks regardless of success, failure, or abort.
+     * Performs one full request attempt guarded by a per-attempt timeout. The
+     * caller's operation is responsible for fetching and consuming the body while
+     * the same AbortController is still armed.
      *
      * @private
-     * @param {string} uri - Request URI
-     * @param {Object} options - fetch options (method, headers, body)
-     * @returns {Promise<Response>} The fetch response
+     * @param {Function} operation - Attempt operation that receives an abort signal
+     * @returns {Promise<*>} Operation result
      * @throws {Error} AbortError on timeout, or the underlying fetch error
      */
-    async _fetchWithTimeout(uri, options) {
+    async _fetchWithTimeout(operation) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), TRANSCRIPTION_TIMEOUT_MS);
 
         try {
-            return await fetch(uri, { ...options, signal: controller.signal });
+            return await operation(controller.signal);
         } finally {
             clearTimeout(timeoutId);
+        }
+    }
+
+    /**
+     * Drains a retryable error response body. Body stream aborts must propagate so
+     * the timeout path can retry/fail normally; other body-drain failures are not
+     * more important than the retryable status code already received.
+     *
+     * @private
+     * @param {Response} response - Retryable API response
+     * @returns {Promise<void>}
+     */
+    async _consumeRetryBody(response) {
+        try {
+            await response.text();
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                throw error;
+            }
         }
     }
 

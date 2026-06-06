@@ -81,6 +81,13 @@ describe('Transcript autosave + restore wiring', () => {
         expect(ui.transcriptElement.value).toBe('user is mid-edit');
     });
 
+    it('clears the recovery slot when a manual edit empties the transcript', () => {
+        store.save('deleted by user');
+        ui.transcriptElement.value = '';
+        ui.persistTranscript();
+        expect(store.load()).toBeNull();
+    });
+
     it('no-ops cleanly when no store is wired (back-compat)', () => {
         ui.transcriptStore = null;
         expect(() => ui.persistTranscript()).not.toThrow();

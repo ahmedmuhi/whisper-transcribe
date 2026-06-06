@@ -2,7 +2,7 @@
  * @fileoverview Thin storage gateway for the single-slot transcript record.
  *
  * The transcript text is the most valuable thing the app produces, so it must
- * never be lost to a reload, crash, accidental Clear, or a mistimed Cut. This
+ * never be lost to a reload, crash, or a mistimed Cut. This
  * store keeps exactly ONE slot — the last meaningful transcript — and exposes a
  * deliberately small interface (save/load/clear/has). localStorage backs it
  * today; the interface is the seam that lets a future backend (e.g. Cosmos DB)

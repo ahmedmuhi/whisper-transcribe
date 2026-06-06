@@ -135,7 +135,7 @@
         <!-- Transcription Area -->
         <div class="transcript-area card-animate" style="--card-index: 0;">
             <div class="transcript-header">
-                <h2 class="transcript-title">Transcription</h2>
+                <h2 id="transcript-heading" class="transcript-title">Transcription</h2>
                 <div class="transcript-actions">
                     <button id="restore-button" class="clear-btn" aria-label="Restore last transcript" hidden>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -161,7 +161,7 @@
                 </div>
             </div>
             <div class="transcript-body">
-                <textarea id="transcript" class="transcript-content" placeholder=" "></textarea>
+                <textarea id="transcript" class="transcript-content" placeholder=" " aria-labelledby="transcript-heading"></textarea>
                 <!-- Onboarding empty-state: calmer than a bare placeholder. Hidden by
                      CSS once the textarea holds text (:placeholder-shown sibling). -->
                 <div class="transcript-empty" aria-hidden="true">

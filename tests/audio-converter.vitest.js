@@ -223,7 +223,7 @@ describe('Audio Converter — Web Worker offload', () => {
             this.postMessage = (data, transfer) => {
                 postedMessage = data;
                 postedTransfer = transfer;
-                const { samples, sampleRate, bitDepth } = data;
+                const { requestId, samples, sampleRate, bitDepth } = data;
                 // Mirror the worker's encode using the same byte layout the
                 // synchronous fallback produces.
                 const bytesPerSample = bitDepth / 8;
@@ -254,7 +254,7 @@ describe('Audio Converter — Web Worker offload', () => {
                 }
                 // Deliver asynchronously, mimicking a real worker message.
                 Promise.resolve().then(() => {
-                    for (const fn of listeners.message) fn({ data: wav });
+                    for (const fn of listeners.message) fn({ data: { requestId, wavBuffer: wav } });
                 });
             };
             this.terminate = vi.fn();
@@ -270,6 +270,7 @@ describe('Audio Converter — Web Worker offload', () => {
         expect(global.Worker).toHaveBeenCalledTimes(1);
         expect(workerInstances).toHaveLength(1);
         expect(postedMessage).not.toBeNull();
+        expect(postedMessage.requestId).toEqual(expect.any(Number));
         expect(postedMessage.sampleRate).toBe(16000);
         expect(postedMessage.bitDepth).toBe(16);
         expect(postedMessage.samples).toBeInstanceOf(Float32Array);
@@ -280,6 +281,83 @@ describe('Audio Converter — Web Worker offload', () => {
         expect(result.type).toBe('audio/wav');
         expect(String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))).toBe('RIFF');
         expect(arrayBuffer.byteLength).toBe(44 + 16000 * 2);
+    });
+
+    it('should correlate overlapping Worker responses to the matching conversion', async () => {
+        const listeners = { message: [], error: [] };
+        const postedMessages = [];
+
+        global.Worker = vi.fn().mockImplementation(function FakeWorker() {
+            this.addEventListener = (type, fn) => listeners[type].push(fn);
+            this.removeEventListener = (type, fn) => {
+                listeners[type] = listeners[type].filter(l => l !== fn);
+            };
+            this.postMessage = (data) => {
+                postedMessages.push(data);
+            };
+        });
+
+        const firstBuffer = createMockAudioBuffer(16000, 1, 1000);
+        const secondBuffer = createMockAudioBuffer(16000, 1, 2000);
+        mockDecodeAudioData
+            .mockResolvedValueOnce(firstBuffer)
+            .mockResolvedValueOnce(secondBuffer);
+
+        const convert = await freshConvertToWav();
+        const first = convert(new Blob(['first'], { type: 'audio/webm' }));
+        const second = convert(new Blob(['second'], { type: 'audio/webm' }));
+
+        for (let i = 0; i < 10 && postedMessages.length < 2; i++) {
+            await Promise.resolve();
+        }
+        expect(postedMessages).toHaveLength(2);
+
+        const sendResponse = (message) => {
+            const wavBuffer = new ArrayBuffer(44 + message.samples.length * 2);
+            for (const fn of [...listeners.message]) {
+                fn({ data: { requestId: message.requestId, wavBuffer } });
+            }
+        };
+
+        // Resolve in reverse order; each promise must receive its own response.
+        sendResponse(postedMessages[1]);
+        sendResponse(postedMessages[0]);
+
+        const [firstResult, secondResult] = await Promise.all([first, second]);
+        expect((await firstResult.arrayBuffer()).byteLength).toBe(44 + 1000 * 2);
+        expect((await secondResult.arrayBuffer()).byteLength).toBe(44 + 2000 * 2);
+    });
+
+    it('should disable the cached Worker after a runtime failure', async () => {
+        const listeners = { message: [], error: [] };
+        const terminate = vi.fn();
+        let postCount = 0;
+
+        global.Worker = vi.fn().mockImplementation(function FakeWorker() {
+            this.addEventListener = (type, fn) => listeners[type].push(fn);
+            this.removeEventListener = (type, fn) => {
+                listeners[type] = listeners[type].filter(l => l !== fn);
+            };
+            this.postMessage = () => {
+                postCount++;
+                Promise.resolve().then(() => {
+                    for (const fn of [...listeners.error]) {
+                        fn({ error: new Error('module worker failed') });
+                    }
+                });
+            };
+            this.terminate = terminate;
+        });
+
+        const convert = await freshConvertToWav();
+        const first = await convert(new Blob(['first'], { type: 'audio/webm' }));
+        const second = await convert(new Blob(['second'], { type: 'audio/webm' }));
+
+        expect(first.type).toBe('audio/wav');
+        expect(second.type).toBe('audio/wav');
+        expect(global.Worker).toHaveBeenCalledTimes(1);
+        expect(terminate).toHaveBeenCalledTimes(1);
+        expect(postCount).toBe(1);
     });
 
     it('should fall back to the synchronous encode when Worker construction throws', async () => {

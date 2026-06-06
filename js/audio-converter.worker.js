@@ -4,9 +4,10 @@
  * because WebAudio (OfflineAudioContext/decodeAudioData) is unavailable in
  * Workers; only the int16 sample loop runs here.
  *
- * Protocol: the main thread posts { samples: Float32Array, sampleRate, bitDepth }
- * (with samples.buffer transferred). The worker posts back the encoded WAV
- * ArrayBuffer, also transferred. On encode failure it posts { error }.
+ * Protocol: the main thread posts { requestId, samples, sampleRate, bitDepth }
+ * (with samples.buffer transferred). The worker posts back
+ * { requestId, wavBuffer }, with wavBuffer transferred. On encode failure it
+ * posts { requestId, error }.
  */
 
 /* global self */
@@ -14,12 +15,12 @@
 import { encodeWav } from './wav-encoder.js';
 
 self.addEventListener('message', (event) => {
-    const { samples, sampleRate, bitDepth } = event.data;
+    const { requestId, samples, sampleRate, bitDepth } = event.data;
 
     try {
         const wavBuffer = encodeWav(samples, sampleRate, bitDepth);
-        self.postMessage(wavBuffer, [wavBuffer]);
+        self.postMessage({ requestId, wavBuffer }, [wavBuffer]);
     } catch (error) {
-        self.postMessage({ error: error?.message || String(error) });
+        self.postMessage({ requestId, error: error?.message || String(error) });
     }
 });

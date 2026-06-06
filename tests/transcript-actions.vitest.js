@@ -1,7 +1,7 @@
 /**
  * @fileoverview Phase 2 — Cut / Restore / Clear actions and append-with-divider.
  * Cut grabs+clears (record survives), Restore is persistent & repeatable, Clear
- * wipes but stays recoverable, and re-recordings append with a visible divider.
+ * purges the box and recovery slot, and re-recordings append with a visible divider.
  */
 
 import { vi } from 'vitest';
@@ -81,16 +81,43 @@ describe('Transcript actions: Cut / Restore / Clear / append', () => {
             expect(ui.transcriptElement.value).toBe('precious'); // not lost from the box
             expect(store.load()?.text).toBe('precious');         // and saved as a record
         });
+
+        it('cancels a pending empty autosave when Cut clears the box', async () => {
+            vi.useFakeTimers();
+            try {
+                ui.transcriptElement.value = 'grab me';
+                ui._autosaveTimer = setTimeout(() => ui.persistTranscript(), 500);
+
+                const ok = await ui.cutTranscript();
+                await vi.advanceTimersByTimeAsync(500);
+
+                expect(ok).toBe(true);
+                expect(ui.transcriptElement.value).toBe('');
+                expect(store.load()?.text).toBe('grab me');
+                expect(ui.restoreButton.hidden).toBe(false);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
     });
 
     describe('Clear', () => {
-        it('wipes the box without copying, but stays recoverable', () => {
+        it('wipes the box without copying and clears the recovery slot', () => {
+            store.save('previous saved text');
             ui.transcriptElement.value = 'discard from box';
             ui.clearTranscript();
             expect(writeText).not.toHaveBeenCalled();
             expect(ui.transcriptElement.value).toBe('');
-            expect(store.load()?.text).toBe('discard from box');
-            expect(ui.restoreButton.hidden).toBe(false);
+            expect(store.load()).toBeNull();
+            expect(ui.restoreButton.hidden).toBe(true);
+        });
+
+        it('also clears a restore slot when the box is already empty', () => {
+            store.save('cut text');
+            ui.transcriptElement.value = '';
+            ui.clearTranscript();
+            expect(store.load()).toBeNull();
+            expect(ui.restoreButton.hidden).toBe(true);
         });
     });
 

@@ -1241,6 +1241,24 @@ header {
         gap: 0.5rem;
     }
 
+    .control-cluster.island-recording {
+        flex-wrap: wrap;
+        overflow: visible;
+        border-radius: var(--radius-lg);
+    }
+
+    .control-cluster.island-recording.island-morphing {
+        overflow: hidden;
+    }
+
+    .control-cluster.island-recording .island-timer {
+        display: inline-flex;
+        flex: 0 0 100%;
+        align-items: center;
+        justify-content: center;
+        padding: 0.15rem 0 0;
+    }
+
     .transcript-header {
         flex-direction: column;
         align-items: flex-start;

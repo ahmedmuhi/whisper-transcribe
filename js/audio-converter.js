@@ -19,6 +19,7 @@ const NUM_CHANNELS = 1;
 // Lazily-constructed shared encode worker. `null` = not yet attempted;
 // `false` = construction failed, use the synchronous fallback permanently.
 let encodeWorker = null;
+let nextEncodeRequestId = 1;
 
 /**
  * Converts an audio Blob (e.g. WebM/Opus) to a 16kHz mono 16-bit WAV Blob.
@@ -60,6 +61,7 @@ async function encodeWavOffThread(samples, sampleRate, bitDepth) {
     try {
         return await postToWorker(worker, transferable, sampleRate, bitDepth);
     } catch {
+        disableEncodeWorker(worker);
         // Worker path failed at runtime — fall back so correctness is preserved.
         return encodeWav(samples, sampleRate, bitDepth);
     }
@@ -76,14 +78,18 @@ async function encodeWavOffThread(samples, sampleRate, bitDepth) {
  */
 function postToWorker(worker, samples, sampleRate, bitDepth) {
     return new Promise((resolve, reject) => {
+        const requestId = nextEncodeRequestId++;
         const onMessage = (event) => {
-            cleanup();
             const data = event.data;
+            if (!data || data.requestId !== requestId) {
+                return;
+            }
+            cleanup();
             if (data && data.error) {
                 reject(new Error(data.error));
                 return;
             }
-            resolve(data);
+            resolve(data.wavBuffer);
         };
 
         const onError = (event) => {
@@ -99,7 +105,7 @@ function postToWorker(worker, samples, sampleRate, bitDepth) {
         worker.addEventListener('message', onMessage);
         worker.addEventListener('error', onError);
         worker.postMessage(
-            { samples, sampleRate, bitDepth },
+            { requestId, samples, sampleRate, bitDepth },
             [samples.buffer]
         );
     });
@@ -133,6 +139,23 @@ function getEncodeWorker() {
     }
 
     return encodeWorker;
+}
+
+/**
+ * Permanently disables the shared Worker after a runtime failure so later
+ * conversions do not keep posting to a broken worker instance.
+ *
+ * @param {Worker} worker - Worker that just failed
+ * @returns {void}
+ */
+function disableEncodeWorker(worker) {
+    if (encodeWorker !== worker) {
+        return;
+    }
+    if (typeof worker.terminate === 'function') {
+        worker.terminate();
+    }
+    encodeWorker = false;
 }
 
 /**

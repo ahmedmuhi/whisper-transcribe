@@ -614,6 +614,18 @@ describe('AzureAPIClient Error Handling', () => {
             }));
         }
 
+        function rejectOnAbort(signal) {
+            return new Promise((_resolve, reject) => {
+                const abortError = new Error('The operation was aborted');
+                abortError.name = 'AbortError';
+                if (signal.aborted) {
+                    reject(abortError);
+                    return;
+                }
+                signal.addEventListener('abort', () => reject(abortError), { once: true });
+            });
+        }
+
         /**
          * Drives all retry attempts to completion: each attempt arms a fresh
          * TRANSCRIPTION_TIMEOUT_MS timer, and _sleep is stubbed to resolve
@@ -648,6 +660,30 @@ describe('AzureAPIClient Error Handling', () => {
                     error: MESSAGES.REQUEST_TIMED_OUT
                 })
             );
+        });
+
+        it('should keep the abort timer active while reading the response body', async () => {
+            const jsonReads = [];
+            global.fetch = vi.fn(async (_uri, options) => {
+                const json = vi.fn(() => rejectOnAbort(options.signal));
+                jsonReads.push(json);
+                return {
+                    ok: true,
+                    status: 200,
+                    headers: { get: vi.fn().mockReturnValue('application/json') },
+                    json
+                };
+            });
+
+            const settled = apiClient.transcribe(new Blob());
+            const assertion = expect(settled).rejects.toThrow(MESSAGES.REQUEST_TIMED_OUT);
+
+            await flushAllTimeoutAttempts();
+            await assertion;
+
+            expect(global.fetch).toHaveBeenCalledTimes(6);
+            expect(jsonReads).toHaveLength(6);
+            expect(jsonReads[0]).toHaveBeenCalledTimes(1);
         });
 
         it('should not abort a request that resolves before the timeout', async () => {
