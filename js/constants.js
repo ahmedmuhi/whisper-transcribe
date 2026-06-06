@@ -158,7 +158,6 @@ export const ID = Object.freeze({
   RESTORE_BUTTON:   'restore-button',
   SAVE_SETTINGS:    'save-settings',
   THEME_TOGGLE:     'theme-toggle',
-  RETRY_BUTTON:     'retry-button',
 
   // Guided-morph control cluster + discard dialog
   CONTROL_CLUSTER:     'control-cluster',
@@ -179,7 +178,6 @@ export const ID = Object.freeze({
   // Modals & panes
   SETTINGS_MODAL:   'settings-modal',
   CLOSE_MODAL:      'close-modal',
-  MODAL_TITLE:      'modal-title',
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
 
@@ -203,14 +201,12 @@ export const ID = Object.freeze({
 
   // Canvas / visualiser
   VISUALIZER:       'visualizer',
-  VISUALIZER_CONTAINER: 'visualizer-container',
 
   // Icons
   PAUSE_ICON:       'pause-icon',
   PLAY_ICON:        'play-icon',
   MOON_ICON:        'moon-icon',
   SUN_ICON:         'sun-icon',
-  THEME_ICON:       'theme-icon',
 
   // Misc
   SPINNER_CONTAINER: 'spinner-container'
