@@ -1,0 +1,64 @@
+import { describe, it, expect } from 'vitest';
+import { TranscriptStore } from '../js/transcript-store.js';
+
+/** Minimal in-memory Storage stand-in so each test is fully isolated. */
+function makeStorage(initial = {}) {
+    const data = { ...initial };
+    return {
+        getItem: (k) => (Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null),
+        setItem: (k, v) => { data[k] = String(v); },
+        removeItem: (k) => { delete data[k]; },
+        _data: data
+    };
+}
+
+describe('TranscriptStore', () => {
+    it('saves and loads a transcript round-trip', () => {
+        const store = new TranscriptStore(makeStorage(), 'k');
+        store.save('hello world');
+        expect(store.load().text).toBe('hello world');
+        expect(store.has()).toBe(true);
+    });
+
+    it('treats an empty string as a clear (nothing to recover)', () => {
+        const store = new TranscriptStore(makeStorage(), 'k');
+        store.save('something');
+        store.save('');
+        expect(store.load()).toBeNull();
+        expect(store.has()).toBe(false);
+    });
+
+    it('clear() removes the slot', () => {
+        const store = new TranscriptStore(makeStorage(), 'k');
+        store.save('x');
+        store.clear();
+        expect(store.has()).toBe(false);
+    });
+
+    it('returns null on corrupt JSON instead of throwing', () => {
+        const store = new TranscriptStore(makeStorage({ k: 'not-json{' }), 'k');
+        expect(store.load()).toBeNull();
+        expect(store.has()).toBe(false);
+    });
+
+    it('is non-consuming: load can be called repeatedly (survives Cut → Restore → Cut)', () => {
+        const store = new TranscriptStore(makeStorage(), 'k');
+        store.save('keep me');
+        expect(store.load().text).toBe('keep me');
+        expect(store.load().text).toBe('keep me');
+        expect(store.has()).toBe(true);
+    });
+
+    it('stamps savedAt so the slot carries a timestamp', () => {
+        const store = new TranscriptStore(makeStorage(), 'k');
+        store.save('timestamped');
+        expect(typeof store.load().savedAt).toBe('number');
+    });
+
+    it('degrades gracefully with no storage backend (explicit null)', () => {
+        const store = new TranscriptStore(null, 'k');
+        expect(() => store.save('x')).not.toThrow();
+        expect(store.load()).toBeNull();
+        expect(store.has()).toBe(false);
+    });
+});

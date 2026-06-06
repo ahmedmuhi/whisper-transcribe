@@ -2,6 +2,7 @@ import { Settings } from './settings.js';
 import { UI } from './ui.js';
 import { AzureAPIClient } from './api-client.js';
 import { AudioHandler } from './audio-handler.js';
+import { TranscriptStore } from './transcript-store.js';
 import { logger } from './logger.js';
 
 /**
@@ -9,15 +10,16 @@ import { logger } from './logger.js';
  */
 document.addEventListener('DOMContentLoaded', () => {
     logger.info('Initializing Speech-to-Text App...');
-    
+
     const settings = new Settings();
+    const transcriptStore = new TranscriptStore();
     const ui = new UI();
     const apiClient = new AzureAPIClient(settings);
     // Reference kept to prevent GC (AudioHandler lives via event bus listeners)
     // eslint-disable-next-line no-unused-vars
     const audioHandler = new AudioHandler(apiClient, settings);
 
-    ui.init(settings);
-    
+    ui.init(settings, transcriptStore);
+
     logger.info('Speech-to-Text App initialized');
 });

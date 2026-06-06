@@ -1,11 +1,25 @@
 /**
  * @fileoverview Converts audio blobs to WAV format using browser-native AudioContext.
  * Used for MAI-Transcribe which requires WAV/MP3/FLAC (rejects WebM/Opus).
+ *
+ * Decode + resample (which need WebAudio) run on the main thread. The CPU-bound
+ * PCM-to-WAV encode is offloaded to a module Web Worker so long recordings do
+ * not freeze the UI; a synchronous fallback runs the same encode on the main
+ * thread when Workers are unavailable (older browsers, file://, etc.).
  */
+
+/* global Worker */
+
+import { encodeWav } from './wav-encoder.js';
 
 const TARGET_SAMPLE_RATE = 16000;
 const BIT_DEPTH = 16;
 const NUM_CHANNELS = 1;
+
+// Lazily-constructed shared encode worker. `null` = not yet attempted;
+// `false` = construction failed, use the synchronous fallback permanently.
+let encodeWorker = null;
+let nextEncodeRequestId = 1;
 
 /**
  * Converts an audio Blob (e.g. WebM/Opus) to a 16kHz mono 16-bit WAV Blob.
@@ -20,8 +34,128 @@ export async function convertToWav(audioBlob) {
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     const resampledBuffer = await resampleAudio(audioBuffer, TARGET_SAMPLE_RATE);
     const monoSamples = downmixToMono(resampledBuffer);
-    const wavBuffer = encodeWav(monoSamples, TARGET_SAMPLE_RATE, BIT_DEPTH);
+    const wavBuffer = await encodeWavOffThread(monoSamples, TARGET_SAMPLE_RATE, BIT_DEPTH);
     return new Blob([wavBuffer], { type: 'audio/wav' });
+}
+
+/**
+ * Encodes PCM samples to a WAV ArrayBuffer, preferring an off-thread Worker and
+ * falling back to a synchronous main-thread encode. Both paths produce
+ * byte-identical output (they share encodeWav from wav-encoder.js).
+ *
+ * @param {Float32Array} samples - Mono PCM samples in [-1, 1] range
+ * @param {number} sampleRate - Sample rate in Hz
+ * @param {number} bitDepth - Bits per sample (16)
+ * @returns {Promise<ArrayBuffer>} Complete WAV file as ArrayBuffer
+ */
+async function encodeWavOffThread(samples, sampleRate, bitDepth) {
+    const worker = getEncodeWorker();
+    if (!worker) {
+        return encodeWav(samples, sampleRate, bitDepth);
+    }
+
+    // Copy into a fresh buffer so transferring it never detaches an AudioBuffer
+    // view that the caller (or a retry) might still reference.
+    const transferable = new Float32Array(samples);
+
+    try {
+        return await postToWorker(worker, transferable, sampleRate, bitDepth);
+    } catch {
+        disableEncodeWorker(worker);
+        // Worker path failed at runtime — fall back so correctness is preserved.
+        return encodeWav(samples, sampleRate, bitDepth);
+    }
+}
+
+/**
+ * Sends samples to the worker and awaits the encoded WAV ArrayBuffer.
+ *
+ * @param {Worker} worker - The encode worker
+ * @param {Float32Array} samples - Mono PCM samples (its buffer is transferred)
+ * @param {number} sampleRate - Sample rate in Hz
+ * @param {number} bitDepth - Bits per sample (16)
+ * @returns {Promise<ArrayBuffer>} Encoded WAV ArrayBuffer
+ */
+function postToWorker(worker, samples, sampleRate, bitDepth) {
+    return new Promise((resolve, reject) => {
+        const requestId = nextEncodeRequestId++;
+        const onMessage = (event) => {
+            const data = event.data;
+            if (!data || data.requestId !== requestId) {
+                return;
+            }
+            cleanup();
+            if (data && data.error) {
+                reject(new Error(data.error));
+                return;
+            }
+            resolve(data.wavBuffer);
+        };
+
+        const onError = (event) => {
+            cleanup();
+            reject(event?.error || new Error('Audio encode worker failed'));
+        };
+
+        function cleanup() {
+            worker.removeEventListener('message', onMessage);
+            worker.removeEventListener('error', onError);
+        }
+
+        worker.addEventListener('message', onMessage);
+        worker.addEventListener('error', onError);
+        worker.postMessage(
+            { requestId, samples, sampleRate, bitDepth },
+            [samples.buffer]
+        );
+    });
+}
+
+/**
+ * Returns the shared encode Worker, constructing it on first use. Returns
+ * `null` when Worker is unavailable or construction throws, signalling callers
+ * to use the synchronous fallback.
+ *
+ * @returns {Worker|null} The encode worker, or null if unavailable
+ */
+function getEncodeWorker() {
+    if (encodeWorker !== null) {
+        return encodeWorker || null;
+    }
+
+    if (typeof Worker === 'undefined') {
+        encodeWorker = false;
+        return null;
+    }
+
+    try {
+        encodeWorker = new Worker(
+            new URL('./audio-converter.worker.js', import.meta.url),
+            { type: 'module' }
+        );
+    } catch {
+        encodeWorker = false;
+        return null;
+    }
+
+    return encodeWorker;
+}
+
+/**
+ * Permanently disables the shared Worker after a runtime failure so later
+ * conversions do not keep posting to a broken worker instance.
+ *
+ * @param {Worker} worker - Worker that just failed
+ * @returns {void}
+ */
+function disableEncodeWorker(worker) {
+    if (encodeWorker !== worker) {
+        return;
+    }
+    if (typeof worker.terminate === 'function') {
+        worker.terminate();
+    }
+    encodeWorker = false;
 }
 
 /**
@@ -75,63 +209,4 @@ function downmixToMono(audioBuffer) {
     }
 
     return mono;
-}
-
-/**
- * Encodes raw PCM float samples into a WAV file ArrayBuffer.
- *
- * @param {Float32Array} samples - Mono PCM samples in [-1, 1] range
- * @param {number} sampleRate - Sample rate in Hz
- * @param {number} bitDepth - Bits per sample (16)
- * @returns {ArrayBuffer} Complete WAV file as ArrayBuffer
- */
-function encodeWav(samples, sampleRate, bitDepth) {
-    const bytesPerSample = bitDepth / 8;
-    const dataSize = samples.length * bytesPerSample;
-    const headerSize = 44;
-    const buffer = new ArrayBuffer(headerSize + dataSize);
-    const view = new DataView(buffer);
-
-    // RIFF header
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + dataSize, true);
-    writeString(view, 8, 'WAVE');
-
-    // fmt chunk
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);                          // chunk size
-    view.setUint16(20, 1, true);                            // PCM format
-    view.setUint16(22, NUM_CHANNELS, true);                 // channels
-    view.setUint32(24, sampleRate, true);                   // sample rate
-    view.setUint32(28, sampleRate * NUM_CHANNELS * bytesPerSample, true); // byte rate
-    view.setUint16(32, NUM_CHANNELS * bytesPerSample, true); // block align
-    view.setUint16(34, bitDepth, true);                     // bits per sample
-
-    // data chunk
-    writeString(view, 36, 'data');
-    view.setUint32(40, dataSize, true);
-
-    // Write PCM samples (convert float [-1,1] to int16)
-    let offset = headerSize;
-    for (let i = 0; i < samples.length; i++) {
-        const clamped = Math.max(-1, Math.min(1, samples[i]));
-        const int16 = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
-        view.setInt16(offset, int16, true);
-        offset += bytesPerSample;
-    }
-
-    return buffer;
-}
-
-/**
- * Writes an ASCII string into a DataView at the given offset.
- *
- * @param {DataView} view - Target DataView
- * @param {number} offset - Byte offset to write at
- * @param {string} str - ASCII string to write
- */
-function writeString(view, offset, str) {
-    for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-    }
 }

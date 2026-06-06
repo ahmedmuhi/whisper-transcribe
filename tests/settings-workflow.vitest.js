@@ -220,7 +220,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
     });
 
     describe('Complete workflow integration with fixes', () => {
-        test('should handle complete page reload → settings loaded → microphone enabled workflow', () => {
+        test('page reload → SETTINGS_LOADED → primary control enabled (real path)', () => {
             const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
 
@@ -231,22 +231,14 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                 return null;
             });
 
-            const enableMicButtonSpy = vi.spyOn(ui, 'enableMicButton');
-            const setStatusSpy = vi.spyOn(ui, 'setStatus');
-            const checkRecordingPrerequisitesSpy = vi.spyOn(ui, 'checkRecordingPrerequisites').mockImplementation(() => {
-                const config = reloadedSettings.getModelConfig();
-                if (config.apiKey && config.uri) {
-                    ui.enableMicButton();
-                    ui.setStatus(DEFAULT_RESET_STATUS);
-                }
-                return true;
-            });
-
             const reloadedSettings = new Settings();
             vi.spyOn(reloadedSettings, 'updateSettingsVisibility').mockImplementation(() => {});
+            // Wire the UI to the reloaded settings so its SETTINGS_LOADED listener
+            // runs checkRecordingPrerequisites against the (valid) config for real.
+            ui.settings = reloadedSettings;
+            const setStatusSpy = vi.spyOn(ui, 'setStatus');
 
             eventBusEmitSpy.mockClear();
-
             reloadedSettings.checkInitialSettings();
 
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, {
@@ -254,15 +246,15 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                 hasUri: true,
                 hasApiKey: true
             });
-
-            expect(checkRecordingPrerequisitesSpy).toHaveBeenCalled();
-            expect(enableMicButtonSpy).toHaveBeenCalled();
+            // Real readiness, not a mocked side effect.
+            expect(ui.ready).toBe(true);
+            expect(ui.primaryAction.disabled).toBe(false);
             expect(setStatusSpy).toHaveBeenCalledWith(DEFAULT_RESET_STATUS);
 
             reloadedSettings.destroy();
         });
 
-        test('should handle complete save settings → microphone enabled workflow', async () => {
+        test('save settings → SETTINGS_SAVED → primary control enabled (real path)', async () => {
             const whisperApiKey = generateMockApiKeyForValidation();
             const whisperApiUri = 'https://myresource.openai.azure.com/';
 
@@ -279,16 +271,8 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
             const settingsModal = mockElements.get(ID.SETTINGS_MODAL);
             settingsModal.style.display = 'block';
-
-            const enableMicButtonSpy = vi.spyOn(ui, 'enableMicButton');
-            const checkRecordingPrerequisitesSpy = vi.spyOn(ui, 'checkRecordingPrerequisites').mockImplementation(() => {
-                const config = settings.getModelConfig();
-                if (config.apiKey && config.uri) {
-                    ui.enableMicButton();
-                    ui.setStatus(DEFAULT_RESET_STATUS);
-                }
-                return true;
-            });
+            // The UI's SETTINGS_SAVED listener runs checkRecordingPrerequisites for real.
+            ui.settings = settings;
 
             settings.saveSettings();
 
@@ -298,7 +282,6 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
             expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_API_KEY, whisperApiKey);
             expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, whisperApiUri);
-
             expect(settingsModal.style.display).toBe('none');
 
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
@@ -307,21 +290,20 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                 temporary: true,
                 duration: 3000
             });
-
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.objectContaining({
                 model: 'whisper',
                 hasUri: true,
                 hasApiKey: true
             }));
-
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, expect.objectContaining({
                 model: 'whisper',
                 hasUri: true,
                 hasApiKey: true
             }));
 
-            expect(checkRecordingPrerequisitesSpy).toHaveBeenCalled();
-            expect(enableMicButtonSpy).toHaveBeenCalled();
+            // Real readiness after the save flow.
+            expect(ui.ready).toBe(true);
+            expect(ui.primaryAction.disabled).toBe(false);
         });
     });
 
@@ -568,9 +550,7 @@ describe('Microphone Activation Issue Analysis', () => {
     });
 
     describe('Microphone State Management', () => {
-        it('should start with microphone disabled and enable it when settings are valid', () => {
-            expect(micButton.disabled).toBe(true);
-
+        it('enables the primary control when settings are valid', () => {
             localStorageMock.getItem.mockImplementation((key) => {
                 switch (key) {
                     case STORAGE_KEYS.MODEL:
@@ -589,12 +569,11 @@ describe('Microphone Activation Issue Analysis', () => {
             const result = ui.checkRecordingPrerequisites();
 
             expect(result).toBe(true);
-            expect(micButton.disabled).toBe(false);
+            expect(ui.ready).toBe(true);
+            expect(ui.primaryAction.disabled).toBe(false);
         });
 
-        it('should keep microphone disabled when settings are invalid', () => {
-            expect(micButton.disabled).toBe(true);
-
+        it('keeps the primary control disabled when settings are invalid', () => {
             localStorageMock.getItem.mockImplementation((key) => {
                 switch (key) {
                     case STORAGE_KEYS.MODEL:
@@ -613,12 +592,11 @@ describe('Microphone Activation Issue Analysis', () => {
             const result = ui.checkRecordingPrerequisites();
 
             expect(result).toBe(false);
-            expect(micButton.disabled).toBe(true);
+            expect(ui.ready).toBe(false);
+            expect(ui.primaryAction.disabled).toBe(true);
         });
 
-        it('should demonstrate the expected workflow: SETTINGS_UPDATED → checkRecordingPrerequisites → enableMicButton', () => {
-            expect(micButton.disabled).toBe(true);
-
+        it('SETTINGS_UPDATED → checkRecordingPrerequisites → primary enabled', () => {
             localStorageMock.getItem.mockImplementation((key) => {
                 switch (key) {
                     case STORAGE_KEYS.MODEL:
@@ -633,17 +611,14 @@ describe('Microphone Activation Issue Analysis', () => {
             });
 
             ui.settings = settings;
-
             ui.setupEventBusListeners();
 
             eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
 
-            expect(micButton.disabled).toBe(false);
+            expect(ui.primaryAction.disabled).toBe(false);
         });
 
-        it('should check if UI also responds to SETTINGS_SAVED events', () => {
-            expect(micButton.disabled).toBe(true);
-
+        it('responds to SETTINGS_SAVED by enabling the primary control', () => {
             localStorageMock.getItem.mockImplementation((key) => {
                 switch (key) {
                     case STORAGE_KEYS.MODEL:
@@ -658,7 +633,6 @@ describe('Microphone Activation Issue Analysis', () => {
             });
 
             ui.settings = settings;
-
             ui.setupEventBusListeners();
 
             eventBus.emit(APP_EVENTS.SETTINGS_SAVED, {
@@ -667,7 +641,7 @@ describe('Microphone Activation Issue Analysis', () => {
                 hasApiKey: true
             });
 
-            expect(micButton.disabled).toBe(false);
+            expect(ui.primaryAction.disabled).toBe(false);
         });
     });
 });

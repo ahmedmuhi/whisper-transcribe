@@ -3,11 +3,11 @@
  */
 
 /**
- * Color constants for theme support and UI consistency.
+ * Color constants for the canvas visualizer. Status-text colours live in CSS as
+ * the WCAG-AA --status-* tokens (status-helper.js toggles classes, not hex), so
+ * no error/success hex belongs here.
  *
  * @constant {Object} COLORS
- * @property {string} ERROR - Red color for error states (#EF4444)
- * @property {string} SUCCESS - Green color for success states (#10B981)
  * @property {string} DARK_BG - Dark theme background color (#0C0F1A)
  * @property {string} LIGHT_BG - Light theme background color (#EEF0FB)
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
@@ -17,13 +17,18 @@ const DARK_BG  = '#0C0F1A';
 const LIGHT_BG = '#EEF0FB';
 
 export const COLORS = {
-  ERROR:          '#EF4444',
-  SUCCESS:        '#10B981',
   DARK_BG,
   LIGHT_BG,
   CANVAS_DARK_BG:  DARK_BG,
   CANVAS_LIGHT_BG: LIGHT_BG
 };
+
+/**
+ * Status-text type modifier classes (AA-safe colour comes from CSS tokens keyed
+ * off these). Single source of truth so setStatus and clearStatusType agree.
+ * @constant {string[]} STATUS_TYPE_CLASSES
+ */
+export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
 
 /**
  * Local storage keys for persisting application settings.
@@ -43,7 +48,8 @@ export const STORAGE_KEYS = {
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
-  SIDEBAR_PINNED:        'sidebar_pinned'
+  SIDEBAR_PINNED:        'sidebar_pinned',
+  TRANSCRIPT_RECORD:     'transcript_record'
 };
 
 /**
@@ -148,9 +154,21 @@ export const ID = Object.freeze({
   CANCEL_BUTTON:    'cancel-button',
   SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
+  CLEAR_BUTTON:     'clear-button',
+  RESTORE_BUTTON:   'restore-button',
   SAVE_SETTINGS:    'save-settings',
   THEME_TOGGLE:     'theme-toggle',
-  RETRY_BUTTON:     'retry-button',
+
+  // Guided-morph control cluster + discard dialog
+  CONTROL_CLUSTER:     'control-cluster',
+  PRIMARY_ACTION:      'primary-action',
+  SECONDARY_ACTION:    'secondary-action',
+  DISCARD_ACTION:      'discard-action',
+  RETRY_ACTION:        'retry-action',
+  DISCARD_DIALOG:      'discard-dialog',
+  DISCARD_DIALOG_BODY: 'discard-dialog-body',
+  DISCARD_KEEP:        'discard-keep',
+  DISCARD_CONFIRM:     'discard-confirm',
 
   // Status & text areas
   STATUS:           'status',
@@ -160,7 +178,6 @@ export const ID = Object.freeze({
   // Modals & panes
   SETTINGS_MODAL:   'settings-modal',
   CLOSE_MODAL:      'close-modal',
-  MODAL_TITLE:      'modal-title',
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
 
@@ -184,14 +201,12 @@ export const ID = Object.freeze({
 
   // Canvas / visualiser
   VISUALIZER:       'visualizer',
-  VISUALIZER_CONTAINER: 'visualizer-container',
 
   // Icons
   PAUSE_ICON:       'pause-icon',
   PLAY_ICON:        'play-icon',
   MOON_ICON:        'moon-icon',
   SUN_ICON:         'sun-icon',
-  THEME_ICON:       'theme-icon',
 
   // Misc
   SPINNER_CONTAINER: 'spinner-container'
@@ -213,6 +228,14 @@ export const DEFAULT_LANGUAGE  = 'en';
  */
 export const DEFAULT_FILENAME      = 'recording.webm';
 export const DEFAULT_WAV_FILENAME  = 'recording.wav';
+
+/**
+ * Subtle visual divider inserted between appended transcript segments so
+ * multi-take recordings stay legible and easy to trim.
+ *
+ * @constant {string} TRANSCRIPT_SEGMENT_DIVIDER
+ */
+export const TRANSCRIPT_SEGMENT_DIVIDER = '\n\n──────────\n\n';
 
 /**
  * Default status message displayed when the application is ready for recording.
@@ -266,7 +289,16 @@ export const MESSAGES = {
   FINISHING_RECORDING: 'Finishing...',
   PROCESSING_AUDIO: 'Processing audio...',
   INITIALIZING_MICROPHONE: 'Initializing microphone...',
-  
+
+  // Control labels (guided morph — the primary button morphs by state)
+  CONTROL_START: 'Start recording',
+  CONTROL_DONE: 'Done',
+  CONTROL_PAUSE: 'Pause',
+  CONTROL_RESUME: 'Resume',
+  CONTROL_STARTING: 'Starting…',
+  CONTROL_FINISHING: 'Finishing…',
+  CONTROL_TRANSCRIBING: 'Transcribing…',
+
   // API Communication
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
   CONVERTING_AUDIO: 'Converting audio format...',
@@ -280,6 +312,8 @@ export const MESSAGES = {
   TEXT_CUT_SUCCESS: 'Text cut to clipboard',
   TEXT_CUT_FAILED: 'Failed to cut text',
   NO_TEXT_TO_CUT: 'No text to cut',
+  TEXT_CLEARED: 'Transcript cleared',
+  TRANSCRIPT_RESTORED: 'Transcript restored',
   
   // Permission Instructions
   PERMISSION_CHROME: 'Click the camera icon in the address bar and allow microphone access.',
@@ -296,7 +330,18 @@ export const MESSAGES = {
   TAP_MIC_TO_RETRY: 'Tap mic to retry',
   CHECK_INTERNET_CONNECTION: 'Check your internet connection and try again.',
   RETRY_TRANSCRIPTION: 'Retry transcription',
+  REQUEST_TIMED_OUT: 'The request timed out. Check your connection and try again.',
 };
+
+/**
+ * Maximum time to wait for a single transcription request attempt before
+ * aborting it via AbortController. Prevents a hung request from stranding the
+ * app in the PROCESSING state (reload-only recovery).
+ *
+ * @constant {number} TRANSCRIPTION_TIMEOUT_MS
+ * @default 120000
+ */
+export const TRANSCRIPTION_TIMEOUT_MS = 120000;
 
 /**
  * Recording state machine states for managing the audio recording lifecycle.
@@ -327,6 +372,7 @@ export const RECORDING_STATES = {
   STOPPING: 'stopping',
   PROCESSING: 'processing',
   CANCELLING: 'cancelling',
+  CONFIRMING_DISCARD: 'confirmingDiscard',
   ERROR: 'error'
 };
 
@@ -354,11 +400,12 @@ export const RECORDING_STATES = {
 export const STATE_TRANSITIONS = {
   [RECORDING_STATES.IDLE]: [RECORDING_STATES.INITIALIZING, RECORDING_STATES.ERROR],
   [RECORDING_STATES.INITIALIZING]: [RECORDING_STATES.RECORDING, RECORDING_STATES.ERROR, RECORDING_STATES.IDLE],
-  [RECORDING_STATES.RECORDING]: [RECORDING_STATES.PAUSED, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING],
-  [RECORDING_STATES.PAUSED]: [RECORDING_STATES.RECORDING, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING],
+  [RECORDING_STATES.RECORDING]: [RECORDING_STATES.PAUSED, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING, RECORDING_STATES.CONFIRMING_DISCARD],
+  [RECORDING_STATES.PAUSED]: [RECORDING_STATES.RECORDING, RECORDING_STATES.STOPPING, RECORDING_STATES.CANCELLING, RECORDING_STATES.CONFIRMING_DISCARD],
   [RECORDING_STATES.STOPPING]: [RECORDING_STATES.PROCESSING, RECORDING_STATES.ERROR],
   [RECORDING_STATES.PROCESSING]: [RECORDING_STATES.IDLE, RECORDING_STATES.ERROR],
   [RECORDING_STATES.CANCELLING]: [RECORDING_STATES.IDLE],
+  [RECORDING_STATES.CONFIRMING_DISCARD]: [RECORDING_STATES.RECORDING, RECORDING_STATES.PAUSED, RECORDING_STATES.CANCELLING],
   [RECORDING_STATES.ERROR]: [RECORDING_STATES.IDLE, RECORDING_STATES.PROCESSING]
 };
 
@@ -378,3 +425,12 @@ export const TIMER_CONFIG = {
   SECOND_MS: 1000,
   MINUTE_MS: 60000
 };
+
+/**
+ * Recordings shorter than this elapsed duration are discarded instantly with no
+ * confirmation (nothing meaningful to lose). Longer recordings get a named-stakes
+ * confirm dialog — proportional challenge, never rote "are you sure?" noise.
+ *
+ * @constant {number} DISCARD_CONFIRM_MIN_MS
+ */
+export const DISCARD_CONFIRM_MIN_MS = 10000;

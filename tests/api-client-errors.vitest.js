@@ -6,7 +6,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { MESSAGES } from '../js/constants.js';
+import { MESSAGES, TRANSCRIPTION_TIMEOUT_MS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 // Mock Settings
@@ -581,6 +581,125 @@ describe('AzureAPIClient Error Handling', () => {
                     details: 'Server error'
                 })
             );
+        });
+    });
+
+    describe('Request Timeout Handling (AbortController)', () => {
+        beforeEach(() => {
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        /**
+         * Returns a fetch mock that mirrors real fetch's abort behavior: the
+         * returned promise never resolves on its own and only rejects with an
+         * AbortError once the per-attempt AbortController fires controller.abort().
+         */
+        function makeHangingFetch() {
+            return vi.fn((_uri, options) => new Promise((_resolve, reject) => {
+                const signal = options?.signal;
+                if (!signal) {
+                    return;
+                }
+                const abortError = new Error('The operation was aborted');
+                abortError.name = 'AbortError';
+                if (signal.aborted) {
+                    reject(abortError);
+                    return;
+                }
+                signal.addEventListener('abort', () => reject(abortError), { once: true });
+            }));
+        }
+
+        function rejectOnAbort(signal) {
+            return new Promise((_resolve, reject) => {
+                const abortError = new Error('The operation was aborted');
+                abortError.name = 'AbortError';
+                if (signal.aborted) {
+                    reject(abortError);
+                    return;
+                }
+                signal.addEventListener('abort', () => reject(abortError), { once: true });
+            });
+        }
+
+        /**
+         * Drives all retry attempts to completion: each attempt arms a fresh
+         * TRANSCRIPTION_TIMEOUT_MS timer, and _sleep is stubbed to resolve
+         * instantly, so advancing past the timeout cascades through every retry.
+         */
+        async function flushAllTimeoutAttempts() {
+            // 5 retries + 1 initial attempt; advance generously to cascade through all.
+            for (let i = 0; i < 8; i++) {
+                await vi.advanceTimersByTimeAsync(TRANSCRIPTION_TIMEOUT_MS);
+            }
+        }
+
+        it('should abort a hung request after TRANSCRIPTION_TIMEOUT_MS and surface a friendly timeout error', async () => {
+            global.fetch = makeHangingFetch();
+
+            const settled = apiClient.transcribe(new Blob());
+            // Prevent an unhandled rejection while we drive the fake timers.
+            const assertion = expect(settled).rejects.toThrow(MESSAGES.REQUEST_TIMED_OUT);
+
+            await flushAllTimeoutAttempts();
+            await assertion;
+
+            // Aborts the initial attempt plus all retries (6 total), never hanging.
+            expect(global.fetch).toHaveBeenCalledTimes(6);
+            // Each fetch attempt received an AbortController signal.
+            expect(global.fetch.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+
+            // Caller-facing error event carries the friendly message, not a raw 'AbortError'.
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.API_REQUEST_ERROR,
+                expect.objectContaining({
+                    error: MESSAGES.REQUEST_TIMED_OUT
+                })
+            );
+        });
+
+        it('should keep the abort timer active while reading the response body', async () => {
+            const jsonReads = [];
+            global.fetch = vi.fn(async (_uri, options) => {
+                const json = vi.fn(() => rejectOnAbort(options.signal));
+                jsonReads.push(json);
+                return {
+                    ok: true,
+                    status: 200,
+                    headers: { get: vi.fn().mockReturnValue('application/json') },
+                    json
+                };
+            });
+
+            const settled = apiClient.transcribe(new Blob());
+            const assertion = expect(settled).rejects.toThrow(MESSAGES.REQUEST_TIMED_OUT);
+
+            await flushAllTimeoutAttempts();
+            await assertion;
+
+            expect(global.fetch).toHaveBeenCalledTimes(6);
+            expect(jsonReads).toHaveLength(6);
+            expect(jsonReads[0]).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not abort a request that resolves before the timeout', async () => {
+            global.fetch = vi.fn(async () => ({
+                ok: true,
+                status: 200,
+                headers: { get: vi.fn().mockReturnValue('application/json') },
+                json: vi.fn().mockResolvedValue({ text: 'Fast transcription' })
+            }));
+
+            const result = await apiClient.transcribe(new Blob());
+
+            expect(result).toBe('Fast transcription');
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            // A signal is still supplied so the timer can guard the attempt.
+            expect(global.fetch.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
         });
     });
 });

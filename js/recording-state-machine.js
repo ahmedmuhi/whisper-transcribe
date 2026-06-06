@@ -47,6 +47,7 @@ export class RecordingStateMachine {
             [RECORDING_STATES.STOPPING]: this.handleStoppingState.bind(this),
             [RECORDING_STATES.PROCESSING]: this.handleProcessingState.bind(this),
             [RECORDING_STATES.CANCELLING]: this.handleCancellingState.bind(this),
+            [RECORDING_STATES.CONFIRMING_DISCARD]: this.handleConfirmingDiscardState.bind(this),
             [RECORDING_STATES.ERROR]: this.handleErrorState.bind(this)
         };
     }
@@ -126,10 +127,6 @@ export class RecordingStateMachine {
             message: DEFAULT_RESET_STATUS,
             type: 'info'
         });
-        // Re-enable the button when returning to idle
-        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
-        eventBus.emit(APP_EVENTS.UI_CONTROLS_RESET);
     }
     
     /**
@@ -146,7 +143,6 @@ export class RecordingStateMachine {
             message: MESSAGES.INITIALIZING_MICROPHONE,
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
     }
     
     /**
@@ -165,8 +161,6 @@ export class RecordingStateMachine {
             message: 'Recording... Click to stop',
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: true });
     }
     
     /**
@@ -185,7 +179,6 @@ export class RecordingStateMachine {
             message: 'Recording paused',
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: true });
     }
     
     /**
@@ -205,14 +198,9 @@ export class RecordingStateMachine {
             message: MESSAGES.FINISHING_RECORDING,
             type: 'info'
         });
-        // Immediately reflect stopped state in the UI
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
 
         // Emit visualization stop event so UI can handle cleanup
         eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
-
-        // Don't disable the mic button here - let it stay clickable
-        // The button will be properly managed in processing/idle states
     }
     
     /**
@@ -231,9 +219,6 @@ export class RecordingStateMachine {
             message: MESSAGES.PROCESSING_AUDIO,
             type: 'info'
         });
-        // Disable button only during processing
-        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_SHOW);
     }
     
     /**
@@ -252,10 +237,27 @@ export class RecordingStateMachine {
             message: MESSAGES.RECORDING_CANCELLED,
             type: 'info'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_DISABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
+    /**
+     * Handles the CONFIRMING_DISCARD state - a substantial recording is awaiting
+     * the user's keep/discard decision. The recorder keeps running underneath;
+     * only the confirm dialog is surfaced. Announces the elapsed duration (the
+     * stakes); the audio handler tracks where to resume on "Keep".
+     *
+     * @async
+     * @private
+     * @method handleConfirmingDiscardState
+     * @param {Object} [data={}]
+     * @param {string} [data.durationLabel] - Elapsed time, e.g. "24:31"
+     * @fires APP_EVENTS.DISCARD_CONFIRM_REQUESTED
+     */
+    async handleConfirmingDiscardState(data = {}) {
+        eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, {
+            durationLabel: data.durationLabel || ''
+        });
+    }
+
     /**
      * Handles the ERROR state - recording or processing error occurred.
      * Displays error message and resets UI to enable recovery.
@@ -275,8 +277,6 @@ export class RecordingStateMachine {
             message: `${MESSAGES.ERROR_PREFIX}${errorMessage}. ${MESSAGES.TAP_MIC_TO_RETRY}`,
             type: 'error'
         });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_ENABLE_MIC);
-        eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
     }
     
     // Helper methods for common state checks

@@ -19,6 +19,15 @@
     --accent-subtle: rgba(91, 110, 245, 0.06);
     --recording: #EF4444;
     --recording-glow: rgba(239, 68, 68, 0.3);
+    /* Accessible status text (WCAG-AA on --bg-surface #FFFFFF):
+       --status-text #5B6478 ≈ 5.5:1, --status-error #C42B1C ≈ 5.3:1,
+       --status-success #0E7A6B ≈ 5.2:1. The raw --recording/--accent reds/greens
+       fail AA for normal text, so status uses these dedicated tokens. Success is
+       a desaturated teal that meets AA while staying in the lavender/navy family
+       (verified by tests/status-tokens.vitest.js). */
+    --status-text: #5B6478;
+    --status-error: #C42B1C;
+    --status-success: #0E7A6B;
     --shadow-sm: 0 1px 2px rgba(91, 110, 245, 0.04);
     --shadow-md: 0 4px 12px rgba(91, 110, 245, 0.06);
     --shadow-lg: 0 8px 24px rgba(91, 110, 245, 0.08);
@@ -58,6 +67,13 @@
     --accent-subtle: rgba(123, 143, 247, 0.06);
     --recording: #EF4444;
     --recording-glow: rgba(239, 68, 68, 0.35);
+    /* Accessible status text (WCAG-AA on --bg-surface #151929):
+       --status-text #AEB6D6 ≈ 7.4:1, --status-error #FF8A80 ≈ 6.2:1,
+       --status-success #5FD2C2 ≈ 9.5:1 (a soft teal, not vivid mint — in the
+       lavender/navy family). */
+    --status-text: #AEB6D6;
+    --status-error: #FF8A80;
+    --status-success: #5FD2C2;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -78,6 +94,11 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+/* Respect the hidden attribute even on elements that set their own display. */
+[hidden] {
+    display: none !important;
 }
 
 body {
@@ -507,144 +528,292 @@ header {
 /* --- Status --- */
 .status {
     font-size: 0.8rem;
-    color: var(--text-muted);
+    /* Accessible AA token — replaces --text-muted, which fails contrast here. */
+    color: var(--status-text);
     text-align: center;
     letter-spacing: 0.02em;
     transition: color var(--transition);
     min-height: 1.3em;
 }
 
+/* Status type modifiers (driven by status-helper, not inline hex) — AA-safe. */
+.status--error {
+    color: var(--status-error);
+}
+
+.status--success {
+    color: var(--status-success);
+}
+
 /* --- Timer --- */
+/* The timer is folded INTO the island while recording/paused (very Dynamic
+   Island). It is the leading element of the expanded pill; idle hides it. */
 .timer {
     font-family: var(--font-mono);
-    font-size: 1.8rem;
-    font-weight: 300;
+    font-weight: 400;
     color: var(--text-secondary);
     text-align: center;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.05em;
     line-height: 1;
-    margin: 0.25rem 0;
 }
 
-/* --- Control Buttons --- */
-.control-buttons-container {
-    display: flex;
+/* ==========================================================================
+   Dynamic Island — the control cluster as a single reshaping pill
+   --------------------------------------------------------------------------
+   The cluster is ONE rounded surface (bg-surface + border + radius from tokens)
+   that fluidly reshapes size + radius by FSM state. Its contents cross-fade
+   between compact (idle) and expanded (recording) forms. The SIZE morph is
+   driven from JS (FLIP via Web Animations API in ui.renderControls); CSS owns
+   the resting shape per state plus the cross-fade and breathing pulse.
+
+   The buttons inside keep a FIXED size + stable hit target — the island
+   animates AROUND them, never scaling/transforming the buttons themselves.
+   ========================================================================== */
+.control-cluster {
+    display: inline-flex;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    gap: 1.5rem;
-    margin: 0.5rem 0;
-    width: 100%;
-}
-
-/* Pause / Cancel ghost buttons */
-.icon-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: transparent;
+    gap: 0.6rem;
+    margin: 0.25rem auto;
+    width: auto;
+    max-width: 100%;
+    padding: 0.4rem;
+    border-radius: var(--radius-full);
+    /* The island surface. Idle is near-flush with the card; recording lifts it. */
+    background: var(--bg-inset);
     border: 1.5px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all var(--transition);
-    padding: 0;
-    color: var(--text-secondary);
-}
-
-.icon-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-subtle);
-    transform: scale(1.05);
-}
-
-.icon-btn svg {
-    width: 20px;
-    height: 20px;
-    color: inherit;
-    transition: color var(--transition);
-}
-
-/* --- Mic Button --- */
-.mic-button {
-    position: relative;
-    width: 88px;
-    height: 88px;
-    border-radius: 50%;
-    background: var(--mic-bg);
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    /* Resting transitions for shape/colour — the JS FLIP owns width/height; these
+       cover border-radius, background, and the box-shadow breath without ever
+       touching the cluster's own transform (which would distort the buttons). */
     transition: background-color var(--transition),
-                box-shadow var(--transition),
-                opacity var(--transition);
-    z-index: 1;
+                border-color var(--transition),
+                box-shadow var(--transition-slow);
+    /* Clip the contents during the FLIP size morph (and keep the recording
+       breath's inset ring inside the pill). */
+    overflow: hidden;
+}
+
+/* Idle — compact pill hugging the single primary control. */
+.control-cluster.island-idle {
+    gap: 0;
+}
+
+/* Recording / paused — the island is lifted and expanded; contents spread. */
+.control-cluster.island-recording {
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+    box-shadow: var(--shadow-md);
+}
+
+/* Processing/busy — uses the base .control-cluster resting shape (inset bg,
+   default border, small shadow); the class stays as a state hook for JS. The
+   only busy state that adds chrome is the dots indicator (.island-has-indicator
+   below). Non-indicator busy states (Starting…, Finishing…) keep the disabled
+   primary as their only content. */
+
+/* Transcribing — the only busy state with the dots indicator. The disabled
+   primary is collapsed visually (DOM label kept for a11y + the render
+   contract) so the indicator isn't doubled up. */
+.control-cluster.island-has-indicator {
+    padding: 0.5rem;
+}
+
+.control-cluster.island-has-indicator .btn-primary {
+    display: none;
+}
+
+/* Cross-fade beat applied to island contents during the morph. JS adds
+   .island-morphing for the duration of the size animation. */
+.control-cluster.island-morphing .btn,
+.control-cluster.island-morphing .island-timer,
+.control-cluster.island-morphing .island-processing-indicator {
+    animation: islandContentIn var(--island-morph-ms, 360ms) ease-out both;
+}
+
+@keyframes islandContentIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* --- Timer folded into the island (leading edge) --- */
+.island-timer {
+    font-size: 1rem;
+    padding: 0 0.35rem 0 0.85rem;
+    white-space: nowrap;
+}
+
+/* A small recording dot precedes the time while active — the classic island tell. */
+.island-timer::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 0.5rem;
+    border-radius: 50%;
+    background: var(--recording);
+    vertical-align: middle;
+    animation: islandTimerDot 1.6s ease-in-out infinite;
+}
+
+/* The folded timer appears only while recording/paused; hidden at rest. */
+.control-cluster:not(.island-recording) .island-timer {
+    display: none;
+}
+
+@keyframes islandTimerDot {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+}
+
+/* Shared labelled button base. Transition list is explicit (never "all") so
+   size/padding can't be silently animated and the hit target stays fixed.
+   The buttons are island CONTENTS — fixed geometry; the island reshapes around
+   them. Their borders are dropped so they read as a single surface. */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--radius-full);
+    border: 1.5px solid transparent;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--transition),
+                border-color var(--transition),
+                color var(--transition),
+                box-shadow var(--transition);
+}
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.btn .btn-label {
+    line-height: 1;
+}
+
+/* Primary — the morphing Start / Done control. The one filled pill in the
+   island; everything else is a ghost so the island reads as one surface. */
+.btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-primary);
     box-shadow: inset 0 0 0 1px var(--accent-glow);
 }
 
-.mic-button:hover {
+.btn-primary:hover:not(:disabled) {
     background: var(--mic-hover-bg);
-    box-shadow: inset 0 0 0 3px var(--accent-glow);
+    border-color: var(--mic-hover-bg);
 }
 
-.mic-button:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-.mic-icon {
-    width: 32px;
-    height: 32px;
+.btn-primary .mic-icon {
+    width: 20px;
+    height: 20px;
     stroke: var(--bg-primary);
     fill: none;
     filter: var(--icon-shadow);
-    transition: transform var(--transition);
 }
 
-.mic-button:hover .mic-icon {
-    transform: translateY(-1px);
-}
-
-.mic-button:active .mic-icon {
-    transform: translateY(1px) scale(0.96);
-}
-
-/* Recording state */
-.mic-button.recording {
+/* Recording / paused — the primary signals an active session and BREATHES.
+   The breath is box-shadow ONLY (no geometry): a steady-state pulse that
+   coexists with the island's one-shot size morph. NEVER animate transform/
+   width/padding here — guarded by tests/mic-button-effects.vitest.js.
+   It pulses an INSET ring so it renders inside the cluster's overflow:hidden
+   clip (an outset ring would be cropped by the pill edge and barely show). */
+.btn-primary.recording {
     background: var(--recording);
-    box-shadow: inset 0 0 0 4px var(--recording-glow);
+    border-color: var(--recording);
+    animation: islandBreath 2.4s ease-in-out infinite;
 }
 
-/* --- Spinner --- */
+@keyframes islandBreath {
+    0%, 100% { box-shadow: inset 0 0 0 0 var(--recording-glow); }
+    50%      { box-shadow: inset 0 0 0 4px var(--recording-glow); }
+}
+
+/* Secondary — Pause / Resume / Retry (ghost) */
+.btn-secondary {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    color: var(--accent);
+    background: var(--accent-subtle);
+}
+
+/* Discard — the quietest control in the island */
+.btn-discard {
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.btn-discard:hover:not(:disabled) {
+    color: var(--recording);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+/* --- Processing indicator (folded into the island) ---
+   Repurposed #spinner-container: accent pulsing dots, not a border spinner.
+   showSpinner()/hideSpinner() flip display:block/none (kept for the test
+   contract); the dots + label become island content during PROCESSING. */
+/* Container toggles display:block/none via showSpinner()/hideSpinner() (the test
+   contract). Block is fine: its children are inline-level and vertically centred,
+   so the dots + label render on one line as island content. */
 .spinner-container {
     display: none;
-    margin: 1rem auto;
-    text-align: center;
+    padding: 0 0.85rem 0 0.6rem;
+    white-space: nowrap;
 }
 
-.spinner {
-    width: 32px;
-    height: 32px;
-    border: 2.5px solid var(--border-color);
-    border-top-color: var(--accent);
+.island-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    vertical-align: middle;
+    margin-right: 0.55rem;
+}
+
+.island-dot {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 0.75rem;
+    background: var(--accent);
+    animation: islandDot 1.1s ease-in-out infinite;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.island-dot:nth-child(2) { animation-delay: 0.18s; }
+.island-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes islandDot {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 1; }
 }
 
 .spinner-text {
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
     letter-spacing: 0.02em;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 /* --- Transcript Area --- */
@@ -699,6 +868,35 @@ header {
     background: var(--accent-subtle);
 }
 
+.clear-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* Transcript action row: Restore · Clear · Cut */
+.transcript-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Cut — the primary transcript action, gently emphasised */
+.clear-btn-primary {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.clear-btn-primary:hover {
+    background: var(--accent);
+    color: var(--bg-surface);
+    border-color: var(--accent);
+}
+
+/* Transcript body: stacks the textarea and the onboarding empty-state overlay. */
+.transcript-body {
+    position: relative;
+}
+
 .transcript-content {
     width: 100%;
     min-height: 120px;
@@ -711,12 +909,82 @@ header {
     background-color: var(--bg-inset);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
-    transition: all var(--transition);
+    transition: border-color var(--transition),
+                background-color var(--transition),
+                box-shadow var(--transition);
     white-space: pre-wrap;
+    position: relative;
+    z-index: 1;
 }
 
 .transcript-content::placeholder {
+    color: transparent;
+}
+
+/* --- Onboarding empty-state --- */
+/* A calm welcome layered over the empty textarea. The textarea sits above it
+   (z-index) so typing/clicking still works; the overlay is click-through and
+   fades out the moment the box holds text (:not(:placeholder-shown)). */
+.transcript-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1rem;
+    text-align: center;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 1;
+    transition: opacity var(--transition);
+}
+
+/* Hide the onboarding overlay once the user has any transcript text. */
+.transcript-content:not(:placeholder-shown) + .transcript-empty {
+    opacity: 0;
+}
+
+.transcript-empty-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    margin-bottom: 0.15rem;
+    border-radius: var(--radius-full);
+    color: var(--accent);
+    background: var(--accent-subtle);
+}
+
+.transcript-empty-mark svg {
+    width: 18px;
+    height: 18px;
+}
+
+.transcript-empty-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.transcript-empty-hint {
+    font-size: 0.75rem;
     color: var(--text-muted);
+    max-width: 30ch;
+    line-height: 1.4;
+}
+
+/* --- Text-arrival animation (a quiet settle on fresh transcription) --- */
+.transcript-arrived {
+    animation: transcriptArrive 600ms ease-out;
+}
+
+@keyframes transcriptArrive {
+    0%   { box-shadow: inset 0 0 0 9999px var(--accent-subtle); }
+    100% { box-shadow: inset 0 0 0 9999px transparent; }
 }
 
 .transcript-content:focus {
@@ -871,6 +1139,44 @@ header {
     box-shadow: 0 4px 12px var(--accent-glow);
 }
 
+/* --- Discard confirm dialog --- */
+.discard-dialog {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    padding: 1.5rem;
+    max-width: 360px;
+    width: calc(100vw - 2rem);
+    box-shadow: var(--shadow-lg);
+}
+
+.discard-dialog::backdrop {
+    background: var(--modal-backdrop);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.discard-dialog-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.discard-dialog-body {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.25rem;
+}
+
+.discard-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
 /* --- Scrollbar --- */
 ::-webkit-scrollbar {
     width: 6px;
@@ -931,27 +1237,26 @@ header {
         border-radius: var(--radius-md);
     }
 
-    .timer {
-        font-size: 1.4rem;
+    .control-cluster {
+        gap: 0.5rem;
     }
 
-    .mic-button {
-        width: 72px;
-        height: 72px;
+    .control-cluster.island-recording {
+        flex-wrap: wrap;
+        overflow: visible;
+        border-radius: var(--radius-lg);
     }
 
-    .mic-icon {
-        width: 28px;
-        height: 28px;
+    .control-cluster.island-recording.island-morphing {
+        overflow: hidden;
     }
 
-    .icon-btn {
-        width: 44px;
-        height: 44px;
-    }
-
-    .control-buttons-container {
-        gap: 1rem;
+    .control-cluster.island-recording .island-timer {
+        display: inline-flex;
+        flex: 0 0 100%;
+        align-items: center;
+        justify-content: center;
+        padding: 0.15rem 0 0;
     }
 
     .transcript-header {
@@ -983,8 +1288,7 @@ header {
 
 /* Ensure touch targets */
 button,
-.icon-btn,
-.mic-button {
+.btn {
     min-width: 44px;
     min-height: 44px;
 }
@@ -997,4 +1301,44 @@ h1, h2, h3, h4, h5, h6 {
 ::selection {
     background: var(--accent-glow);
     color: var(--text-primary);
+}
+
+/* ==========================================================================
+   Reduced motion — collapse every animation to an instant, correct state.
+   The JS FLIP morph is already gated on prefers-reduced-motion (the cluster
+   just snaps to its new size); here we neutralise the CSS-driven motion: the
+   island content cross-fade, the recording breath, the processing dots and
+   timer dot, the text-arrival settle, and the pre-existing cardFadeIn /
+   modalSlideUp. Layout stays correct — only motion is removed.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    /* Static, legible resting states for the indicators that relied on motion. */
+    .island-dot,
+    .island-timer::before {
+        opacity: 1 !important;
+        animation: none !important;
+    }
+
+    .btn-primary.recording {
+        animation: none !important;
+        /* Keep the recording cue without the breath. */
+        box-shadow: inset 0 0 0 2px var(--recording-glow) !important;
+    }
+
+    .control-cluster.island-morphing .btn,
+    .control-cluster.island-morphing .island-timer,
+    .control-cluster.island-morphing .island-processing-indicator,
+    .card-animate,
+    .transcript-arrived {
+        animation: none !important;
+    }
 }

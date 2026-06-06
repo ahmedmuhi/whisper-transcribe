@@ -2,7 +2,7 @@
  * @fileoverview Audio recording and playback management for speech transcription.
  */
 
-import { RECORDING_STATES, MESSAGES, TIMER_CONFIG } from './constants.js';
+import { RECORDING_STATES, MESSAGES, TIMER_CONFIG, DISCARD_CONFIRM_MIN_MS } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -52,7 +52,9 @@ export class AudioHandler {
             eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => this.settings.openSettingsModal()),
             eventBus.on(APP_EVENTS.MIC_BUTTON_CLICKED, () => this.toggleRecording()),
             eventBus.on(APP_EVENTS.PAUSE_BUTTON_CLICKED, () => this.togglePause()),
-            eventBus.on(APP_EVENTS.CANCEL_BUTTON_CLICKED, () => this.cancelRecording()),
+            eventBus.on(APP_EVENTS.DISCARD_BUTTON_CLICKED, () => this.requestDiscard()),
+            eventBus.on(APP_EVENTS.DISCARD_CONFIRMED, () => this.confirmDiscard()),
+            eventBus.on(APP_EVENTS.DISCARD_KEPT, () => this.keepRecording()),
             eventBus.on(APP_EVENTS.RETRY_BUTTON_CLICKED, () => this.retryPendingTranscription()),
         ];
     }
@@ -68,10 +70,8 @@ export class AudioHandler {
      * @throws {Error} When state transition or recording operation fails
      * 
      * @example
-     * // Toggle recording on button click
-     * micButton.addEventListener('click', async () => {
-     *   await audioHandler.toggleRecording();
-     * });
+     * // The primary control emits MIC_BUTTON_CLICKED; AudioHandler toggles:
+     * eventBus.on(APP_EVENTS.MIC_BUTTON_CLICKED, () => audioHandler.toggleRecording());
      */
     async toggleRecording() {
         if (this.stateMachine.canRecord()) {
@@ -261,11 +261,77 @@ export class AudioHandler {
      */
     async cancelRecording() {
         if (this.stateMachine.canCancel()) {
-            await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
-            this.safeStopRecorder();
+            await this._teardownToCancelling();
         }
     }
-    
+
+    /**
+     * Shared teardown: move to CANCELLING and stop the recorder; the recorder's
+     * 'stop' handler then routes to IDLE + cleanup. Used by both the cancel path
+     * and a confirmed discard, so the sequence lives in exactly one place.
+     *
+     * @async
+     * @private
+     * @method _teardownToCancelling
+     * @returns {Promise<void>}
+     */
+    async _teardownToCancelling() {
+        await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
+        this.safeStopRecorder();
+    }
+
+    /**
+     * Entry point for the Discard button. Applies the proportional-challenge
+     * rule: trivial recordings (shorter than DISCARD_CONFIRM_MIN_MS) are discarded
+     * instantly; substantial ones enter CONFIRMING_DISCARD so the dialog can name
+     * the stakes before anything is lost.
+     *
+     * @async
+     * @method requestDiscard
+     * @returns {Promise<void>}
+     */
+    async requestDiscard() {
+        if (!this.stateMachine.canCancel()) return;
+
+        if (this.getTimerMilliseconds() < DISCARD_CONFIRM_MIN_MS) {
+            // Trivial — nothing meaningful to lose, discard without challenge.
+            await this.cancelRecording();
+            return;
+        }
+
+        // Substantial — remember where to return, then surface the confirm.
+        this._discardReturnTo = this.stateMachine.getState();
+        await this.stateMachine.transitionTo(RECORDING_STATES.CONFIRMING_DISCARD, {
+            durationLabel: this.currentTimerDisplay
+        });
+    }
+
+    /**
+     * Confirms a pending discard (from the dialog): tear the recording down.
+     *
+     * @async
+     * @method confirmDiscard
+     * @returns {Promise<void>}
+     */
+    async confirmDiscard() {
+        if (this.stateMachine.getState() !== RECORDING_STATES.CONFIRMING_DISCARD) return;
+        await this._teardownToCancelling();
+    }
+
+    /**
+     * Keeps the recording (from the dialog): resume where the user left off.
+     *
+     * @async
+     * @method keepRecording
+     * @returns {Promise<void>}
+     */
+    async keepRecording() {
+        if (this.stateMachine.getState() !== RECORDING_STATES.CONFIRMING_DISCARD) return;
+        const target = this._discardReturnTo || RECORDING_STATES.RECORDING;
+        this._discardReturnTo = null;
+        await this.stateMachine.transitionTo(target);
+    }
+
     /**
      * Calculates the elapsed recording time in milliseconds based on start time.
      * 
@@ -385,8 +451,6 @@ export class AudioHandler {
                 : rawMessage;
             // handleErrorState emits UI_STATUS_UPDATE with prefix + retry hint
             return { success: false, error: errorMessage };
-        } finally {
-            eventBus.emit(APP_EVENTS.UI_SPINNER_HIDE);
         }
     }
     
@@ -404,10 +468,8 @@ export class AudioHandler {
         this.timerInterval = null;
         this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
 
-        // Reset UI via events
+        // Reset UI via events (control surface is re-rendered from the FSM state)
         eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_RECORDING_STATE, { isRecording: false });
-        eventBus.emit(APP_EVENTS.UI_BUTTON_SET_PAUSE_STATE, { isPaused: false });
 
         // Visualization cleanup is now handled by UI via event
 
