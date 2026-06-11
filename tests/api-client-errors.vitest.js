@@ -619,6 +619,92 @@ describe('AzureAPIClient Error Handling', () => {
         });
     });
 
+    describe('Overall retry deadline', () => {
+        /**
+         * Scripts apiClient._now() from a fixed list of timestamps so the
+         * TRANSCRIPTION_MAX_TOTAL_MS deadline trips deterministically. _now() is
+         * called once for the deadline (loop top), then once per status check and
+         * once per sleep gate; later values exceeding the last entry reuse it.
+         */
+        function scriptNow(values) {
+            let i = 0;
+            vi.spyOn(apiClient, '_now').mockImplementation(
+                () => values[Math.min(i++, values.length - 1)]
+            );
+        }
+
+        it('surfaces the real API error when a Retry-After storm exhausts the deadline', async () => {
+            // Always-throttled response advertising a 60s Retry-After.
+            global.fetch.mockResolvedValue({
+                ok: false,
+                status: 429,
+                headers: { get: vi.fn().mockReturnValue('60') },
+                text: vi.fn().mockResolvedValue('Too many requests')
+            });
+
+            // deadline = 0 + 180000. Keep attempt 0's status check + sleep gate
+            // below it, then jump past it inside attempt 1's status check so the
+            // attempt is treated as final and the real 429 surfaces (not a timeout).
+            //   [0]=deadline base, [1]=attempt0 status, [2]=attempt0 sleep gate,
+            //   [3]=attempt1 status (>= deadline -> final)
+            scriptNow([0, 1000, 2000, 200000]);
+
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(
+                'API rate limit reached (429). Retry after 60s.'
+            );
+
+            // Far fewer than the usual 6 attempts because the deadline cut it short.
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(global.fetch.mock.calls.length).toBeLessThan(6);
+
+            const errorEmits = eventBusEmitSpy.mock.calls.filter(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            expect(errorEmits).toHaveLength(1);
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.API_REQUEST_ERROR,
+                expect.objectContaining({ status: 429 })
+            );
+        });
+
+        it('throws the friendly timeout error when a backoff would end past the deadline', async () => {
+            global.fetch.mockResolvedValue({
+                ok: false,
+                status: 503,
+                headers: { get: vi.fn().mockReturnValue('60') },
+                text: vi.fn().mockResolvedValue('Service unavailable')
+            });
+
+            // Let attempt 0's status check pass (deadline not yet reached), then
+            // trip the sleep gate: _now() + delay (60000) >= deadline (180000).
+            //   [0]=deadline base, [1]=attempt0 status (< deadline),
+            //   [2]=attempt0 sleep gate (130000 + 60000 >= 180000)
+            scriptNow([0, 1000, 130000]);
+
+            const settled = apiClient.transcribe(new Blob());
+            await expect(settled).rejects.toThrow(MESSAGES.REQUEST_TIMED_OUT);
+
+            // The thrown error preserves the friendly-timeout shape.
+            const error = await settled.catch((e) => e);
+            expect(error.apiContext.timeout).toBe(true);
+        });
+
+        it('does not clip a healthy request that resolves immediately', async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: { get: vi.fn().mockReturnValue('application/json') },
+                json: vi.fn().mockResolvedValue({ text: 'Healthy transcription' })
+            });
+
+            // _now unscripted (real clock): elapsed ~0ms, well within the deadline.
+            const result = await apiClient.transcribe(new Blob());
+
+            expect(result).toBe('Healthy transcription');
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+        });
+    });
+
     describe('Request Timeout Handling (AbortController)', () => {
         beforeEach(() => {
             vi.useFakeTimers();
@@ -683,8 +769,10 @@ describe('AzureAPIClient Error Handling', () => {
             await flushAllTimeoutAttempts();
             await assertion;
 
-            // Aborts the initial attempt plus all retries (6 total), never hanging.
-            expect(global.fetch).toHaveBeenCalledTimes(6);
+            // Under fake timers Date.now advances 120s/attempt, so the overall
+            // TRANSCRIPTION_MAX_TOTAL_MS (180s) deadline trips after 2 attempts
+            // (2 x 120s = 240s > 180s) — far short of the old 6, by design.
+            expect(global.fetch).toHaveBeenCalledTimes(2);
             // Each fetch attempt received an AbortController signal.
             expect(global.fetch.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
 
@@ -716,8 +804,10 @@ describe('AzureAPIClient Error Handling', () => {
             await flushAllTimeoutAttempts();
             await assertion;
 
-            expect(global.fetch).toHaveBeenCalledTimes(6);
-            expect(jsonReads).toHaveLength(6);
+            // Capped at 2 attempts by the TRANSCRIPTION_MAX_TOTAL_MS deadline
+            // (120s/attempt advances Date.now past the 180s budget after the 2nd).
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(jsonReads).toHaveLength(2);
             expect(jsonReads[0]).toHaveBeenCalledTimes(1);
         });
 

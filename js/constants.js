@@ -344,6 +344,18 @@ export const MESSAGES = {
 export const TRANSCRIPTION_TIMEOUT_MS = 120000;
 
 /**
+ * Overall deadline for one transcription call across ALL retry attempts and
+ * backoff sleeps. A single in-flight attempt still gets its full
+ * TRANSCRIPTION_TIMEOUT_MS window; this stops further attempts/sleeps from
+ * being scheduled past the deadline, so PROCESSING can never strand the user
+ * for the multi-minute worst case (~17 min) the per-attempt timeout alone allows.
+ *
+ * @constant {number} TRANSCRIPTION_MAX_TOTAL_MS
+ * @default 180000
+ */
+export const TRANSCRIPTION_MAX_TOTAL_MS = 180000;
+
+/**
  * Recording state machine states for managing the audio recording lifecycle.
  * Defines all possible states in the recording workflow.
  * 
