@@ -282,7 +282,7 @@ export const MESSAGES = {
   INVALID_API_KEY_CHARACTERS: 'API key contains unsupported characters. Paste only the raw Speech resource key.',
   
   // Recording States
-  RECORDING_IN_PROGRESS: 'Recording... Click again to stop',
+  RECORDING_IN_PROGRESS: 'Recording... Click to stop',
   RECORDING_PAUSED: 'Recording paused',
   RECORDING_CANCELLED: 'Recording cancelled',
   FINISHING_RECORDING: 'Finishing...',
@@ -323,6 +323,7 @@ export const MESSAGES = {
   ERROR_PREFIX: 'Error: ',
   MICROPHONE_IN_USE: '⚠️ Microphone is already in use by another application.',
   MICROPHONE_NOT_SUITABLE: '⚠️ No microphone meets the requirements. Try with a different microphone.',
+  INVALID_REQUEST: '⚠️ Microphone request was invalid. Please refresh the page and try again.',
   // Generic error message for unexpected errors
   ERROR_OCCURRED: 'An unexpected error occurred',
   TAP_MIC_TO_RETRY: 'Tap mic to retry',
