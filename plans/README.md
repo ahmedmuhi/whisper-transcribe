@@ -23,10 +23,10 @@ update your row when done.
 | 001 | Read the dark-theme class from `documentElement` everywhere | P1 | S | — | DONE (merged to main as `50164c9`, 2026-06-11) |
 | 002 | Enforce the existing quality gates in GitHub Actions CI | P1 | S | — | DONE (merged to main as `87a6c91` via PR #64, 2026-06-12) |
 | 003 | Make the quality gates measure only the real repo (test glob, knip entry, engines, lockfile) | P1 | S | — | DONE (merged to main as `2555188` via PR #65, 2026-06-12; CI green in 23s) |
-| 004 | Patch the dev-dependency vulnerabilities (audit fix + happy-dom 20) | P1 | S/M | 003 | TODO |
-| 005 | Fix the undefined mic error message and FSM status-string drift | P2 | S | — (run after 003) | TODO |
-| 006 | Enforce HTTPS on the endpoint URI at the fetch gate | P1 | S | — (run after 003) | TODO |
-| 007 | Bound the total time a transcription can spend retrying | P2 | M | — (run after 003; keep separate from 004) | TODO |
+| 004 | Patch the dev-dependency vulnerabilities (audit fix + happy-dom 20) | P1 | S/M | 003 | DONE (merged as `ef4240d` via PR #66, 2026-06-12; npm audit now 0 vulns) |
+| 005 | Fix the undefined mic error message and FSM status-string drift | P2 | S | — | DONE (merged as `451cfd6` via PR #67, 2026-06-12) |
+| 006 | Enforce HTTPS on the endpoint URI at the fetch gate | P1 | S | — | DONE (merged as `2190ce9` via PR #68, 2026-06-12; took 2 revision rounds — three test files stubbed `global.URL` without `protocol`, plan revised accordingly) |
+| 007 | Bound the total time a transcription can spend retrying | P2 | M | 006 (same test file) | DONE (merged as `f297ea9` via PR #69, 2026-06-12; deliberate contract change — sustained-timeout attempts now capped at 2 by the 180s deadline) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

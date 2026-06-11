@@ -20,6 +20,10 @@
 - **Depends on**: none (sequence after 003 so test counts verify cleanly)
 - **Category**: security
 - **Planned at**: commit `50164c9`, 2026-06-11
+- **Revised**: 2026-06-12 — executor STOP revealed that both api-client test
+  files stub `global.URL` without a `protocol` property, so the original
+  Step 2 verification claim ("existing tests pass — fixtures are https") was
+  false. Scope expanded to fix the stubs (Step 1b added).
 
 ## Why this matters
 
@@ -92,6 +96,27 @@ Conventions that apply:
   that too.
 - Test fixtures for insecure URIs already exist on the settings side:
   `'http://insecure.openai.azure.com/'` (`tests/settings-persistence.vitest.js:218`).
+- **Discovered during execution (revision 2026-06-12)**: both api-client test
+  files replace the global `URL` constructor with a stub that returns
+  `{ href: url }` only — no `protocol` property:
+
+  ```js
+  // tests/api-client-errors.vitest.js:25-31; same shape (plus a null guard)
+  // at tests/api-client-validation.vitest.js:16-22
+  global.URL = vi.fn((url) => {
+      if (!url.startsWith('http')) {
+          throw new Error('Invalid URL');
+      }
+      return { href: url };
+  });
+  ```
+
+  A `parsedUri.protocol !== 'https:'` check therefore fails for EVERY fixture
+  (`undefined !== 'https:'`), not just http ones. Revision round 2 found a
+  third copy at `tests/mai-transcribe.vitest.js:16-21`. (A fourth site,
+  `tests/settings-unit.vitest.js:95`, is a test-local bare `vi.fn()` that
+  does not interact with the api-client gate — leave it alone.) Step 1b fixes
+  all three stubs before the production check lands.
 
 ## Commands you will need
 
@@ -109,7 +134,12 @@ Conventions that apply:
 - `js/constants.js` — add `MESSAGES.URI_MUST_BE_HTTPS`
 - `js/api-client.js` — protocol check in `validateConfig()`
 - `js/settings.js` — replace the `'URI must use HTTPS'` literal with the constant
-- `tests/api-client-errors.vitest.js` — add tests
+- `tests/api-client-errors.vitest.js` — URL-stub fix (Step 1b) + new tests
+- `tests/api-client-validation.vitest.js` — URL-stub fix (Step 1b) ONLY; no
+  other changes to this file
+- `tests/mai-transcribe.vitest.js` — URL-stub fix (Step 1b) ONLY (revision
+  round 2: this file has a third copy of the same stub at lines 16-21; its
+  11 tests exercise `transcribe()` end-to-end and hit the protocol check)
 
 **Out of scope** (do NOT touch):
 
@@ -140,6 +170,25 @@ In `js/constants.js`, in the `// API Validation` group (after
 
 **Verify**: `node -e "import('./js/constants.js').then(m => console.log(m.MESSAGES.URI_MUST_BE_HTTPS))"` → `URI must use HTTPS`
 
+### Step 1b: Teach both URL stubs a `protocol` property
+
+In `tests/api-client-errors.vitest.js` (~line 25),
+`tests/api-client-validation.vitest.js` (~line 16), **and
+`tests/mai-transcribe.vitest.js` (~line 16)** — all three files copy the same
+stub — update the `global.URL` stub's return value to expose a protocol
+derived from the string, preserving the existing throw behavior exactly:
+
+```js
+    return { href: url, protocol: url.startsWith('https') ? 'https:' : 'http:' };
+```
+
+(All current fixtures begin with `http`/`https`, so this matches real `URL`
+behavior for every input the stubs accept.)
+
+**Verify**: `npx vitest run tests/api-client-errors.vitest.js tests/api-client-validation.vitest.js`
+→ all existing tests still pass (stub change alone must be behavior-neutral
+before the production check lands).
+
 ### Step 2: Enforce the protocol in `validateConfig()`
 
 In `js/api-client.js`, replace the syntax-only block (shown in Current state)
@@ -167,7 +216,8 @@ shape:
 ```
 
 **Verify**: `npx vitest run tests/api-client-errors.vitest.js tests/api-client-validation.vitest.js`
-→ all existing tests pass (their fixtures are https; verified at planning time).
+→ all existing tests pass (requires Step 1b's stub fix — the fixtures are
+https strings, but they only carry a `protocol` once the stubs expose one).
 
 ### Step 3: Swap the settings-side literal for the constant
 

@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 50164c9..HEAD -- js/api-client.js js/constants.js tests/api-client-errors.vitest.js`
+> **Drift check (run first)**: `git diff --stat 2190ce9..HEAD -- js/api-client.js js/constants.js tests/api-client-errors.vitest.js`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -23,6 +23,10 @@
 - **Depends on**: none (sequence after 003; keep separate from 004's diff)
 - **Category**: bug / ux-correctness
 - **Planned at**: commit `50164c9`, 2026-06-11
+- **Refreshed**: 2026-06-12 at commit `2190ce9` (post-006) — `_fetchWithRetry`
+  excerpts re-verified byte-accurate; line references in
+  `tests/api-client-errors.vitest.js` and `js/constants.js` updated for 006's
+  insertions. Locate test blocks by describe/it name, not line number.
 
 ## Why this matters
 
@@ -117,17 +121,18 @@ Supporting pieces (read them before editing): `_retryAfter`
 throws `MESSAGES.REQUEST_TIMED_OUT` with `error.apiContext = { timeout: true }`);
 `_getRetryDelayMs` (`:305-313`, Retry-After capped at `MAX_RETRY_AFTER_MS`,
 else backoff schedule). `TRANSCRIPTION_TIMEOUT_MS = 120000` is exported from
-`js/constants.js:342`.
+`js/constants.js:344`.
 
 Test-suite facts that shape the implementation (verified at planning time):
 
 - `tests/api-client-errors.vitest.js:75` stubs the sleeps for the whole suite:
   `vi.spyOn(apiClient, '_sleep').mockResolvedValue();`
-- The 429 contract test (`:321-349`) asserts **6 fetch calls** with no fake
-  timers — it relies on the `_sleep` stub. A **wall-clock (Date.now) deadline
-  would not trip there** (elapsed ≈ 0 ms), so that test stays valid.
+- The 429 contract test (`:356-384`, `describe('API Rate Limiting Handling')`)
+  asserts **6 fetch calls** with no fake timers — it relies on the `_sleep`
+  stub. A **wall-clock (Date.now) deadline would not trip there** (elapsed ≈
+  0 ms), so that test stays valid.
 - The `describe('Request Timeout Handling (AbortController)')` block
-  (`:587-703`) DOES use `vi.useFakeTimers()` and drives 8 × 120 s of fake time
+  (`:622` onward) DOES use `vi.useFakeTimers()` and drives 8 × 120 s of fake time
   (`flushAllTimeoutAttempts`). Whether `Date.now()` advances there depends on
   vitest's fake-timer config — **do not guess; make the clock injectable**
   (Step 2) so behavior is deterministic in both modes.
@@ -172,7 +177,7 @@ Test-suite facts that shape the implementation (verified at planning time):
 ### Step 1: Add the constant
 
 In `js/constants.js`, directly after the `TRANSCRIPTION_TIMEOUT_MS` export
-(~line 342), add with matching JSDoc style:
+(~line 344), add with matching JSDoc style:
 
 ```js
 /**
@@ -263,7 +268,7 @@ In `tests/api-client-errors.vitest.js`, new
    trips at the `_retryAfter` gate (now + delay ≥ deadline). Assert rejection
    with `MESSAGES.REQUEST_TIMED_OUT` and `error.apiContext.timeout === true`
    shape preserved (model the assertion on the existing friendly-timeout test
-   at `:641`).
+   `'should abort a hung request after TRANSCRIPTION_TIMEOUT_MS…'`, ~`:676`).
 3. **Deadline does not clip a healthy request**: single `ok: true` response
    with `_now` unscripted → resolves normally, `fetch` called once.
 
@@ -295,10 +300,10 @@ Run the timeout describe. Two possible outcomes:
 - New (3): deadline-as-final-attempt on status retries; deadline at the sleep
   gate → `MESSAGES.REQUEST_TIMED_OUT`; healthy-request non-interference.
 - Adjusted (possibly): attempt-count numbers inside
-  `Request Timeout Handling (AbortController)` (`tests/api-client-errors.vitest.js:587-703`),
+  `Request Timeout Handling (AbortController)` (`tests/api-client-errors.vitest.js:622` onward),
   behavior assertions preserved.
 - Pattern exemplars: `_sleep` stub at `:75`; friendly-timeout assertions at
-  `:641`; 429 contract at `:321-349`.
+  ~`:676`; 429 contract at `:356-384`.
 
 ## Done criteria
 
