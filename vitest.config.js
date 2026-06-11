@@ -1,11 +1,12 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 
 export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['./tests/vitest-setup.js'],
-    include: ['**/tests/**/*.vitest.js'],
+    include: ['tests/**/*.vitest.js'],
+    exclude: [...configDefaults.exclude, '**/.claude/**'],
     testTimeout: 10000,
     coverage: {
       provider: 'v8',

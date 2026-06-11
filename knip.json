@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["js/main.js"],
+  "entry": ["js/main.js", "js/*.worker.js"],
   "project": ["js/**/*.js"],
   "ignore": [
     "coverage/**",
