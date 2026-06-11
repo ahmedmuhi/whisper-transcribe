@@ -234,7 +234,11 @@ Machine-checkable. ALL must hold:
 - [ ] `npx vitest run 2>&1 | tail -6` reports exactly `32` test files and `378` tests (or current `ls tests/*.vitest.js | wc -l` count, each file once)
 - [ ] `npx knip` output contains no `Unused files`
 - [ ] `node -e "console.log(require('./package.json').engines.node)"` prints `>=20`
-- [ ] `grep -c '"version": "2.0.0"' package-lock.json` prints `2`
+- [ ] `head -10 package-lock.json | grep -c '"version": "2.0.0"'` prints `2`
+  (criterion corrected during review 2026-06-12: the original whole-file
+  `grep -c` expected `2` but 5 unrelated dependencies are coincidentally at
+  version 2.0.0, so the true post-fix count is 7 — anchor the check to the
+  root entries at the top of the lockfile)
 - [ ] `npm run test:coverage` exits 0
 - [ ] `git status` shows no modified files outside the in-scope list
 - [ ] `plans/README.md` status row updated

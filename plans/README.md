@@ -21,8 +21,8 @@ update your row when done.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | 001 | Read the dark-theme class from `documentElement` everywhere | P1 | S | — | DONE (merged to main as `50164c9`, 2026-06-11) |
-| 002 | Enforce the existing quality gates in GitHub Actions CI | P1 | S | — | DONE (commit `4594549` reviewed 2026-06-11; awaiting user merge) |
-| 003 | Make the quality gates measure only the real repo (test glob, knip entry, engines, lockfile) | P1 | S | — | TODO |
+| 002 | Enforce the existing quality gates in GitHub Actions CI | P1 | S | — | DONE (merged to main as `87a6c91` via PR #64, 2026-06-12) |
+| 003 | Make the quality gates measure only the real repo (test glob, knip entry, engines, lockfile) | P1 | S | — | DONE (merged to main as `2555188` via PR #65, 2026-06-12; CI green in 23s) |
 | 004 | Patch the dev-dependency vulnerabilities (audit fix + happy-dom 20) | P1 | S/M | 003 | TODO |
 | 005 | Fix the undefined mic error message and FSM status-string drift | P2 | S | — (run after 003) | TODO |
 | 006 | Enforce HTTPS on the endpoint URI at the fetch gate | P1 | S | — (run after 003) | TODO |
