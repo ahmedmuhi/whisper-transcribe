@@ -158,7 +158,7 @@ export class RecordingStateMachine {
     async handleRecordingState() {
         eventBus.emit(APP_EVENTS.RECORDING_STARTED);
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: 'Recording... Click to stop',
+            message: MESSAGES.RECORDING_IN_PROGRESS,
             type: 'info'
         });
     }
@@ -176,7 +176,7 @@ export class RecordingStateMachine {
     async handlePausedState() {
         eventBus.emit(APP_EVENTS.RECORDING_PAUSED);
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: 'Recording paused',
+            message: MESSAGES.RECORDING_PAUSED,
             type: 'info'
         });
     }

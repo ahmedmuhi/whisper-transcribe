@@ -224,6 +224,25 @@ describe('PermissionManager', () => {
                 })
             );
         });
+
+        it('should handle invalid request (TypeError) error', async () => {
+            // getUserMedia throws TypeError on invalid constraints / insecure context
+            const invalidRequestError = new TypeError('Invalid constraints');
+            mockGetUserMedia.mockRejectedValueOnce(invalidRequestError);
+
+            const stream = await permissionManager.requestMicrophoneAccess();
+
+            expect(stream).toBeNull();
+            // The message must be the defined constant, never the literal string "undefined"
+            expect(MESSAGES.INVALID_REQUEST).toBeDefined();
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.UI_STATUS_UPDATE,
+                expect.objectContaining({
+                    message: MESSAGES.INVALID_REQUEST,
+                    type: 'error'
+                })
+            );
+        });
     });
     
     describe('Permission Status Changes', () => {

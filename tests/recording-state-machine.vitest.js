@@ -123,6 +123,16 @@ describe('RecordingStateMachine direct behavior', () => {
     });
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_STARTED);
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_PAUSED);
+    // Status text is sourced from MESSAGES, not literals, so copy changes
+    // happen in one place (constants.js) without breaking these assertions.
+    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
+      message: MESSAGES.RECORDING_IN_PROGRESS,
+      type: 'info'
+    });
+    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
+      message: MESSAGES.RECORDING_PAUSED,
+      type: 'info'
+    });
   });
 
   it('emits expected events for stopping and processing handlers', async () => {
