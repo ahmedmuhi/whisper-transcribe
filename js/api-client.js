@@ -2,7 +2,7 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_KEY_VALUE_PATTERN, MESSAGES, HTTP_METHODS, CONTENT_TYPES, TRANSCRIPTION_TIMEOUT_MS } from './constants.js';
+import { API_KEY_VALUE_PATTERN, MESSAGES, HTTP_METHODS, CONTENT_TYPES, TRANSCRIPTION_TIMEOUT_MS, TRANSCRIPTION_MAX_TOTAL_MS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -145,6 +145,10 @@ export class AzureAPIClient {
     }
 
     async _fetchWithRetry(uri, options, onProgress, handleResponse) {
+        // Overall deadline across all attempts and backoff sleeps. A single
+        // in-flight attempt still gets its full per-attempt timeout window; this
+        // only stops piling more attempts/sleeps past the deadline.
+        const deadline = this._now() + TRANSCRIPTION_MAX_TOTAL_MS;
         for (let attempt = 0; attempt <= MAX_TRANSCRIPTION_RETRIES; attempt++) {
             let response;
 
@@ -152,7 +156,11 @@ export class AzureAPIClient {
                 const attemptResult = await this._fetchWithTimeout(async (signal) => {
                     response = await fetch(uri, { ...options, signal });
 
-                    if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status) || attempt === MAX_TRANSCRIPTION_RETRIES) {
+                    // Past the deadline, treat this attempt as final so the real
+                    // API error (e.g. the 429 message) surfaces, not a vague timeout.
+                    if (response.ok || !RETRYABLE_STATUS_CODES.has(response.status)
+                        || attempt === MAX_TRANSCRIPTION_RETRIES
+                        || this._now() >= deadline) {
                         return {
                             shouldRetry: false,
                             value: await handleResponse(response)
@@ -169,27 +177,31 @@ export class AzureAPIClient {
                 }
             } catch (error) {
                 // Only a per-attempt timeout (AbortError) is retryable here; anything
-                // else propagates. On the final attempt, surface a friendly timeout
-                // error so the caller routes the FSM to ERROR (never stuck PROCESSING).
+                // else propagates. On the final attempt or past the deadline, surface
+                // a friendly timeout error so the caller routes the FSM to ERROR
+                // (never stuck PROCESSING).
                 if (error?.name !== 'AbortError') {
                     throw error;
                 }
-                if (attempt === MAX_TRANSCRIPTION_RETRIES) {
+                if (attempt === MAX_TRANSCRIPTION_RETRIES || this._now() >= deadline) {
                     throw this._createTimeoutError();
                 }
                 const timeoutSec = Math.ceil(TRANSCRIPTION_TIMEOUT_MS / 1000);
                 await this._retryAfter(this._getRetryDelayMs(null, attempt), attempt, {
                     log: `Transcription request timed out after ${timeoutSec}s.`,
                     progress: 'Request timed out.'
-                }, onProgress);
+                }, onProgress, deadline);
                 continue;
             }
 
             await this._retryAfter(this._getRetryDelayMs(response, attempt), attempt, {
                 log: `Transient API response ${response.status}.`,
                 progress: `Azure returned ${response.status}.`
-            }, onProgress);
+            }, onProgress, deadline);
         }
+        // The loop has no other terminal return; guarantee the function never
+        // resolves undefined by throwing the friendly timeout error here.
+        throw this._createTimeoutError();
     }
 
     /**
@@ -242,9 +254,15 @@ export class AzureAPIClient {
      * @param {number} attempt - Zero-based attempt index
      * @param {{log: string, progress: string}} reason - Reason prefixes for the log + progress lines
      * @param {Function} [onProgress] - Optional progress callback
+     * @param {number} deadline - Absolute time (ms) past which no further sleep may run
      * @returns {Promise<void>}
+     * @throws {Error} Friendly timeout error if the backoff would end past the deadline
      */
-    async _retryAfter(delayMs, attempt, reason, onProgress) {
+    async _retryAfter(delayMs, attempt, reason, onProgress, deadline) {
+        // Don't start a backoff that would end past the overall deadline.
+        if (this._now() + delayMs >= deadline) {
+            throw this._createTimeoutError();
+        }
         const waitSec = Math.ceil(delayMs / 1000);
         logger.child('AzureAPIClient').warn(
             `${reason.log} Retrying in ${waitSec}s.`,
@@ -332,6 +350,17 @@ export class AzureAPIClient {
 
     _sleep(delayMs) {
         return new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    /**
+     * Injectable clock for deadline checks. Tests spy on this to control time
+     * deterministically, independent of fake-timer Date behavior.
+     *
+     * @private
+     * @returns {number} Current wall-clock time in milliseconds
+     */
+    _now() {
+        return Date.now();
     }
 
     _getModelAdapter(model) {
