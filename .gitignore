@@ -13,6 +13,10 @@ node_modules/
 .playwright-mcp/
 *.png
 
+# Claude Code local state (settings.local.json, agent worktrees;
+# .claude/skills is a symlink into the committed .agents/skills)
+.claude/
+
 # Generated documentation and coverage files
 coverage/
 docs/
