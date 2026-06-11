@@ -564,7 +564,7 @@ export class Settings {
             try {
                 const url = new URL(uri);
                 if (url.protocol !== 'https:') {
-                    errors.push('URI must use HTTPS');
+                    errors.push(MESSAGES.URI_MUST_BE_HTTPS);
                 }
             } catch {
                 errors.push(MESSAGES.INVALID_URI_FORMAT);

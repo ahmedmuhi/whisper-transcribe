@@ -403,14 +403,21 @@ export class AzureAPIClient {
         }
         
         // Basic URI validation
+        let parsedUri;
         try {
-            new URL(normalizedConfig.uri);
+            parsedUri = new URL(normalizedConfig.uri);
         } catch {
             const error = new Error(`${MESSAGES.INVALID_URI_FORMAT} for ${normalizedConfig.model}`);
             eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri', model: normalizedConfig.model });
             throw error;
         }
-        
+
+        if (parsedUri.protocol !== 'https:') {
+            const error = new Error(`${MESSAGES.URI_MUST_BE_HTTPS} for ${normalizedConfig.model}`);
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'httpsUri', model: normalizedConfig.model });
+            throw error;
+        }
+
         return normalizedConfig;
     }
 }
