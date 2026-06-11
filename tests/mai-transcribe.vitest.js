@@ -17,7 +17,7 @@ global.URL = vi.fn((url) => {
     if (!url || !url.startsWith('http')) {
         throw new Error('Invalid URL');
     }
-    return { href: url };
+    return { href: url, protocol: url.startsWith('https') ? 'https:' : 'http:' };
 });
 
 global.fetch = vi.fn();

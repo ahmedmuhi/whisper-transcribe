@@ -27,7 +27,7 @@ global.URL = vi.fn((url) => {
     if (!url.startsWith('http')) {
         throw new Error('Invalid URL');
     }
-    return { href: url };
+    return { href: url, protocol: url.startsWith('https') ? 'https:' : 'http:' };
 });
 
 vi.mock('../js/audio-converter.js', () => ({
@@ -218,8 +218,43 @@ describe('AzureAPIClient Error Handling', () => {
                 })
             );
         });
+
+        it('should reject an insecure (http) URI in validateConfig', () => {
+            // Valid API key, but a cleartext http:// endpoint
+            mockSettings.getModelConfig.mockReturnValue({
+                model: 'whisper',
+                apiKey: 'test-api-key',
+                uri: 'http://insecure.openai.azure.com/'
+            });
+
+            // validateConfig() should throw with the HTTPS-required message
+            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.URI_MUST_BE_HTTPS);
+
+            // Should emit API_CONFIG_MISSING with the httpsUri reason
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(
+                APP_EVENTS.API_CONFIG_MISSING,
+                expect.objectContaining({
+                    missing: 'httpsUri',
+                    model: 'whisper'
+                })
+            );
+        });
+
+        it('should not send the request over an insecure (http) URI', async () => {
+            // Valid API key, but a cleartext http:// endpoint
+            mockSettings.getModelConfig.mockReturnValue({
+                model: 'whisper',
+                apiKey: 'test-api-key',
+                uri: 'http://insecure.openai.azure.com/'
+            });
+
+            // transcribe() must reject before any network call leaks the API key
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.URI_MUST_BE_HTTPS);
+
+            expect(global.fetch).not.toHaveBeenCalled();
+        });
     });
-    
+
     describe('Network Failure Handling', () => {
         it('should handle network failures gracefully', async () => {
             // Simulate network failure

@@ -279,6 +279,7 @@ export const MESSAGES = {
   API_KEY_REQUIRED: 'API key is required',
   URI_REQUIRED: 'URI is required',
   INVALID_URI_FORMAT: 'Invalid URI format',
+  URI_MUST_BE_HTTPS: 'URI must use HTTPS',
   INVALID_API_KEY_CHARACTERS: 'API key contains unsupported characters. Paste only the raw Speech resource key.',
   
   // Recording States
