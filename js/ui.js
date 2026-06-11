@@ -108,7 +108,7 @@ export class UI {
                 const currentMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
                 let newMode;
                 if (currentMode === 'auto') {
-                    newMode = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+                    newMode = document.documentElement.classList.contains('dark-theme') ? 'light' : 'dark';
                 } else if (currentMode === 'light') {
                     newMode = 'dark';
                 } else {
@@ -243,7 +243,7 @@ export class UI {
             try {
                 const { VisualizationController } = await import('./visualization.js');
                 const { stream } = data;
-                const isDarkTheme = document.body.classList.contains('dark-theme');
+                const isDarkTheme = document.documentElement.classList.contains('dark-theme');
                 if (this.visualizer && stream) {
                     this.visualizationController = new VisualizationController(stream, this.visualizer, isDarkTheme);
                     this.visualizationController.start();
@@ -914,7 +914,7 @@ export class UI {
     clearVisualization() {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
-            const isDarkTheme = document.body.classList.contains('dark-theme');
+            const isDarkTheme = document.documentElement.classList.contains('dark-theme');
             canvasCtx.fillStyle = isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
             canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
         }

@@ -203,23 +203,32 @@ describe('Visualization Event Handling and Cleanup', () => {
       // For this test, we need to ensure the VisualizationController uses our mock canvas
       const mockStream = { getAudioTracks: () => [{ kind: 'audio' }] };
       
-      // Mock dark theme
-      document.body.classList.add('dark-theme');
-      
-      // Test the UI's visualization start event handling with dark theme
-      eventBus.emit(APP_EVENTS.VISUALIZATION_START, { 
-        stream: mockStream, 
-        isDarkTheme: true 
-      });
-      
-      // Wait for async import to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      // Verify that a controller was created and started (through our mock)
-      expect(mockController.start).toHaveBeenCalled();
-      
-      // Clean up
-      document.body.classList.remove('dark-theme');
+      // Mock dark theme on the canonical target (the <html> element)
+      document.documentElement.classList.add('dark-theme');
+
+      try {
+        // Test the UI's visualization start event handling with dark theme
+        eventBus.emit(APP_EVENTS.VISUALIZATION_START, {
+          stream: mockStream,
+          isDarkTheme: true
+        });
+
+        // Wait for async import to complete
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // Verify that a controller was created and started (through our mock)
+        expect(mockController.start).toHaveBeenCalled();
+
+        // The UI must derive the dark flag from <html> and pass it as arg index 2
+        expect(VisualizationController).toHaveBeenCalledWith(
+          mockStream,
+          expect.anything(),
+          true
+        );
+      } finally {
+        // Clean up so the class never leaks into other tests
+        document.documentElement.classList.remove('dark-theme');
+      }
     });
   });
   
