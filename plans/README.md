@@ -27,7 +27,8 @@ update your row when done.
 | 005 | Fix the undefined mic error message and FSM status-string drift | P2 | S | — | DONE (merged as `451cfd6` via PR #67, 2026-06-12) |
 | 006 | Enforce HTTPS on the endpoint URI at the fetch gate | P1 | S | — | DONE (merged as `2190ce9` via PR #68, 2026-06-12; took 2 revision rounds — three test files stubbed `global.URL` without `protocol`, plan revised accordingly) |
 | 007 | Bound the total time a transcription can spend retrying | P2 | M | 006 (same test file) | DONE (merged as `f297ea9` via PR #69, 2026-06-12; deliberate contract change — sustained-timeout attempts now capped at 2 by the 180s deadline) |
-| 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | DONE (executed + reviewed 2026-06-16 on `feat/008-mai-transcribe-style` `f39a642`; 392 tests green, +8; default request byte-identical; awaiting user merge) |
+| 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | REVERTED by 009 (merged as PR #70 `c37a9b4`, then reverted 2026-06-16 — user decided they only ever want readability-optimized; since readability is the field-absent default, the toggle was unnecessary). Plan kept as record; re-runnable if verbatim is ever wanted. |
+| 009 | Revert the MAI-Transcribe 1.5 style toggle — always readability-optimized | P1 | S | reverts 008 | DONE (executed + reviewed 2026-06-16 on `revert/009-mai-style-toggle` `b7d58f8`; back to 384 tests; MAI 1.5 now always sends no transcribeStyle = readability; awaiting user merge) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
