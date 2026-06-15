@@ -2,7 +2,7 @@
  * @fileoverview Model adapter for Azure MAI-Transcribe requests.
  */
 
-import { API_PARAMS, DEFAULT_WAV_FILENAME, MAI_TRANSCRIBE_STYLES, MESSAGES, MODEL_TYPES, STORAGE_KEYS } from '../constants.js';
+import { API_PARAMS, DEFAULT_WAV_FILENAME, MESSAGES, MODEL_TYPES, STORAGE_KEYS } from '../constants.js';
 import { convertToWav } from '../audio-converter.js';
 import { parseMaiTranscribeResponse } from './response-parsers.js';
 
@@ -22,16 +22,13 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
             const formData = new FormData();
             const wavBlob = await convertToWav(audioBlob);
             formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
-            const enhancedMode = {
-                enabled: true,
-                model: apiModel,
-                task: 'transcribe'
-            };
-            if (apiModel === MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL
-                && config.transcribeStyle === MAI_TRANSCRIBE_STYLES.VERBATIM) {
-                enhancedMode[API_PARAMS.MAI_TRANSCRIBE_STYLE_FIELD] = MAI_TRANSCRIBE_STYLES.VERBATIM;
-            }
-            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
+            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({
+                enhancedMode: {
+                    enabled: true,
+                    model: apiModel,
+                    task: 'transcribe'
+                }
+            }));
 
             return {
                 headers: { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey },

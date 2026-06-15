@@ -45,7 +45,6 @@ export const STORAGE_KEYS = {
   WHISPER_API_KEY:      'whisper_api_key',
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
   MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
-  MAI_TRANSCRIBE_STYLE:   'mai_transcribe_style',
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
@@ -63,20 +62,6 @@ export const RECORDING_ENVIRONMENTS = {
 };
 
 /**
- * MAI-Transcribe 1.5 transcription styles. READABILITY is the default and is a
- * sentinel meaning "omit transcribeStyle entirely" (preserves Microsoft's
- * readability-optimized default); only VERBATIM is ever sent on the wire.
- * @constant {Object} MAI_TRANSCRIBE_STYLES
- */
-export const MAI_TRANSCRIBE_STYLES = {
-  READABILITY: 'readability',
-  VERBATIM: 'verbatim'
-};
-
-/** @constant {string} DEFAULT_MAI_TRANSCRIBE_STYLE @default 'readability' */
-export const DEFAULT_MAI_TRANSCRIBE_STYLE = MAI_TRANSCRIBE_STYLES.READABILITY;
-
-/**
  * API parameter names for Azure Speech Services requests.
  * 
  * @constant {Object} API_PARAMS
@@ -90,8 +75,7 @@ export const API_PARAMS = {
   API_KEY_HEADER:  'api-key',
   MAI_API_KEY_HEADER: 'Ocp-Apim-Subscription-Key',
   MAI_AUDIO_FIELD:    'audio',
-  MAI_DEFINITION_FIELD: 'definition',
-  MAI_TRANSCRIBE_STYLE_FIELD: 'transcribeStyle'
+  MAI_DEFINITION_FIELD: 'definition'
 };
 
 /** API keys are sent as header values, so keep them to visible ASCII with no whitespace. */
@@ -195,7 +179,6 @@ export const ID = Object.freeze({
   CLOSE_MODAL:      'close-modal',
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
-  MAI_TRANSCRIBE_15_SETTINGS: 'mai-transcribe-15-settings',
 
   // Selectors / inputs
   MODEL_SELECT:     'model-select',
@@ -206,7 +189,6 @@ export const ID = Object.freeze({
   WHISPER_KEY:      'whisper-key',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
   MAI_TRANSCRIBE_KEY: 'mai-transcribe-key',
-  MAI_TRANSCRIBE_STYLE: 'mai-transcribe-style',
 
   // Side panel
   SIDE_PANEL:       'side-panel',
