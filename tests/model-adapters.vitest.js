@@ -8,6 +8,7 @@ import {
     DEFAULT_FILENAME,
     DEFAULT_LANGUAGE,
     DEFAULT_WAV_FILENAME,
+    MAI_TRANSCRIBE_STYLES,
     MESSAGES,
     MODEL_TYPES
 } from '../js/constants.js';
@@ -300,5 +301,105 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(convertToWav).toHaveBeenCalledWith(audioBlob);
         expect(onProgress).toHaveBeenCalledWith(MESSAGES.CONVERTING_AUDIO);
         expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
+    });
+
+    it('includes transcribeStyle on MAI-Transcribe 1.5 when style is verbatim', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5, {
+            transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM
+        });
+        const apiClient = new AzureAPIClient(settings);
+        const audioBlob = new Blob(['audio']);
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'MAI 1.5 verbatim segment.' }],
+            phrases: []
+        });
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe',
+                [API_PARAMS.MAI_TRANSCRIBE_STYLE_FIELD]: MAI_TRANSCRIBE_STYLES.VERBATIM
+            }
+        });
+    });
+
+    it('omits transcribeStyle on MAI-Transcribe 1.5 when style is readability', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5, {
+            transcribeStyle: MAI_TRANSCRIBE_STYLES.READABILITY
+        });
+        const apiClient = new AzureAPIClient(settings);
+        const audioBlob = new Blob(['audio']);
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'MAI 1.5 readability segment.' }],
+            phrases: []
+        });
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe'
+            }
+        });
+    });
+
+    it('omits transcribeStyle on MAI-Transcribe 1.5 when no style is provided', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        const apiClient = new AzureAPIClient(settings);
+        const audioBlob = new Blob(['audio']);
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'MAI 1.5 default segment.' }],
+            phrases: []
+        });
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe'
+            }
+        });
+    });
+
+    it('omits transcribeStyle on MAI-Transcribe 1.0 even when style is verbatim', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE, {
+            transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM
+        });
+        const apiClient = new AzureAPIClient(settings);
+        const audioBlob = new Blob(['audio']);
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'MAI 1.0 segment.' }],
+            phrases: []
+        });
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL,
+                task: 'transcribe'
+            }
+        });
+    });
+
+    it('builds no MAI definition for Whisper even when style is verbatim', async () => {
+        const settings = createSettings(MODEL_TYPES.WHISPER, {
+            transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM
+        });
+        const apiClient = new AzureAPIClient(settings);
+        const audioBlob = new Blob(['audio']);
+        mockTextResponse(' Whisper text ');
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD)).toBeUndefined();
     });
 });
