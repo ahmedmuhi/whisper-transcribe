@@ -6,7 +6,7 @@
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS, DEFAULT_MAI_TRANSCRIBE_STYLE } from '../js/constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
@@ -135,24 +135,6 @@ describe('Settings Persistence & Save Workflow', () => {
             freshSettings.openSettingsModal();
 
             expect(document.getElementById(ID.RECORDING_ENVIRONMENT).value).toBe(RECORDING_ENVIRONMENTS.NOISY);
-
-            freshSettings.destroy();
-        });
-
-        test('should load the saved MAI-Transcribe 1.5 style into the form on modal open', () => {
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-                if (key === STORAGE_KEYS.MAI_TRANSCRIBE_STYLE) return 'verbatim';
-                return null;
-            });
-
-            const freshSettings = new Settings();
-            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
-            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
-
-            freshSettings.openSettingsModal();
-
-            expect(freshSettings.maiTranscribeStyleSelect.value).toBe('verbatim');
 
             freshSettings.destroy();
         });
@@ -294,7 +276,6 @@ describe('Settings Persistence & Save Workflow', () => {
                 model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
                 apiKey: maiApiKey,
                 uri: maiApiUri,
-                transcribeStyle: DEFAULT_MAI_TRANSCRIBE_STYLE,
             });
 
             freshSettings.destroy();
@@ -376,20 +357,6 @@ describe('Settings Persistence & Save Workflow', () => {
                     hasApiKey: true
                 })
             );
-        });
-
-        test('should persist the MAI-Transcribe 1.5 verbatim style on save', () => {
-            const maiApiKey = 'speech-resource-key-for-mai-15';
-            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = maiApiUri;
-            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = maiApiKey;
-            document.getElementById(ID.MAI_TRANSCRIBE_STYLE).value = 'verbatim';
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
-
-            settings.saveSettings();
-
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, 'verbatim');
         });
     });
 

@@ -127,8 +127,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         mockElements[ID.STATUS] = createMockElement();
         mockElements[ID.WHISPER_SETTINGS] = createMockElement();
         mockElements[ID.MAI_TRANSCRIBE_SETTINGS] = createMockElement();
-        mockElements[ID.MAI_TRANSCRIBE_15_SETTINGS] = createMockElement();
-        mockElements[ID.MAI_TRANSCRIBE_STYLE] = createMockElement();
 
         // Mock URL constructor with realistic behavior
         global.URL.mockImplementation((url) => {
@@ -742,22 +740,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 expect(isValid).toBe(true);
             });
 
-        });
-    });
-
-    describe('updateSettingsVisibility Method', () => {
-        it('reveals the MAI-Transcribe 1.5 style container only for the 1.5 model', () => {
-            mockModelSelect.value = 'whisper';
-            settings.updateSettingsVisibility();
-            expect(settings.maiTranscribe15Settings.style.display).toBe('none');
-
-            mockModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE;
-            settings.updateSettingsVisibility();
-            expect(settings.maiTranscribe15Settings.style.display).toBe('none');
-
-            mockModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            settings.updateSettingsVisibility();
-            expect(settings.maiTranscribe15Settings.style.display).toBe('block');
         });
     });
 

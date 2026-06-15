@@ -2,7 +2,7 @@
  * @fileoverview Settings management for API configuration and user preferences.
  */
 
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS, API_KEY_VALUE_PATTERN, DEFAULT_MAI_TRANSCRIBE_STYLE } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS, API_KEY_VALUE_PATTERN } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
@@ -50,8 +50,6 @@ export class Settings {
     this.maiTranscribeSettings = document.getElementById(ID.MAI_TRANSCRIBE_SETTINGS);
     this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
     this.maiTranscribeKeyInput = document.getElementById(ID.MAI_TRANSCRIBE_KEY);
-    this.maiTranscribe15Settings = document.getElementById(ID.MAI_TRANSCRIBE_15_SETTINGS);
-    this.maiTranscribeStyleSelect = document.getElementById(ID.MAI_TRANSCRIBE_STYLE);
     this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
 
         // Side panel elements
@@ -421,10 +419,6 @@ export class Settings {
         if (this.maiTranscribeSettings) {
             this.maiTranscribeSettings.style.display = isMai ? 'block' : 'none';
         }
-        if (this.maiTranscribe15Settings) {
-            this.maiTranscribe15Settings.style.display =
-                currentModel === MODEL_TYPES.MAI_TRANSCRIBE_1_5 ? 'block' : 'none';
-        }
     }
     
     /**
@@ -490,11 +484,6 @@ export class Settings {
         const savedEnv = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT) || RECORDING_ENVIRONMENTS.QUIET;
         if (this.recordingEnvironmentSelect) {
             this.recordingEnvironmentSelect.value = savedEnv;
-        }
-
-        const savedStyle = localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE) || DEFAULT_MAI_TRANSCRIBE_STYLE;
-        if (this.maiTranscribeStyleSelect) {
-            this.maiTranscribeStyleSelect.value = savedStyle;
         }
     }
 
@@ -626,10 +615,6 @@ export class Settings {
             localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, this.recordingEnvironmentSelect.value);
         }
 
-        if (this.maiTranscribeStyleSelect) {
-            localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, this.maiTranscribeStyleSelect.value);
-        }
-
         this.closeSettingsModal();
 
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
@@ -697,15 +682,11 @@ export class Settings {
     getModelConfig() {
         const model = this.getCurrentModel();
         const isMai = this._isMaiModel(model);
-        const config = {
+        return {
             model,
             apiKey: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY : STORAGE_KEYS.WHISPER_API_KEY),
             uri: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_URI : STORAGE_KEYS.WHISPER_URI)
         };
-        if (model === MODEL_TYPES.MAI_TRANSCRIBE_1_5) {
-            config.transcribeStyle = localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE) || DEFAULT_MAI_TRANSCRIBE_STYLE;
-        }
-        return config;
     }
 
     _isMaiModel(model) {
