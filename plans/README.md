@@ -27,8 +27,14 @@ update your row when done.
 | 005 | Fix the undefined mic error message and FSM status-string drift | P2 | S | — | DONE (merged as `451cfd6` via PR #67, 2026-06-12) |
 | 006 | Enforce HTTPS on the endpoint URI at the fetch gate | P1 | S | — | DONE (merged as `2190ce9` via PR #68, 2026-06-12; took 2 revision rounds — three test files stubbed `global.URL` without `protocol`, plan revised accordingly) |
 | 007 | Bound the total time a transcription can spend retrying | P2 | M | 006 (same test file) | DONE (merged as `f297ea9` via PR #69, 2026-06-12; deliberate contract change — sustained-timeout attempts now capped at 2 by the 180s deadline) |
+| 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | DONE (executed + reviewed 2026-06-16 on `feat/008-mai-transcribe-style` `f39a642`; 392 tests green, +8; default request byte-identical; awaiting user merge) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+> Plan 008 was added 2026-06-16 via the improve `plan <description>` flow (not
+> an audit finding) — a user request to expose Microsoft's MAI-1.5
+> `transcribeStyle` (verbatim vs readability-optimized). Integration points were
+> mapped by a parallel workflow and every excerpt re-verified by hand.
 
 ## Dependency notes
 
@@ -46,6 +52,30 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   before starting 007, or rebase).
 - 002 (CI, awaiting merge) composes with 003: CI checkouts never contain
   `.claude/worktrees/`, so CI was never affected; 003 fixes the local gate.
+
+## Test-suite necessity census (2026-06-16, commit `aa3b28c`)
+
+A per-file census (one agent per test file read + classified every test;
+redundancy claims adversarially re-verified) found the 384-test suite is
+**~77% load-bearing** (276 behavior-contract + 21 regression-guard), with
+~23% slack: 43 near-duplicate, 34 implementation-detail, 10 trivial. Verifiers
+ruled **78 of 85** suspected cross-file overlaps *complementary*, not redundant
+— the high count reflects honest unit+integration layering, not accumulation.
+Two un-written plan proposals stand available on request (would take later
+numbers):
+
+- **Test consolidation** (S): ~30 removable tests with zero safety loss —
+  drop `status-reset.vitest.js` (verbatim dup of `status-ownership`), the
+  duplicated `validateConfig` tests in `api-client-validation` (overtaken by
+  `api-client-errors`), the 5-way whitespace-regex block in `settings-unit`,
+  the "Backward compatibility" pair in `settings-workflow`.
+- **Targeted gap-fill** (M): the highest-value *missing* tests — a retry that
+  *succeeds* (503→200 emits `API_REQUEST_SUCCESS`, currently every retryable
+  test exhausts all attempts), the worker-vs-sync byte-identical WAV promise,
+  `transcript-store` quota-exceeded swallowing, the exactly-10s discard boundary.
+
+Net recommendation: trade the ~30 duplicates for ~12–15 gap-fills — same size,
+strictly stronger. Not started; nothing here is broken.
 
 ## Backlog — audited and vetted, not yet planned (deep audit, `50164c9`)
 
