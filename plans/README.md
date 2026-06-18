@@ -29,6 +29,7 @@ update your row when done.
 | 007 | Bound the total time a transcription can spend retrying | P2 | M | 006 (same test file) | DONE (merged as `f297ea9` via PR #69, 2026-06-12; deliberate contract change — sustained-timeout attempts now capped at 2 by the 180s deadline) |
 | 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | REVERTED by 009 (merged as PR #70 `c37a9b4`, then reverted 2026-06-16 — user decided they only ever want readability-optimized; since readability is the field-absent default, the toggle was unnecessary). Plan kept as record; re-runnable if verbatim is ever wanted. |
 | 009 | Revert the MAI-Transcribe 1.5 style toggle — always readability-optimized | P1 | S | reverts 008 | DONE (executed + reviewed 2026-06-16 on `revert/009-mai-style-toggle` `b7d58f8`; back to 384 tests; MAI 1.5 now always sends no transcribeStyle = readability; awaiting user merge) |
+| 010 | Remove MAI-Transcribe 1 entirely; default to MAI-Transcribe 1.5 with a validate-and-reset migration | P1 | M | sequence after 009 | DONE (executed via improve `execute` + reviewed 2026-06-18; landed on branch `chore/010-remove-mai1-default-15` as `0e70b96`, PR open — awaiting merge; 384 tests green / 32 files, coverage 92.67/87.66/90.40/92.67, lint+knip+size clean; one plan correction during exec — `settings-workflow.vitest.js` was wrongly scoped "no edit", brought in scope with a one-line fix, see Step 8h) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -36,6 +37,13 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > an audit finding) — a user request to expose Microsoft's MAI-1.5
 > `transcribeStyle` (verbatim vs readability-optimized). Integration points were
 > mapped by a parallel workflow and every excerpt re-verified by hand.
+
+> Plan 010 was added 2026-06-18 via a user request (not an audit finding) — the
+> user decided to drop the MAI-Transcribe 1 model and make MAI-Transcribe 1.5
+> the out-of-box default. All line anchors and integration points (the three
+> `|| MODEL_TYPES.WHISPER` defaults, the `<option>`-set source of truth for the
+> reset migration, and the registry parse-precedence invariant) were verified by
+> hand against commit `a231de2`.
 
 ## Dependency notes
 
