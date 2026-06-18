@@ -1,5 +1,5 @@
 /**
- * @fileoverview Tests for MAI-Transcribe-1 model integration.
+ * @fileoverview Tests for MAI-Transcribe model integration.
  * Covers API client request format, response parsing, and settings management.
  */
 
@@ -32,7 +32,7 @@ global.FormData = vi.fn(() => ({
 
 function mockMaiTranscribeConfig(overrides = {}) {
     mockSettings.getModelConfig.mockReturnValue({
-        model: MODEL_TYPES.MAI_TRANSCRIBE,
+        model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
         apiKey: 'test-mai-key',
         uri: 'https://mai-test.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe',
         ...overrides
@@ -97,7 +97,7 @@ beforeAll(async () => {
     ({ AzureAPIClient } = await import('../js/api-client.js'));
 });
 
-describe('MAI-Transcribe-1 Integration', () => {
+describe('MAI-Transcribe Integration', () => {
     let apiClient;
 
     beforeEach(() => {
@@ -161,26 +161,8 @@ describe('MAI-Transcribe-1 Integration', () => {
 
             const definition = JSON.parse(definitionEntry.value);
             expect(definition.enhancedMode.enabled).toBe(true);
-            expect(definition.enhancedMode.model).toBe(MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL);
+            expect(definition.enhancedMode.model).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL);
             expect(definition.enhancedMode.task).toBe('transcribe');
-        });
-
-        it('should send MAI-Transcribe 1.5 API model when 1.5 is selected', async () => {
-            mockMaiTranscribeConfig({ model: MODEL_TYPES.MAI_TRANSCRIBE_1_5 });
-            mockMaiJsonResponse();
-
-            await apiClient.transcribe(new Blob(['audio']), vi.fn());
-
-            const definitionEntry = formDataEntries.find(e => e.key === API_PARAMS.MAI_DEFINITION_FIELD);
-            const definition = JSON.parse(definitionEntry.value);
-
-            expect(definition).toEqual({
-                enhancedMode: {
-                    enabled: true,
-                    model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
-                    task: 'transcribe'
-                }
-            });
         });
 
         it('should send WAV-converted audio for MAI-Transcribe', async () => {
@@ -328,7 +310,7 @@ describe('MAI-Transcribe-1 Integration', () => {
             mockMaiTranscribeConfig();
 
             const config = apiClient.validateConfig();
-            expect(config.model).toBe(MODEL_TYPES.MAI_TRANSCRIBE);
+            expect(config.model).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
         });
 
         it('should reject missing MAI-Transcribe API key', () => {

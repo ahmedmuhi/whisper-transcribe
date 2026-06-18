@@ -99,11 +99,19 @@ export const API_KEY_VALUE_PATTERN = /^[\x21-\x7E]+$/;
 export const MODEL_TYPES = {
   WHISPER_TRANSLATE: 'whisper-translate',
   WHISPER:           'whisper',
-  MAI_TRANSCRIBE:    'mai-transcribe',
   MAI_TRANSCRIBE_1_5: 'mai-transcribe-1.5',
-  MAI_TRANSCRIBE_API_MODEL: 'mai-transcribe-1',
   MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5'
 };
+
+/**
+ * The model selected out of the box when the user has no saved preference.
+ * Single source of truth for the default — referenced by the Settings
+ * empty-state fallbacks and the validate-and-reset migration. Change here to
+ * change the default model.
+ *
+ * @constant {string} DEFAULT_MODEL_TYPE
+ */
+export const DEFAULT_MODEL_TYPE = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
 
 /**
  * HTTP method constants for API requests.

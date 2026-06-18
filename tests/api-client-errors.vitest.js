@@ -139,7 +139,7 @@ describe('AzureAPIClient Error Handling', () => {
         it('should reject API keys unsafe for fetch headers before making a request', async () => {
             const unsupportedCharacter = '\u2014';
             mockSettings.getModelConfig.mockReturnValue({
-                model: 'mai-transcribe',
+                model: 'mai-transcribe-1.5',
                 apiKey: `speech${unsupportedCharacter}key`,
                 uri: 'https://test-api.azure.com'
             });
@@ -151,7 +151,7 @@ describe('AzureAPIClient Error Handling', () => {
                 APP_EVENTS.API_CONFIG_MISSING,
                 expect.objectContaining({
                     missing: 'validApiKey',
-                    model: 'mai-transcribe'
+                    model: 'mai-transcribe-1.5'
                 })
             );
         });
