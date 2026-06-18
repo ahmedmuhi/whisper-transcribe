@@ -28,10 +28,20 @@ update your row when done.
 | 006 | Enforce HTTPS on the endpoint URI at the fetch gate | P1 | S | — | DONE (merged as `2190ce9` via PR #68, 2026-06-12; took 2 revision rounds — three test files stubbed `global.URL` without `protocol`, plan revised accordingly) |
 | 007 | Bound the total time a transcription can spend retrying | P2 | M | 006 (same test file) | DONE (merged as `f297ea9` via PR #69, 2026-06-12; deliberate contract change — sustained-timeout attempts now capped at 2 by the 180s deadline) |
 | 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | REVERTED by 009 (merged as PR #70 `c37a9b4`, then reverted 2026-06-16 — user decided they only ever want readability-optimized; since readability is the field-absent default, the toggle was unnecessary). Plan kept as record; re-runnable if verbatim is ever wanted. |
-| 009 | Revert the MAI-Transcribe 1.5 style toggle — always readability-optimized | P1 | S | reverts 008 | DONE (executed + reviewed 2026-06-16 on `revert/009-mai-style-toggle` `b7d58f8`; back to 384 tests; MAI 1.5 now always sends no transcribeStyle = readability; awaiting user merge) |
-| 010 | Remove MAI-Transcribe 1 entirely; default to MAI-Transcribe 1.5 with a validate-and-reset migration | P1 | M | sequence after 009 | DONE (executed via improve `execute` + reviewed 2026-06-18; landed on branch `chore/010-remove-mai1-default-15` as `0e70b96`, PR open — awaiting merge; 384 tests green / 32 files, coverage 92.67/87.66/90.40/92.67, lint+knip+size clean; one plan correction during exec — `settings-workflow.vitest.js` was wrongly scoped "no edit", brought in scope with a one-line fix, see Step 8h) |
+| 009 | Revert the MAI-Transcribe 1.5 style toggle — always readability-optimized | P1 | S | reverts 008 | DONE (merged via PR #71 as `a231de2`, 2026-06-16; revert commit `b7d58f8`; MAI 1.5 sends no `transcribeStyle` = readability — verified still holds @ `f53667c` on reconcile 2026-06-18) |
+| 010 | Remove MAI-Transcribe 1 entirely; default to MAI-Transcribe 1.5 with a validate-and-reset migration | P1 | M | sequence after 009 | DONE (merged via PR #72 as `f53667c`, 2026-06-18; code `0e70b96` + `/simplify` `fa18b1c`; 384 tests / 32 files, coverage 92.67/87.66/90.40/92.67; one plan correction during exec — `settings-workflow.vitest.js` brought in scope, Step 8h; verified MAI-1 gone + `DEFAULT_MODEL_TYPE` present @ `f53667c` on reconcile) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+> **Reconciled 2026-06-18 @ `f53667c`.** Plans 009 and 010 confirmed merged (PR
+> #71 / #72) — their stale "awaiting merge" statuses were updated. Done-criteria
+> spot-checked still in place on HEAD: 001 (documentElement dark-theme),
+> 002 (`.github/workflows/ci.yml`), 003 (vitest `tests/**/*.vitest.js` glob +
+> `knip.json`), 006 (`protocol !== 'https:'` gate), 007 (180 000 ms retry
+> deadline), 009 (no `transcribeStyle`), 010 (`DEFAULT_MODEL_TYPE` + MAI-1 gone).
+> 004 (audit fix) and 005 (mic message / FSM drift) trusted on their merge
+> records, not re-grepped. No TODO/BLOCKED/IN-PROGRESS plans outstanding; nothing
+> executable is pending. 008 remains a REVERTED record.
 
 > Plan 008 was added 2026-06-16 via the improve `plan <description>` flow (not
 > an audit finding) — a user request to expose Microsoft's MAI-1.5
