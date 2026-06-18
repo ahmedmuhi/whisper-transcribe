@@ -2,7 +2,7 @@
  * @fileoverview Settings management for API configuration and user preferences.
  */
 
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS, API_KEY_VALUE_PATTERN } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, DEFAULT_MODEL_TYPE, RECORDING_ENVIRONMENTS, API_KEY_VALUE_PATTERN } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
@@ -98,7 +98,7 @@ export class Settings {
      * @method loadSavedModel
      */
     loadSavedModel() {
-        const defaultModel = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        const defaultModel = DEFAULT_MODEL_TYPE;
         let savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || defaultModel;
 
         // Validate against the selectable dropdown options (the real UI set),
@@ -151,7 +151,7 @@ export class Settings {
         // Main interface model change listener
         this.modelSelect.addEventListener('change', (e) => {
             const newModel = e.target.value;
-            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
             
             // Do NOT persist to localStorage for main UI selector changes
             const settingsLogger = logger.child('Settings');
@@ -633,7 +633,7 @@ export class Settings {
         const targetUri = uriInput ? uriInput.value.trim() : '';
         const apiKey = keyInput ? keyInput.value.trim() : '';
 
-        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
         if (isMai) {
             localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, targetUri);

@@ -104,6 +104,16 @@ export const MODEL_TYPES = {
 };
 
 /**
+ * The model selected out of the box when the user has no saved preference.
+ * Single source of truth for the default — referenced by the Settings
+ * empty-state fallbacks and the validate-and-reset migration. Change here to
+ * change the default model.
+ *
+ * @constant {string} DEFAULT_MODEL_TYPE
+ */
+export const DEFAULT_MODEL_TYPE = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+
+/**
  * HTTP method constants for API requests.
  * 
  * @constant {Object} HTTP_METHODS
