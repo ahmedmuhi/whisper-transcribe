@@ -259,6 +259,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             const whisperApiUri = 'https://myresource.openai.azure.com/';
 
             mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
+            mockElements.get(ID.MODEL_SELECT).value = 'whisper'; // mirror the modal→main change-sync the direct .value set bypasses (default is now mai-transcribe-1.5)
             mockElements.get(ID.WHISPER_KEY).value = whisperApiKey;
             mockElements.get(ID.WHISPER_URI).value = whisperApiUri;
 

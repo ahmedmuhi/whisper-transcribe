@@ -98,11 +98,43 @@ export class Settings {
      * @method loadSavedModel
      */
     loadSavedModel() {
-        const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
+        const defaultModel = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        let savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || defaultModel;
+
+        // Validate against the selectable dropdown options (the real UI set),
+        // not the adapter registry — the registry includes the hidden
+        // 'whisper-translate' adapter that is not a dropdown option, so
+        // validating against it could leave a stored 'whisper-translate'
+        // pointing at no visible selection. If the saved model is no longer
+        // selectable (e.g. the removed 'mai-transcribe'), reset to the default
+        // and persist the correction.
+        const selectable = this._getSelectableModels();
+        if (selectable.length > 0 && !selectable.includes(savedModel)) {
+            savedModel = defaultModel;
+            localStorage.setItem(STORAGE_KEYS.MODEL, savedModel);
+        }
+
         this.modelSelect.value = savedModel;
         if (this.settingsModelSelect) {
             this.settingsModelSelect.value = savedModel;
         }
+    }
+
+    /**
+     * The set of model ids the user can actually pick from the main dropdown.
+     * Read from the live <option> values so the selectable set is the single
+     * source of truth (not the adapter registry, which carries hidden models).
+     * Returns [] when no options are present (e.g. a mocked test DOM) so callers
+     * can fail open and skip validation rather than wrongly resetting.
+     *
+     * @private
+     * @returns {string[]} Selectable model ids
+     */
+    _getSelectableModels() {
+        const options = this.modelSelect?.options
+            ? Array.from(this.modelSelect.options)
+            : [];
+        return options.map(o => o.value).filter(Boolean);
     }
     
     /**
@@ -119,7 +151,7 @@ export class Settings {
         // Main interface model change listener
         this.modelSelect.addEventListener('change', (e) => {
             const newModel = e.target.value;
-            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
+            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.MAI_TRANSCRIBE_1_5;
             
             // Do NOT persist to localStorage for main UI selector changes
             const settingsLogger = logger.child('Settings');
@@ -601,7 +633,7 @@ export class Settings {
         const targetUri = uriInput ? uriInput.value.trim() : '';
         const apiKey = keyInput ? keyInput.value.trim() : '';
 
-        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.WHISPER;
+        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || MODEL_TYPES.MAI_TRANSCRIBE_1_5;
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
         if (isMai) {
             localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, targetUri);
@@ -690,7 +722,7 @@ export class Settings {
     }
 
     _isMaiModel(model) {
-        return model === MODEL_TYPES.MAI_TRANSCRIBE || model === MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        return model === MODEL_TYPES.MAI_TRANSCRIBE_1_5;
     }
     
     checkInitialSettings() {

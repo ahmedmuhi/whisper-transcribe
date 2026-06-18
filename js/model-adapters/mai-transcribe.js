@@ -40,12 +40,6 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
     };
 }
 
-export const maiTranscribeModelAdapter = createMaiTranscribeModelAdapter(
-    MODEL_TYPES.MAI_TRANSCRIBE,
-    'Azure MAI-Transcribe 1',
-    MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL
-);
-
 export const maiTranscribe15ModelAdapter = createMaiTranscribeModelAdapter(
     MODEL_TYPES.MAI_TRANSCRIBE_1_5,
     'Azure MAI-Transcribe 1.5',

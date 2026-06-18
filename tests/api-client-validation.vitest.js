@@ -115,7 +115,7 @@ describe('AzureAPIClient Configuration Validation', () => {
         it('should throw a clear error for API keys unsafe for fetch headers', () => {
             const unsupportedCharacter = '\u2014';
             mockSettings.getModelConfig.mockReturnValue({
-                model: 'mai-transcribe',
+                model: 'mai-transcribe-1.5',
                 apiKey: `speech${unsupportedCharacter}key`,
                 uri: 'https://test-api.azure.com'
             });
@@ -126,7 +126,7 @@ describe('AzureAPIClient Configuration Validation', () => {
                 APP_EVENTS.API_CONFIG_MISSING,
                 expect.objectContaining({
                     missing: 'validApiKey',
-                    model: 'mai-transcribe'
+                    model: 'mai-transcribe-1.5'
                 })
             );
         });
@@ -176,7 +176,7 @@ describe('AzureAPIClient Configuration Validation', () => {
         it('should include model name in error messages', () => {
             // Setup invalid config
             mockSettings.getModelConfig.mockReturnValue({
-                model: 'mai-transcribe',
+                model: 'mai-transcribe-1.5',
                 apiKey: '',
                 uri: ''
             });
@@ -193,7 +193,7 @@ describe('AzureAPIClient Configuration Validation', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_CONFIG_MISSING,
                 expect.objectContaining({
-                    model: 'mai-transcribe'
+                    model: 'mai-transcribe-1.5'
                 })
             );
         });
@@ -220,7 +220,7 @@ describe('AzureAPIClient Configuration Validation', () => {
         it('should properly validate MAI-Transcribe model configuration', () => {
             // Setup MAI-Transcribe config
             mockSettings.getModelConfig.mockReturnValue({
-                model: 'mai-transcribe',
+                model: 'mai-transcribe-1.5',
                 apiKey: 'mai-transcribe-api-key',
                 uri: 'https://mai-transcribe.azure.com'
             });
@@ -229,7 +229,7 @@ describe('AzureAPIClient Configuration Validation', () => {
             const config = apiClient.validateConfig();
 
             // Should return valid config with correct model
-            expect(config.model).toBe('mai-transcribe');
+            expect(config.model).toBe('mai-transcribe-1.5');
         });
     });
     

@@ -187,13 +187,13 @@ describe('Settings Persistence & Save Workflow', () => {
             expect(changeCall).toBeDefined();
             const changeListener = changeCall[1];
 
-            const event = { target: { value: 'mai-transcribe' } };
+            const event = { target: { value: 'mai-transcribe-1.5' } };
 
             changeListener(event);
 
-            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'mai-transcribe');
+            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'mai-transcribe-1.5');
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_MODEL_SWITCHED, {
-                model: 'mai-transcribe',
+                model: 'mai-transcribe-1.5',
                 savedModel: 'whisper'
             });
             expect(eventBusEmitSpy).not.toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, expect.any(Object));
@@ -445,7 +445,7 @@ describe('Settings Persistence & Save Workflow', () => {
 
         test('should not save MAI API key with unsupported header characters', () => {
             const unsupportedCharacter = '\u2014';
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE;
+            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
             document.getElementById(ID.MAI_TRANSCRIBE_URI).value = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
             document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = `speech${unsupportedCharacter}key`;
             document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';

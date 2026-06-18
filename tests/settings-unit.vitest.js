@@ -5,7 +5,7 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { ID, MESSAGES, MODEL_TYPES } from '../js/constants.js';
+import { ID, MESSAGES, MODEL_TYPES, STORAGE_KEYS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { generateMockApiKey, generateMockApiKeyForValidation, generateInvalidMockApiKey } from './helpers/mock-api-keys.js';
 import { createMockElement, createLocalStorageMock } from './helpers/mock-settings-dom.js';
@@ -71,6 +71,87 @@ describe('Settings DOM Caching', () => {
     settings.saveSettings();
 
     expect(spyGetById).not.toHaveBeenCalled();
+
+    settings.destroy();
+  });
+});
+
+// ─── Default model + reset-migration Tests (real <select> with options) ──────
+
+describe('Settings default model and reset migration', () => {
+  let Settings;
+  let getItemSpy;
+  let setItemSpy;
+
+  beforeAll(async () => {
+    ({ Settings } = await import('../js/settings.js'));
+  });
+
+  beforeEach(() => {
+    // The shared setup (tests/vitest-setup.js) installs applyDomSpies(), which
+    // overrides document.getElementById with stub elements that have no real
+    // <option> collection. Restore the native happy-dom getElementById (it lives
+    // on the prototype; the spy is an own-property) so the Settings constructor
+    // reads the real <select> built below and _getSelectableModels() sees its
+    // options. Re-applied in afterEach so later suites keep the shared mock.
+    delete document.getElementById;
+
+    document.body.innerHTML = '';
+
+    // Real <select id="model-select"> with the two selectable options so
+    // _getSelectableModels() reads a real option set (not an empty mock).
+    const modelSelect = document.createElement('select');
+    modelSelect.id = ID.MODEL_SELECT;
+    [['whisper', 'Whisper (Stable)'], [MODEL_TYPES.MAI_TRANSCRIBE_1_5, 'MAI-Transcribe 1.5 (Preview)']]
+      .forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        modelSelect.appendChild(option);
+      });
+    document.body.appendChild(modelSelect);
+
+    // Other elements the Settings constructor caches during init().
+    const inputIds = [ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY];
+    [
+      ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS, ID.SETTINGS_BUTTON,
+      ID.STATUS, ID.WHISPER_SETTINGS, ID.MAI_TRANSCRIBE_SETTINGS,
+      ...inputIds
+    ].forEach((id) => {
+      const el = document.createElement(inputIds.includes(id) ? 'input' : 'div');
+      el.id = id;
+      document.body.appendChild(el);
+    });
+
+    getItemSpy = vi.spyOn(global.localStorage, 'getItem').mockReturnValue(null);
+    setItemSpy = vi.spyOn(global.localStorage, 'setItem').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    getItemSpy.mockRestore();
+    setItemSpy.mockRestore();
+    document.body.innerHTML = '';
+    // Restore the shared DOM stub for subsequent suites.
+    applyDomSpies();
+  });
+
+  test('defaults to MAI-Transcribe 1.5 when no model is saved', () => {
+    getItemSpy.mockReturnValue(null);
+
+    const settings = new Settings();
+
+    expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+
+    settings.destroy();
+  });
+
+  test('resets a removed saved model (mai-transcribe) to the 1.5 default and persists it', () => {
+    getItemSpy.mockImplementation((key) => (key === STORAGE_KEYS.MODEL ? 'mai-transcribe' : null));
+
+    const settings = new Settings();
+
+    expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+    expect(setItemSpy).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
 
     settings.destroy();
   });
@@ -309,7 +390,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             it('should use MAI inputs when MAI model is selected', () => {
-                settings.settingsModelSelect.value = 'mai-transcribe';
+                settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
                 const whisperKey = createMockElement('  whisper-key  ');
                 const whisperUri = createMockElement('  https://whisper.test.com/  ');
                 const maiKey = createMockElement('  mai-key  ');
@@ -337,19 +418,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
                 expect(result.apiKeyInput).toBe(settings.whisperKeyInput);
                 expect(result.uriInput).toBe(settings.whisperUriInput);
-            });
-
-            it('should select MAI inputs for MAI model', () => {
-                settings.settingsModelSelect.value = 'mai-transcribe';
-                const maiKey = createMockElement('mai-key');
-                const maiUri = createMockElement('https://mai.test.com');
-                settings.maiTranscribeKeyInput = maiKey;
-                settings.maiTranscribeUriInput = maiUri;
-
-                const result = settings._getActiveInputs();
-
-                expect(result.apiKeyInput).toBe(maiKey);
-                expect(result.uriInput).toBe(maiUri);
             });
 
             it('should select MAI inputs for MAI 1.5 model', () => {
@@ -407,7 +475,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 const unsupportedCharacter = '\u2014';
                 const maiKeyInput = createMockElement(`speech${unsupportedCharacter}key`);
                 const maiUriInput = createMockElement('https://valid.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15');
-                settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE;
+                settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
                 settings.maiTranscribeKeyInput = maiKeyInput;
                 settings.maiTranscribeUriInput = maiUriInput;
 

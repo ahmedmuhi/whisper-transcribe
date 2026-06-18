@@ -230,7 +230,7 @@ describe('AzureAPIClient model adapter registry', () => {
     });
 
     it('keeps the existing MAI-Transcribe request and parsed text behavior', async () => {
-        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE);
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
         const apiClient = new AzureAPIClient(settings);
         const onProgress = vi.fn();
         const audioBlob = new Blob(['audio']);
@@ -254,7 +254,7 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
             enhancedMode: {
                 enabled: true,
-                model: MODEL_TYPES.MAI_TRANSCRIBE_API_MODEL,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
                 task: 'transcribe'
             }
         });

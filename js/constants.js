@@ -99,9 +99,7 @@ export const API_KEY_VALUE_PATTERN = /^[\x21-\x7E]+$/;
 export const MODEL_TYPES = {
   WHISPER_TRANSLATE: 'whisper-translate',
   WHISPER:           'whisper',
-  MAI_TRANSCRIBE:    'mai-transcribe',
   MAI_TRANSCRIBE_1_5: 'mai-transcribe-1.5',
-  MAI_TRANSCRIBE_API_MODEL: 'mai-transcribe-1',
   MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5'
 };
 
