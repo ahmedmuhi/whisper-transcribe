@@ -27,7 +27,7 @@ export default defineConfig({
     },
     webServer: {
         command: 'node tests/browser/static-server.mjs',
-        url: 'http://127.0.0.1:4173/',
+        url: 'http://[::1]:4175/',
         reuseExistingServer: false,
         timeout: 15_000
     },

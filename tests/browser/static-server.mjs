@@ -149,6 +149,11 @@ const apiServer = https.createServer(createCertificate(), (request, response) =>
     });
 });
 
+const readinessServer = http.createServer((_request, response) => {
+    response.writeHead(204, { Connection: 'close' });
+    response.end();
+});
+
 function createCertificate() {
     mkdirSync(artifactsDirectory, { recursive: true });
     if (!existsSync(keyPath) || !existsSync(certificatePath)) {
@@ -164,14 +169,19 @@ function createCertificate() {
 
 appServer.listen(4173, '127.0.0.1', () => {
     apiServer.listen(4174, '127.0.0.1', () => {
-        console.log('Browser test servers listening on 127.0.0.1:4173 and 127.0.0.1:4174');
+        readinessServer.listen(4175, '::1', () => {
+            console.log('Browser test servers listening on 127.0.0.1:4173, 127.0.0.1:4174, and [::1]:4175');
+        });
     });
 });
 
 function shutdown() {
+    readinessServer.closeAllConnections();
     apiServer.closeAllConnections();
     appServer.closeAllConnections();
-    apiServer.close(() => appServer.close(() => process.exit(0)));
+    readinessServer.close(() => {
+        apiServer.close(() => appServer.close(() => process.exit(0)));
+    });
 }
 
 process.on('SIGINT', shutdown);
