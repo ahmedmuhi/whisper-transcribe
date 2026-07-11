@@ -1,8 +1,8 @@
 ---
 title: Azure API Client Design Specification
-version: 1.2
+version: 1.3
 date_created: 2025-07-07
-last_updated: 2026-07-11
+last_updated: 2026-07-12
 owner: Speech-to-Text Transcription App Team
 tags: [design, api-client, azure, transcription, architecture, app]
 ---
@@ -45,7 +45,7 @@ The purpose of the `AzureAPIClient` is to abstract all details of communicating 
 - **REQ-004**: The client SHALL validate the presence and format of the API Key and URI before making a request.
 - **REQ-005**: The client SHALL construct a `FormData` object to send the audio blob and relevant parameters. For Whisper models, the form includes a `file` field and `language` (except for whisper-translate). For MAI-Transcribe, the form includes an `audio` field (WAV-converted blob) and a JSON `definition` field.
 - **REQ-006**: The client SHALL set the appropriate authentication header: `api-key` for Whisper models, or `Ocp-Apim-Subscription-Key` for MAI-Transcribe.
-- **REQ-007**: The client SHALL parse the API response using structural detection, handling plain text, JSON with `text` field, and JSON with `combinedPhrases` array.
+- **REQ-007**: The client SHALL parse the API response using structural detection, handling plain text, JSON with a string `text` field, and JSON with a `combinedPhrases` array. A present string `text` field is valid even when empty; an absent or non-string `text` field remains an unknown response unless another supported structure applies.
 - **REQ-008**: The client SHALL emit events for the start, success, and failure of an API request.
 - **REQ-008a**: The client SHALL convert audio to WAV format before sending to the MAI-Transcribe model, using the `audio-converter` module.
 
@@ -157,10 +157,11 @@ class AzureAPIClient {
 - **AC-007**: **Given** the API responds with plain text, **When** `parseResponse(data)` is called, **Then** it returns the trimmed text.
 - **AC-008**: **Given** a whisper-translate model request, **When** `transcribe` is called, **Then** the language parameter is NOT included in the FormData.
 - **AC-009**: **Given** a MAI-Transcribe model request, **When** `transcribe` is called, **Then** the audio blob is converted to WAV format, submitted under the `audio` field with filename `recording.wav`, and a JSON `definition` field is included with `enhancedMode` configuration.
+- **AC-010**: **Given** the API responds with JSON `{ "text": "" }`, **When** `parseResponse(data)` is called, **Then** it returns `''` without an API error.
 
 ## 6. Test Automation Strategy
 
-- **Unit Tests**: Focus on `validateConfig`, `parseResponse`, `_handleApiError`, and `_extractErrorDetail` methods with various inputs. Test `parseResponse` with plain text, JSON with `text` field, JSON with `combinedPhrases`, and unrecognized formats. Mock the `Settings` module and `fetch` API.
+- **Unit Tests**: Focus on `validateConfig`, `parseResponse`, `_handleApiError`, and `_extractErrorDetail` methods with various inputs. Test `parseResponse` with plain text, JSON with a non-empty or empty string `text` field, JSON with `combinedPhrases`, and unrecognized formats. Mock the `Settings` module and `fetch` API.
 - **Integration Tests**: Test the `transcribe` method by mocking `fetch` responses to simulate successful calls, network errors, and different HTTP error codes (401, 403, 500). Mock `convertToWav` from `audio-converter.js` for MAI-Transcribe test paths. Verify that correct events are emitted on the `EventBus`.
 - **Frameworks**: Use **Vitest** for testing and **`vi.fn()`** for mocking dependencies like `Settings` and the global `fetch` function.
 
