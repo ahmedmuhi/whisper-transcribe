@@ -20,6 +20,9 @@ node_modules/
 # Generated documentation and coverage files
 coverage/
 docs/
+playwright-report/
+test-results/
+tests/browser/.artifacts/
 
 # But allow coverage baseline in metrics
 !metrics/
