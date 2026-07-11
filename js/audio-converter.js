@@ -33,37 +33,41 @@ export async function convertToWav(audioBlob) {
     const audioContext = new OfflineAudioContext(NUM_CHANNELS, 1, TARGET_SAMPLE_RATE);
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     const resampledBuffer = await resampleAudio(audioBuffer, TARGET_SAMPLE_RATE);
-    const monoSamples = downmixToMono(resampledBuffer);
-    const wavBuffer = await encodeWavOffThread(monoSamples, TARGET_SAMPLE_RATE, BIT_DEPTH);
+    const wavBuffer = await encodeWavOffThread(resampledBuffer, TARGET_SAMPLE_RATE, BIT_DEPTH);
     return new Blob([wavBuffer], { type: 'audio/wav' });
 }
 
 /**
- * Encodes PCM samples to a WAV ArrayBuffer, preferring an off-thread Worker and
- * falling back to a synchronous main-thread encode. Both paths produce
- * byte-identical output (they share encodeWav from wav-encoder.js).
+ * Downmixes an AudioBuffer and encodes it to a WAV ArrayBuffer, preferring an
+ * off-thread Worker and falling back to a synchronous main-thread encode. Both
+ * paths produce byte-identical output (they share encodeWav from wav-encoder.js).
  *
- * @param {Float32Array} samples - Mono PCM samples in [-1, 1] range
+ * @param {AudioBuffer} audioBuffer - Resampled source audio buffer
  * @param {number} sampleRate - Sample rate in Hz
  * @param {number} bitDepth - Bits per sample (16)
  * @returns {Promise<ArrayBuffer>} Complete WAV file as ArrayBuffer
  */
-async function encodeWavOffThread(samples, sampleRate, bitDepth) {
+async function encodeWavOffThread(audioBuffer, sampleRate, bitDepth) {
+    const samples = downmixToMono(audioBuffer);
+    const ownsSamples = audioBuffer.numberOfChannels > 1;
     const worker = getEncodeWorker();
     if (!worker) {
         return encodeWav(samples, sampleRate, bitDepth);
     }
 
-    // Copy into a fresh buffer so transferring it never detaches an AudioBuffer
-    // view that the caller (or a retry) might still reference.
-    const transferable = new Float32Array(samples);
+    // A multi-channel downmix is already an owned allocation and can be
+    // transferred directly. Mono channel data is a borrowed AudioBuffer view,
+    // so copy it before transfer to avoid detaching the source buffer.
+    const transferable = ownsSamples ? samples : new Float32Array(samples);
 
     try {
         return await postToWorker(worker, transferable, sampleRate, bitDepth);
     } catch {
         disableEncodeWorker(worker);
-        // Worker path failed at runtime — fall back so correctness is preserved.
-        return encodeWav(samples, sampleRate, bitDepth);
+        // A transferred owned downmix may now be detached. Recreate it from the
+        // retained AudioBuffer before falling back; borrowed mono data is intact.
+        const fallbackSamples = ownsSamples ? downmixToMono(audioBuffer) : samples;
+        return encodeWav(fallbackSamples, sampleRate, bitDepth);
     }
 }
 
