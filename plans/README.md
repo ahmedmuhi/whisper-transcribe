@@ -30,8 +30,8 @@ update your row when done.
 | 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | REVERTED by 009 (merged as PR #70 `c37a9b4`, then reverted 2026-06-16 — user decided they only ever want readability-optimized; since readability is the field-absent default, the toggle was unnecessary). Plan kept as record; re-runnable if verbatim is ever wanted. |
 | 009 | Revert the MAI-Transcribe 1.5 style toggle — always readability-optimized | P1 | S | reverts 008 | DONE (merged via PR #71 as `a231de2`, 2026-06-16; revert commit `b7d58f8`; MAI 1.5 sends no `transcribeStyle` = readability — verified still holds @ `f53667c` on reconcile 2026-06-18) |
 | 010 | Remove MAI-Transcribe 1 entirely; default to MAI-Transcribe 1.5 with a validate-and-reset migration | P1 | M | sequence after 009 | DONE (merged via PR #72 as `f53667c`, 2026-06-18; code `0e70b96` + `/simplify` `fa18b1c`; 384 tests / 32 files, coverage 92.67/87.66/90.40/92.67; one plan correction during exec — `settings-workflow.vitest.js` brought in scope, Step 8h; verified MAI-1 gone + `DEFAULT_MODEL_TYPE` present @ `f53667c` on reconcile) |
-| 011 | Accept structurally valid empty JSON transcriptions | P2 | S | — | DONE in isolated worktree (reviewed and pushed 2026-07-12; branch `fix/011-empty-json-transcriptions`, commit `632e09b`; 392 tests / 33 files; coverage 92.68/87.66/90.40/92.68; lint, production dependency check, size, scope, and diff review passed; awaiting operator merge) |
-| 012 | Avoid the redundant post-downmix WAV transfer copy | P2 | M | — | DONE in isolated worktree (reviewed and pushed 2026-07-12; branch `perf/012-wav-memory-peak`, commit `6d84bc5`; 385 tests / 32 files; coverage 92.99/87.64/90.90/92.99 on independent review; lint, production dependency check, size, scope, allocation assertion, transfer-detachment fallback, and full diff review passed; awaiting operator merge) |
+| 011 | Accept structurally valid empty JSON transcriptions | P2 | S | — | DONE (merged via PR #74 as `17e4932`, 2026-07-12; code `632e09b`; 392 tests / 33 files; coverage 92.68/87.66/90.40/92.68; lint, production dependency check, size, scope, and diff review passed) |
+| 012 | Avoid the redundant post-downmix WAV transfer copy | P2 | M | — | DONE (merged via PR #75 as `21dba97`, 2026-07-12; code `6d84bc5`; 385 tests / 32 files; coverage 92.99/87.64/90.90/92.99 on independent review; lint, production dependency check, size, scope, allocation assertion, transfer-detachment fallback, and full diff review passed) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -66,6 +66,10 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > improve `plan` flow. It preserves the 2.0 worker-failure fallback while
 > removing one full-length allocation only when a multi-channel downmix owns
 > its buffer; mono `AudioBuffer` views retain the defensive transfer copy.
+
+> **Reconciled 2026-07-12 @ `21dba97`.** Documentation PR #73, Plan 011 PR
+> #74, and Plan 012 PR #75 are merged into `main`. Plans 011 and 012 retain
+> their reviewed implementation commits and verification results above.
 
 ## Dependency notes
 
