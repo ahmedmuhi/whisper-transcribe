@@ -223,7 +223,6 @@ export const eventBus = new EventBus();
  * @property {string} SETTINGS_VALIDATION_ERROR - Emitted when settings validation fails
  * 
  * @property {string} APP_INITIALIZED - Emitted when application initialization completes
- * @property {string} APP_ERROR - Emitted when application encounters critical error
  * @property {string} APP_PREREQUISITES_CHECKED - Emitted when initial checks complete
  * @property {string} APP_READY - Emitted when application is ready for user interaction
  * 
