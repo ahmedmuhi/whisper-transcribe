@@ -30,6 +30,8 @@ update your row when done.
 | 008 | Add a MAI-Transcribe 1.5 transcription-style setting (Readability vs Verbatim) | P2 | M | — | REVERTED by 009 (merged as PR #70 `c37a9b4`, then reverted 2026-06-16 — user decided they only ever want readability-optimized; since readability is the field-absent default, the toggle was unnecessary). Plan kept as record; re-runnable if verbatim is ever wanted. |
 | 009 | Revert the MAI-Transcribe 1.5 style toggle — always readability-optimized | P1 | S | reverts 008 | DONE (merged via PR #71 as `a231de2`, 2026-06-16; revert commit `b7d58f8`; MAI 1.5 sends no `transcribeStyle` = readability — verified still holds @ `f53667c` on reconcile 2026-06-18) |
 | 010 | Remove MAI-Transcribe 1 entirely; default to MAI-Transcribe 1.5 with a validate-and-reset migration | P1 | M | sequence after 009 | DONE (merged via PR #72 as `f53667c`, 2026-06-18; code `0e70b96` + `/simplify` `fa18b1c`; 384 tests / 32 files, coverage 92.67/87.66/90.40/92.67; one plan correction during exec — `settings-workflow.vitest.js` brought in scope, Step 8h; verified MAI-1 gone + `DEFAULT_MODEL_TYPE` present @ `f53667c` on reconcile) |
+| 011 | Accept structurally valid empty JSON transcriptions | P2 | S | — | DONE in isolated worktree (reviewed and pushed 2026-07-12; branch `fix/011-empty-json-transcriptions`, commit `632e09b`; 392 tests / 33 files; coverage 92.68/87.66/90.40/92.68; lint, production dependency check, size, scope, and diff review passed; awaiting operator merge) |
+| 012 | Avoid the redundant post-downmix WAV transfer copy | P2 | M | — | DONE in isolated worktree (reviewed and pushed 2026-07-12; branch `perf/012-wav-memory-peak`, commit `6d84bc5`; 385 tests / 32 files; coverage 92.99/87.64/90.90/92.99 on independent review; lint, production dependency check, size, scope, allocation assertion, transfer-detachment fallback, and full diff review passed; awaiting operator merge) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -54,6 +56,16 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > `|| MODEL_TYPES.WHISPER` defaults, the `<option>`-set source of truth for the
 > reset migration, and the registry parse-precedence invariant) were verified by
 > hand against commit `a231de2`.
+
+> Plan 011 was promoted from audited backlog item 5 on 2026-07-11 using the
+> improve `plan` flow. The plan was verified against commit `210a329`; its
+> narrow contract accepts present string-valued JSON `text` even when empty,
+> without accepting undocumented response shapes or changing the UI fallback.
+
+> Plan 012 was promoted from audited backlog item 6 on 2026-07-12 using the
+> improve `plan` flow. It preserves the 2.0 worker-failure fallback while
+> removing one full-length allocation only when a multi-channel downmix owns
+> its buffer; mono `AudioBuffer` views retain the defensive transfer copy.
 
 ## Dependency notes
 
@@ -124,17 +136,17 @@ Promote any of these to a numbered plan on request. Order is roughly by leverage
    state-machine spec to include all 9 states (`CONFIRMING_DISCARD` included);
    and updated the API-client spec for MAI-Transcribe 1.5 and the adapter
    registry extension model.
-5. **Empty-transcription hardening** (correctness, S, MED confidence):
-   `js/model-adapters/response-parsers.js:12,24,28` treat a present-but-empty
-   `text: ""` (silence) as `UNKNOWN_API_RESPONSE` → hard error + retry offer.
-   Verify Azure's actual silence response, then switch to
-   `typeof data.text === 'string'` checks.
-6. **WAV conversion memory peak** (perf, M, MAI models only): the
-   decode→resample→downmix→transfer chain (`js/audio-converter.js:30-59`)
-   holds several full-clip Float32 buffers simultaneously (~hundreds of MB for
-   a 30-min clip). The `new Float32Array(samples)` copy at `:59` is only
-   needed for the mono `getChannelData(0)` aliasing path; skip it when
-   `downmixToMono` already allocated.
+5. **PLANNED as 011 — Empty-transcription hardening** (correctness, S):
+   `js/model-adapters/response-parsers.js` treats a present-but-empty `text: ""`
+   as `UNKNOWN_API_RESPONSE` even though the API schema defines `text` as a
+   string and the plain-text path already accepts empty output. Plan 011 keeps
+   the fix narrow: type-check present JSON text, preserve unknown-shape errors,
+   and leave the existing empty-result UI unchanged.
+6. **PLANNED as 012 — WAV conversion memory peak** (perf, M, MAI models only):
+   the decode→resample→downmix→transfer chain retains a redundant full-length
+   transfer copy after multi-channel downmix. Plan 012 transfers the owned
+   downmix directly, retains the mono-view safety copy, and re-creates samples
+   if the worker fails after detachment so synchronous fallback remains intact.
 7. **Small test fills** (tests, S): visualizer RMS/rolling-buffer math
    (`js/visualization.js:71-80,104-109`) never executed; autosave debounce
    `input` listener (`js/ui.js:162-171`) never fired in tests (only
