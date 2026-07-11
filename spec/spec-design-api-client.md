@@ -1,8 +1,8 @@
 ---
 title: Azure API Client Design Specification
-version: 1.1
+version: 1.2
 date_created: 2025-07-07
-last_updated: 2026-04-06
+last_updated: 2026-07-11
 owner: Speech-to-Text Transcription App Team
 tags: [design, api-client, azure, transcription, architecture, app]
 ---
@@ -28,7 +28,8 @@ The purpose of the `AzureAPIClient` is to abstract all details of communicating 
 - **Azure Speech Services**: Microsoft's cloud-based service for speech-to-text and other speech-related functionalities.
 - **Whisper**: A speech recognition model provided by OpenAI and accessible through Azure.
 - **Whisper-Translate**: A variant of the Whisper model that includes translation capabilities.
-- **MAI-Transcribe**: A Microsoft Azure AI transcription model (mai-transcribe-1) that requires WAV audio input and uses a definition-based configuration payload.
+- **MAI-Transcribe 1.5**: A Microsoft Azure AI transcription model (`mai-transcribe-1.5`) that requires WAV audio input and uses a definition-based configuration payload.
+- **Model Adapter**: A registry entry that owns model-specific request construction and response parsing behind the shared API client.
 - **Audio Converter**: A utility module that converts WebM/Opus audio blobs to 16kHz mono WAV format, required by MAI-Transcribe.
 - **API Key**: A secret token used to authenticate requests to the Azure API.
 - **Endpoint URI**: The specific URL where the Azure Speech Service is hosted.
@@ -39,7 +40,7 @@ The purpose of the `AzureAPIClient` is to abstract all details of communicating 
 ### Core Requirements
 
 - **REQ-001**: The client SHALL send audio data to the configured Azure Speech Services endpoint for transcription.
-- **REQ-002**: The client SHALL support "Whisper", "whisper-translate", and "MAI-Transcribe" transcription models.
+- **REQ-002**: The client SHALL support registered adapters for `whisper`, `whisper-translate`, and `mai-transcribe-1.5`.
 - **REQ-003**: The client SHALL retrieve API configuration (API Key, URI, model) from the `Settings` module.
 - **REQ-004**: The client SHALL validate the presence and format of the API Key and URI before making a request.
 - **REQ-005**: The client SHALL construct a `FormData` object to send the audio blob and relevant parameters. For Whisper models, the form includes a `file` field and `language` (except for whisper-translate). For MAI-Transcribe, the form includes an `audio` field (WAV-converted blob) and a JSON `definition` field.
@@ -132,9 +133,9 @@ class AzureAPIClient {
 |---|---|---|---|
 | `whisper` | `file` (audio blob), `language` | `api-key` | `recording.webm` |
 | `whisper-translate` | `file` (audio blob) | `api-key` | `recording.webm` |
-| `mai-transcribe` | `audio` (WAV blob), `definition` (JSON) | `Ocp-Apim-Subscription-Key` | `recording.wav` |
+| `mai-transcribe-1.5` | `audio` (WAV blob), `definition` (JSON) | `Ocp-Apim-Subscription-Key` | `recording.wav` |
 
-**Note**: For MAI-Transcribe, the `definition` field contains a JSON payload with `enhancedMode` configuration specifying model `mai-transcribe-1` and task `transcribe`. Audio must be converted from WebM to 16kHz mono WAV before submission.
+**Note**: For MAI-Transcribe 1.5, the `definition` field contains a JSON payload with `enhancedMode` configuration specifying model `mai-transcribe-1.5` and task `transcribe`. Audio must be converted from WebM to 16kHz mono WAV before submission.
 
 ### Event Emission Contracts
 
@@ -165,7 +166,7 @@ class AzureAPIClient {
 
 ## 7. Rationale & Context
 
-A dedicated `AzureAPIClient` is crucial for maintaining a clean, modular architecture. It isolates the external API communication logic, which is prone to change (e.g., new API versions, different error codes). This separation of concerns makes the application easier to maintain, test, and extend. For example, adding a new transcription service would involve creating a new client that adheres to the same interface, with minimal changes to the rest of the application.
+A dedicated `AzureAPIClient` isolates shared external-API concerns such as validation, retries, timeouts, and lifecycle events. Model-specific request and response behavior lives in adapters registered in `js/model-adapters/index.js`. Adding another Azure-hosted transcription model therefore means implementing and registering an adapter; a separate client is only appropriate when a provider cannot use the shared Azure transport conventions.
 
 ## 8. Dependencies & External Integrations
 
@@ -243,14 +244,14 @@ const translateFormData = new FormData();
 translateFormData.append('file', audioBlob, 'recording.webm');
 // Note: language parameter is intentionally omitted
 
-// MAI-Transcribe model - WAV audio with JSON definition
+// MAI-Transcribe 1.5 model - WAV audio with JSON definition
 const wavBlob = await convertToWav(audioBlob);
 const maiFormData = new FormData();
 maiFormData.append('audio', wavBlob, 'recording.wav');
 maiFormData.append('definition', JSON.stringify({
     enhancedMode: {
         enabled: true,
-        model: 'mai-transcribe-1',
+        model: 'mai-transcribe-1.5',
         task: 'transcribe'
     }
 }));
@@ -273,7 +274,7 @@ const text = apiClient.parseResponse(maiResponse);
 ## 10. Validation Criteria
 
 - The implementation must pass all unit and integration tests defined in the test strategy.
-- The client must successfully transcribe audio using Whisper, Whisper-Translate, and MAI-Transcribe models with valid credentials.
+- The client must successfully transcribe audio using the registered Whisper, Whisper-Translate, and MAI-Transcribe 1.5 adapters with valid credentials.
 - All error conditions (network, API, configuration) must be handled gracefully and result in the correct event emissions.
 - Code coverage for `api-client.js` must meet or exceed the project's threshold of 85%.
 
