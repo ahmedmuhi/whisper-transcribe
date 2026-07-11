@@ -119,15 +119,11 @@ Promote any of these to a numbered plan on request. Order is roughly by leverage
    declares `storageKeys` but nothing reads them; `js/settings.js` re-derives
    the same keys via 14 `isMai` branch sites (`:498-501`, `:684-688`, …).
    Either make settings read the registry or delete the dead metadata.
-4. **Doc/spec drift fixes** (docs, S): `CLAUDE.md:52` claims `docs/` is
-   generated JSDoc output, but `docs/` is gitignored, untracked, and no jsdoc
-   script/dependency exists (removal recorded in
-   `plan/archive/documentation-cleanup-completion-report.md`) — actively
-   misleads agents every session; `spec/spec-design-recording-state-machine.md:40,364`
-   says "exactly 8 states" but the code has 9 (`CONFIRMING_DISCARD`, the
-   flagship proportional-confirm feature); `spec/spec-design-api-client.md`
-   omits MAI 1.5 and describes a "new client" extension story the adapter
-   registry replaced.
+4. **DONE — Doc/spec drift fixes** (docs, S; completed 2026-07-11): corrected
+   `CLAUDE.md` to describe tracked docs and the current model set; updated the
+   state-machine spec to include all 9 states (`CONFIRMING_DISCARD` included);
+   and updated the API-client spec for MAI-Transcribe 1.5 and the adapter
+   registry extension model.
 5. **Empty-transcription hardening** (correctness, S, MED confidence):
    `js/model-adapters/response-parsers.js:12,24,28` treat a present-but-empty
    `text: ""` (silence) as `UNKNOWN_API_RESPONSE` → hard error + retry offer.

@@ -1,8 +1,8 @@
 ---
 title: Recording State Machine Design Specification
-version: 1.1
+version: 1.2
 date_created: 2025-07-07
-last_updated: 2026-04-06
+last_updated: 2026-07-11
 owner: Speech-to-Text Transcription App Team
 tags: [design, state-machine, recording, audio, architecture, app]
 ---
@@ -37,7 +37,7 @@ This specification defines the requirements for a finite state machine that mana
 
 ### Core Requirements
 
-- **REQ-001**: The state machine SHALL implement exactly 8 defined states: IDLE, INITIALIZING, RECORDING, PAUSED, STOPPING, PROCESSING, CANCELLING, ERROR
+- **REQ-001**: The state machine SHALL implement exactly 9 defined states: IDLE, INITIALIZING, RECORDING, PAUSED, STOPPING, PROCESSING, CANCELLING, CONFIRMING_DISCARD, ERROR
 - **REQ-002**: The state machine SHALL validate all state transitions using a predefined transition matrix
 - **REQ-003**: The state machine SHALL emit events for all state changes through the event bus
 - **REQ-004**: Each state SHALL have a dedicated handler method for state-specific logic
@@ -54,6 +54,7 @@ This specification defines the requirements for a finite state machine that mana
 - **REQ-012**: STOPPING state SHALL initiate recording termination and cleanup visualization
 - **REQ-013**: PROCESSING state SHALL show transcription progress and disable user controls
 - **REQ-014**: CANCELLING state SHALL emit cancellation events and disable controls; the caller is responsible for transitioning to IDLE after cleanup
+- **REQ-014a**: CONFIRMING_DISCARD state SHALL preserve the prior active state while the user confirms or rejects discarding a recording
 - **REQ-015**: ERROR state SHALL display error information and enable recovery to IDLE
 
 ### Event Communication Requirements
@@ -361,7 +362,7 @@ const stateMachine = new RecordingStateMachine(null);
 
 ### Functional Validation
 
-- All 8 states are implemented with corresponding handler methods
+- All 9 states are implemented with corresponding handler methods
 - State transition matrix matches implementation behavior exactly
 - Event emissions match the documented interface contracts
 - Query methods return correct boolean values for all states

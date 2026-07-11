@@ -30,7 +30,7 @@ Husky runs **lint** on pre-commit and **coverage + deps:check:prod** on pre-push
 
 **The transcription flow** (the path that touches most files): UI button click → bus event (`MIC_BUTTON_CLICKED` etc.) → `AudioHandler` (MediaRecorder + `PermissionManager`) drives FSM transitions → on stop, audio is WAV-encoded off the main thread in `js/audio-converter.worker.js` (synchronous fallback in `audio-converter.js`) → `AzureAPIClient.transcribe()` with an `AbortController` timeout (`TRANSCRIPTION_TIMEOUT_MS`) and exponential-backoff retries on 429/5xx → the model adapter builds the request and parses the response → `UI_TRANSCRIPTION_READY` → UI appends to the transcript (with segment divider) → `TranscriptStore` autosaves.
 
-**Model adapters** (`js/model-adapters/`): each Azure model (whisper, whisper-translate, mai-transcribe 1/1.5) is an adapter object registered in `index.js`. Registry insertion order matters — `parseResponse` tries adapters in that precedence. Add new models as adapters; don't branch on model type elsewhere.
+**Model adapters** (`js/model-adapters/`): each Azure model (whisper, whisper-translate, MAI-Transcribe 1.5) is an adapter object registered in `index.js`. Registry insertion order matters — `parseResponse` tries adapters in that precedence. Add new models as adapters; don't branch on model type elsewhere.
 
 **TranscriptStore** (`js/transcript-store.js`) is a deliberately tiny single-slot gateway (save/load/clear/has) over localStorage. Its small interface is the intended seam for a future sync backend — don't grow it casually and don't let UI code touch storage directly.
 
@@ -49,4 +49,4 @@ Vitest with `happy-dom`; test files are `tests/*.vitest.js` (the `.vitest.js` su
 
 ## Repo notes
 
-- `plan/` and `spec/` hold design docs (`plan/2.0-design.md` is the 2.0 interaction-led design; `spec/` has specs for the API client and state machine). `docs/` is generated JSDoc output — don't hand-edit.
+- `plan/` and `spec/` hold design docs (`plan/2.0-design.md` is the 2.0 interaction-led design; `spec/` has specs for the API client and state machine). The project has no generated-JSDoc workflow; update these tracked documents directly when their corresponding design changes.
