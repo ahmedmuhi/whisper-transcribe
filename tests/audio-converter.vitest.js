@@ -197,11 +197,10 @@ describe('Audio Converter — Web Worker offload', () => {
      * Imports a fresh copy of the module so its lazily-constructed worker state
      * does not leak between the worker/fallback scenarios.
      */
-    async function freshConvertToWav() {
+    async function freshConvertToWav(audioBuffer = createMockAudioBuffer(16000, 1, 16000)) {
         vi.resetModules();
-        const defaultBuffer = createMockAudioBuffer(16000, 1, 16000);
-        mockDecodeAudioData.mockResolvedValue(defaultBuffer);
-        mockStartRendering.mockResolvedValue(defaultBuffer);
+        mockDecodeAudioData.mockResolvedValue(audioBuffer);
+        mockStartRendering.mockResolvedValue(audioBuffer);
         const mod = await import('../js/audio-converter.js');
         return mod.convertToWav;
     }
@@ -260,7 +259,8 @@ describe('Audio Converter — Web Worker offload', () => {
             this.terminate = vi.fn();
         });
 
-        const convert = await freshConvertToWav();
+        const monoBuffer = createMockAudioBuffer(16000, 1, 16000);
+        const convert = await freshConvertToWav(monoBuffer);
         const inputBlob = new Blob(['fake-audio'], { type: 'audio/webm' });
         const result = await convert(inputBlob);
         const arrayBuffer = await result.arrayBuffer();
@@ -274,6 +274,7 @@ describe('Audio Converter — Web Worker offload', () => {
         expect(postedMessage.sampleRate).toBe(16000);
         expect(postedMessage.bitDepth).toBe(16);
         expect(postedMessage.samples).toBeInstanceOf(Float32Array);
+        expect(postedMessage.samples).not.toBe(monoBuffer.getChannelData(0));
         // The samples buffer is handed over as a Transferable.
         expect(postedTransfer).toEqual([postedMessage.samples.buffer]);
 
@@ -281,6 +282,50 @@ describe('Audio Converter — Web Worker offload', () => {
         expect(result.type).toBe('audio/wav');
         expect(String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))).toBe('RIFF');
         expect(arrayBuffer.byteLength).toBe(44 + 16000 * 2);
+    });
+
+    it('transfers an owned stereo downmix without a second full-length Float32Array allocation', async () => {
+        const stereoBuffer = createMockAudioBuffer(16000, 2, 32);
+        const NativeFloat32Array = global.Float32Array;
+        const fullLengthAllocations = [];
+        let postedSamples = null;
+        const listeners = { message: [], error: [] };
+
+        global.Worker = vi.fn().mockImplementation(function FakeWorker() {
+            this.addEventListener = (type, fn) => listeners[type].push(fn);
+            this.removeEventListener = (type, fn) => {
+                listeners[type] = listeners[type].filter(l => l !== fn);
+            };
+            this.postMessage = (data) => {
+                postedSamples = data.samples;
+                const wavBuffer = new ArrayBuffer(44 + data.samples.length * 2);
+                Promise.resolve().then(() => {
+                    for (const fn of listeners.message) {
+                        fn({ data: { requestId: data.requestId, wavBuffer } });
+                    }
+                });
+            };
+        });
+
+        global.Float32Array = new Proxy(NativeFloat32Array, {
+            construct(target, args) {
+                const allocation = Reflect.construct(target, args);
+                if (allocation.length === stereoBuffer.length) {
+                    fullLengthAllocations.push(allocation);
+                }
+                return allocation;
+            }
+        });
+
+        try {
+            const convert = await freshConvertToWav(stereoBuffer);
+            await convert(new Blob(['stereo'], { type: 'audio/webm' }));
+
+            expect(fullLengthAllocations).toHaveLength(1);
+            expect(postedSamples).toBe(fullLengthAllocations[0]);
+        } finally {
+            global.Float32Array = NativeFloat32Array;
+        }
     });
 
     it('should correlate overlapping Worker responses to the matching conversion', async () => {
@@ -332,14 +377,17 @@ describe('Audio Converter — Web Worker offload', () => {
         const listeners = { message: [], error: [] };
         const terminate = vi.fn();
         let postCount = 0;
+        const sampleCount = 32;
+        const stereoBuffer = createMockAudioBuffer(16000, 2, sampleCount);
 
         global.Worker = vi.fn().mockImplementation(function FakeWorker() {
             this.addEventListener = (type, fn) => listeners[type].push(fn);
             this.removeEventListener = (type, fn) => {
                 listeners[type] = listeners[type].filter(l => l !== fn);
             };
-            this.postMessage = () => {
+            this.postMessage = (data, transfer) => {
                 postCount++;
+                structuredClone(data, { transfer });
                 Promise.resolve().then(() => {
                     for (const fn of [...listeners.error]) {
                         fn({ error: new Error('module worker failed') });
@@ -349,12 +397,14 @@ describe('Audio Converter — Web Worker offload', () => {
             this.terminate = terminate;
         });
 
-        const convert = await freshConvertToWav();
+        const convert = await freshConvertToWav(stereoBuffer);
         const first = await convert(new Blob(['first'], { type: 'audio/webm' }));
         const second = await convert(new Blob(['second'], { type: 'audio/webm' }));
 
         expect(first.type).toBe('audio/wav');
         expect(second.type).toBe('audio/wav');
+        expect((await first.arrayBuffer()).byteLength).toBe(44 + sampleCount * 2);
+        expect((await second.arrayBuffer()).byteLength).toBe(44 + sampleCount * 2);
         expect(global.Worker).toHaveBeenCalledTimes(1);
         expect(terminate).toHaveBeenCalledTimes(1);
         expect(postCount).toBe(1);
