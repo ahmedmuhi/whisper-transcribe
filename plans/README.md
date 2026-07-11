@@ -33,6 +33,8 @@ update your row when done.
 | 011 | Accept structurally valid empty JSON transcriptions | P2 | S | — | DONE (merged via PR #74 as `17e4932`, 2026-07-12; code `632e09b`; 392 tests / 33 files; coverage 92.68/87.66/90.40/92.68; lint, production dependency check, size, scope, and diff review passed) |
 | 012 | Avoid the redundant post-downmix WAV transfer copy | P2 | M | — | DONE (merged via PR #75 as `21dba97`, 2026-07-12; code `6d84bc5`; 385 tests / 32 files; coverage 92.99/87.64/90.90/92.99 on independent review; lint, production dependency check, size, scope, allocation assertion, transfer-detachment fallback, and full diff review passed) |
 | 013 | Remove confirmed-dead legacy UI plumbing | P3 | S | — | DONE (committed as `64bb22b` on `chore/013-dead-ui-plumbing`, awaiting push/merge; executed with `gpt-5.6-terra` at xhigh; 393 tests / 33 files; coverage 92.67/87.58/90.40/92.67; lint, dependency checks, size, scope, scans, and independent diff review passed) |
+| 014 | Add a real-browser Playwright smoke test (fake mic → real worker → local HTTPS Azure stub → transcript + reload persistence) | P1 | M | — | DONE (merged via PR #77 as `6cc7393`, 2026-07-12; implementation `f9a3283..9a14a0b`; Playwright Chromium smoke passed twice consecutively and the new CI browser-smoke job passed; 393 tests / 33 files; coverage 92.69/87.57/90.40/92.69; lint, dependency checks, size, workflow parse, scope, and independent full-diff review passed) |
+| 015 | Add an opt-in live-Azure contract test (workflow_dispatch only, never in normal CI) | P3 | S/M | 014 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -43,8 +45,8 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > `knip.json`), 006 (`protocol !== 'https:'` gate), 007 (180 000 ms retry
 > deadline), 009 (no `transcribeStyle`), 010 (`DEFAULT_MODEL_TYPE` + MAI-1 gone).
 > 004 (audit fix) and 005 (mic message / FSM drift) trusted on their merge
-> records, not re-grepped. No TODO/BLOCKED/IN-PROGRESS plans outstanding; nothing
-> executable is pending. 008 remains a REVERTED record.
+> records, not re-grepped. At that reconciliation, no TODO/BLOCKED/IN-PROGRESS
+> plans were outstanding. 008 remains a REVERTED record.
 
 > Plan 008 was added 2026-06-16 via the improve `plan <description>` flow (not
 > an audit finding) — a user request to expose Microsoft's MAI-1.5
@@ -72,6 +74,40 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > #74, and Plan 012 PR #75 are merged into `main`. Plans 011 and 012 retain
 > their reviewed implementation commits and verification results above.
 
+> Plans 014 and 015 were promoted from backlog item 1 on 2026-07-12 via the
+> improve `plan` flow, verified against commit `f525b87`. Their specification
+> incorporates an external GPT 5.6 Pro assessment of the browser-testing gap;
+> every repo-specific claim in that assessment was re-verified against the
+> live code before planning. Corrections baked into the plans: the encode
+> worker registers via `self.addEventListener('message', …)` so the
+> assessment's `typeof self.onmessage === 'function'` probe is invalid (plan
+> 014 uses worker URL + close-tracking + post-POST `worker.evaluate()`
+> liveness instead); `index.html` loads Google Fonts, which the tests must
+> stub for hermetic CI; CI runs `deps:check:prod` (not full knip), so knip
+> fallout from the new dev dependency is handled explicitly; and the `quiet`
+> recording profile's disabled audio processing
+> (`js/permission-manager.js:123-125`) was confirmed, which suits Chromium's
+> fake-capture fixture guidance. Independent plan review then tightened four
+> execution details: Plan 014 now asserts the CORS preflight and preserves both
+> HTML reports and trace/screenshot artifacts; Plan 015 fails a manually
+> triggered workflow when secrets are missing and allows 300 s for the app's
+> ~242 s sustained-timeout path (the 180 s retry deadline does not abort an
+> already in-flight attempt).
+> First execution then proved that `page.route().fulfill()` bypassed Chromium's
+> preflight (three independently observed runs reached POST with zero OPTIONS).
+> Plan 014 was revised in place: a real local HTTPS stub now observes OPTIONS
+> and POST across a socket; route fulfillment at the Azure boundary is forbidden.
+> The remaining Google Fonts route is removed immediately after page startup so
+> Playwright's Fetch interception is disabled before the transcription request.
+> That restored genuine OPTIONS+POST traffic, but `Request.postDataBuffer()` was
+> then `null` twice and on independent review. The refined plan now captures the
+> bounded multipart bytes in the HTTPS stub and exposes them through its
+> observation endpoint; a fresh execution is required.
+> Second-execution review found one additional WSL-only reliability issue:
+> Playwright's unbound IPv4 readiness probe hangs under mirrored networking on
+> immediately repeated runs. The plan now uses a dedicated `[::1]:4175`
+> readiness listener while keeping the real app/API on IPv4.
+
 ## Dependency notes
 
 - **003 first.** It fixes the measurement itself — today a bare `vitest run`
@@ -88,6 +124,14 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   before starting 007, or rebase).
 - 002 (CI, awaiting merge) composes with 003: CI checkouts never contain
   `.claude/worktrees/`, so CI was never affected; 003 fixes the local gate.
+- **015 strictly after 014.** 015 reuses 014's scaffolding verbatim
+  (`@playwright/test` dependency, `tests/browser/static-server.mjs`, npm
+  script conventions) and adds only its own config, spec, fixture, and
+  workflow. 015 also needs two operator inputs before it can finish: the
+  `live-azure` GitHub Environment secrets and a short spoken WAV fixture.
+- 014 adds zero production code — if its smoke test can only pass by
+  changing `js/**` or `index.html`, that is a STOP-and-report finding, not
+  something to patch inside the plan.
 
 ## Test-suite necessity census (2026-06-16, commit `aa3b28c`)
 
@@ -117,12 +161,19 @@ strictly stronger. Not started; nothing here is broken.
 
 Promote any of these to a numbered plan on request. Order is roughly by leverage.
 
-1. **Browser-level smoke test** (tests, M): the real encode worker
-   `js/audio-converter.worker.js` has 0% executed coverage (tests use a
-   hand-rolled FakeWorker that re-implements the protocol), and no test
-   assembles the real app end-to-end (`js/main.js` excluded from coverage).
-   One Playwright happy-path (record → transcribe against a stubbed network →
-   transcript appears and survives reload) closes both gaps.
+1. **PLANNED as 014 + 015 — Browser-level smoke test** (tests, M): the real
+   encode worker `js/audio-converter.worker.js` has 0% executed coverage
+   (tests use a hand-rolled FakeWorker that re-implements the protocol), and
+   no test assembles the real app end-to-end (`js/main.js` excluded from
+   coverage). Plan 014 closes both gaps with one continuous Playwright
+   Chromium smoke test (fake media device + generated WAV fixture, real
+   `main.js`/MediaRecorder/`OfflineAudioContext`/module-worker/MAI-adapter
+   path, Azure boundary replaced by a listening local HTTPS stub that observes
+   genuine CORS OPTIONS+POST traffic, transcript DOM + reload-persistence
+   assertions, separate CI
+   job). Plan 015 covers the one seam 014 deliberately stubs: an opt-in,
+   workflow_dispatch-only live-Azure contract test with protected secrets,
+   a spoken fixture, tolerant keyword assertions, and no CI artifacts.
 2. **DONE via 013 — Dead-code & constants discipline**
    (tech-debt, S/M): Plan 013 removed the six confirmed-dead legacy DOM IDs,
    stale test fixtures, four unused UI-owned settings queries, and the orphan
