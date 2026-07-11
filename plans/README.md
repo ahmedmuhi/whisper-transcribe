@@ -32,6 +32,7 @@ update your row when done.
 | 010 | Remove MAI-Transcribe 1 entirely; default to MAI-Transcribe 1.5 with a validate-and-reset migration | P1 | M | sequence after 009 | DONE (merged via PR #72 as `f53667c`, 2026-06-18; code `0e70b96` + `/simplify` `fa18b1c`; 384 tests / 32 files, coverage 92.67/87.66/90.40/92.67; one plan correction during exec — `settings-workflow.vitest.js` brought in scope, Step 8h; verified MAI-1 gone + `DEFAULT_MODEL_TYPE` present @ `f53667c` on reconcile) |
 | 011 | Accept structurally valid empty JSON transcriptions | P2 | S | — | DONE (merged via PR #74 as `17e4932`, 2026-07-12; code `632e09b`; 392 tests / 33 files; coverage 92.68/87.66/90.40/92.68; lint, production dependency check, size, scope, and diff review passed) |
 | 012 | Avoid the redundant post-downmix WAV transfer copy | P2 | M | — | DONE (merged via PR #75 as `21dba97`, 2026-07-12; code `6d84bc5`; 385 tests / 32 files; coverage 92.99/87.64/90.90/92.99 on independent review; lint, production dependency check, size, scope, allocation assertion, transfer-detachment fallback, and full diff review passed) |
+| 013 | Remove confirmed-dead legacy UI plumbing | P3 | S | — | DONE (committed as `64bb22b` on `chore/013-dead-ui-plumbing`, awaiting push/merge; executed with `gpt-5.6-terra` at xhigh; 393 tests / 33 files; coverage 92.67/87.58/90.40/92.67; lint, dependency checks, size, scope, scans, and independent diff review passed) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -122,15 +123,12 @@ Promote any of these to a numbered plan on request. Order is roughly by leverage
    assembles the real app end-to-end (`js/main.js` excluded from coverage).
    One Playwright happy-path (record → transcribe against a stubbed network →
    transcript appears and survives reload) closes both gaps.
-2. **Dead-code & constants-discipline sweep** (tech-debt, S/M): production-dead
-   `ID.MIC_BUTTON/PAUSE_BUTTON/CANCEL_BUTTON/PAUSE_ICON/PLAY_ICON/THEME_MODE`
-   (still referenced by `tests/settings-workflow.vitest.js:46-48` mock setup —
-   clean both); emit-only events (`DEVICE_CHANGED`, `RECORDING_ERROR`,
-   `APP_PREREQUISITES_CHECKED`, …) needing keep-or-delete triage; `APP_ERROR`
-   JSDoc orphan (`js/event-bus.js:226`); four unused settings-element refs in
-   the UI constructor (`js/ui.js:52-56`); duplicated key/URI sanitizer regexes
-   (`js/settings.js:510,514` vs `js/api-client.js:380,383`); `cancelRecording`
-   single-caller wrapper (`js/audio-handler.js:262-266`).
+2. **DONE via 013 — Dead-code & constants discipline**
+   (tech-debt, S/M): Plan 013 removed the six confirmed-dead legacy DOM IDs,
+   stale test fixtures, four unused UI-owned settings queries, and the orphan
+   `APP_ERROR` JSDoc entry. Emit-only events are retained as possible
+   observation contracts; sanitizer consolidation, adapter metadata, and the
+   public `cancelRecording` wrapper remain separate design/refactor decisions.
 3. **Adapter `storageKeys` consolidation** (tech-debt, M): every adapter
    declares `storageKeys` but nothing reads them; `js/settings.js` re-derives
    the same keys via 14 `isMai` branch sites (`:498-501`, `:684-688`, …).
