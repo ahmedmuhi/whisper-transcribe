@@ -9,7 +9,7 @@ export function parseWhisperResponse(data) {
         return data.trim();
     }
 
-    if (data.text) {
+    if (typeof data?.text === 'string') {
         return data.text;
     }
 
@@ -25,7 +25,7 @@ export function parseMaiTranscribeResponse(data) {
         return data.combinedPhrases.map(phrase => phrase.text).join(' ');
     }
 
-    if (data.text) {
+    if (typeof data?.text === 'string') {
         return data.text;
     }
 
