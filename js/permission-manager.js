@@ -12,6 +12,8 @@ import { errorHandler } from './error-handler.js';
 export class PermissionManager {
     constructor() {
         this.permissionStatus = null;
+        this.permissionStatusResult = null;
+        this.permissionStatusChangeHandler = this.handlePermissionStatusChange.bind(this);
         this.microphoneStream = null;
     }
     
@@ -67,12 +69,29 @@ export class PermissionManager {
             if ('permissions' in navigator) {
                 const result = await navigator.permissions.query({ name: 'microphone' });
                 this.permissionStatus = result.state;
-                
-                // Listen for permission changes
-                result.addEventListener('change', () => {
-                    this.permissionStatus = result.state;
-                    this.handlePermissionChange(result.state);
-                });
+
+                if (result !== this.permissionStatusResult) {
+                    if (this.permissionStatusResult) {
+                        if (typeof this.permissionStatusResult.removeEventListener !== 'function') {
+                            return result.state;
+                        }
+
+                        try {
+                            this.permissionStatusResult.removeEventListener(
+                                'change', this.permissionStatusChangeHandler
+                            );
+                        } catch {
+                            return result.state;
+                        }
+                    }
+
+                    if (typeof result.addEventListener === 'function') {
+                        result.addEventListener('change', this.permissionStatusChangeHandler);
+                        this.permissionStatusResult = result;
+                    } else {
+                        this.permissionStatusResult = null;
+                    }
+                }
                 
                 return result.state;
             }
@@ -83,6 +102,21 @@ export class PermissionManager {
         
         // Fallback: we don't know the status
         return null;
+    }
+
+    /**
+     * Updates the cached permission state after a Permissions API change event.
+     *
+     * @method handlePermissionStatusChange
+     * @param {Event} event - Permissions API change event
+     * @returns {void}
+     */
+    handlePermissionStatusChange(event) {
+        const status = event?.target || this.permissionStatusResult;
+        if (!status) return;
+
+        this.permissionStatus = status.state;
+        this.handlePermissionChange(status.state);
     }
     
     /**
@@ -298,6 +332,27 @@ export class PermissionManager {
             });
             this.microphoneStream = null;
         }
+    }
+
+    /**
+     * Removes the permission listener and stops the stream owned by this manager.
+     *
+     * @method destroy
+     * @returns {void}
+     */
+    destroy() {
+        if (this.permissionStatusResult) {
+            try {
+                this.permissionStatusResult.removeEventListener?.(
+                    'change', this.permissionStatusChangeHandler
+                );
+            } catch {
+                // Older Permissions API implementations may not support removal.
+            }
+            this.permissionStatusResult = null;
+        }
+
+        this.stopMicrophoneStream();
     }
     
     /**
