@@ -641,5 +641,6 @@ export class AudioHandler {
     destroy() {
         this._unsubscribers.forEach(unsub => unsub());
         this._unsubscribers = [];
+        this.permissionManager.destroy();
     }
 }

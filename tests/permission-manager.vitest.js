@@ -47,6 +47,31 @@ const mockPermissions = {
 
 const mockMediaRecorder = vi.fn();
 
+const createTrackedPermissionStatus = (state = 'prompt', supportsRemoval = true) => {
+    const listeners = new Set();
+    const status = {
+        state,
+        addEventListener: vi.fn((event, listener) => {
+            if (event === 'change') {
+                listeners.add(listener);
+            }
+        }),
+        emitChange: () => {
+            listeners.forEach(listener => listener({ target: status }));
+        }
+    };
+
+    if (supportsRemoval) {
+        status.removeEventListener = vi.fn((event, listener) => {
+            if (event === 'change') {
+                listeners.delete(listener);
+            }
+        });
+    }
+
+    return status;
+};
+
 // Create mock stream and tracks
 const createMockStream = (active = true) => {
     const mockTrack = {
@@ -292,6 +317,72 @@ describe('PermissionManager', () => {
             );
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.PERMISSION_DENIED);
         });
+
+        it('subscribes once when repeated queries return the same status object', async () => {
+            const status = createTrackedPermissionStatus();
+            const handlePermissionChangeSpy = vi.spyOn(permissionManager, 'handlePermissionChange');
+            mockPermissions.query.mockResolvedValue(status);
+
+            await permissionManager.getPermissionStatus();
+            await permissionManager.getPermissionStatus();
+            await permissionManager.getPermissionStatus();
+
+            expect(status.addEventListener).toHaveBeenCalledTimes(1);
+
+            eventBusEmitSpy.mockClear();
+            status.state = 'granted';
+            status.emitChange();
+
+            expect(handlePermissionChangeSpy).toHaveBeenCalledTimes(1);
+            expect(handlePermissionChangeSpy).toHaveBeenCalledWith('granted');
+            expect(eventBusEmitSpy.mock.calls).toEqual([
+                [APP_EVENTS.PERMISSION_STATUS_CHANGED, { state: 'granted' }],
+                [APP_EVENTS.PERMISSION_GRANTED]
+            ]);
+        });
+
+        it('replaces the subscription when a permission query returns a new status object', async () => {
+            const previousStatus = createTrackedPermissionStatus();
+            const currentStatus = createTrackedPermissionStatus();
+            mockPermissions.query
+                .mockResolvedValueOnce(previousStatus)
+                .mockResolvedValueOnce(currentStatus);
+
+            await permissionManager.getPermissionStatus();
+            await permissionManager.getPermissionStatus();
+
+            expect(previousStatus.removeEventListener).toHaveBeenCalledWith(
+                'change',
+                previousStatus.addEventListener.mock.calls[0][1]
+            );
+            expect(currentStatus.addEventListener).toHaveBeenCalledTimes(1);
+
+            eventBusEmitSpy.mockClear();
+            previousStatus.state = 'denied';
+            previousStatus.emitChange();
+            currentStatus.state = 'granted';
+            currentStatus.emitChange();
+
+            expect(eventBusEmitSpy.mock.calls).toEqual([
+                [APP_EVENTS.PERMISSION_STATUS_CHANGED, { state: 'granted' }],
+                [APP_EVENTS.PERMISSION_GRANTED]
+            ]);
+        });
+
+        it('does not add a replacement listener when the prior status cannot remove one', async () => {
+            const previousStatus = createTrackedPermissionStatus('prompt', false);
+            const currentStatus = createTrackedPermissionStatus('granted');
+            mockPermissions.query
+                .mockResolvedValueOnce(previousStatus)
+                .mockResolvedValueOnce(currentStatus);
+
+            await permissionManager.getPermissionStatus();
+            await permissionManager.getPermissionStatus();
+
+            expect(permissionManager.permissionStatus).toBe('granted');
+            expect(previousStatus.addEventListener).toHaveBeenCalledTimes(1);
+            expect(currentStatus.addEventListener).not.toHaveBeenCalled();
+        });
     });
     
     describe('Stream Management', () => {
@@ -326,6 +417,25 @@ describe('PermissionManager', () => {
             
             // Should detect inactive stream
             expect(permissionManager.hasActiveStream()).toBe(false);
+        });
+
+        it('destroys its permission listener and microphone stream idempotently', async () => {
+            const status = createTrackedPermissionStatus();
+            const stream = createMockStream();
+            mockPermissions.query.mockResolvedValue(status);
+            permissionManager.microphoneStream = stream;
+
+            await permissionManager.getPermissionStatus();
+            permissionManager.destroy();
+
+            expect(status.removeEventListener).toHaveBeenCalledWith(
+                'change',
+                status.addEventListener.mock.calls[0][1]
+            );
+            expect(stream.getTracks()[0].stop).toHaveBeenCalledTimes(1);
+            expect(permissionManager.microphoneStream).toBeNull();
+            expect(() => permissionManager.destroy()).not.toThrow();
+            expect(status.removeEventListener).toHaveBeenCalledTimes(1);
         });
     });
     

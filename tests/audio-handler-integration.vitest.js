@@ -736,6 +736,15 @@ describe('AudioHandler Integration', () => {
       expect(eventBus.events.has(APP_EVENTS.API_CONFIG_MISSING)).toBe(false);
     });
 
+    it('should destroy its permission manager after unsubscribing from the event bus', () => {
+      const permissionManagerDestroySpy = vi.spyOn(audioHandler.permissionManager, 'destroy');
+
+      audioHandler.destroy();
+
+      expect(eventBus.events.has(APP_EVENTS.API_CONFIG_MISSING)).toBe(false);
+      expect(permissionManagerDestroySpy).toHaveBeenCalledTimes(1);
+    });
+
     it('should not throw if destroy() is called twice', () => {
       audioHandler.destroy();
       expect(() => audioHandler.destroy()).not.toThrow();
