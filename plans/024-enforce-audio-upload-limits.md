@@ -4,7 +4,7 @@
 > condition. This plan protects service contracts; do not invent a lower product
 > recording-duration cap.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- js/audio-handler.js js/constants.js js/model-adapters/whisper.js js/model-adapters/whisper-translate.js js/model-adapters/mai-transcribe.js tests/audio-handler-integration.vitest.js tests/model-adapters.vitest.js`
+> **Drift check (run first)**: `git diff --stat 2be9ecb..HEAD -- js/audio-handler.js js/constants.js js/model-adapters/whisper.js js/model-adapters/whisper-translate.js js/model-adapters/mai-transcribe.js tests/audio-handler-integration.vitest.js tests/model-adapters.vitest.js`
 
 ## Status
 
@@ -13,20 +13,22 @@
 - **Risk**: MED
 - **Depends on**: Plans 021 and 023
 - **Category**: perf
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `2be9ecb`, 2026-07-13 (after Plans 021 and 023)
 
 ## Why this matters
 
 Recording length and accumulated bytes are currently unbounded. Azure OpenAI
-Whisper rejects files over 25 MB; the MAI speech endpoint documents a 500 MB /
-five-hour input ceiling. Today an oversized recording consumes memory and
+Whisper rejects files over 25 MB; current model-specific MAI-Transcribe
+documentation requires files smaller than 300 MB (the generic LLM Speech API
+documents a broader 500 MB/five-hour ceiling). Apply the stricter model-specific
+limit. Today an oversized recording consumes memory and
 conversion time before receiving a predictable service error, and the same blob
 can be offered for futile retry. Encode limits in the adapters and reject before
 fetch, while leaving any stricter UX duration policy to a later product decision.
 
 ## Current state
 
-- `js/audio-handler.js:187-188` appends every `dataavailable` blob indefinitely.
+- `js/audio-handler.js:209-211` appends every `dataavailable` blob indefinitely.
 - `processAndSendAudio()` creates one complete Blob without a size check.
 - Whisper adapters append captured audio directly. MAI converts to WAV first,
   so its relevant upload size is the resulting `wavBlob.size`.
@@ -64,7 +66,9 @@ new Playwright tests.
 
 ### Step 1: Pin the limits and error contract
 
-Add named byte constants with source comments for Whisper 25 MB and MAI 500 MB.
+Add named byte constants with source comments for Whisper 25 MB and MAI's
+strictly-less-than-300-MB model limit. Represent the MAI maximum accepted byte
+count precisely so the boundary test can accept the maximum and reject +1.
 Add one shared user-facing message that names the selected model's maximum in
 human-readable units and recommends making a shorter recording. Tests must use
 small injected/overridden boundary values or Blob size stubs—never allocate
@@ -123,7 +127,8 @@ Run every command above, `git diff --check`, and `git diff --name-only`.
 
 ## STOP conditions
 
-- Current official service documentation no longer supports the stated limits.
+- Current official service documentation no longer supports the refreshed 25 MB
+  Whisper or under-300-MB MAI limits.
 - Enforcing MAI's limit requires materializing an extra full-size WAV copy.
 - Correct behavior requires automatic stopping at a product-selected duration.
 - Two in-scope attempts fail a required gate.
