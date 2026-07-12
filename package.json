@@ -6,9 +6,10 @@
   "description": "A no-build browser app that turns speech into text with Azure Speech Services, wrapped in an interaction-led Dynamic Island UI.",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
+    "start": "node scripts/static-server.mjs",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",

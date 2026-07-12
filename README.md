@@ -61,6 +61,7 @@ encoding a long clip never freezes the UI.
 ### Prerequisites
 
 - A modern browser (Chrome, Firefox, Edge, Safari)
+- Node.js 22 or newer (CI runs Node 24)
 - An Azure account with **Speech Services** enabled
 - Your Azure target URI and API key
 
@@ -86,8 +87,26 @@ encoding a long clip never freezes the UI.
 
 ## Development
 
+### Install
+
 ```bash
 npm install
+```
+
+### Run locally
+
+```bash
+npm start
+```
+
+Open the printed loopback URL (by default, http://127.0.0.1:4173/) in a
+browser. Stop the server with Ctrl+C. Debug and info logging is enabled on
+localhost; add `?debug` to the URL when you need to enable it explicitly (for
+example, http://127.0.0.1:4173/?debug).
+
+### Test
+
+```bash
 npm test               # run the test suite (Vitest)
 npm run test:watch     # watch mode
 npm run test:coverage  # run with coverage (enforces thresholds)
@@ -96,6 +115,16 @@ npm run lint:fix       # ESLint with --fix
 npm run deps:check     # knip — unused files / deps / exports
 npm run size           # size-limit budget check
 ```
+
+### Browser tests
+
+```bash
+npm run test:browser         # Playwright, headless by default
+npm run test:browser:headed  # requires a GUI
+```
+
+Stop `npm start` before running browser tests: Playwright launches its own
+test-only static server and local API stub on the same test ports.
 
 Coverage thresholds (statements 85 / branches 80 / functions 70 / lines 85) are
 enforced from `vitest.config.js`. Husky runs **lint** on pre-commit and
