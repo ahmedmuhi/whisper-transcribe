@@ -63,6 +63,11 @@ export class Settings {
         this.panelBackdrop = document.getElementById(ID.PANEL_BACKDROP);
         this.noiseToggle = document.getElementById(ID.NOISE_TOGGLE);
         this.inputDeviceSelect = document.getElementById(ID.INPUT_DEVICE);
+        this._settingsModalInvoker = null;
+        this._settingsModalIsOpen = false;
+        this._settingsModalUsesNativeDialog = false;
+        this._fallbackModalAttributes = null;
+        this._fallbackBackgroundState = [];
 
         this.init();
     }
@@ -192,7 +197,7 @@ export class Settings {
         
         // Settings button listener (now inside the panel footer)
         this.settingsButton.addEventListener('click', () => {
-            this.openSettingsModal();
+            this.openSettingsModal(this.settingsButton);
         });
         
         // Close modal listeners
@@ -201,10 +206,35 @@ export class Settings {
         });
         
         this.settingsModal.addEventListener('click', (e) => {
-            if (e.target === this.settingsModal || e.target.classList.contains('modal-backdrop')) {
+            if (e.target === this.settingsModal || e.target?.classList?.contains('modal-backdrop')) {
                 this.closeSettingsModal();
             }
         });
+
+        // Native <dialog> dispatches 'cancel' for Escape. Prevent its automatic
+        // close so every exit takes the same draft-discard and focus-return path.
+        this.settingsModal.addEventListener('cancel', (event) => {
+            if (!this._settingsModalIsOpen) return;
+            event.preventDefault();
+            this.closeSettingsModal();
+        });
+
+        // Browsers without showModal() need their own Escape and Tab handling.
+        // Native dialogs retain browser-provided containment and never enter this path.
+        this._fallbackModalKeydownHandler = (event) => {
+            if (!this._settingsModalIsOpen || this._settingsModalUsesNativeDialog) return;
+
+            if (event.key === 'Escape') {
+                event.preventDefault?.();
+                event.stopImmediatePropagation?.();
+                this.closeSettingsModal();
+            } else if (event.key === 'Tab') {
+                this._containFallbackModalFocus(event);
+            }
+        };
+        if (document.addEventListener) {
+            document.addEventListener('keydown', this._fallbackModalKeydownHandler);
+        }
         
         // Save settings listener
         this.saveSettingsButton.addEventListener('click', () => {
@@ -312,6 +342,7 @@ export class Settings {
         // Escape key → close sidebar
         this._panelEscHandler = (e) => {
             if (e.key === 'Escape') {
+                if (this._settingsModalIsOpen) return;
                 if (this._isSidebarPinned()) {
                     this.unpinSidebar();
                 } else if (this.sidePanel?.classList.contains('hover-preview')) {
@@ -457,13 +488,31 @@ export class Settings {
      * Opens the settings modal, loads current settings into form, and emits open event.
      * 
      * @method openSettingsModal
+     * @param {HTMLElement|null} [invoker] Element that opened the modal, if known.
      * @fires APP_EVENTS.UI_SETTINGS_OPENED
      * @returns {void}
      */
-    openSettingsModal() {
+    openSettingsModal(invoker = null) {
+        this._settingsModalInvoker = this._getSettingsModalInvoker(invoker);
         this.loadSettingsToForm();
         this.updateSettingsVisibility();
-        this.settingsModal.style.display = 'block';
+
+        this._settingsModalUsesNativeDialog = false;
+        if (typeof this.settingsModal?.showModal === 'function') {
+            try {
+                if (!this.settingsModal.open) {
+                    this.settingsModal.showModal();
+                }
+                this._settingsModalUsesNativeDialog = true;
+            } catch {
+                this._activateFallbackModal();
+            }
+        } else {
+            this._activateFallbackModal();
+        }
+
+        this._settingsModalIsOpen = true;
+        this._focusSettingsModalEntry();
 
         eventBus.emit(APP_EVENTS.UI_SETTINGS_OPENED);
     }
@@ -476,9 +525,264 @@ export class Settings {
      * @returns {void}
      */
     closeSettingsModal() {
-        this.settingsModal.style.display = 'none';
+        this._discardSettingsDraft();
+
+        if (!this._settingsModalUsesNativeDialog) {
+            this._deactivateFallbackModal();
+        }
+
+        if (
+            this._settingsModalUsesNativeDialog &&
+            this.settingsModal?.open &&
+            typeof this.settingsModal.close === 'function'
+        ) {
+            try {
+                this.settingsModal.close();
+            } catch {
+                this.settingsModal.style.display = 'none';
+            }
+        } else if (this.settingsModal) {
+            this.settingsModal.style.display = 'none';
+        }
+
+        this._settingsModalIsOpen = false;
+        this._settingsModalUsesNativeDialog = false;
+        this._restoreSettingsModalFocus();
         
         eventBus.emit(APP_EVENTS.UI_SETTINGS_CLOSED);
+    }
+
+    /**
+     * Provides visual and accessibility modality when showModal() is absent
+     * or fails. This path deliberately remains separate from native dialogs.
+     *
+     * @private
+     * @returns {void}
+     */
+    _activateFallbackModal() {
+        if (!this.settingsModal) return;
+
+        this._fallbackModalAttributes = ['role', 'aria-modal', 'tabindex'].map((name) => ({
+            name,
+            value: this.settingsModal.getAttribute?.(name),
+            hadAttribute: this.settingsModal.hasAttribute?.(name) ?? false
+        }));
+        this.settingsModal.classList?.add('modal--fallback-open');
+        this.settingsModal.setAttribute?.('role', 'dialog');
+        this.settingsModal.setAttribute?.('aria-modal', 'true');
+        this.settingsModal.setAttribute?.('tabindex', '-1');
+        this.settingsModal.style.display = 'block';
+        this._setFallbackBackgroundInert();
+    }
+
+    /**
+     * Restores document and dialog state changed for the fallback modal.
+     *
+     * @private
+     * @returns {void}
+     */
+    _deactivateFallbackModal() {
+        if (this.settingsModal) {
+            this.settingsModal.classList?.remove('modal--fallback-open');
+            this._fallbackModalAttributes?.forEach(({ name, value, hadAttribute }) => {
+                if (hadAttribute) {
+                    this.settingsModal.setAttribute?.(name, value);
+                } else {
+                    this.settingsModal.removeAttribute?.(name);
+                }
+            });
+        }
+        this._fallbackModalAttributes = null;
+        this._restoreFallbackBackground();
+    }
+
+    /**
+     * Gets document siblings that should be inert while the fallback is open.
+     *
+     * @private
+     * @returns {HTMLElement[]} Background elements outside the settings modal.
+     */
+    _getFallbackBackgroundElements() {
+        const bodyChildren = document.body?.children ? Array.from(document.body.children) : [];
+        return bodyChildren.filter((element) => (
+            element !== this.settingsModal && element.tagName !== 'SCRIPT'
+        ));
+    }
+
+    /**
+     * Makes background content unavailable to assistive technology and input.
+     *
+     * @private
+     * @returns {void}
+     */
+    _setFallbackBackgroundInert() {
+        this._fallbackBackgroundState = this._getFallbackBackgroundElements().map((element) => ({
+            element,
+            inert: element.inert,
+            supportsInert: 'inert' in element,
+            ariaHidden: element.getAttribute?.('aria-hidden'),
+            hadAriaHidden: element.hasAttribute?.('aria-hidden') ?? false
+        }));
+
+        this._fallbackBackgroundState.forEach(({ element }) => {
+            element.inert = true;
+            element.setAttribute?.('aria-hidden', 'true');
+        });
+    }
+
+    /**
+     * Restores background input and accessibility state after fallback close.
+     *
+     * @private
+     * @returns {void}
+     */
+    _restoreFallbackBackground() {
+        this._fallbackBackgroundState.forEach(({
+            element, inert, supportsInert, ariaHidden, hadAriaHidden
+        }) => {
+            if (supportsInert) {
+                element.inert = inert;
+            } else {
+                delete element.inert;
+            }
+            if (hadAriaHidden) {
+                element.setAttribute?.('aria-hidden', ariaHidden);
+            } else {
+                element.removeAttribute?.('aria-hidden');
+            }
+        });
+        this._fallbackBackgroundState = [];
+    }
+
+    /**
+     * Keeps keyboard focus in the fallback dialog without duplicating native
+     * dialog behavior when showModal() is available.
+     *
+     * @private
+     * @param {KeyboardEvent} event Tab keydown event.
+     * @returns {void}
+     */
+    _containFallbackModalFocus(event) {
+        const focusable = this._getFallbackModalFocusableElements();
+        if (focusable.length === 0) {
+            event.preventDefault?.();
+            this.settingsModal?.focus?.();
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const target = event.target || document.activeElement;
+        const isInsideModal = this.settingsModal?.contains
+            ? this.settingsModal.contains(target)
+            : focusable.includes(target);
+
+        if (event.shiftKey && (target === first || !isInsideModal)) {
+            event.preventDefault?.();
+            last.focus();
+        } else if (!event.shiftKey && (target === last || !isInsideModal)) {
+            event.preventDefault?.();
+            first.focus();
+        }
+    }
+
+    /**
+     * Collects visible, enabled controls that can receive fallback Tab focus.
+     *
+     * @private
+     * @returns {HTMLElement[]} Focusable modal controls in document order.
+     */
+    _getFallbackModalFocusableElements() {
+        if (!this.settingsModal?.querySelectorAll) return [];
+
+        const selector = [
+            'a[href]',
+            'button:not([disabled])',
+            'input:not([disabled]):not([type="hidden"])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])'
+        ].join(',');
+        return Array.from(this.settingsModal.querySelectorAll(selector)).filter((element) => (
+            !element.hidden &&
+            element.getAttribute?.('aria-hidden') !== 'true' &&
+            (!('offsetParent' in element) || element.offsetParent !== null)
+        ));
+    }
+
+    /**
+     * Restores the modal selector to the active session model when the modal
+     * exits without leaving an unsaved model draft behind.
+     *
+     * @private
+     * @returns {void}
+     */
+    _discardSettingsDraft() {
+        if (this.settingsModelSelect) {
+            this.settingsModelSelect.value = this.getCurrentModel();
+        }
+        this.updateSettingsVisibility();
+    }
+
+    /**
+     * Returns a focusable modal invoker, excluding startup's unfocused body.
+     *
+     * @private
+     * @param {HTMLElement|null} invoker Explicit invoking element, if known.
+     * @returns {HTMLElement|null} Focusable element to restore on close.
+     */
+    _getSettingsModalInvoker(invoker) {
+        const candidate = invoker || document.activeElement;
+        if (
+            candidate &&
+            candidate !== document.body &&
+            candidate !== document.documentElement &&
+            candidate.isConnected !== false &&
+            typeof candidate.focus === 'function'
+        ) {
+            return candidate;
+        }
+        return null;
+    }
+
+    /**
+     * Focuses an invalid active credential field, or the model selector when
+     * the active configuration is already valid.
+     *
+     * @private
+     * @returns {void}
+     */
+    _focusSettingsModalEntry() {
+        const { apiKeyInput, uriInput } = this._getActiveInputs();
+        const firstError = this.getValidationErrors()[0];
+        const apiKeyErrors = [
+            MESSAGES.API_KEY_REQUIRED,
+            MESSAGES.INVALID_API_KEY_CHARACTERS,
+            'Invalid API key format'
+        ];
+        const focusTarget = firstError
+            ? (apiKeyErrors.includes(firstError) ? apiKeyInput : uriInput)
+            : this.settingsModelSelect;
+
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            focusTarget.focus();
+        }
+    }
+
+    /**
+     * Restores focus to the element that opened the dialog when it remains in
+     * the document. Startup openings have no meaningful invoker to restore.
+     *
+     * @private
+     * @returns {void}
+     */
+    _restoreSettingsModalFocus() {
+        const invoker = this._settingsModalInvoker;
+        this._settingsModalInvoker = null;
+
+        if (invoker && invoker.isConnected !== false && typeof invoker.focus === 'function') {
+            invoker.focus();
+        }
     }
 
     /**
@@ -779,6 +1083,10 @@ export class Settings {
         if (this._panelEscHandler && document.removeEventListener) {
             document.removeEventListener('keydown', this._panelEscHandler);
         }
+        if (this._fallbackModalKeydownHandler && document.removeEventListener) {
+            document.removeEventListener('keydown', this._fallbackModalKeydownHandler);
+        }
+        this._deactivateFallbackModal();
         if (this._offPermissionGranted) {
             this._offPermissionGranted();
             this._offPermissionGranted = null;
