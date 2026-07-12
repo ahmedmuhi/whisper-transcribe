@@ -6,9 +6,12 @@ audit on 2026-06-11 at commit `50164c9` (all nine playbook categories, whole
 repo). Plans 016–018 were selected from a focused `deep tests` audit on
 2026-07-12 at commit `86987bd` (all 33 Vitest files / 393 tests plus the two
 Playwright layers). Plan 019 promotes the remaining adapter-storage metadata
-finding via the `plan` workflow at commit `382e9ff`. Execute in the order below
-unless dependencies say otherwise. Each executor: read the plan fully before
-starting, honor its STOP conditions, and update your row when done.
+finding via the `plan` workflow at commit `382e9ff`. Plans 020–030 were selected
+from a fresh whole-repository `deep` audit on 2026-07-12 at commit `559124e`
+(all nine playbook categories, current production/tests/tooling/docs and both
+browser layers). Execute in the order below unless dependencies say otherwise.
+Each executor: read the plan fully before starting, honor its STOP conditions,
+and update your row when done.
 
 > Note: this directory (`plans/`, executor handoff plans) is distinct from the
 > pre-existing `plan/` directory (design documents like `2.0-design.md`). Do
@@ -42,6 +45,17 @@ starting, honor its STOP conditions, and update your row when done.
 | 017 | Consolidate API validation, adapter, and retry tests | P2 | M | — | DONE (merged via PR #85 as `c9ec53e`, 2026-07-12) |
 | 018 | Add targeted behavior coverage after test consolidation | P2 | S/M | 016 + 017 | DONE (merged via PR #87 as `dff0b8c`, 2026-07-12; implementation `385bacf`) |
 | 019 | Make adapter metadata authoritative for credential storage | P2 | M | — | DONE (implemented as `8db9d8d`, independently approved, and merged in PR #89 as `7930363`) |
+| 020 | Make transcript autosave observable and navigation-safe | P1 | S/M | — | DONE (implemented as `0e9a092`, independently approved, and merged via PR #91 as `a01298a`, 2026-07-13) |
+| 021 | Recover atomically from MediaRecorder lifecycle failures | P1 | M | — | TODO |
+| 022 | Keep unsaved settings-model changes draft-only | P1 | S | — | TODO |
+| 023 | Preserve the browser-selected recording container | P2 | M | 021 | TODO |
+| 024 | Enforce model-specific audio upload limits before network submission | P2 | M | 021 + 023 | TODO |
+| 025 | Make the settings modal keyboard and focus correct | P2 | M | 022 | TODO |
+| 026 | Subscribe to microphone permission changes exactly once | P2 | S | 021 | TODO |
+| 027 | Normalize API lifecycle events and opt in to event history | P2 | S/M | 021 | TODO |
+| 028 | Provide one supported local-development command and runtime baseline | P2 | S/M | — | TODO |
+| 029 | Lint tests, Playwright scaffolding, and repository tooling | P2 | M | 028 | TODO |
+| 030 | Reconcile active model and state-machine documentation | P2 | S | 027 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -130,6 +144,16 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > association. UI-family branching, sanitizers, emit-only events, and
 > `cancelRecording` remain separate contracts/refactors.
 
+> Plans 020–030 were selected together from the fresh 2026-07-12 deep audit at
+> `559124e`. Baseline: 345 Vitest tests / 31 files passed in about six seconds;
+> coverage and the deterministic Chromium smoke were already green; lint,
+> Knip, production dependency, and 43.37 kB Brotli size gates passed. The audit
+> explicitly upheld the prior testing deferrals: no Node test migration, global
+> Vitest setup refactor, additional Playwright cases, standalone 503→success
+> case, worker-equivalence case, or coverage-only additions. Plans 020–030
+> target production contracts, developer workflow, and active-doc accuracy
+> instead.
+
 ## Dependency notes
 
 - **003 first.** It fixes the measurement itself — today a bare `vitest run`
@@ -166,6 +190,22 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   operationally, but changes only credential-key resolution. It must preserve
   the current storage strings and requires the deterministic browser smoke
   because `Settings` will newly import the adapter registry.
+- **020, 021, 022, and 028 may start independently.** They touch separate
+  transcript, recorder, settings-draft, and developer-tool boundaries.
+- **023 after 021.** Container metadata builds on the corrected recorder
+  lifecycle and overlaps `js/audio-handler.js` and its integration tests.
+- **024 after 021 + 023.** Upload limits must inspect the final, correctly typed
+  capture and must reuse the recorder error/retry semantics instead of creating
+  a parallel failure path.
+- **025 after 022.** Every modal close path must preserve the draft/commit model
+  boundary before native dialog and Escape behavior are changed.
+- **026 and 027 after 021.** Both touch lifecycle cleanup and AudioHandler tests;
+  rebase them on the finalized recorder recovery rather than resolving three
+  competing versions concurrently.
+- **029 after 028.** The broader lint gate must include the new local server from
+  its first commit.
+- **030 after 027.** Document the final exactly-once API event ownership rather
+  than updating the FSM/API specs twice.
 
 ## Test-suite necessity census (refreshed 2026-07-12, commit `86987bd`)
 
@@ -248,13 +288,12 @@ Promote any of these to a numbered plan on request. Order is roughly by leverage
    buffer (`js/visualization.js:71-80,104-109`), the real autosave debounce
    `input` listener (`js/ui.js:157-166`), error-handler fallbacks, and native
    dialog failure safety.
-8. **DX polish** (S each): `npm start` static-server script + README "how to
-   run locally" (README never says how); document the existing `?debug` /
-   localhost logging switch (`js/logger.js:53-63`); `.editorconfig` (indent
-   is currently mixed 2/4-space across the tree).
-9. **Toolchain majors** (deps, M): vitest 3→4 + @vitest/coverage-v8 4 (pairs
-   with the happy-dom 20 work in 004); eslint 10, knip 6, size-limit 12 are
-   low-urgency.
+8. **PLANNED as 028 + 029 — DX polish**: add a supported local server and debug
+   instructions, raise the EOL Node floor, then expand lint to tests and tooling.
+   `.editorconfig` remains optional because no concrete defect depends on it.
+9. **REJECTED for now — Toolchain majors**: Vitest 4, ESLint 10, Knip 6, and
+   Size Limit 12 exist, but current gates are fast and green and no required
+   capability/EOL blocker justifies the migration blast radius.
 
 ## Direction options (maintainer strategy calls, not defects)
 
@@ -326,3 +365,38 @@ New from the deep audit (2026-06-11, `50164c9`):
   re-sort on subscribe, per-sample `setInt16` loop, textarea `+=` append):
   all measured against actual hot paths during vetting; none rise above
   micro-optimization at this app's scale.
+
+Fresh deep audit (2026-07-12, `559124e`):
+
+- **Move pure tests to Node / refactor the global Vitest setup**: explicitly
+  deferred again. The complete 345-test Happy DOM suite runs in roughly six
+  seconds; splitting setup adds complexity without a demonstrated feedback-loop
+  or confidence benefit.
+- **Add more Playwright tests**: deferred. Plan 014's one continuous Chromium
+  smoke already covers real startup, native capture, conversion, Worker, CORS,
+  request shape, transcript DOM, and reload persistence. No new browser-only
+  defect requiring a second committed E2E case was found.
+- **Separate 503→success test**: rejected as redundant. The generic 429→success
+  case proves retry recovery; terminal 503 is separately covered and has no
+  status-specific success branch.
+- **Worker-versus-sync equivalence test / chase 0% Vitest worker coverage**:
+  rejected. Both paths import `encodeWav`, and the real Chromium smoke proves
+  the module Worker returns a valid non-silent WAV.
+- **Toolchain major upgrades**: current versions are fast and green; availability
+  of Vitest 4, ESLint 10, Knip 6, and Size Limit 12 is not evidence of a defect.
+- **Low transitive esbuild advisory**: not promoted. It affects a development
+  server path this repo does not run and has no non-major fix; revisit when a
+  compatible Vitest update brings the fixed transitive version.
+- **Split the 790-line Settings class**: valid mixed responsibility, but a
+  multi-day behavior-sensitive refactor has less leverage than Plans 022, 025,
+  and 026. Revisit only after those boundaries land and new change pressure
+  remains.
+- **Self-host Google Fonts**: retain as an investigate-first performance option.
+  The third-party cold-load dependency is real, but no trace quantifies user
+  impact and changing font metrics risks the interaction-led visual design.
+- **Content Security Policy**: remains worthwhile defense-in-depth but deferred,
+  as recorded above; no executable HTML injection sink or compromised asset path
+  was found in the current tree.
+- **`.editorconfig`**: optional polish. The broadened lint plan has a concrete
+  gate benefit; editor defaults do not currently explain a production or test
+  failure.
