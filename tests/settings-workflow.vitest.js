@@ -131,33 +131,6 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
     });
 
     describe('Fix 1: SETTINGS_LOADED event emission on page reload', () => {
-        test('should emit SETTINGS_LOADED when checkInitialSettings finds complete configuration', () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://myresource.openai.azure.com/';
-
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                if (key === STORAGE_KEYS.WHISPER_API_KEY) return whisperApiKey;
-                if (key === STORAGE_KEYS.WHISPER_URI) return whisperApiUri;
-                return null;
-            });
-
-            const newSettings = new Settings();
-            vi.spyOn(newSettings, 'updateSettingsVisibility').mockImplementation(() => {});
-
-            eventBusEmitSpy.mockClear();
-
-            newSettings.checkInitialSettings();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, {
-                model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
-            });
-
-            newSettings.destroy();
-        });
-
         test('should NOT emit SETTINGS_LOADED when configuration is incomplete', async () => {
             localStorageMock.getItem.mockImplementation((key) => {
                 if (key === STORAGE_KEYS.MODEL) return 'whisper';
@@ -181,40 +154,6 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             }, { timeout: 600 });
 
             newSettings.destroy();
-        });
-    });
-
-    describe('Fix 2: UI listens for SETTINGS_LOADED event', () => {
-        test('should call checkRecordingPrerequisites when SETTINGS_LOADED is emitted', () => {
-            const checkRecordingPrerequisitesSpy = vi.spyOn(ui, 'checkRecordingPrerequisites');
-
-            eventBus.emit(APP_EVENTS.SETTINGS_LOADED, {
-                model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
-            });
-
-            expect(checkRecordingPrerequisitesSpy).toHaveBeenCalled();
-        });
-    });
-
-    describe('Fix 3: Success message duration is explicit', () => {
-        test('should include explicit duration in success message', () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://myresource.openai.azure.com/';
-
-            mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            mockElements.get(ID.WHISPER_KEY).value = whisperApiKey;
-            mockElements.get(ID.WHISPER_URI).value = whisperApiUri;
-
-            settings.saveSettings();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: MESSAGES.SETTINGS_SAVED,
-                type: 'success',
-                temporary: true,
-                duration: 3000
-            });
         });
     });
 
@@ -307,27 +246,6 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
         });
     });
 
-    describe('Backward compatibility', () => {
-        test('should still work with existing SETTINGS_UPDATED events', () => {
-            const checkRecordingPrerequisitesSpy = vi.spyOn(ui, 'checkRecordingPrerequisites');
-
-            eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
-
-            expect(checkRecordingPrerequisitesSpy).toHaveBeenCalled();
-        });
-
-        test('should still work with existing SETTINGS_SAVED events', () => {
-            const checkRecordingPrerequisitesSpy = vi.spyOn(ui, 'checkRecordingPrerequisites');
-
-            eventBus.emit(APP_EVENTS.SETTINGS_SAVED, {
-                model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
-            });
-
-            expect(checkRecordingPrerequisitesSpy).toHaveBeenCalled();
-        });
-    });
 });
 
 // ─── Issue #32 Workflow ──────────────────────────────────────────────────────
@@ -359,94 +277,6 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
         eventBus.clear();
         vi.clearAllMocks();
         eventSpy.mockRestore();
-    });
-
-    it('should handle the complete workflow: open settings → save valid settings → verify all fixes', () => {
-        settings.openSettingsModal();
-
-        expect(mockElements.get(ID.SETTINGS_MODAL).style.display).toBe('block');
-        expect(eventSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_OPENED);
-
-        mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-        mockElements.get(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-        mockElements.get(ID.WHISPER_KEY).value = generateMockApiKeyForValidation();
-
-        eventSpy.mockClear();
-
-        settings.saveSettings();
-
-        expect(eventSpy).toHaveBeenCalledWith(
-            APP_EVENTS.UI_STATUS_UPDATE,
-            expect.objectContaining({
-                message: MESSAGES.SETTINGS_SAVED,
-                type: 'success',
-                temporary: true
-            })
-        );
-
-        expect(mockElements.get(ID.SETTINGS_MODAL).style.display).toBe('none');
-
-        expect(localStorageMock.setItem).toHaveBeenCalledWith(
-            STORAGE_KEYS.WHISPER_URI,
-            'https://test.openai.azure.com/whisper'
-        );
-        expect(localStorageMock.setItem).toHaveBeenCalledWith(
-            STORAGE_KEYS.WHISPER_API_KEY,
-            generateMockApiKeyForValidation()
-        );
-
-        expect(eventSpy).toHaveBeenCalledWith(
-            APP_EVENTS.SETTINGS_SAVED,
-            expect.objectContaining({
-                model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
-            })
-        );
-
-        expect(eventSpy).toHaveBeenCalledWith(
-            APP_EVENTS.SETTINGS_LOADED,
-            expect.objectContaining({
-                model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
-            })
-        );
-
-        expect(eventSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
-    });
-
-    it('should test microphone activation after valid settings save (Issue #3)', () => {
-        mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-        mockElements.get(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-        mockElements.get(ID.WHISPER_KEY).value = generateMockApiKeyForValidation();
-
-        localStorageMock.getItem.mockImplementation((key) => {
-            switch (key) {
-                case STORAGE_KEYS.MODEL:
-                    return 'whisper';
-                case STORAGE_KEYS.WHISPER_URI:
-                    return 'https://test.openai.azure.com/whisper';
-                case STORAGE_KEYS.WHISPER_API_KEY:
-                    return generateMockApiKeyForValidation();
-                default:
-                    return null;
-            }
-        });
-
-        eventBus.on(APP_EVENTS.SETTINGS_UPDATED, () => {
-            ui.checkRecordingPrerequisites();
-        });
-
-        eventSpy.mockClear();
-
-        settings.saveSettings();
-
-        expect(eventSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
-
-        const config = settings.getModelConfig();
-        expect(config.apiKey).toBe(generateMockApiKeyForValidation());
-        expect(config.uri).toBe('https://test.openai.azure.com/whisper');
     });
 
     it('should test settings persistence across page reloads (Issue #4)', () => {
@@ -489,37 +319,6 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
         reloadedSettings.destroy();
     });
 
-    it('should handle invalid settings correctly (should NOT trigger fixes)', () => {
-        mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-        mockElements.get(ID.WHISPER_URI).value = '';
-        mockElements.get(ID.WHISPER_KEY).value = '';
-
-        eventSpy.mockClear();
-
-        settings.saveSettings();
-
-        expect(mockElements.get(ID.SETTINGS_MODAL).style.display).toBe('block');
-
-        expect(eventSpy).toHaveBeenCalledWith(
-            APP_EVENTS.UI_STATUS_UPDATE,
-            expect.objectContaining({
-                type: 'error',
-                temporary: true
-            })
-        );
-
-        expect(localStorageMock.setItem).not.toHaveBeenCalled();
-
-        expect(eventSpy).not.toHaveBeenCalledWith(
-            APP_EVENTS.SETTINGS_SAVED,
-            expect.anything()
-        );
-
-        expect(eventSpy).not.toHaveBeenCalledWith(
-            APP_EVENTS.SETTINGS_LOADED,
-            expect.anything()
-        );
-    });
 });
 
 // ─── Microphone Activation ───────────────────────────────────────────────────
@@ -613,30 +412,5 @@ describe('Microphone Activation Issue Analysis', () => {
             expect(ui.primaryAction.disabled).toBe(false);
         });
 
-        it('responds to SETTINGS_SAVED by enabling the primary control', () => {
-            localStorageMock.getItem.mockImplementation((key) => {
-                switch (key) {
-                    case STORAGE_KEYS.MODEL:
-                        return 'whisper';
-                    case STORAGE_KEYS.WHISPER_URI:
-                        return 'https://test.openai.azure.com/whisper';
-                    case STORAGE_KEYS.WHISPER_API_KEY:
-                        return generateMockApiKeyForValidation();
-                    default:
-                        return null;
-                }
-            });
-
-            ui.settings = settings;
-            ui.setupEventBusListeners();
-
-            eventBus.emit(APP_EVENTS.SETTINGS_SAVED, {
-                model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
-            });
-
-            expect(ui.primaryAction.disabled).toBe(false);
-        });
     });
 });

@@ -148,4 +148,21 @@ describe('VisualizationController direct behavior', () => {
     await controller.stop();
     await controller.stop();
   });
+
+  it('finishes cleanup when audio resources throw during stop', () => {
+    const { canvas, ctx } = createCanvasMock();
+    const controller = new VisualizationController({}, canvas, false);
+    controller.amplitudeHistory = [0.25, 0.5];
+    controller.source.disconnect.mockImplementation(() => {
+      throw new Error('Already disconnected');
+    });
+    controller.audioContext.close.mockImplementation(() => {
+      throw new Error('Already closed');
+    });
+
+    expect(() => controller.stop()).not.toThrow();
+    expect(controller.amplitudeHistory).toEqual([]);
+    expect(ctx.fillStyle).toBe(COLORS.CANVAS_LIGHT_BG);
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, canvas.width, canvas.height);
+  });
 });
