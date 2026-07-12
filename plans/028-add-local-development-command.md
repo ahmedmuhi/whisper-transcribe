@@ -4,7 +4,7 @@
 > developer tool, not production application architecture. Stop if it requires
 > a runtime dependency or browser-test API behavior.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- package.json package-lock.json README.md CLAUDE.md .github/workflows/ci.yml tests/browser/static-server.mjs`
+> **Drift check (run first)**: `git diff --stat f9e36fe..HEAD -- package.json package-lock.json README.md CLAUDE.md .github/workflows/ci.yml tests/browser/static-server.mjs`
 
 ## Status
 
@@ -13,7 +13,7 @@
 - **Risk**: LOW
 - **Depends on**: none
 - **Category**: dx
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `f9e36fe`, 2026-07-13
 
 ## Why this matters
 

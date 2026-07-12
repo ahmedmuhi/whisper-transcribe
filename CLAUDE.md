@@ -4,21 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A no-build, zero-runtime-dependency browser app (vanilla ES modules) that records speech and transcribes it via the user's own Azure Speech Services account, wrapped in a "Dynamic Island" morphing UI. There is no bundler and no dev server script — serve the folder with any static file server (ES modules won't load from `file://`).
+A no-build, zero-runtime-dependency browser app (vanilla ES modules) that records speech and transcribes it via the user's own Azure Speech Services account, wrapped in a "Dynamic Island" morphing UI. There is no bundler; run `npm start` to serve the folder locally because ES modules will not load from `file://`.
 
 ## Commands
 
 ```bash
+npm start                                   # local app server (http://127.0.0.1:4173; Ctrl+C to stop)
 npm test                                    # full suite (Vitest)
 npx vitest run tests/<name>.vitest.js       # single test file
 npm run test:watch                          # watch mode
 npm run test:coverage                       # enforces thresholds: stmts 85 / branches 80 / funcs 70 / lines 85
+npm run test:browser                        # Playwright browser tests (headless)
+npm run test:browser:headed                 # headed Playwright tests (requires a GUI)
 npm run lint                                # ESLint (js/**/*.js)
 npm run lint:fix
 npm run deps:check                          # knip — unused files/deps/exports
 npm run deps:check:prod                     # knip production check (guards the zero-runtime-deps rule)
 npm run size                                # size-limit budget (js/*.js ≤ 100 kB)
 ```
+
+`npm start` uses Node built-ins only and defaults to the loopback URL shown
+above. Debug and info logging is enabled on localhost; append `?debug` to the
+URL to force it explicitly. Stop `npm start` before `npm run test:browser`:
+browser tests launch their own test-only static server and API stub on the test
+ports.
 
 Husky runs **lint** on pre-commit and **coverage + deps:check:prod** on pre-push, so a failing threshold or a new runtime dependency blocks the push.
 
