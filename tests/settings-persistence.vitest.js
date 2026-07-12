@@ -3,7 +3,7 @@
  * Verifies localStorage persistence, validation, modal save behavior, and event bus communication.
  */
 
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from '../js/constants.js';
@@ -119,6 +119,101 @@ describe('Settings Persistence & Save Workflow', () => {
 
             expect(document.getElementById(ID.WHISPER_KEY).value).toBe(whisperApiKey);
             expect(document.getElementById(ID.WHISPER_URI).value).toBe(whisperApiUri);
+        });
+
+        test('should use injected adapter storage metadata for save and config retrieval', () => {
+            const fakeModel = 'fake-settings-model';
+            const fakeApiKeyStorage = 'custom_model_api_key';
+            const fakeUriStorage = 'custom_model_uri';
+            const fakeRegistry = new Map([[
+                fakeModel,
+                {
+                    id: fakeModel,
+                    storageKeys: {
+                        apiKey: fakeApiKeyStorage,
+                        uri: fakeUriStorage
+                    }
+                }
+            ]]);
+            const fakeApiKey = generateMockApiKeyForValidation();
+            const fakeUri = 'https://custom-model.example.test/transcribe';
+            localStorageMock.getItem.mockImplementation((key) => {
+                if (key === STORAGE_KEYS.MODEL) return fakeModel;
+                return null;
+            });
+            const fakeSettings = new Settings(fakeRegistry);
+
+            try {
+                fakeSettings.modelSelect.value = fakeModel;
+                fakeSettings.settingsModelSelect.value = fakeModel;
+                fakeSettings.whisperKeyInput.value = fakeApiKey;
+                fakeSettings.whisperUriInput.value = fakeUri;
+                localStorageMock.setItem.mockClear();
+
+                fakeSettings.saveSettings();
+
+                expect(localStorageMock.setItem).toHaveBeenCalledWith(fakeApiKeyStorage, fakeApiKey);
+                expect(localStorageMock.setItem).toHaveBeenCalledWith(fakeUriStorage, fakeUri);
+                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
+                    STORAGE_KEYS.WHISPER_API_KEY,
+                    expect.anything()
+                );
+                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
+                    STORAGE_KEYS.WHISPER_URI,
+                    expect.anything()
+                );
+                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
+                    STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY,
+                    expect.anything()
+                );
+                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
+                    STORAGE_KEYS.MAI_TRANSCRIBE_URI,
+                    expect.anything()
+                );
+
+                localStorageMock.getItem.mockImplementation((key) => {
+                    if (key === STORAGE_KEYS.MODEL) return fakeModel;
+                    if (key === fakeApiKeyStorage) return fakeApiKey;
+                    if (key === fakeUriStorage) return fakeUri;
+                    return null;
+                });
+
+                expect(fakeSettings.getModelConfig()).toEqual({
+                    model: fakeModel,
+                    apiKey: fakeApiKey,
+                    uri: fakeUri
+                });
+                expect(localStorageMock.getItem).toHaveBeenCalledWith(fakeApiKeyStorage);
+                expect(localStorageMock.getItem).toHaveBeenCalledWith(fakeUriStorage);
+            } finally {
+                fakeSettings.destroy();
+            }
+        });
+
+        test('should fail closed when an adapter lacks credential storage metadata', () => {
+            const brokenModel = 'broken-settings-model';
+            const brokenRegistry = new Map([
+                [MODEL_TYPES.WHISPER, {
+                    id: MODEL_TYPES.WHISPER,
+                    storageKeys: {
+                        apiKey: STORAGE_KEYS.WHISPER_API_KEY,
+                        uri: STORAGE_KEYS.WHISPER_URI
+                    }
+                }],
+                [brokenModel, { id: brokenModel, storageKeys: { apiKey: '' } }]
+            ]);
+            const brokenSettings = new Settings(brokenRegistry);
+
+            try {
+                brokenSettings.modelSelect.value = brokenModel;
+                brokenSettings.settingsModelSelect.value = brokenModel;
+
+                expect(() => brokenSettings._getCredentialStorageKeys(brokenModel)).toThrow(
+                    new RegExp(`credential storage metadata is missing.*${brokenModel}`, 'i')
+                );
+            } finally {
+                brokenSettings.destroy();
+            }
         });
 
         test('should persist recording environment across settings reload', () => {

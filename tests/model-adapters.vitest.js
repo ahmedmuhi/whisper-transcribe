@@ -9,10 +9,12 @@ import {
     DEFAULT_LANGUAGE,
     DEFAULT_WAV_FILENAME,
     MESSAGES,
-    MODEL_TYPES
+    MODEL_TYPES,
+    STORAGE_KEYS
 } from '../js/constants.js';
 import { convertToWav } from '../js/audio-converter.js';
 import { APP_EVENTS, eventBus } from '../js/event-bus.js';
+import { modelAdapterRegistry } from '../js/model-adapters/index.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 vi.mock('../js/audio-converter.js', () => ({
@@ -99,6 +101,31 @@ describe('AzureAPIClient model adapter registry', () => {
         globalThis.fetch = vi.fn();
         globalThis.FormData = vi.fn(() => new TestFormData());
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
+    });
+
+    it('requires complete credential storage metadata for every registered adapter', () => {
+        for (const [model, adapter] of modelAdapterRegistry) {
+            expect(adapter.id).toBe(model);
+            expect(adapter.storageKeys).toEqual(expect.objectContaining({
+                apiKey: expect.any(String),
+                uri: expect.any(String)
+            }));
+            expect(adapter.storageKeys.apiKey).not.toBe('');
+            expect(adapter.storageKeys.uri).not.toBe('');
+        }
+
+        expect(modelAdapterRegistry.get(MODEL_TYPES.WHISPER).storageKeys).toEqual({
+            apiKey: STORAGE_KEYS.WHISPER_API_KEY,
+            uri: STORAGE_KEYS.WHISPER_URI
+        });
+        expect(modelAdapterRegistry.get(MODEL_TYPES.WHISPER_TRANSLATE).storageKeys).toEqual({
+            apiKey: STORAGE_KEYS.WHISPER_API_KEY,
+            uri: STORAGE_KEYS.WHISPER_URI
+        });
+        expect(modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5).storageKeys).toEqual({
+            apiKey: STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY,
+            uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
+        });
     });
 
     it('looks up the active model and routes request-building and parsing through the adapter', async () => {
