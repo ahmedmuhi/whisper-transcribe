@@ -104,6 +104,18 @@ export const MODEL_TYPES = {
 };
 
 /**
+ * Maximum inline audio upload sizes enforced by the model endpoints.
+ *
+ * Azure OpenAI Whisper: https://learn.microsoft.com/azure/foundry/openai/whisper-quickstart
+ * Azure MAI-Transcribe: https://learn.microsoft.com/azure/ai-services/speech-service/mai-transcribe
+ */
+export const WHISPER_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+export const MAI_TRANSCRIBE_MAX_UPLOAD_BYTES = (300 * 1024 * 1024) - 1;
+
+/** Stable input-validation code for model upload-size failures. */
+export const AUDIO_UPLOAD_LIMIT_ERROR_CODE = 'audio-upload-limit-exceeded';
+
+/**
  * The model selected out of the box when the user has no saved preference.
  * Single source of truth for the default — referenced by the Settings
  * empty-state fallbacks and the validate-and-reset migration. Change here to
@@ -347,6 +359,7 @@ export const MESSAGES = {
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
   CONVERTING_AUDIO: 'Converting audio format...',
   SENDING_TO_MAI_TRANSCRIBE: 'Sending to Azure MAI-Transcribe API...',
+  AUDIO_UPLOAD_LIMIT_EXCEEDED: '{model} accepts recordings {limit}. Make a shorter recording and try again.',
   UNKNOWN_API_RESPONSE: 'Unknown response format from API',
   
   // Transcription
@@ -377,6 +390,20 @@ export const MESSAGES = {
   RETRY_TRANSCRIPTION: 'Retry transcription',
   REQUEST_TIMED_OUT: 'The request timed out. Check your connection and try again.',
 };
+
+/**
+ * Formats the shared model upload-limit message with the selected model's
+ * human-readable limit.
+ *
+ * @param {string} model - Selected model label
+ * @param {string} limit - Human-readable maximum upload size
+ * @returns {string} User-facing input validation message
+ */
+export function formatAudioUploadLimitMessage(model, limit) {
+  return MESSAGES.AUDIO_UPLOAD_LIMIT_EXCEEDED
+    .replace('{model}', model)
+    .replace('{limit}', limit);
+}
 
 /**
  * Maximum time to wait for a single transcription request attempt before

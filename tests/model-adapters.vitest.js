@@ -4,13 +4,17 @@
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     API_PARAMS,
     DEFAULT_FILENAME,
     DEFAULT_LANGUAGE,
     DEFAULT_WAV_FILENAME,
+    formatAudioUploadLimitMessage,
+    MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MESSAGES,
     MODEL_TYPES,
-    STORAGE_KEYS
+    STORAGE_KEYS,
+    WHISPER_MAX_UPLOAD_BYTES
 } from '../js/constants.js';
 import { convertToWav } from '../js/audio-converter.js';
 import { APP_EVENTS, eventBus } from '../js/event-bus.js';
@@ -85,6 +89,12 @@ function getFetchOptions() {
 
 function getFormEntry(key) {
     return getFetchOptions().body.appended.find(entry => entry.key === key);
+}
+
+function createBlobWithStubbedSize(size, type = 'audio/webm') {
+    const audioBlob = new Blob(['audio'], { type });
+    Object.defineProperty(audioBlob, 'size', { value: size });
+    return audioBlob;
 }
 
 let AzureAPIClient;
@@ -257,6 +267,45 @@ describe('AzureAPIClient model adapter registry', () => {
     });
 
     it.each([
+        [MODEL_TYPES.WHISPER, 'Azure Whisper'],
+        [MODEL_TYPES.WHISPER_TRANSLATE, 'Azure Whisper Translate']
+    ])('accepts %s audio below and at the 25 MB upload limit', async (model) => {
+        const settings = createSettings(model);
+        const apiClient = new AzureAPIClient(settings);
+
+        if (model === MODEL_TYPES.WHISPER) {
+            mockTextResponse('Whisper text');
+        } else {
+            mockJsonResponse({ text: 'Translated text' });
+        }
+
+        await apiClient.transcribe(createBlobWithStubbedSize(WHISPER_MAX_UPLOAD_BYTES - 1));
+        await apiClient.transcribe(createBlobWithStubbedSize(WHISPER_MAX_UPLOAD_BYTES));
+
+        expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+        expect(globalThis.FormData).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+        [MODEL_TYPES.WHISPER, 'Azure Whisper'],
+        [MODEL_TYPES.WHISPER_TRANSLATE, 'Azure Whisper Translate']
+    ])('rejects %s audio one byte above the 25 MB upload limit before request construction', async (model, label) => {
+        const settings = createSettings(model);
+        const apiClient = new AzureAPIClient(settings);
+
+        await expect(apiClient.transcribe(
+            createBlobWithStubbedSize(WHISPER_MAX_UPLOAD_BYTES + 1)
+        )).rejects.toMatchObject({
+            code: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+            retryable: false,
+            message: formatAudioUploadLimitMessage(label, 'up to 25 MB')
+        });
+
+        expect(globalThis.FormData).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it.each([
         [MODEL_TYPES.WHISPER, 'audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
         [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
         [MODEL_TYPES.WHISPER, 'audio/x-m4a', 'recording.m4a'],
@@ -361,6 +410,43 @@ describe('AzureAPIClient model adapter registry', () => {
             combinedPhrases: [{ text: 'Combined output.' }],
             text: 'Text field output.'
         })).toBe('Combined output.');
+    });
+
+    it('accepts MAI audio at the strict less-than-300-MB boundary after conversion', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        const apiClient = new AzureAPIClient(settings);
+        const sourceBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1);
+        const wavBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES, 'audio/wav');
+        convertToWav.mockResolvedValueOnce(wavBlob);
+        mockJsonResponse({ text: 'MAI transcription' });
+
+        await expect(apiClient.transcribe(sourceBlob)).resolves.toBe('MAI transcription');
+
+        expect(convertToWav).toHaveBeenCalledWith(sourceBlob);
+        expect(getFormEntry(API_PARAMS.MAI_AUDIO_FIELD)).toEqual({
+            key: API_PARAMS.MAI_AUDIO_FIELD,
+            value: wavBlob,
+            filename: DEFAULT_WAV_FILENAME
+        });
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an oversized MAI WAV after conversion and before request construction', async () => {
+        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        const apiClient = new AzureAPIClient(settings);
+        const sourceBlob = createBlobWithStubbedSize(1);
+        const oversizedWavBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1, 'audio/wav');
+        convertToWav.mockResolvedValueOnce(oversizedWavBlob);
+
+        await expect(apiClient.transcribe(sourceBlob)).rejects.toMatchObject({
+            code: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+            retryable: false,
+            message: formatAudioUploadLimitMessage('Azure MAI-Transcribe 1.5', 'under 300 MB')
+        });
+
+        expect(convertToWav).toHaveBeenCalledWith(sourceBlob);
+        expect(globalThis.FormData).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
 });

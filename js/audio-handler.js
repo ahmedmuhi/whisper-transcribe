@@ -2,7 +2,13 @@
  * @fileoverview Audio recording and playback management for speech transcription.
  */
 
-import { RECORDING_STATES, MESSAGES, TIMER_CONFIG, DISCARD_CONFIRM_MIN_MS } from './constants.js';
+import {
+    AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+    RECORDING_STATES,
+    MESSAGES,
+    TIMER_CONFIG,
+    DISCARD_CONFIRM_MIN_MS
+} from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -528,7 +534,7 @@ export class AudioHandler {
         } else {
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
                 error: result.error,
-                canRetry: Boolean(this.pendingRetryBlob)
+                canRetry: result.code !== AUDIO_UPLOAD_LIMIT_ERROR_CODE && Boolean(this.pendingRetryBlob)
             });
         }
     }
@@ -554,7 +560,7 @@ export class AudioHandler {
 
         await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
             error: result.error,
-            canRetry: Boolean(this.pendingRetryBlob)
+            canRetry: result.code !== AUDIO_UPLOAD_LIMIT_ERROR_CODE && Boolean(this.pendingRetryBlob)
         });
     }
     
@@ -595,7 +601,7 @@ export class AudioHandler {
                 ? `${rawMessage}. ${MESSAGES.CHECK_INTERNET_CONNECTION}`
                 : rawMessage;
             // handleErrorState emits UI_STATUS_UPDATE with prefix + retry hint
-            return { success: false, error: errorMessage };
+            return { success: false, error: errorMessage, code: error?.code };
         }
     }
     
