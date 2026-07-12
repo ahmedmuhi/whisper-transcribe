@@ -39,7 +39,7 @@ conditions, and update your row when done.
 | 015 | Add an opt-in live-Azure contract test (workflow_dispatch only, never in normal CI) | P3 | S/M | 014 | DONE (merged via PR #79 as `bd12c3a`, 2026-07-12; implementation `086ea33..e7cca08`; manual live-Azure workflow run 29173869417 passed in 42s with the operator-provided spoken fixture; deterministic browser smoke passed, guarded live test skipped as designed, 393 tests / 33 files, coverage 92.69/87.57/90.40/92.69, lint/dependency/size/scope/security review passed) |
 | 016 | Consolidate Settings and UI tests without losing behavior coverage | P2 | M | — | DONE (merged via PR #83 as `8e36275`, 2026-07-12) |
 | 017 | Consolidate API validation, adapter, and retry tests | P2 | M | — | DONE (merged via PR #85 as `c9ec53e`, 2026-07-12) |
-| 018 | Add targeted behavior coverage after test consolidation | P2 | S/M | 016 + 017 | TODO |
+| 018 | Add targeted behavior coverage after test consolidation | P2 | S/M | 016 + 017 | DONE (implemented and independently approved as `385bacf` on `test/018-targeted-test-gaps`; awaiting operator merge) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
