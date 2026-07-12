@@ -10,8 +10,6 @@
  * posts { requestId, error }.
  */
 
-/* global self */
-
 import { encodeWav } from './wav-encoder.js';
 
 self.addEventListener('message', (event) => {

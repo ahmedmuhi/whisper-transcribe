@@ -1,4 +1,4 @@
-import { afterEach, expect, vi, beforeAll } from 'vitest';
+import { afterEach, vi, beforeAll } from 'vitest';
 import { applyDomSpies as baseApplyDomSpies } from './helpers/test-dom-vitest.js';
 import { eventBus } from '../js/event-bus.js';
 import { logger } from '../js/logger.js';
@@ -145,7 +145,7 @@ if (!global.MediaRecorder) {
       this.onpause = null;
       this.onresume = null;
     }
-    start(timeslice) { 
+    start(_timeslice) {
       this.state = 'recording';
       if (this.onstart) this.onstart();
       setTimeout(() => {
@@ -180,7 +180,6 @@ if (!global.MediaRecorder) {
 
 // Advanced timer management and async utilities for complex flows
 const originalSetTimeout = global.setTimeout;
-const originalSetInterval = global.setInterval;
 
 // Export utilities for integration tests
 global.integrationTestUtils = {

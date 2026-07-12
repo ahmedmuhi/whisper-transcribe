@@ -4,7 +4,7 @@
 > not silence the initial error set globally. Follow every gate and stop if the
 > change requires test-environment refactoring.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- eslint.config.js package.json package-lock.json tests playwright.config.js playwright.live.config.js scripts`
+> **Drift check (run first)**: `git diff --stat 7c2f2c0..HEAD -- eslint.config.js package.json package-lock.json tests playwright.config.js playwright.live.config.js scripts`
 
 ## Status
 
@@ -13,7 +13,7 @@
 - **Risk**: LOW
 - **Depends on**: Plan 028
 - **Category**: dx
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `7c2f2c0`, 2026-07-13 (after Plan 028)
 
 ## Why this matters
 

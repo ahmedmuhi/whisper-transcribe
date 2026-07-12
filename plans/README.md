@@ -54,7 +54,7 @@ and update your row when done.
 | 026 | Subscribe to microphone permission changes exactly once | P2 | S | 021 | DONE (implemented as `fdf0ca6`, independently approved, and merged via PR #98 as `c6b50f8`, 2026-07-13) |
 | 027 | Normalize API lifecycle events and opt in to event history | P2 | S/M | 021 | DONE (implemented as `70a7507`, independently approved, and merged via PR #99 as `4c0a5d7`, 2026-07-13) |
 | 028 | Provide one supported local-development command and runtime baseline | P2 | S/M | — | DONE (implemented as `07ee6c5`, independently approved after two review rounds, and merged via PR #100 as `9206b02`, 2026-07-13) |
-| 029 | Lint tests, Playwright scaffolding, and repository tooling | P2 | M | 028 | TODO |
+| 029 | Lint tests, Playwright scaffolding, and repository tooling | P2 | M | 028 | IN PROGRESS (implemented as `e85b104`, independently approved; awaiting merge) |
 | 030 | Reconcile active model and state-machine documentation | P2 | S | 027 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
