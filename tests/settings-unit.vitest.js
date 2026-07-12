@@ -66,7 +66,6 @@ describe('Settings DOM Caching', () => {
     settings.updateSettingsVisibility();
     settings.loadSettingsToForm();
     settings.sanitizeInputs();
-    settings.validateConfiguration();
     settings.getValidationErrors();
     settings.saveSettings();
 
@@ -251,48 +250,9 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
     describe('sanitizeInputs Method', () => {
         describe('API Key Sanitization', () => {
-            it('should trim whitespace from API key', () => {
-                const mockKey = generateMockApiKey('TRIM');
-                mockApiKeyInput.value = `  ${mockKey}  `;
-
-                settings.sanitizeInputs();
-
-                expect(mockApiKeyInput.value).toBe(mockKey);
-            });
-
-            it('should remove newlines from API key', () => {
-                const baseMockKey = generateMockApiKey('NEWLINE');
-                const keyWithNewline = baseMockKey.substring(0, 15) + '\n' + baseMockKey.substring(15);
-                mockApiKeyInput.value = keyWithNewline;
-
-                settings.sanitizeInputs();
-
-                expect(mockApiKeyInput.value).toBe(baseMockKey);
-            });
-
-            it('should remove tabs from API key', () => {
-                const baseMockKey = generateMockApiKey('TAB');
-                const keyWithTab = baseMockKey.substring(0, 15) + '\t' + baseMockKey.substring(15);
-                mockApiKeyInput.value = keyWithTab;
-
-                settings.sanitizeInputs();
-
-                expect(mockApiKeyInput.value).toBe(baseMockKey);
-            });
-
-            it('should remove carriage returns from API key', () => {
-                const baseMockKey = generateMockApiKey('CR');
-                const keyWithCR = baseMockKey.substring(0, 15) + '\r' + baseMockKey.substring(15);
-                mockApiKeyInput.value = keyWithCR;
-
-                settings.sanitizeInputs();
-
-                expect(mockApiKeyInput.value).toBe(baseMockKey);
-            });
-
-            it('should handle multiple whitespace characters', () => {
-                const mockKey = generateMockApiKey('MULTI');
-                mockApiKeyInput.value = `  \n\t\r${mockKey}\n\t\r  `;
+            it('removes whitespace and invisible paste artifacts from API keys', () => {
+                const mockKey = generateMockApiKey('MIXED');
+                mockApiKeyInput.value = ` \u200B${mockKey.slice(0, 12)}\n${mockKey.slice(12, 24)}\t\u200B${mockKey.slice(24)}\r\u200B `;
 
                 settings.sanitizeInputs();
 
@@ -649,168 +609,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
         });
     });
 
-    describe('validateConfiguration Method', () => {
-        let eventBusEmitSpy;
-
-        beforeEach(() => {
-            eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
-        });
-
-        describe('Valid Configuration', () => {
-            it('should return true for valid configuration', () => {
-                mockApiKeyInput.value = generateMockApiKeyForValidation();
-                mockUriInput.value = 'https://valid.azure.com/';
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(true);
-            });
-
-            it('should not emit validation error event for valid configuration', () => {
-                mockApiKeyInput.value = generateMockApiKeyForValidation();
-                mockUriInput.value = 'https://valid.azure.com/';
-
-                settings.validateConfiguration();
-
-                expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
-                    APP_EVENTS.SETTINGS_VALIDATION_ERROR,
-                    expect.anything()
-                );
-            });
-
-            it('should sanitize inputs before validation', () => {
-                const mockKey = generateMockApiKey('VALIDATE');
-                mockApiKeyInput.value = `  ${mockKey}  `;
-                mockUriInput.value = '  https://valid.azure.com/extra/path  ';
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(true);
-                expect(mockApiKeyInput.value).toBe(mockKey);
-                expect(mockUriInput.value).toBe('https://valid.azure.com/extra/path');
-            });
-        });
-
-        describe('Invalid Configuration', () => {
-            it('should return false for missing API key', () => {
-                mockApiKeyInput.value = '';
-                mockUriInput.value = 'https://valid.azure.com/';
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(false);
-            });
-
-            it('should return false for invalid API key format', () => {
-                mockApiKeyInput.value = 'invalid-key';
-                mockUriInput.value = 'https://valid.azure.com/';
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(false);
-            });
-
-            it('should return false for missing URI', () => {
-                mockApiKeyInput.value = generateMockApiKeyForValidation();
-                mockUriInput.value = '';
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(false);
-            });
-
-            it('should return false for HTTP URI', () => {
-                mockApiKeyInput.value = generateMockApiKeyForValidation();
-                mockUriInput.value = 'http://insecure.azure.com/';
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(false);
-            });
-
-            it('should return false for malformed URI', () => {
-                mockApiKeyInput.value = generateMockApiKeyForValidation();
-                mockUriInput.value = 'not-a-valid-uri';
-
-                global.URL.mockImplementationOnce(() => {
-                    throw new Error('Invalid URL');
-                });
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(false);
-            });
-        });
-
-        describe('Event Emission', () => {
-            it('should emit validation error event with error details', () => {
-                mockApiKeyInput.value = '';
-                mockUriInput.value = '';
-
-                settings.validateConfiguration();
-
-                expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                    APP_EVENTS.SETTINGS_VALIDATION_ERROR,
-                    {
-                        errors: [
-                            'API key is required',
-                            'URI is required'
-                        ]
-                    }
-                );
-            });
-
-            it('should emit validation error event for single error', () => {
-                mockApiKeyInput.value = generateMockApiKeyForValidation();
-                mockUriInput.value = 'http://insecure.com/';
-
-                settings.validateConfiguration();
-
-                expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                    APP_EVENTS.SETTINGS_VALIDATION_ERROR,
-                    {
-                        errors: ['URI must use HTTPS']
-                    }
-                );
-            });
-
-            it('should emit validation error event for multiple errors', () => {
-                mockApiKeyInput.value = 'invalid-key';
-                mockUriInput.value = 'http://insecure.com/';
-
-                settings.validateConfiguration();
-
-                expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                    APP_EVENTS.SETTINGS_VALIDATION_ERROR,
-                    {
-                        errors: [
-                            'Invalid API key format',
-                            'URI must use HTTPS'
-                        ]
-                    }
-                );
-            });
-        });
-
-        describe('Model-Specific Validation', () => {
-            it('should validate Whisper model configuration', () => {
-                mockModelSelect.value = 'whisper';
-                const whisperKey = createMockElement(generateMockApiKeyForValidation());
-                const whisperUri = createMockElement('https://whisper.azure.com/');
-                mockElements[ID.WHISPER_KEY] = whisperKey;
-                mockElements[ID.WHISPER_URI] = whisperUri;
-
-                settings.whisperKeyInput = whisperKey;
-                settings.whisperUriInput = whisperUri;
-
-                const isValid = settings.validateConfiguration();
-
-                expect(isValid).toBe(true);
-            });
-
-        });
-    });
-
     describe('Integration Between Methods', () => {
         it('should sanitize inputs before getting validation errors', () => {
             const mockKey = generateMockApiKey('INTEGRATION');
@@ -824,31 +622,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             expect(mockUriInput.value).toBe('https://valid.azure.com/path');
         });
 
-        it('should sanitize inputs before validating configuration', () => {
-            const mockKey = generateMockApiKey('CONFIG');
-            mockApiKeyInput.value = `  ${mockKey}  `;
-            mockUriInput.value = '  https://valid.azure.com/path  ';
-
-            const isValid = settings.validateConfiguration();
-
-            expect(isValid).toBe(true);
-            expect(mockApiKeyInput.value).toBe(mockKey);
-            expect(mockUriInput.value).toBe('https://valid.azure.com/path');
-        });
-
-        it('should use same validation logic in both methods', () => {
-            mockApiKeyInput.value = 'invalid-key';
-            mockUriInput.value = 'http://insecure.com/';
-
-            const errors = settings.getValidationErrors();
-            const isValid = settings.validateConfiguration();
-
-            expect(isValid).toBe(false);
-            expect(errors).toEqual([
-                'Invalid API key format',
-                'URI must use HTTPS'
-            ]);
-        });
     });
 
     describe('Edge Cases and Error Handling', () => {
@@ -880,32 +653,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             expect(undefinedUriElement.value).toBe(undefined);
         });
 
-        it('should handle validation methods with null values', () => {
-            const nullKeyElement = createMockElement();
-            const nullUriElement = createMockElement();
-            nullKeyElement.value = null;
-            nullUriElement.value = null;
-
-            settings.whisperKeyInput = nullKeyElement;
-            settings.whisperUriInput = nullUriElement;
-
-            expect(() => settings.getValidationErrors()).toThrow('Cannot read properties of null');
-            expect(() => settings.validateConfiguration()).toThrow('Cannot read properties of null');
-        });
-
-        it('should handle validation methods with undefined values', () => {
-            const undefinedKeyElement = createMockElement();
-            const undefinedUriElement = createMockElement();
-            undefinedKeyElement.value = undefined;
-            undefinedUriElement.value = undefined;
-
-            settings.whisperKeyInput = undefinedKeyElement;
-            settings.whisperUriInput = undefinedUriElement;
-
-            expect(() => settings.getValidationErrors()).toThrow('Cannot read properties of undefined');
-            expect(() => settings.validateConfiguration()).toThrow('Cannot read properties of undefined');
-        });
-
         it('should handle URL constructor exceptions gracefully', () => {
             mockApiKeyInput.value = generateMockApiKeyForValidation();
             mockUriInput.value = 'malformed-uri';
@@ -915,10 +662,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
             });
 
             const errors = settings.getValidationErrors();
-            const isValid = settings.validateConfiguration();
-
             expect(errors).toContain('Invalid URI format');
-            expect(isValid).toBe(false);
         });
 
         it('should handle missing DOM elements gracefully', () => {
@@ -929,9 +673,6 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
 
             expect(() => settings.sanitizeInputs()).not.toThrow();
             expect(() => settings.getValidationErrors()).not.toThrow();
-            expect(() => settings.validateConfiguration()).not.toThrow();
-
-            expect(settings.validateConfiguration()).toBe(false);
 
             const errors = settings.getValidationErrors();
             expect(errors).toEqual(

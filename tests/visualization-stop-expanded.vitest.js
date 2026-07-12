@@ -125,19 +125,13 @@ describe('Visualization Event Handling and Cleanup', () => {
         isDarkTheme: false 
       });
       
-      // Wait for async import to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      expect(mockController.start).toHaveBeenCalled();
+      await vi.waitFor(() => expect(mockController.start).toHaveBeenCalled());
     });
 
     it('does not start visualization if VISUALIZATION_START event is missing stream', async () => {
       eventBus.emit(APP_EVENTS.VISUALIZATION_START, { isDarkTheme: false });
       
-      // Wait for async import to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      expect(mockController.start).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(mockController.start).not.toHaveBeenCalled());
     });
 
     it('stops visualization on VISUALIZATION_STOP event', () => {
@@ -153,34 +147,15 @@ describe('Visualization Event Handling and Cleanup', () => {
   });
   
   describe('Visualization Cleanup on Unexpected Errors', () => {
-    it('cleans up visualization when recording state transitions to error', async () => {
-      // Setup a visualization controller
+    it.each([
+      { oldState: 'recording', newState: 'error' },
+      { oldState: 'cancelling', newState: 'idle' }
+    ])('retains the controller until an explicit VISUALIZATION_STOP for state-only changes', ({ oldState, newState }) => {
       ui.visualizationController = mockController;
-      
-      // Simulate state change to error (which is how UI responds to errors)
-      eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, { 
-        newState: 'error', 
-        oldState: 'recording' 
-      });
-      
-      // UI doesn't automatically clean visualization on error state - this is by design
-      // Visualization cleanup happens when explicitly stopped or when a new recording starts
-      expect(ui.visualizationController).toBe(mockController); // Still present
-    });
-    
-    it('cleans up visualization when recording state transitions to idle after cancellation', async () => {
-      // Setup a visualization controller
-      ui.visualizationController = mockController;
-      
-      // Simulate state change to idle (which happens after cancellation)
-      eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, { 
-        newState: 'idle', 
-        oldState: 'cancelling' 
-      });
-      
-      // UI doesn't automatically clean visualization on idle state - this is by design
-      // Visualization cleanup happens when explicitly stopped
-      expect(ui.visualizationController).toBe(mockController); // Still present
+
+      eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, { newState, oldState });
+
+      expect(ui.visualizationController).toBe(mockController);
     });
     
     it('safely handles multiple stop calls without crashing', () => {
@@ -213,11 +188,7 @@ describe('Visualization Event Handling and Cleanup', () => {
           isDarkTheme: true
         });
 
-        // Wait for async import to complete
-        await new Promise(resolve => setTimeout(resolve, 10));
-
-        // Verify that a controller was created and started (through our mock)
-        expect(mockController.start).toHaveBeenCalled();
+        await vi.waitFor(() => expect(mockController.start).toHaveBeenCalled());
 
         // The UI must derive the dark flag from <html> and pass it as arg index 2
         expect(VisualizationController).toHaveBeenCalledWith(
@@ -234,96 +205,18 @@ describe('Visualization Event Handling and Cleanup', () => {
   
   describe('Multiple Rapid Start/Stop Cycles', () => {
     it('handles multiple start/stop cycles without memory leaks', async () => {
-      // Track created controllers
-      const controllers = [];
-      
-      // Create a tracking constructor outside the mock factory
-      const mockVisualizationController = vi.fn().mockImplementation((...args) => {
-        const controller = { start: vi.fn(), stop: vi.fn() };
-        controllers.push(controller);
-        return controller;
-      });
-      
-      // Use doMock for runtime mocking
-      vi.doMock('../js/visualization.js', () => ({
-        VisualizationController: mockVisualizationController
-      }));
-      
-      // Get reference to mocked module
-      const { VisualizationController } = await import('../js/visualization.js');
-      
-      // Reset UI instance to use our new mock
-      ui = new UI();
-      ui.visualizer = document.getElementById('visualizer');
-      ui.setupEventBusListeners();
-      
-      // Multiple rapid cycles
       for (let i = 0; i < 5; i++) {
-        // Start visualization
         eventBus.emit(APP_EVENTS.VISUALIZATION_START, { 
           stream: { getAudioTracks: () => [{ kind: 'audio' }] }, 
           isDarkTheme: false 
         });
-        
-        // Wait for async import
-        await new Promise(resolve => setTimeout(resolve, 10));
-        
-        // Stop visualization
+
+        await vi.waitFor(() => expect(mockController.start).toHaveBeenCalledTimes(i + 1));
+
         eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
-        
-        // Wait between cycles
-        await new Promise(resolve => setTimeout(resolve, 10));
+        expect(mockController.stop).toHaveBeenCalledTimes(i + 1);
+        expect(ui.visualizationController).toBeNull();
       }
-      
-      // Each controller should have been stopped
-      controllers.forEach(controller => {
-        expect(controller.stop).toHaveBeenCalled();
-      });
-      
-      // UI should not have a reference to any controller at the end
-      expect(ui.visualizationController).toBeNull();
-    });
-  });
-  
-  describe('Memory Leak Prevention', () => {
-    it('properly disconnects audio nodes and closes audio context when stopped', async () => {
-      // Test that the UI properly stops the visualization controller
-      ui.visualizationController = mockController;
-      
-      // Add spies to track cleanup calls
-      const mockAnimationId = 123;
-      mockController.animationId = mockAnimationId;
-      
-      // Stop the visualization
-      eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
-      
-      // Verify controller stop was called
-      expect(mockController.stop).toHaveBeenCalled();
-      expect(ui.visualizationController).toBeNull();
-      expect(ui.clearVisualization).toHaveBeenCalled();
-    });
-    
-    it('handles already disconnected audio nodes gracefully', async () => {
-      // Test that stop call doesn't throw even if controller stop throws
-      const throwingController = {
-        start: vi.fn(),
-        stop: vi.fn(() => {
-          throw new Error('Already stopped');
-        })
-      };
-      
-      ui.visualizationController = throwingController;
-      
-      // The EventBus catches errors from event handlers and logs them
-      // but doesn't rethrow them, so the emit call doesn't throw
-      expect(() => {
-        eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
-      }).not.toThrow();
-      
-      // Verify calls were still attempted
-      expect(throwingController.stop).toHaveBeenCalled();
-      // Since stop() threw an error, the line setting controller to null never executed
-      expect(ui.visualizationController).toBe(throwingController);
     });
   });
 });

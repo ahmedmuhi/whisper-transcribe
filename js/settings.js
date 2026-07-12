@@ -548,24 +548,6 @@ export class Settings {
     }
 
     /**
-     * Validate the current configuration fields.
-     * Ensures an API key is present and formatted correctly and that
-     * the URI is a valid HTTPS URL.
-     * Emits SETTINGS_VALIDATION_ERROR with details when invalid.
-     *
-     * @method validateConfiguration
-     * @returns {boolean} True if configuration is valid
-     */
-    validateConfiguration() {
-        const errors = this.getValidationErrors();
-        if (errors.length > 0) {
-            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, { errors });
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Retrieve human readable validation errors for the current
      * configuration without emitting any events.
      *
