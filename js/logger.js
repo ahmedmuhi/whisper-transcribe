@@ -38,8 +38,9 @@ const LOG_LEVEL_NAMES = {
  */
 function detectEnvironment() {
     // Check for common development indicators
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV) {
-        return process.env.NODE_ENV;
+    const nodeProcess = globalThis.process;
+    if (nodeProcess?.env?.NODE_ENV) {
+        return nodeProcess.env.NODE_ENV;
     }
     
     // Check for localhost or development domains

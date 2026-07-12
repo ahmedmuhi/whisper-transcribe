@@ -4,7 +4,6 @@
  */
 
 import { vi } from 'vitest';
-import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { ID, MESSAGES, MODEL_TYPES, STORAGE_KEYS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { generateMockApiKey, generateMockApiKeyForValidation, generateInvalidMockApiKey } from './helpers/mock-api-keys.js';
@@ -214,7 +213,7 @@ describe('Settings Helper Methods - Isolated Unit Tests', () => {
                 throw new Error('Invalid URL');
             }
 
-            const httpsMatch = url.match(/^(https?):\/\/([^\/]+)(\/.*)?$/);
+            const httpsMatch = url.match(/^(https?):\/\/([^/]+)(\/.*)?$/);
             if (!httpsMatch) {
                 throw new Error('Invalid URL');
             }

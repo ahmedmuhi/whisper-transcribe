@@ -5,7 +5,6 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { COLORS } from '../js/constants.js';
 import { applyDomSpies, resetEventBus } from './helpers/test-dom-vitest.js';
 
 // Mock window.requestAnimationFrame and cancelAnimationFrame

@@ -31,7 +31,7 @@ const mockStart = vi.fn();
 
 const originalOfflineAudioContext = global.OfflineAudioContext;
 
-global.OfflineAudioContext = vi.fn().mockImplementation((channels, length, sampleRate) => ({
+global.OfflineAudioContext = vi.fn().mockImplementation((_channels, _length, _sampleRate) => ({
     decodeAudioData: mockDecodeAudioData,
     createBufferSource: () => ({
         buffer: null,

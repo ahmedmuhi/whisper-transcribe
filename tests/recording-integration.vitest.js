@@ -107,7 +107,7 @@ class MockMediaRecorder {
     });
   }
 
-  start(timeslice) {
+  start(_timeslice) {
     this.state = 'recording';
     
     // Immediately simulate data being available
@@ -221,7 +221,7 @@ document.body.innerHTML = `
 `;
 
 // Import modules after setting up mocks
-let AudioHandler, RecordingStateMachine, PermissionManager, AzureAPIClient, eventBus, APP_EVENTS, RECORDING_STATES;
+let AudioHandler, RecordingStateMachine, PermissionManager, eventBus, APP_EVENTS, RECORDING_STATES;
 
 beforeAll(async () => {
   ({ eventBus, APP_EVENTS } = await import('../js/event-bus.js'));
@@ -229,7 +229,6 @@ beforeAll(async () => {
   ({ RecordingStateMachine } = await import('../js/recording-state-machine.js'));
   ({ PermissionManager } = await import('../js/permission-manager.js'));
   ({ AudioHandler } = await import('../js/audio-handler.js'));
-  ({ AzureAPIClient } = await import('../js/api-client.js'));
 });
 
 describe('Recording Integration', () => {
@@ -237,13 +236,10 @@ describe('Recording Integration', () => {
   let mockSettings;
   let mockApiClient;
   let eventBusEmitSpy;
-  let recordingStartedSpy;
-  let recordingStoppedSpy;
   let recordingPausedSpy;
   let recordingResumedSpy;
   let recordingCancelledSpy;
   let stateChangeSpy;
-  let apiRequestStartSpy;
   let transcriptionReadySpy;
   
   // Helper function for standardized async operation waiting
@@ -284,13 +280,10 @@ describe('Recording Integration', () => {
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
     
     // For convenience, create aliases that filter specific events
-    recordingStartedSpy = eventBusEmitSpy;
-    recordingStoppedSpy = eventBusEmitSpy;
     recordingPausedSpy = eventBusEmitSpy;
     recordingResumedSpy = eventBusEmitSpy;
     recordingCancelledSpy = eventBusEmitSpy;
     stateChangeSpy = eventBusEmitSpy;
-    apiRequestStartSpy = eventBusEmitSpy;
     transcriptionReadySpy = eventBusEmitSpy;
   });
   

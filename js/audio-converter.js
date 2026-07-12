@@ -8,8 +8,6 @@
  * thread when Workers are unavailable (older browsers, file://, etc.).
  */
 
-/* global Worker */
-
 import { encodeWav } from './wav-encoder.js';
 
 const TARGET_SAMPLE_RATE = 16000;

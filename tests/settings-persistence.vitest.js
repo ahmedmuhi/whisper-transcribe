@@ -7,7 +7,6 @@ import { expect, vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from '../js/constants.js';
-import { applyDomSpies } from './helpers/test-dom-vitest.js';
 import { createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
 // Mock dependencies
