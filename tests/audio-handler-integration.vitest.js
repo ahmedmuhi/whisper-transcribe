@@ -66,6 +66,8 @@ describe('AudioHandler Integration', () => {
   let eventBusEmitSpy;
   let mockMediaRecorder;
   let mediaRecorderEventHandlers;
+  let mockStream;
+  let trackStopSpy;
   
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,11 +100,12 @@ describe('AudioHandler Integration', () => {
     global.MediaRecorder = vi.fn(() => mockMediaRecorder);
     
     // Mock stream
-    const mockStream = {
+    trackStopSpy = vi.fn();
+    mockStream = {
       getAudioTracks: vi.fn(() => [{ kind: 'audio' }]),
       getTracks: vi.fn(() => [{
         kind: 'audio',
-        stop: vi.fn(),
+        stop: trackStopSpy,
         readyState: 'live'
       }])
     };
@@ -139,6 +142,39 @@ describe('AudioHandler Integration', () => {
     // Spy on event bus emissions
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
   });
+
+  const expectRecorderFailureRecovery = (startedVisualization = true) => {
+    const visualizationStarts = eventBusEmitSpy.mock.calls.filter(
+      ([event]) => event === APP_EVENTS.VISUALIZATION_START
+    );
+    const visualizationStops = eventBusEmitSpy.mock.calls.filter(
+      ([event]) => event === APP_EVENTS.VISUALIZATION_STOP
+    );
+    const errorTransitions = eventBusEmitSpy.mock.calls.filter(
+      ([event, data]) => event === APP_EVENTS.RECORDING_STATE_CHANGED
+        && data?.newState === RECORDING_STATES.ERROR
+    );
+    const recordingTransitions = eventBusEmitSpy.mock.calls.filter(
+      ([event, data]) => event === APP_EVENTS.RECORDING_STATE_CHANGED
+        && data?.newState === RECORDING_STATES.RECORDING
+    );
+
+    expect(trackStopSpy).toHaveBeenCalledTimes(1);
+    expect(audioHandler.timerInterval).toBeNull();
+    expect(audioHandler.audioChunks).toHaveLength(0);
+    expect(audioHandler.recordingStartTime).toBeNull();
+    expect(audioHandler.mediaRecorder).toBeNull();
+    expect(audioHandler.activeStream).toBeNull();
+    expect(audioHandler._activeRecordingSession).toBeNull();
+    expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+    expect(errorTransitions).toHaveLength(1);
+    expect(eventBusEmitSpy.mock.calls.filter(
+      ([event]) => event === APP_EVENTS.RECORDING_ERROR
+    )).toHaveLength(1);
+    expect(visualizationStarts).toHaveLength(startedVisualization ? 1 : 0);
+    expect(visualizationStops).toHaveLength(startedVisualization ? 1 : 0);
+    expect(recordingTransitions).toHaveLength(startedVisualization ? 1 : 0);
+  };
   
   afterEach(() => {
     // Restore original mediaDevices API
@@ -180,31 +216,44 @@ describe('AudioHandler Integration', () => {
       }).not.toThrow();
     });
     
-    it('handles MediaRecorder errors gracefully', async () => {
-      // Start recording
+    it('recovers when MediaRecorder construction throws', async () => {
+      global.MediaRecorder.mockImplementationOnce(() => {
+        throw new Error('MediaRecorder constructor failed');
+      });
+
       await audioHandler.startRecordingFlow();
-      
-      // Force mediaRecorder to active state
-      mockMediaRecorder.state = 'recording';
-      
-      // Make stop method throw error
+
+      expectRecorderFailureRecovery(false);
+    });
+
+    it('recovers when MediaRecorder.start() throws', async () => {
+      mockMediaRecorder.start.mockImplementationOnce(() => {
+        throw new Error('MediaRecorder.start() failed');
+      });
+
+      await audioHandler.startRecordingFlow();
+
+      expectRecorderFailureRecovery(false);
+    });
+
+    it.each(['recording', 'paused'])('recovers when MediaRecorder.stop() throws from %s state', async (state) => {
+      await audioHandler.startRecordingFlow();
+
+      if (state === 'paused') {
+        await audioHandler.togglePause();
+      }
+
+      // Force mediaRecorder to the state under test.
+      mockMediaRecorder.state = state;
       mockMediaRecorder.stop = vi.fn(() => {
         throw new Error('MediaRecorder.stop() failed');
       });
-      
-      // Try to stop recording - should not throw
+
       await audioHandler.stopRecordingFlow();
-      
-      // Should emit error event
-      expect(eventBusEmitSpy).toHaveBeenCalledWith(
-        APP_EVENTS.RECORDING_ERROR,
-        expect.objectContaining({ error: expect.any(String) })
-      );
-      
-      // Should still transition to stopping state
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.STOPPING);
+
+      expectRecorderFailureRecovery();
     });
-    
+
   });
   
   describe('Audio Chunk Processing', () => {
@@ -440,40 +489,55 @@ describe('AudioHandler Integration', () => {
   });
   
   describe('Cleanup After Recording Errors', () => {
-    it('cleans up resources after MediaRecorder errors', async () => {
-      // Start recording
+    it('handles a registered fatal MediaRecorder error without processing a later stop event', async () => {
       await audioHandler.startRecordingFlow();
-      
+
       // Force mediaRecorder to active state
       mockMediaRecorder.state = 'recording';
-      
+
       // Trigger error event
       const error = new Error('MediaRecorder error');
-      mediaRecorderEventHandlers.error.forEach(handler => {
-        handler({ error });
+      expect(mediaRecorderEventHandlers.error).toHaveLength(1);
+      await mediaRecorderEventHandlers.error[0]({ error });
+      await Promise.all(mediaRecorderEventHandlers.stop.map(handler => handler()));
+
+      expect(mockApiClient.transcribe).not.toHaveBeenCalled();
+      expectRecorderFailureRecovery();
+    });
+
+    it('recovers to ERROR when a fatal MediaRecorder error arrives while cancelling', async () => {
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+
+      await audioHandler.cancelRecording();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.CANCELLING);
+      expect(mediaRecorderEventHandlers.error).toHaveLength(1);
+
+      await mediaRecorderEventHandlers.error[0]({
+        error: new Error('MediaRecorder error while cancelling')
       });
-      
-      // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      // Stopping should still work after error
-      await audioHandler.stopRecordingFlow();
-      
-      // Trigger stop event
-      mediaRecorderEventHandlers.stop.forEach(handler => {
-        handler();
+      await Promise.all(mediaRecorderEventHandlers.stop.map(handler => handler()));
+
+      expect(mockApiClient.transcribe).not.toHaveBeenCalled();
+      expectRecorderFailureRecovery();
+    });
+
+    it('recovers to ERROR when a fatal MediaRecorder error arrives during discard confirmation', async () => {
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      audioHandler.currentTimerDisplay = '00:10';
+
+      await audioHandler.requestDiscard();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.CONFIRMING_DISCARD);
+      expect(mediaRecorderEventHandlers.error).toHaveLength(1);
+
+      await mediaRecorderEventHandlers.error[0]({
+        error: new Error('MediaRecorder error during discard confirmation')
       });
-      
-      // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      // Should have cleaned up resources
-      expect(audioHandler.audioChunks).toHaveLength(0);
-      expect(audioHandler.timerInterval).toBeNull();
-      expect(audioHandler.mediaRecorder).toBeNull();
-      
-      // Should be back in idle state
-      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      await Promise.all(mediaRecorderEventHandlers.stop.map(handler => handler()));
+
+      expect(mockApiClient.transcribe).not.toHaveBeenCalled();
+      expectRecorderFailureRecovery();
     });
     
     it('cleans up resources after API errors', async () => {

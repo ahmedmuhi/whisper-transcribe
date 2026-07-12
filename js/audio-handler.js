@@ -39,6 +39,8 @@ export class AudioHandler {
         this.timerInterval = null;
         this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         this.pendingRetryBlob = null;
+        this.activeStream = null;
+        this._activeRecordingSession = null;
 
         this.permissionManager = new PermissionManager();
         
@@ -133,16 +135,19 @@ export class AudioHandler {
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
                 return;
             }
-            
-            // Transition to recording
+
+            // Keep the FSM in INITIALIZING until MediaRecorder.start() succeeds.
+            const session = this.startRecording(stream);
+
+            // Commit the recording only after the recorder has started.
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-            this.startRecording(stream);
+            this.startVisualization(session);
+            this.recordingStartTime = Date.now();
+            this.startTimer();
             
         } catch (err) {
             errorHandler.handleError(err, { module: 'AudioHandler' });
-            const errorMessage = err?.message || err?.toString() || 'Unknown error';
-            // handleErrorState emits UI_STATUS_UPDATE with prefix + retry hint
-            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: errorMessage });
+            await this.recoverFromRecorderError(err);
             // Config errors are handled by validateConfig() which emits
             // API_CONFIG_MISSING before throwing — the event listener opens settings
         }
@@ -156,17 +161,23 @@ export class AudioHandler {
      * @returns {Promise<void>} Resolves when recorder has been stopped or an error event has been emitted
      */
     async stopRecordingFlow() {
-        await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+        const transitioned = await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+        if (!transitioned) return;
 
-    // Stop the timer immediately when stopping
-    clearInterval(this.timerInterval);
-    // Emit timer reset event immediately for UI
-    eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
+        const session = this._activeRecordingSession;
+        this.markVisualizationStopped(session);
+
+        // Stop the timer immediately when stopping
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+        // Emit timer reset event immediately for UI
+        eventBus.emit(APP_EVENTS.UI_TIMER_RESET);
 
         try {
             this.safeStopRecorder();
         } catch (err) {
-            eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
+            errorHandler.handleError(err, { module: 'AudioHandler' });
+            await this.recoverFromRecorderError(err, session);
         }
     }
     
@@ -175,58 +186,186 @@ export class AudioHandler {
      * 
      * @method startRecording
      * @param {MediaStream} stream - Audio media stream from microphone
-     * @returns {void}
+     * @returns {Object} The active recording session
      */
     startRecording(stream) {
+        const session = {
+            stream,
+            recorder: null,
+            visualizationStarted: false,
+            visualizationStopped: false,
+            failureHandled: false,
+            stopEventHandled: false
+        };
+
         this.audioChunks = [];
-        this.mediaRecorder = new MediaRecorder(stream);
+        this.activeStream = stream;
+        this._activeRecordingSession = session;
 
-        // Emit event to start visualization (UI determines canvas + theme)
-        eventBus.emit(APP_EVENTS.VISUALIZATION_START, { stream });
+        const recorder = new MediaRecorder(stream);
+        session.recorder = recorder;
+        this.mediaRecorder = recorder;
 
-        this.mediaRecorder.addEventListener('dataavailable', event => {
+        recorder.addEventListener('dataavailable', event => {
+            if (session.failureHandled || session.stopEventHandled) return;
             this.audioChunks.push(event.data);
         });
 
-        this.mediaRecorder.addEventListener('stop', async () => {
-            // Emit event to stop visualization
-            eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
-
-            if (this.stateMachine.getState() === RECORDING_STATES.CANCELLING) {
-                stream.getTracks().forEach(t => t.stop());
-                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
-                this.cleanup();
-                return;
-            }
-
-            // Transition to processing
-            await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
-            await this.processAndSendAudio(stream);
-
-            // Cleanup after audio has been processed so chunks remain intact
-            this.cleanup();
+        recorder.addEventListener('stop', async () => {
+            await this.handleRecorderStop(session);
         });
 
-        this.mediaRecorder.start(250);
-        this.recordingStartTime = Date.now();
-        // Start timer
-        this.startTimer();
+        recorder.addEventListener('error', async event => {
+            const error = event?.error instanceof Error
+                ? event.error
+                : new Error(event?.message || 'MediaRecorder error');
+            await this.recoverFromRecorderError(error, session);
+        });
+
+        recorder.start(250);
+        return session;
+    }
+
+    /**
+     * Starts visualization only after MediaRecorder startup has committed.
+     *
+     * @method startVisualization
+     * @param {Object} session - Active recording session
+     * @returns {void}
+     */
+    startVisualization(session) {
+        if (!session || session.failureHandled) return;
+
+        session.visualizationStarted = true;
+        eventBus.emit(APP_EVENTS.VISUALIZATION_START, { stream: session.stream });
+    }
+
+    /**
+     * Stops visualization once for a recording session.
+     *
+     * @method stopVisualization
+     * @param {Object} session - Active recording session
+     * @returns {void}
+     */
+    stopVisualization(session) {
+        if (!session?.visualizationStarted || session.visualizationStopped) return;
+
+        session.visualizationStopped = true;
+        eventBus.emit(APP_EVENTS.VISUALIZATION_STOP);
+    }
+
+    /**
+     * Marks visualization as stopped when the state machine already emitted
+     * the visualization stop event while entering STOPPING.
+     *
+     * @method markVisualizationStopped
+     * @param {Object} session - Active recording session
+     * @returns {void}
+     */
+    markVisualizationStopped(session) {
+        if (session?.visualizationStarted) {
+            session.visualizationStopped = true;
+        }
+    }
+
+    /**
+     * Handles the recorder stop event exactly once.
+     *
+     * @async
+     * @method handleRecorderStop
+     * @param {Object} session - Active recording session
+     * @returns {Promise<void>}
+     */
+    async handleRecorderStop(session) {
+        if (session.failureHandled || session.stopEventHandled) return;
+        session.stopEventHandled = true;
+
+        this.stopVisualization(session);
+
+        if (this.stateMachine.getState() === RECORDING_STATES.CANCELLING) {
+            this.stopStreamTracks(session.stream);
+            await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+            this.cleanup();
+            return;
+        }
+
+        if (this.stateMachine.getState() !== RECORDING_STATES.STOPPING) return;
+
+        // Transition to processing
+        await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+        await this.processAndSendAudio(session.stream);
+
+        // Cleanup after audio has been processed so chunks remain intact
+        this.cleanup();
     }
 
     /**
      * Safely stops the MediaRecorder if active and handles any stop errors.
      * 
      * @method safeStopRecorder
-     * @returns {void}
+     * @returns {boolean} True when stop was requested
      */
     safeStopRecorder() {
-        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-            try {
-                this.mediaRecorder.stop();
-            } catch (err) {
-                eventBus.emit(APP_EVENTS.RECORDING_ERROR, { error: err.message });
-            }
+        if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') return false;
+
+        this.mediaRecorder.stop();
+        return true;
+    }
+
+    /**
+     * Recovers from a recorder lifecycle failure and leaves the FSM in ERROR
+     * whenever the current state has a legal error transition.
+     *
+     * @async
+     * @method recoverFromRecorderError
+     * @param {Error} error - Recorder lifecycle error
+     * @param {Object} [session=this._activeRecordingSession] - Failed session
+     * @returns {Promise<void>}
+     */
+    async recoverFromRecorderError(error, session = this._activeRecordingSession) {
+        if (session?.failureHandled) return;
+        if (session) session.failureHandled = true;
+
+        const currentState = this.stateMachine.getState();
+        if (currentState === RECORDING_STATES.RECORDING
+            || currentState === RECORDING_STATES.PAUSED) {
+            const transitioned = await this.stateMachine.transitionTo(RECORDING_STATES.STOPPING);
+            if (transitioned) this.markVisualizationStopped(session);
         }
+
+        this.stopVisualization(session);
+        this.stopStreamTracks(session?.stream || this.activeStream);
+        this.cleanup();
+
+        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        let recoveryState = this.stateMachine.getState();
+        if (recoveryState === RECORDING_STATES.CONFIRMING_DISCARD) {
+            await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
+            recoveryState = RECORDING_STATES.CANCELLING;
+        }
+        if (recoveryState === RECORDING_STATES.CANCELLING) {
+            await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+        }
+        if (this.stateMachine.canTransitionTo(RECORDING_STATES.ERROR)) {
+            await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: errorMessage });
+        }
+    }
+
+    /**
+     * Stops every track in a media stream, even when one track rejects stop().
+     *
+     * @method stopStreamTracks
+     * @param {MediaStream|null} stream - Stream whose tracks should stop
+     * @returns {void}
+     */
+    stopStreamTracks(stream) {
+        stream?.getTracks?.().forEach(track => {
+            try {
+                track.stop();
+            } catch {
+                // A failed track stop must not prevent cleanup of other tracks.
+            }
+        });
     }
 
     /**
@@ -374,7 +513,7 @@ export class AudioHandler {
         this.pendingRetryBlob = audioBlob;
 
         const result = await this.sendToAzureAPI(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
+        this.stopStreamTracks(stream);
         this.audioChunks.length = 0;
 
         if (result.success) {
@@ -477,6 +616,8 @@ export class AudioHandler {
         this.audioChunks.length = 0;
         this.recordingStartTime = null;
         this.mediaRecorder = null;
+        this.activeStream = null;
+        this._activeRecordingSession = null;
     }
 
     /**
