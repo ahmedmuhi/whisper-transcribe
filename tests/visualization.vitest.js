@@ -86,6 +86,46 @@ describe('VisualizationController direct behavior', () => {
     expect(addListenerSpy).toHaveBeenCalledWith('resize', controller.resizeHandler);
   });
 
+  it.each([
+    ['silence', 128, 0],
+    ['fractional RMS', 136, 0.9375],
+    ['clamped maximum', 255, 1]
+  ])('_sampleAmplitude returns %s', (label, byteValue, expected) => {
+    const { canvas } = createCanvasMock();
+    const controller = new VisualizationController({}, canvas, false);
+    controller.analyser.getByteTimeDomainData.mockImplementation((array) => {
+      array.fill(byteValue);
+    });
+
+    const amplitude = controller._sampleAmplitude();
+
+    if (label === 'fractional RMS') {
+      expect(amplitude).toBeCloseTo(expected);
+    } else {
+      expect(amplitude).toBe(expected);
+    }
+  });
+
+  it('samples at intervals while retaining a fixed rolling history', () => {
+    vi.useFakeTimers();
+    let controller;
+    try {
+      const { canvas } = createCanvasMock({ width: 25, height: 100 });
+      controller = new VisualizationController({}, canvas, false);
+      const sampleSpy = vi.spyOn(controller, '_sampleAmplitude').mockReturnValue(0.75);
+
+      controller.start();
+      vi.advanceTimersByTime(100);
+
+      expect(sampleSpy).toHaveBeenCalledTimes(1);
+      expect(controller.amplitudeHistory).toHaveLength(controller.maxBars);
+      expect(controller.amplitudeHistory[controller.amplitudeHistory.length - 1]).toBe(0.75);
+    } finally {
+      controller?.stop();
+      vi.useRealTimers();
+    }
+  });
+
   it('starts lifecycle: pre-fills history, draws frame, and starts sampler interval', () => {
     const { canvas, ctx } = createCanvasMock();
     const controller = new VisualizationController({}, canvas, true);

@@ -42,7 +42,7 @@ describe('Proportional discard flow', () => {
     describe('requestDiscard', () => {
         it('discards a short recording instantly, no confirm', async () => {
             audioHandler.stateMachine.currentState = RECORDING_STATES.RECORDING;
-            audioHandler.currentTimerDisplay = '00:05'; // 5s < 10s threshold
+            audioHandler.currentTimerDisplay = '00:09'; // 9s < 10s threshold
             const cancelSpy = vi.spyOn(audioHandler, 'cancelRecording').mockResolvedValue();
             const transitionSpy = vi.spyOn(audioHandler.stateMachine, 'transitionTo').mockResolvedValue(true);
 
@@ -50,6 +50,20 @@ describe('Proportional discard flow', () => {
 
             expect(cancelSpy).toHaveBeenCalled();
             expect(transitionSpy).not.toHaveBeenCalledWith(RECORDING_STATES.CONFIRMING_DISCARD, expect.anything());
+        });
+
+        it('confirms a recording at exactly the 10-second threshold', async () => {
+            audioHandler.stateMachine.currentState = RECORDING_STATES.RECORDING;
+            audioHandler.currentTimerDisplay = '00:10';
+            const cancelSpy = vi.spyOn(audioHandler, 'cancelRecording').mockResolvedValue();
+            const transitionSpy = vi.spyOn(audioHandler.stateMachine, 'transitionTo').mockResolvedValue(true);
+
+            await audioHandler.requestDiscard();
+
+            expect(cancelSpy).not.toHaveBeenCalled();
+            expect(transitionSpy).toHaveBeenCalledWith(RECORDING_STATES.CONFIRMING_DISCARD, {
+                durationLabel: '00:10'
+            });
         });
 
         it('challenges a substantial recording with the stakes named', async () => {

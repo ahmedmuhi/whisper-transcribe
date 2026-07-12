@@ -232,6 +232,20 @@ describe('UI Event Bus Communication', () => {
             eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '24:31' });
             expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.DISCARD_KEPT);
         });
+
+        it('falls back to Keep when showModal throws', () => {
+            ui.discardDialog.open = false;
+            ui.discardDialog.showModal = vi.fn(() => {
+                throw new Error('native dialog failed');
+            });
+            const emitSpy = vi.spyOn(eventBus, 'emit');
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '24:31' });
+
+            expect(ui.discardDialog.showModal).toHaveBeenCalledTimes(1);
+            expect(emitSpy.mock.calls.filter(([event]) => event === APP_EVENTS.DISCARD_KEPT)).toHaveLength(1);
+            expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.DISCARD_CONFIRMED);
+        });
     });
 
     describe('Discard dialog outcomes (safety-critical)', () => {

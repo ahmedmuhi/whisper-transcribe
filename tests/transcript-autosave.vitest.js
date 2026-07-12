@@ -93,4 +93,39 @@ describe('Transcript autosave + restore wiring', () => {
         expect(() => ui.persistTranscript()).not.toThrow();
         expect(() => ui.restoreTranscriptIfEmpty()).not.toThrow();
     });
+
+    it('debounces input autosave to the latest transcript', () => {
+        vi.useFakeTimers();
+        try {
+            ui.setupEventListeners();
+            const inputListener = ui.transcriptElement.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'input');
+            expect(inputListener).toBeDefined();
+            const inputHandler = inputListener?.[1];
+            expect(inputHandler).toEqual(expect.any(Function));
+
+            const persistSpy = vi.spyOn(ui, 'persistTranscript');
+            const updateRestoreSpy = vi.spyOn(ui, 'updateRestoreAffordance');
+
+            ui.transcriptElement.value = 'first';
+            inputHandler();
+            expect(updateRestoreSpy).toHaveBeenCalledTimes(1);
+
+            vi.advanceTimersByTime(300);
+            ui.transcriptElement.value = 'latest';
+            inputHandler();
+            expect(updateRestoreSpy).toHaveBeenCalledTimes(2);
+
+            vi.advanceTimersByTime(499);
+            expect(store.load()).toBeNull();
+            expect(persistSpy).not.toHaveBeenCalled();
+
+            vi.advanceTimersByTime(1);
+            expect(store.load()?.text).toBe('latest');
+            expect(persistSpy).toHaveBeenCalledTimes(1);
+            expect(updateRestoreSpy).toHaveBeenCalledTimes(3);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
