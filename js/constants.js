@@ -227,6 +227,50 @@ export const DEFAULT_LANGUAGE  = 'en';
 export const DEFAULT_FILENAME      = 'recording.webm';
 export const DEFAULT_WAV_FILENAME  = 'recording.wav';
 
+const WHISPER_FILENAMES_BY_MIME_TYPE = Object.freeze({
+  'audio/webm': DEFAULT_FILENAME,
+  'audio/mp3': 'recording.mp3',
+  'audio/mpeg': 'recording.mpeg',
+  'audio/mpga': 'recording.mpga',
+  'audio/mp4': 'recording.mp4',
+  'audio/m4a': 'recording.m4a',
+  'audio/x-m4a': 'recording.m4a',
+  'audio/wav': DEFAULT_WAV_FILENAME,
+  'audio/wave': DEFAULT_WAV_FILENAME,
+  'audio/x-wav': DEFAULT_WAV_FILENAME
+});
+
+/**
+ * Returns an Azure Whisper-compatible filename for an audio MIME type.
+ * MIME parameters are ignored for extension selection so the Blob preserves
+ * the exact container metadata selected by the browser.
+ * Empty types retain the WebM fallback used when capture metadata is absent.
+ *
+ * @param {string} mimeType - The audio Blob MIME type
+ * @returns {string} ASCII upload filename with a matching container extension
+ * @throws {Error} When the MIME type is unsupported by Azure Whisper
+ */
+export function getWhisperFilename(mimeType) {
+  const normalizedMimeType = typeof mimeType === 'string'
+    ? mimeType.split(';', 1)[0].trim().toLowerCase()
+    : '';
+
+  if (!normalizedMimeType) {
+    return DEFAULT_FILENAME;
+  }
+
+  const filename = WHISPER_FILENAMES_BY_MIME_TYPE[normalizedMimeType];
+
+  if (!filename) {
+    throw new Error(
+      `Unsupported audio MIME type for Whisper upload: ${mimeType || '(empty)'}. `
+      + 'Supported types: MP3, MP4, MPEG, MPGA, M4A, WAV, and WebM.'
+    );
+  }
+
+  return filename;
+}
+
 /**
  * Subtle visual divider inserted between appended transcript segments so
  * multi-take recordings stay legible and easy to trim.

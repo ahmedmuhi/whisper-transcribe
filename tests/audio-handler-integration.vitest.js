@@ -42,10 +42,10 @@ document.body.innerHTML = `
 `;
 
 // Create mock audio chunks for testing
-const createAudioChunk = (size = 1024) => {
+const createAudioChunk = (size = 1024, type = 'audio/webm') => {
   return {
     size,
-    type: 'audio/webm',
+    type,
     arrayBuffer: vi.fn(() => Promise.resolve(new ArrayBuffer(size)))
   };
 };
@@ -90,6 +90,7 @@ describe('AudioHandler Integration', () => {
       resume: vi.fn(),
       requestData: vi.fn(),
       state: 'inactive',
+      mimeType: 'audio/webm',
       addEventListener: vi.fn((event, handler) => {
         mediaRecorderEventHandlers[event].push(handler);
       }),
@@ -301,6 +302,60 @@ describe('AudioHandler Integration', () => {
       
       // Should clear chunks after processing
       expect(audioHandler.audioChunks).toHaveLength(0);
+    });
+
+    it('preserves an MP4 container selected by MediaRecorder', async () => {
+      mockMediaRecorder.mimeType = 'audio/mp4';
+
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      mediaRecorderEventHandlers.dataavailable.forEach(handler => {
+        handler({ data: createAudioChunk(1024, 'audio/mp4') });
+      });
+
+      await audioHandler.stopRecordingFlow();
+      await Promise.all(mediaRecorderEventHandlers.stop.map(handler => handler()));
+
+      expect(mockApiClient.transcribe).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'audio/mp4' }),
+        expect.any(Function)
+      );
+    });
+
+    it('uses a chunk container when MediaRecorder does not expose one', async () => {
+      mockMediaRecorder.mimeType = '';
+
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      mediaRecorderEventHandlers.dataavailable.forEach(handler => {
+        handler({ data: createAudioChunk(1024, 'audio/mp4') });
+      });
+
+      await audioHandler.stopRecordingFlow();
+      await Promise.all(mediaRecorderEventHandlers.stop.map(handler => handler()));
+
+      expect(mockApiClient.transcribe).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'audio/mp4' }),
+        expect.any(Function)
+      );
+    });
+
+    it('uses audio/webm as the safe fallback when recorder and chunks have no type', async () => {
+      mockMediaRecorder.mimeType = '';
+
+      await audioHandler.startRecordingFlow();
+      mockMediaRecorder.state = 'recording';
+      mediaRecorderEventHandlers.dataavailable.forEach(handler => {
+        handler({ data: createAudioChunk(1024, '') });
+      });
+
+      await audioHandler.stopRecordingFlow();
+      await Promise.all(mediaRecorderEventHandlers.stop.map(handler => handler()));
+
+      expect(mockApiClient.transcribe).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'audio/webm' }),
+        expect.any(Function)
+      );
     });
     
     it('handles empty audio chunks gracefully', async () => {

@@ -129,7 +129,7 @@ describe('AzureAPIClient model adapter registry', () => {
     });
 
     it('looks up the active model and routes request-building and parsing through the adapter', async () => {
-        const audioBlob = new Blob(['audio']);
+        const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
         const onProgress = vi.fn();
         const fakeAdapter = {
             id: 'fake-model',
@@ -182,7 +182,7 @@ describe('AzureAPIClient model adapter registry', () => {
         const settings = createSettings(MODEL_TYPES.WHISPER);
         const apiClient = new AzureAPIClient(settings);
         const onProgress = vi.fn();
-        const audioBlob = new Blob(['audio']);
+        const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
         mockTextResponse(' Whisper text ');
 
         const result = await apiClient.transcribe(audioBlob, onProgress);
@@ -227,7 +227,7 @@ describe('AzureAPIClient model adapter registry', () => {
         const apiClient = new AzureAPIClient(settings);
         mockJsonResponse({ unexpected: 'format' });
 
-        await expect(apiClient.transcribe(new Blob(['audio']))).rejects.toThrow(MESSAGES.UNKNOWN_API_RESPONSE);
+        await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/webm' }))).rejects.toThrow(MESSAGES.UNKNOWN_API_RESPONSE);
 
         expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_ERROR, {
             error: MESSAGES.UNKNOWN_API_RESPONSE
@@ -238,7 +238,7 @@ describe('AzureAPIClient model adapter registry', () => {
         const settings = createSettings(MODEL_TYPES.WHISPER_TRANSLATE);
         const apiClient = new AzureAPIClient(settings);
         const onProgress = vi.fn();
-        const audioBlob = new Blob(['audio']);
+        const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
         mockJsonResponse({ text: 'Translated text' });
 
         const result = await apiClient.transcribe(audioBlob, onProgress);
@@ -256,11 +256,77 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(apiClient.parseResponse(' Translated plain text ')).toBe('Translated plain text');
     });
 
+    it.each([
+        [MODEL_TYPES.WHISPER, 'audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
+        [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
+        [MODEL_TYPES.WHISPER, 'audio/x-m4a', 'recording.m4a'],
+        [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/x-m4a', 'recording.m4a'],
+        [MODEL_TYPES.WHISPER, 'audio/wav', 'recording.wav'],
+        [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/wav', 'recording.wav']
+    ])('uploads %s audio with a filename matching %s', async (model, mimeType, filename) => {
+        const settings = createSettings(model);
+        const apiClient = new AzureAPIClient(settings);
+        const audioBlob = new Blob(['audio'], { type: mimeType });
+
+        if (model === MODEL_TYPES.WHISPER) {
+            mockTextResponse('Whisper text');
+        } else {
+            mockJsonResponse({ text: 'Translated text' });
+        }
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(getFormEntry(API_PARAMS.FILE)).toEqual({
+            key: API_PARAMS.FILE,
+            value: audioBlob,
+            filename
+        });
+        expect(getFormEntry(API_PARAMS.FILE).value.type).toBe(mimeType);
+    });
+
+    it.each([MODEL_TYPES.WHISPER, MODEL_TYPES.WHISPER_TRANSLATE])(
+        'uses the WebM fallback filename only when %s audio has no MIME type',
+        async (model) => {
+            const settings = createSettings(model);
+            const apiClient = new AzureAPIClient(settings);
+            const audioBlob = new Blob(['audio']);
+
+            if (model === MODEL_TYPES.WHISPER) {
+                mockTextResponse('Whisper text');
+            } else {
+                mockJsonResponse({ text: 'Translated text' });
+            }
+
+            await apiClient.transcribe(audioBlob);
+
+            expect(getFormEntry(API_PARAMS.FILE)).toEqual({
+                key: API_PARAMS.FILE,
+                value: audioBlob,
+                filename: DEFAULT_FILENAME
+            });
+        }
+    );
+
+    it.each([MODEL_TYPES.WHISPER, MODEL_TYPES.WHISPER_TRANSLATE])(
+        'rejects unsupported %s audio before fetch',
+        async (model) => {
+            const settings = createSettings(model);
+            const apiClient = new AzureAPIClient(settings);
+            const audioBlob = new Blob(['audio'], { type: 'audio/ogg' });
+
+            await expect(apiClient.transcribe(audioBlob)).rejects.toThrow(
+                'Unsupported audio MIME type for Whisper upload: audio/ogg.'
+            );
+
+            expect(globalThis.fetch).not.toHaveBeenCalled();
+        }
+    );
+
     it('keeps the existing MAI-Transcribe request and parsed text behavior', async () => {
         const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
         const apiClient = new AzureAPIClient(settings);
         const onProgress = vi.fn();
-        const audioBlob = new Blob(['audio']);
+        const audioBlob = new Blob(['captured audio'], { type: 'audio/mp4' });
         mockJsonResponse({
             combinedPhrases: [
                 { text: 'First segment.' },
@@ -287,6 +353,7 @@ describe('AzureAPIClient model adapter registry', () => {
         });
         expect(getFormEntry(API_PARAMS.FILE)).toBeUndefined();
         expect(getFormEntry(API_PARAMS.LANGUAGE)).toBeUndefined();
+        expect(audioBlob.type).toBe('audio/mp4');
         expect(convertToWav).toHaveBeenCalledWith(audioBlob);
         expect(onProgress).toHaveBeenCalledWith(MESSAGES.CONVERTING_AUDIO);
         expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
