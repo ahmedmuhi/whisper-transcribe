@@ -141,9 +141,6 @@ export const CONTENT_TYPES = {
  * 
  * @constant {Object} ID
  * @readonly
- * @property {string} MIC_BUTTON - Main microphone recording button
- * @property {string} PAUSE_BUTTON - Pause recording button
- * @property {string} CANCEL_BUTTON - Cancel recording button
  * @property {string} SETTINGS_BUTTON - Open settings modal button
  * @property {string} GRAB_TEXT_BUTTON - Copy transcription text button
  * @property {string} SAVE_SETTINGS - Save settings button
@@ -157,9 +154,6 @@ export const CONTENT_TYPES = {
  */
 export const ID = Object.freeze({
   // Buttons
-  MIC_BUTTON:       'mic-button',
-  PAUSE_BUTTON:     'pause-button',
-  CANCEL_BUTTON:    'cancel-button',
   SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
   RESTORE_BUTTON:   'restore-button',
@@ -191,7 +185,6 @@ export const ID = Object.freeze({
   // Selectors / inputs
   MODEL_SELECT:     'model-select',
   SETTINGS_MODEL_SELECT: 'settings-model-select',
-  THEME_MODE:       'theme-mode',
   RECORDING_ENVIRONMENT: 'recording-environment',
   WHISPER_URI:      'whisper-uri',
   WHISPER_KEY:      'whisper-key',
@@ -210,8 +203,6 @@ export const ID = Object.freeze({
   VISUALIZER:       'visualizer',
 
   // Icons
-  PAUSE_ICON:       'pause-icon',
-  PLAY_ICON:        'play-icon',
   MOON_ICON:        'moon-icon',
   SUN_ICON:         'sun-icon',
 

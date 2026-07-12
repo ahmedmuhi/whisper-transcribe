@@ -43,9 +43,8 @@ const requiredElementIds = [
     ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL,
     ID.SAVE_SETTINGS, ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS,
     ID.MAI_TRANSCRIBE_SETTINGS, ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY,
-    ID.MIC_BUTTON, ID.THEME_TOGGLE, ID.PAUSE_BUTTON, ID.CANCEL_BUTTON, ID.GRAB_TEXT_BUTTON,
-    ID.TRANSCRIPT, ID.TIMER, ID.SPINNER_CONTAINER, ID.PAUSE_ICON,
-    ID.PLAY_ICON, ID.MOON_ICON, ID.SUN_ICON, ID.THEME_MODE
+    ID.THEME_TOGGLE, ID.GRAB_TEXT_BUTTON, ID.TRANSCRIPT, ID.TIMER,
+    ID.SPINNER_CONTAINER, ID.MOON_ICON, ID.SUN_ICON
 ];
 
 requiredElementIds.forEach(id => {
@@ -345,7 +344,6 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
 
         // Set initial modal state for workflow tests
         mockElements.get(ID.SETTINGS_MODAL).style.display = 'block';
-        mockElements.get(ID.MIC_BUTTON).disabled = true;
 
         settings = new Settings();
         ui = new UI();
@@ -529,15 +527,11 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
 describe('Microphone Activation Issue Analysis', () => {
     let settings;
     let ui;
-    let micButton;
 
     beforeEach(() => {
         vi.clearAllMocks();
         localStorageMock.getItem.mockReturnValue('whisper');
         resetMockElements();
-
-        micButton = mockElements.get(ID.MIC_BUTTON);
-        micButton.disabled = true;
 
         settings = new Settings();
         ui = new UI();

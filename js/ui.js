@@ -49,11 +49,7 @@ export class UI {
         this.discardConfirmButton = document.getElementById(ID.DISCARD_CONFIRM);
 
         // Settings / theme
-        this.settingsButton = document.getElementById(ID.SETTINGS_BUTTON);
         this.themeToggle = document.getElementById(ID.THEME_TOGGLE);
-        this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
-        this.closeModalButton = document.getElementById(ID.CLOSE_MODAL);
-        this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
         this.moonIcon = document.getElementById(ID.MOON_ICON);
         this.sunIcon = document.getElementById(ID.SUN_ICON);
 
