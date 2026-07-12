@@ -51,12 +51,13 @@ const createAudioChunk = (size = 1024, type = 'audio/webm') => {
 };
 
 // Import modules before tests
-let AudioHandler, eventBus, APP_EVENTS, AUDIO_UPLOAD_LIMIT_ERROR_CODE, RECORDING_STATES;
+let AudioHandler, AzureAPIClient, eventBus, APP_EVENTS, AUDIO_UPLOAD_LIMIT_ERROR_CODE, RECORDING_STATES, MESSAGES;
 
 beforeAll(async () => {
   ({ eventBus, APP_EVENTS } = await import('../js/event-bus.js'));
-  ({ AUDIO_UPLOAD_LIMIT_ERROR_CODE, RECORDING_STATES } = await import('../js/constants.js'));
+  ({ AUDIO_UPLOAD_LIMIT_ERROR_CODE, RECORDING_STATES, MESSAGES } = await import('../js/constants.js'));
   ({ AudioHandler } = await import('../js/audio-handler.js'));
+  ({ AzureAPIClient } = await import('../js/api-client.js'));
 });
 
 describe('AudioHandler Integration', () => {
@@ -388,6 +389,39 @@ describe('AudioHandler Integration', () => {
   });
 
   describe('Transcription retry', () => {
+    it('emits one structured lifecycle for a successful transcription', async () => {
+      mockSettings.getModelConfig.mockReturnValue({
+        model: 'whisper',
+        apiKey: 'test-api-key',
+        uri: 'https://test.azure.com'
+      });
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: vi.fn().mockReturnValue('text/plain') },
+        text: vi.fn().mockResolvedValue('Test transcription result')
+      });
+      audioHandler.apiClient = new AzureAPIClient(mockSettings);
+      audioHandler.stateMachine.currentState = RECORDING_STATES.STOPPING;
+
+      await audioHandler.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+      await expect(audioHandler.sendToAzureAPI(new Blob(['audio'], { type: 'audio/webm' })))
+        .resolves.toEqual({ success: true });
+
+      expect(eventBusEmitSpy.mock.calls.filter(
+        ([event]) => event === APP_EVENTS.API_REQUEST_START
+      )).toEqual([[APP_EVENTS.API_REQUEST_START, {
+        model: 'whisper',
+        message: MESSAGES.SENDING_TO_WHISPER
+      }]]);
+      expect(eventBusEmitSpy.mock.calls.filter(
+        ([event]) => event === APP_EVENTS.API_REQUEST_SUCCESS
+      )).toEqual([[APP_EVENTS.API_REQUEST_SUCCESS, {
+        model: 'whisper',
+        transcriptionLength: 'Test transcription result'.length
+      }]]);
+    });
+
     it('carries an upload-limit error code through sendToAzureAPI', async () => {
       const uploadLimitError = new Error('Azure Whisper accepts recordings up to 25 MB. Make a shorter recording and try again.');
       uploadLimitError.code = AUDIO_UPLOAD_LIMIT_ERROR_CODE;
@@ -477,6 +511,59 @@ describe('AudioHandler Integration', () => {
         APP_EVENTS.UI_TRANSCRIPTION_READY,
         { text: 'Recovered transcription' }
       );
+    });
+
+    it('emits one structured lifecycle for each user-initiated retry', async () => {
+      mockSettings.getModelConfig.mockReturnValue({
+        model: 'whisper',
+        apiKey: 'test-api-key',
+        uri: 'https://test.azure.com'
+      });
+      globalThis.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue('Bad request')
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: { get: vi.fn().mockReturnValue('text/plain') },
+          text: vi.fn().mockResolvedValue('Recovered transcription')
+        });
+      audioHandler.apiClient = new AzureAPIClient(mockSettings);
+      audioHandler.audioChunks = [new Uint8Array([1, 2, 3])];
+      audioHandler.stateMachine.currentState = RECORDING_STATES.PROCESSING;
+
+      await audioHandler.processAndSendAudio(mockStream);
+      await audioHandler.retryPendingTranscription();
+
+      expect(eventBusEmitSpy.mock.calls.filter(
+        ([event]) => event === APP_EVENTS.API_REQUEST_START
+      )).toEqual([
+        [APP_EVENTS.API_REQUEST_START, {
+          model: 'whisper',
+          message: MESSAGES.SENDING_TO_WHISPER
+        }],
+        [APP_EVENTS.API_REQUEST_START, {
+          model: 'whisper',
+          message: MESSAGES.SENDING_TO_WHISPER
+        }]
+      ]);
+      expect(eventBusEmitSpy.mock.calls.filter(
+        ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+      )).toEqual([[APP_EVENTS.API_REQUEST_ERROR, {
+        error: 'API responded with status: 400',
+        status: 400,
+        details: 'Bad request'
+      }]]);
+      expect(eventBusEmitSpy.mock.calls.filter(
+        ([event]) => event === APP_EVENTS.API_REQUEST_SUCCESS
+      )).toEqual([[APP_EVENTS.API_REQUEST_SUCCESS, {
+        model: 'whisper',
+        transcriptionLength: 'Recovered transcription'.length
+      }]]);
     });
 
     it('ignores retry clicks when there is no failed transcription payload', async () => {

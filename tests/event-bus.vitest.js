@@ -65,7 +65,20 @@ describe('EventBus direct behavior', () => {
     expect(order).toEqual(['first', 'second', 'third']);
   });
 
-  it('records history and caps it at 50 entries', () => {
+  it('delivers events without retaining payloads by default', () => {
+    const listener = vi.fn();
+    const payload = { stream: { id: 'live-stream' }, transcript: 'Sensitive transcript' };
+    bus.on('evt:ephemeral', listener);
+
+    bus.emit('evt:ephemeral', payload);
+
+    expect(listener).toHaveBeenCalledWith(payload);
+    expect(bus.getHistory()).toEqual([]);
+  });
+
+  it('records opt-in history and caps it at 50 entries', () => {
+    bus.setHistoryEnabled(true);
+
     for (let i = 0; i < 55; i += 1) {
       bus.emit('evt:history', { i });
     }
@@ -77,12 +90,23 @@ describe('EventBus direct behavior', () => {
   });
 
   it('returns history copy instead of mutable internal reference', () => {
+    bus.setHistoryEnabled(true);
     bus.emit('evt:copy', { hello: 'world' });
     const history = bus.getHistory();
 
     history.push({ eventName: 'mutated' });
 
     expect(bus.getHistory()).toHaveLength(1);
+  });
+
+  it('clears retained history when history recording is disabled', () => {
+    bus.setHistoryEnabled(true);
+    bus.emit('evt:history', { beforeDisable: true });
+
+    bus.setHistoryEnabled(false);
+    bus.emit('evt:history', { afterDisable: true });
+
+    expect(bus.getHistory()).toEqual([]);
   });
 
   it('clears a single event or all events', () => {

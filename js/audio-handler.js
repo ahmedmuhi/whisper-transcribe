@@ -25,7 +25,6 @@ import { errorHandler } from './error-handler.js';
  * @fires APP_EVENTS.RECORDING_RESUMED
  * @fires APP_EVENTS.RECORDING_CANCELLED
  * @fires APP_EVENTS.RECORDING_ERROR
- * @fires APP_EVENTS.API_REQUEST_START
  * @fires APP_EVENTS.UI_TRANSCRIPTION_READY
  */
 export class AudioHandler {
@@ -587,7 +586,6 @@ export class AudioHandler {
                 temporary: true
             });
 
-            eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS);
             return { success: true };
 
         } catch (error) {
