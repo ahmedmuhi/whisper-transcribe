@@ -7,7 +7,7 @@ import { logger } from './logger.js';
 /**
  * EventBus - Central event management system for the application.
  * Provides a decoupled way for modules to communicate using publish-subscribe pattern.
- * Supports event prioritization, one-time listeners, and event history tracking.
+ * Supports event prioritization, one-time listeners, and opt-in event history tracking.
  * 
  * @class EventBus
  * @example
@@ -25,11 +25,12 @@ import { logger } from './logger.js';
 export class EventBus {
     /**
      * Creates a new EventBus instance.
-     * Initializes the events map, event history, and debug mode.
+     * Initializes the events map, disabled event history, and debug mode.
      */
     constructor() {
         this.events = new Map();
         this.eventHistory = [];
+        this.historyEnabled = false;
         this.debugMode = false;
     }
     
@@ -103,16 +104,17 @@ export class EventBus {
             eventLogger.debug(`Emitting event: ${eventName}`, data);
         }
         
-        // Record event in history
-        this.eventHistory.push({
-            eventName,
-            data,
-            timestamp: Date.now()
-        });
-        
-        // Keep only last 50 events in history
-        if (this.eventHistory.length > 50) {
-            this.eventHistory.shift();
+        if (this.historyEnabled) {
+            this.eventHistory.push({
+                eventName,
+                data,
+                timestamp: Date.now()
+            });
+
+            // Keep only last 50 events in history
+            if (this.eventHistory.length > 50) {
+                this.eventHistory.shift();
+            }
         }
         
         if (!this.events.has(eventName)) return;
@@ -160,6 +162,19 @@ export class EventBus {
      */
     getHistory() {
         return [...this.eventHistory];
+    }
+
+    /**
+     * Enable or disable diagnostic event history recording.
+     * Disabling history clears any payloads that were already retained.
+     *
+     * @param {boolean} enabled - Whether to retain emitted event payloads
+     */
+    setHistoryEnabled(enabled) {
+        this.historyEnabled = Boolean(enabled);
+        if (!this.historyEnabled) {
+            this.eventHistory = [];
+        }
     }
     
     /**

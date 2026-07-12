@@ -52,7 +52,7 @@ and update your row when done.
 | 024 | Enforce model-specific audio upload limits before network submission | P2 | M | 021 + 023 | DONE (implemented as `daabc17`, independently approved, and merged via PR #96 as `54f4376`, 2026-07-13) |
 | 025 | Make the settings modal keyboard and focus correct | P2 | M | 022 | DONE (implemented as `9d6d5a3`, independently approved after one revision round, and merged via PR #97 as `083ce95`, 2026-07-13) |
 | 026 | Subscribe to microphone permission changes exactly once | P2 | S | 021 | DONE (implemented as `fdf0ca6`, independently approved, and merged via PR #98 as `c6b50f8`, 2026-07-13) |
-| 027 | Normalize API lifecycle events and opt in to event history | P2 | S/M | 021 | TODO |
+| 027 | Normalize API lifecycle events and opt in to event history | P2 | S/M | 021 | IN PROGRESS (implemented as `70a7507`, independently approved; awaiting merge) |
 | 028 | Provide one supported local-development command and runtime baseline | P2 | S/M | — | TODO |
 | 029 | Lint tests, Playwright scaffolding, and repository tooling | P2 | M | 028 | TODO |
 | 030 | Reconcile active model and state-machine documentation | P2 | S | 027 | TODO |

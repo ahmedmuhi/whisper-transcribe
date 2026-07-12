@@ -239,9 +239,51 @@ describe('AzureAPIClient model adapter registry', () => {
 
         await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/webm' }))).rejects.toThrow(MESSAGES.UNKNOWN_API_RESPONSE);
 
-        expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_ERROR, {
+        const errorEvents = eventBusEmitSpy.mock.calls.filter(
+            ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+        );
+        expect(errorEvents).toEqual([[APP_EVENTS.API_REQUEST_ERROR, {
             error: MESSAGES.UNKNOWN_API_RESPONSE
-        });
+        }]]);
+    });
+
+    it('emits one structured lifecycle when a retryable request succeeds', async () => {
+        const settings = createSettings(MODEL_TYPES.WHISPER);
+        const apiClient = new AzureAPIClient(settings);
+        const onProgress = vi.fn();
+        apiClient._sleep = vi.fn().mockResolvedValue();
+        globalThis.fetch
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 429,
+                headers: { get: vi.fn().mockReturnValue(null) },
+                text: vi.fn().mockResolvedValue('Too many requests')
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                headers: { get: vi.fn().mockReturnValue('text/plain') },
+                text: vi.fn().mockResolvedValue('Retried transcription')
+            });
+
+        await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/webm' }), onProgress))
+            .resolves.toBe('Retried transcription');
+
+        expect(eventBusEmitSpy.mock.calls.filter(
+            ([event]) => event === APP_EVENTS.API_REQUEST_START
+        )).toEqual([[APP_EVENTS.API_REQUEST_START, {
+            model: MODEL_TYPES.WHISPER,
+            message: MESSAGES.SENDING_TO_WHISPER
+        }]]);
+        expect(eventBusEmitSpy.mock.calls.filter(
+            ([event]) => event === APP_EVENTS.API_REQUEST_SUCCESS
+        )).toEqual([[APP_EVENTS.API_REQUEST_SUCCESS, {
+            model: MODEL_TYPES.WHISPER,
+            transcriptionLength: 'Retried transcription'.length
+        }]]);
+        expect(eventBusEmitSpy.mock.calls.filter(
+            ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+        )).toEqual([]);
     });
 
     it('keeps the existing Whisper Translate request and parsed text behavior', async () => {

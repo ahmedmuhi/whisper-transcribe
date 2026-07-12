@@ -3,7 +3,7 @@
 > **Executor instructions**: Follow all steps, preserve event names, and stop on
 > any contract mismatch. Update only the plan's index status.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- js/event-bus.js js/api-client.js js/audio-handler.js js/recording-state-machine.js tests/event-bus.vitest.js tests/model-adapters.vitest.js tests/audio-handler-integration.vitest.js tests/recording-state-machine.vitest.js`
+> **Drift check (run first)**: `git diff --stat e646249..HEAD -- js/event-bus.js js/api-client.js js/audio-handler.js js/recording-state-machine.js tests/event-bus.vitest.js tests/model-adapters.vitest.js tests/audio-handler-integration.vitest.js tests/recording-state-machine.vitest.js`
 
 ## Status
 
@@ -12,7 +12,7 @@
 - **Risk**: LOW
 - **Depends on**: Plan 021
 - **Category**: tech-debt
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `e646249`, 2026-07-13 (after Plans 021, 023, 024, and 026)
 
 ## Why this matters
 
@@ -28,7 +28,7 @@ ambiguous contracts and unnecessary sensitive-object retention.
 - `RecordingStateMachine.handleProcessingState()` emits bare
   `API_REQUEST_START`; `AzureAPIClient.transcribe()` emits the structured start.
 - `AzureAPIClient` emits structured `API_REQUEST_SUCCESS`; `AudioHandler` emits
-  it again with `{}` at `js/audio-handler.js:439`.
+  it again with `{}` at `js/audio-handler.js:590`.
 - `spec/spec-design-api-client.md:148-155` already describes the structured API
   client payloads as the contract.
 - `EventBus.emit()` unconditionally pushes `{eventName,data,timestamp}` and caps

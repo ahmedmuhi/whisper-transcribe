@@ -135,13 +135,13 @@ describe('RecordingStateMachine direct behavior', () => {
     });
   });
 
-  it('emits expected events for stopping and processing handlers', async () => {
+  it('emits expected events for stopping and processing handlers without owning API lifecycle events', async () => {
     await sm.handleStoppingState();
     await sm.handleProcessingState();
 
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.RECORDING_STOPPED);
     expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.VISUALIZATION_STOP);
-    expect(emitSpy).toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_START);
+    expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_START);
   });
 
   it('emits expected events for cancelling and error handlers', async () => {

@@ -210,11 +210,9 @@ export class RecordingStateMachine {
      * @async
      * @private
      * @method handleProcessingState
-     * @fires APP_EVENTS.API_REQUEST_START
      * @fires APP_EVENTS.UI_STATUS_UPDATE
      */
     async handleProcessingState() {
-        eventBus.emit(APP_EVENTS.API_REQUEST_START);
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
             message: MESSAGES.PROCESSING_AUDIO,
             type: 'info'
