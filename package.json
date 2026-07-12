@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "test:browser": "playwright test",
     "test:browser:headed": "playwright test --headed",
+    "test:browser:live": "playwright test --config playwright.live.config.js",
     "prepare": "husky",
     "lint": "eslint \"js/**/*.js\"",
     "lint:fix": "eslint --fix \"js/**/*.js\"",
