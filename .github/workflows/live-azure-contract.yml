@@ -1,0 +1,39 @@
+name: Live Azure contract test
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: live-azure-contract
+  cancel-in-progress: false
+
+jobs:
+  live-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: live-azure
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps --no-shell chromium
+      - name: Verify required secrets
+        env:
+          AZURE_MAI_TRANSCRIBE_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_URI }}
+          AZURE_MAI_TRANSCRIBE_API_KEY: ${{ secrets.AZURE_MAI_TRANSCRIBE_API_KEY }}
+        run: |
+          test -n "$AZURE_MAI_TRANSCRIBE_URI" || { echo "::error::Missing Azure endpoint secret"; exit 1; }
+          test -n "$AZURE_MAI_TRANSCRIBE_API_KEY" || { echo "::error::Missing Azure API-key secret"; exit 1; }
+      # One run can make up to six synchronous transcription attempts of
+      # this short clip. The API creates no server-side job requiring cleanup;
+      # Playwright disposes the browser context after the test.
+      - name: Live contract test
+        env:
+          AZURE_MAI_TRANSCRIBE_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_URI }}
+          AZURE_MAI_TRANSCRIBE_API_KEY: ${{ secrets.AZURE_MAI_TRANSCRIBE_API_KEY }}
+        run: npm run test:browser:live
