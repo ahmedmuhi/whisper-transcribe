@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { TranscriptStore } from '../js/transcript-store.js';
 
 /** Minimal in-memory Storage stand-in so each test is fully isolated. */
@@ -60,5 +60,19 @@ describe('TranscriptStore', () => {
         expect(() => store.save('x')).not.toThrow();
         expect(store.load()).toBeNull();
         expect(store.has()).toBe(false);
+    });
+
+    it('degrades gracefully when storage rejects a write', () => {
+        const setItem = vi.fn(() => { throw new Error('quota exceeded'); });
+        const store = new TranscriptStore({ setItem }, 'transcript-key');
+
+        expect(() => store.save('valuable transcript')).not.toThrow();
+
+        expect(setItem).toHaveBeenCalledTimes(1);
+        expect(setItem).toHaveBeenCalledWith('transcript-key', expect.any(String));
+        expect(JSON.parse(setItem.mock.calls[0][1])).toEqual({
+            text: 'valuable transcript',
+            savedAt: expect.any(Number)
+        });
     });
 });
