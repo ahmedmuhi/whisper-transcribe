@@ -38,7 +38,7 @@ conditions, and update your row when done.
 | 014 | Add a real-browser Playwright smoke test (fake mic → real worker → local HTTPS Azure stub → transcript + reload persistence) | P1 | M | — | DONE (merged via PR #77 as `6cc7393`, 2026-07-12; implementation `f9a3283..9a14a0b`; Playwright Chromium smoke passed twice consecutively and the new CI browser-smoke job passed; 393 tests / 33 files; coverage 92.69/87.57/90.40/92.69; lint, dependency checks, size, workflow parse, scope, and independent full-diff review passed) |
 | 015 | Add an opt-in live-Azure contract test (workflow_dispatch only, never in normal CI) | P3 | S/M | 014 | DONE (merged via PR #79 as `bd12c3a`, 2026-07-12; implementation `086ea33..e7cca08`; manual live-Azure workflow run 29173869417 passed in 42s with the operator-provided spoken fixture; deterministic browser smoke passed, guarded live test skipped as designed, 393 tests / 33 files, coverage 92.69/87.57/90.40/92.69, lint/dependency/size/scope/security review passed) |
 | 016 | Consolidate Settings and UI tests without losing behavior coverage | P2 | M | — | DONE (merged via PR #83 as `8e36275`, 2026-07-12) |
-| 017 | Consolidate API validation, adapter, and retry tests | P2 | M | — | TODO |
+| 017 | Consolidate API validation, adapter, and retry tests | P2 | M | — | DONE (merged via PR #85 as `c9ec53e`, 2026-07-12) |
 | 018 | Add targeted behavior coverage after test consolidation | P2 | S/M | 016 + 017 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
