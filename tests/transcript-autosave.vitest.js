@@ -24,7 +24,9 @@ global.localStorage = {
 };
 
 global.window = {
-    matchMedia: vi.fn(() => ({ matches: false, addEventListener: vi.fn() }))
+    matchMedia: vi.fn(() => ({ matches: false, addEventListener: vi.fn() })),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn()
 };
 
 vi.mock('../js/status-helper.js', () => ({
@@ -32,6 +34,7 @@ vi.mock('../js/status-helper.js', () => ({
 }));
 
 const { eventBus, APP_EVENTS } = await import('../js/event-bus.js');
+const { MESSAGES } = await import('../js/constants.js');
 const { UI } = await import('../js/ui.js');
 const { TranscriptStore } = await import('../js/transcript-store.js');
 
@@ -92,6 +95,90 @@ describe('Transcript autosave + restore wiring', () => {
         ui.transcriptStore = null;
         expect(() => ui.persistTranscript()).not.toThrow();
         expect(() => ui.restoreTranscriptIfEmpty()).not.toThrow();
+    });
+
+    it('warns once per failed save streak and warns again after recovery', () => {
+        let rejectWrites = true;
+        const storage = {
+            getItem: vi.fn().mockReturnValue(null),
+            setItem: vi.fn(() => {
+                if (rejectWrites) throw new Error('quota exceeded');
+            }),
+            removeItem: vi.fn()
+        };
+        ui.transcriptStore = new TranscriptStore(storage, 'tk');
+        ui.transcriptElement.value = 'unsaved text';
+        const statusSpy = vi.spyOn(ui, '_emitStatus');
+
+        expect(ui.persistTranscript()).toBe(false);
+        expect(ui.persistTranscript()).toBe(false);
+        expect(statusSpy).toHaveBeenCalledTimes(1);
+        expect(statusSpy).toHaveBeenCalledWith(MESSAGES.TRANSCRIPT_AUTOSAVE_FAILED, 'error');
+
+        rejectWrites = false;
+        expect(ui.persistTranscript()).toBe(true);
+
+        rejectWrites = true;
+        expect(ui.persistTranscript()).toBe(false);
+        expect(statusSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('warns on a failed empty clear without changing Restore state', () => {
+        const storage = {
+            getItem: vi.fn().mockReturnValue(JSON.stringify({ text: 'recoverable', savedAt: Date.now() })),
+            setItem: vi.fn(),
+            removeItem: vi.fn(() => { throw new Error('storage unavailable'); })
+        };
+        ui.transcriptStore = new TranscriptStore(storage, 'tk');
+        ui.transcriptElement.value = '';
+        ui.updateRestoreAffordance();
+        const statusSpy = vi.spyOn(ui, '_emitStatus');
+
+        expect(ui.persistTranscript()).toBe(false);
+        ui.updateRestoreAffordance();
+
+        expect(ui.transcriptElement.value).toBe('');
+        expect(ui.restoreButton.hidden).toBe(false);
+        expect(statusSpy).toHaveBeenCalledWith(MESSAGES.TRANSCRIPT_AUTOSAVE_FAILED, 'error');
+    });
+
+    it('flushes the latest pending edit once on pagehide', () => {
+        vi.useFakeTimers();
+        try {
+            ui.setupEventListeners();
+            const inputListener = ui.transcriptElement.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'input');
+            const inputHandler = inputListener?.[1];
+            const pagehideListener = window.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'pagehide');
+            const pagehideHandler = pagehideListener?.[1];
+            const saveSpy = vi.spyOn(store, 'save');
+
+            expect(pagehideHandler).toEqual(expect.any(Function));
+            ui.transcriptElement.value = 'latest before navigation';
+            inputHandler();
+            pagehideHandler();
+
+            expect(store.load()?.text).toBe('latest before navigation');
+            expect(saveSpy).toHaveBeenCalledTimes(1);
+
+            vi.advanceTimersByTime(500);
+            expect(saveSpy).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('registers the pagehide handler only once across repeated init calls', () => {
+        vi.spyOn(ui, 'loadTheme').mockImplementation(() => {});
+        vi.spyOn(ui, 'checkRecordingPrerequisites').mockReturnValue(false);
+        const settings = { checkInitialSettings: vi.fn() };
+
+        ui.init(settings, store);
+        ui.init(settings, store);
+
+        expect(window.addEventListener).toHaveBeenCalledTimes(1);
+        expect(window.addEventListener).toHaveBeenCalledWith('pagehide', expect.any(Function));
     });
 
     it('debounces input autosave to the latest transcript', () => {

@@ -62,6 +62,15 @@ export class UI {
         this.currentState = RECORDING_STATES.IDLE;
         this.ready = false;
         this.canRetry = false;
+        this._autosaveTimer = null;
+        this._autosaveFailureNotified = false;
+        this._pagehideRegistered = false;
+        this._pagehideHandler = () => {
+            if (this._autosaveTimer === null) return;
+            clearTimeout(this._autosaveTimer);
+            this._autosaveTimer = null;
+            this.persistTranscript();
+        };
     }
 
     /**
@@ -155,11 +164,16 @@ export class UI {
         }
 
         // Autosave in-place edits (debounced) so a crash/reload never loses words.
+        if (!this._pagehideRegistered && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            window.addEventListener('pagehide', this._pagehideHandler);
+            this._pagehideRegistered = true;
+        }
         if (this.transcriptElement) {
             this.transcriptElement.addEventListener('input', () => {
                 this.updateRestoreAffordance();
                 clearTimeout(this._autosaveTimer);
                 this._autosaveTimer = setTimeout(() => {
+                    this._autosaveTimer = null;
                     this.persistTranscript();
                     this.updateRestoreAffordance();
                 }, 500);
@@ -784,12 +798,22 @@ export class UI {
      * later swaps localStorage for a backend). Empty text clears the recovery slot.
      *
      * @method persistTranscript
-     * @returns {void}
+     * @returns {boolean} True when the transcript store reports success.
      */
     persistTranscript() {
-        if (this.transcriptStore && this.transcriptElement) {
-            this.transcriptStore.save(this.transcriptElement.value);
+        if (!this.transcriptStore || !this.transcriptElement) return false;
+
+        const persisted = this.transcriptStore.save(this.transcriptElement.value);
+        if (persisted) {
+            this._autosaveFailureNotified = false;
+            return true;
         }
+
+        if (!this._autosaveFailureNotified) {
+            this._autosaveFailureNotified = true;
+            this._emitStatus(MESSAGES.TRANSCRIPT_AUTOSAVE_FAILED, 'error');
+        }
+        return false;
     }
 
     /**
@@ -838,9 +862,13 @@ export class UI {
             this._emitStatus(MESSAGES.NO_TEXT_TO_GRAB, 'error');
             return Promise.resolve(false);
         }
-        this.persistTranscript();
+        const persisted = this.persistTranscript();
         return navigator.clipboard.writeText(text)
             .then(() => {
+                if (!persisted) {
+                    this.updateRestoreAffordance();
+                    return true;
+                }
                 clearTimeout(this._autosaveTimer);
                 this._autosaveTimer = null;
                 this.transcriptElement.value = '';

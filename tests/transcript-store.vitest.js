@@ -15,7 +15,7 @@ function makeStorage(initial = {}) {
 describe('TranscriptStore', () => {
     it('saves and loads a transcript round-trip', () => {
         const store = new TranscriptStore(makeStorage(), 'k');
-        store.save('hello world');
+        expect(store.save('hello world')).toBe(true);
         expect(store.load().text).toBe('hello world');
         expect(store.has()).toBe(true);
     });
@@ -23,7 +23,7 @@ describe('TranscriptStore', () => {
     it('treats an empty string as a clear (nothing to recover)', () => {
         const store = new TranscriptStore(makeStorage(), 'k');
         store.save('something');
-        store.save('');
+        expect(store.save('')).toBe(true);
         expect(store.load()).toBeNull();
         expect(store.has()).toBe(false);
     });
@@ -31,7 +31,7 @@ describe('TranscriptStore', () => {
     it('clear() removes the slot', () => {
         const store = new TranscriptStore(makeStorage(), 'k');
         store.save('x');
-        store.clear();
+        expect(store.clear()).toBe(true);
         expect(store.has()).toBe(false);
     });
 
@@ -57,7 +57,8 @@ describe('TranscriptStore', () => {
 
     it('degrades gracefully with no storage backend (explicit null)', () => {
         const store = new TranscriptStore(null, 'k');
-        expect(() => store.save('x')).not.toThrow();
+        expect(store.save('x')).toBe(false);
+        expect(store.clear()).toBe(false);
         expect(store.load()).toBeNull();
         expect(store.has()).toBe(false);
     });
@@ -66,7 +67,7 @@ describe('TranscriptStore', () => {
         const setItem = vi.fn(() => { throw new Error('quota exceeded'); });
         const store = new TranscriptStore({ setItem }, 'transcript-key');
 
-        expect(() => store.save('valuable transcript')).not.toThrow();
+        expect(store.save('valuable transcript')).toBe(false);
 
         expect(setItem).toHaveBeenCalledTimes(1);
         expect(setItem).toHaveBeenCalledWith('transcript-key', expect.any(String));
@@ -74,5 +75,13 @@ describe('TranscriptStore', () => {
             text: 'valuable transcript',
             savedAt: expect.any(Number)
         });
+    });
+
+    it('degrades gracefully when storage rejects a clear', () => {
+        const removeItem = vi.fn(() => { throw new Error('storage unavailable'); });
+        const store = new TranscriptStore({ removeItem }, 'transcript-key');
+
+        expect(store.clear()).toBe(false);
+        expect(removeItem).toHaveBeenCalledWith('transcript-key');
     });
 });
