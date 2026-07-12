@@ -51,11 +51,11 @@ const createAudioChunk = (size = 1024, type = 'audio/webm') => {
 };
 
 // Import modules before tests
-let AudioHandler, eventBus, APP_EVENTS, RECORDING_STATES;
+let AudioHandler, eventBus, APP_EVENTS, AUDIO_UPLOAD_LIMIT_ERROR_CODE, RECORDING_STATES;
 
 beforeAll(async () => {
   ({ eventBus, APP_EVENTS } = await import('../js/event-bus.js'));
-  ({ RECORDING_STATES } = await import('../js/constants.js'));
+  ({ AUDIO_UPLOAD_LIMIT_ERROR_CODE, RECORDING_STATES } = await import('../js/constants.js'));
   ({ AudioHandler } = await import('../js/audio-handler.js'));
 });
 
@@ -388,6 +388,36 @@ describe('AudioHandler Integration', () => {
   });
 
   describe('Transcription retry', () => {
+    it('carries an upload-limit error code through sendToAzureAPI', async () => {
+      const uploadLimitError = new Error('Azure Whisper accepts recordings up to 25 MB. Make a shorter recording and try again.');
+      uploadLimitError.code = AUDIO_UPLOAD_LIMIT_ERROR_CODE;
+      mockApiClient.transcribe.mockRejectedValueOnce(uploadLimitError);
+
+      await expect(audioHandler.sendToAzureAPI(new Blob(['audio'], { type: 'audio/webm' }))).resolves.toEqual({
+        success: false,
+        error: uploadLimitError.message,
+        code: AUDIO_UPLOAD_LIMIT_ERROR_CODE
+      });
+    });
+
+    it('retains an oversized blob for error handling without offering Retry', async () => {
+      const uploadLimitError = new Error('Azure Whisper accepts recordings up to 25 MB. Make a shorter recording and try again.');
+      uploadLimitError.code = AUDIO_UPLOAD_LIMIT_ERROR_CODE;
+      mockApiClient.transcribe.mockRejectedValueOnce(uploadLimitError);
+      audioHandler.audioChunks = [new Uint8Array([1, 2, 3])];
+
+      await audioHandler.processAndSendAudio(mockStream);
+
+      expect(audioHandler.pendingRetryBlob).toBeInstanceOf(Blob);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.RECORDING_STATE_CHANGED,
+        expect.objectContaining({
+          newState: RECORDING_STATES.ERROR,
+          canRetry: false
+        })
+      );
+    });
+
     it('preserves failed audio and retries the same blob', async () => {
       const trackStopSpy = vi.fn();
       const mockStream = {
@@ -407,6 +437,13 @@ describe('AudioHandler Integration', () => {
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
       expect(trackStopSpy).toHaveBeenCalled();
       expect(audioHandler.pendingRetryBlob).toBeInstanceOf(Blob);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.RECORDING_STATE_CHANGED,
+        expect.objectContaining({
+          newState: RECORDING_STATES.ERROR,
+          canRetry: true
+        })
+      );
       const failedAudioBlob = audioHandler.pendingRetryBlob;
 
       await audioHandler.retryPendingTranscription();
