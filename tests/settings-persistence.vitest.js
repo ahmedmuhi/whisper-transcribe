@@ -245,6 +245,55 @@ describe('Settings Persistence & Save Workflow', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_OPENED);
         });
 
+        test('should discard an unsaved model draft when closed with the close button', () => {
+            const modalModelSelect = settings.settingsModelSelect;
+            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'change')[1];
+            const closeButtonListener = settings.closeModalButton.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'click')[1];
+
+            settings.modelSelect.value = MODEL_TYPES.WHISPER;
+            settings.openSettingsModal();
+            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            modalChangeListener({ target: modalModelSelect });
+            closeButtonListener();
+
+            expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
+            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
+        });
+
+        test('should discard an unsaved model draft when closed with the backdrop', () => {
+            const modalModelSelect = settings.settingsModelSelect;
+            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'change')[1];
+            const backdropListener = settings.settingsModal.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'click')[1];
+
+            settings.modelSelect.value = MODEL_TYPES.WHISPER;
+            settings.openSettingsModal();
+            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            modalChangeListener({ target: modalModelSelect });
+            backdropListener({ target: settings.settingsModal });
+
+            expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
+            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
+        });
+
+        test('should restore the active model as the draft when reopened', () => {
+            const modalModelSelect = settings.settingsModelSelect;
+            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'change')[1];
+
+            settings.modelSelect.value = MODEL_TYPES.WHISPER;
+            settings.openSettingsModal();
+            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            modalChangeListener({ target: modalModelSelect });
+            settings.closeSettingsModal();
+            settings.openSettingsModal();
+
+            expect(modalModelSelect.value).toBe(MODEL_TYPES.WHISPER);
+        });
+
         test('should close the settings modal and emit event', () => {
             settings.closeSettingsModal();
 
@@ -453,6 +502,37 @@ describe('Settings Persistence & Save Workflow', () => {
                 })
             );
         });
+
+        test('should commit a valid modal model draft to active and persisted state exactly once', () => {
+            const maiApiKey = 'speech-resource-key-for-mai-15';
+            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
+            const modalModelSelect = settings.settingsModelSelect;
+            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'change')[1];
+
+            settings.modelSelect.value = MODEL_TYPES.WHISPER;
+            settings.openSettingsModal();
+            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            modalChangeListener({ target: modalModelSelect });
+            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = maiApiUri;
+            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = maiApiKey;
+            localStorageMock.setItem.mockClear();
+            const observedModels = [];
+            const unsubscribe = eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, () => {
+                observedModels.push(settings.getCurrentModel());
+            });
+
+            settings.saveSettings();
+
+            unsubscribe();
+
+            expect(settings.getCurrentModel()).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+            expect(observedModels).toEqual([MODEL_TYPES.MAI_TRANSCRIBE_1_5]);
+            expect(localStorageMock.setItem.mock.calls.filter(
+                ([key]) => key === STORAGE_KEYS.MODEL
+            )).toEqual([[STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5]]);
+        });
     });
 
     // ─── Save with Invalid Configuration (from settings-save-modal) ──────────
@@ -485,6 +565,28 @@ describe('Settings Persistence & Save Workflow', () => {
             expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
                 APP_EVENTS.SETTINGS_LOADED,
                 expect.anything()
+            );
+        });
+
+        test('should keep the active model unchanged when saving an invalid modal draft', () => {
+            const modalModelSelect = settings.settingsModelSelect;
+            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
+                .find(([eventName]) => eventName === 'change')[1];
+
+            settings.modelSelect.value = MODEL_TYPES.WHISPER;
+            settings.openSettingsModal();
+            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+            modalChangeListener({ target: modalModelSelect });
+            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
+
+            settings.saveSettings();
+
+            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
+            expect(settings.getCurrentModel()).toBe(MODEL_TYPES.WHISPER);
+            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
+            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
+                STORAGE_KEYS.MODEL,
+                MODEL_TYPES.MAI_TRANSCRIBE_1_5
             );
         });
 

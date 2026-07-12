@@ -183,10 +183,6 @@ export class Settings {
                 const settingsLogger = logger.child('Settings');
                 settingsLogger.info('Settings modal model changed to:', newModel, '(form only, not saved)');
                 
-                // Sync main interface selector to show current form selection
-                if (this.modelSelect) {
-                    this.modelSelect.value = newModel;
-                }
                 this.updateSettingsVisibility();
                 
                 // Do NOT emit any events until settings are saved
@@ -666,6 +662,8 @@ export class Settings {
         if (this.recordingEnvironmentSelect) {
             localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, this.recordingEnvironmentSelect.value);
         }
+
+        this.modelSelect.value = currentModel;
 
         this.closeSettingsModal();
 
