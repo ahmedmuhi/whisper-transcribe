@@ -46,7 +46,7 @@ and update your row when done.
 | 018 | Add targeted behavior coverage after test consolidation | P2 | S/M | 016 + 017 | DONE (merged via PR #87 as `dff0b8c`, 2026-07-12; implementation `385bacf`) |
 | 019 | Make adapter metadata authoritative for credential storage | P2 | M | — | DONE (implemented as `8db9d8d`, independently approved, and merged in PR #89 as `7930363`) |
 | 020 | Make transcript autosave observable and navigation-safe | P1 | S/M | — | DONE (implemented as `0e9a092`, independently approved, and merged via PR #91 as `a01298a`, 2026-07-13) |
-| 021 | Recover atomically from MediaRecorder lifecycle failures | P1 | M | — | TODO |
+| 021 | Recover atomically from MediaRecorder lifecycle failures | P1 | M | — | DONE (implemented and independently approved as `b490280` on `fix/021-mediarecorder-lifecycle-recovery`; awaiting operator merge) |
 | 022 | Keep unsaved settings-model changes draft-only | P1 | S | — | TODO |
 | 023 | Preserve the browser-selected recording container | P2 | M | 021 | TODO |
 | 024 | Enforce model-specific audio upload limits before network submission | P2 | M | 021 + 023 | TODO |
