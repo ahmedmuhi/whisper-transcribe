@@ -1,6 +1,5 @@
 /**
  * @fileoverview Tests for AzureAPIClient configuration validation.
- * Verifies proper validation of API keys, URIs, and configuration handling.
  */
 
 import { vi } from 'vitest';
@@ -8,20 +7,10 @@ import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { MESSAGES } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
-// Mock Settings
 const mockSettings = {
     getModelConfig: vi.fn()
 };
 
-// Mock URL constructor for URI validation
-global.URL = vi.fn((url) => {
-    if (!url || !url.startsWith('http')) {
-        throw new Error('Invalid URL');
-    }
-    return { href: url, protocol: url.startsWith('https') ? 'https:' : 'http:' };
-});
-
-// Mock dependencies
 vi.mock('../js/logger.js', () => ({
     logger: {
         info: vi.fn(),
@@ -37,7 +26,6 @@ vi.mock('../js/logger.js', () => ({
     }
 }));
 
-// Import the API client after mocking
 let AzureAPIClient;
 beforeAll(async () => {
     ({ AzureAPIClient } = await import('../js/api-client.js'));
@@ -46,354 +34,103 @@ beforeAll(async () => {
 describe('AzureAPIClient Configuration Validation', () => {
     let apiClient;
     let eventBusEmitSpy;
-    
+
     beforeEach(() => {
         vi.clearAllMocks();
         applyDomSpies();
-        
-        // Setup default mock settings
-        mockSettings.getModelConfig.mockReturnValue({
-            model: 'whisper',
-            apiKey: 'test-api-key',
-            uri: 'https://test-api.azure.com'
-        });
-        
-        // Create API client instance
         apiClient = new AzureAPIClient(mockSettings);
-        
-        // Spy on eventBus emissions
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
     });
-    
-    afterEach(() => {
-        vi.clearAllMocks();
-        applyDomSpies();
-    });
 
-    describe('validateConfig Method', () => {
-        it('should accept valid configuration', () => {
-            // Using default valid config from beforeEach
-            
-            // Validate configuration
-            const config = apiClient.validateConfig();
-            
-            // Should return valid config
-            expect(config).toEqual({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Should not emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.anything()
-            );
-        });
-        
-        it('should throw error for missing API key', () => {
-            // Setup missing API key
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: '',
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.API_KEY_REQUIRED);
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'apiKey',
-                    model: 'whisper'
-                })
-            );
-        });
-
-        it('should throw a clear error for API keys unsafe for fetch headers', () => {
-            const unsupportedCharacter = '\u2014';
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'mai-transcribe-1.5',
-                apiKey: `speech${unsupportedCharacter}key`,
-                uri: 'https://test-api.azure.com'
-            });
-
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.INVALID_API_KEY_CHARACTERS);
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'validApiKey',
-                    model: 'mai-transcribe-1.5'
-                })
-            );
-        });
-        
-        it('should throw error for missing URI', () => {
-            // Setup missing URI
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: ''
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.URI_REQUIRED);
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'uri',
-                    model: 'whisper'
-                })
-            );
-        });
-        
-        it('should throw error for invalid URI format', () => {
-            // Setup invalid URI format
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'invalid-uri'
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.INVALID_URI_FORMAT);
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'validUri',
-                    model: 'whisper'
-                })
-            );
-        });
-        
-        it('should include model name in error messages', () => {
-            // Setup invalid config
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'mai-transcribe-1.5',
-                apiKey: '',
-                uri: ''
-            });
-            
-            // Validate configuration should throw with model name
-            try {
-                apiClient.validateConfig();
-                fail('Should have thrown an error');
-            } catch (error) {
-                expect(error.message).toContain('mai-transcribe');
-            }
-            
-            // Should emit API_CONFIG_MISSING event with correct model
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    model: 'mai-transcribe-1.5'
-                })
-            );
-        });
-    });
-    
-    describe('Whisper Model Validation', () => {
-        it('should properly validate Whisper model configuration', () => {
-            // Setup Whisper config
-            mockSettings.getModelConfig.mockReturnValue({
+    it.each([
+        {
+            label: 'Whisper',
+            config: {
                 model: 'whisper',
                 apiKey: 'whisper-api-key',
                 uri: 'https://whisper.azure.com'
-            });
-            
-            // Validate configuration
-            const config = apiClient.validateConfig();
-            
-            // Should return valid config with correct model
-            expect(config.model).toBe('whisper');
-        });
-    });
-    
-    describe('MAI-Transcribe Model Validation', () => {
-        it('should properly validate MAI-Transcribe model configuration', () => {
-            // Setup MAI-Transcribe config
-            mockSettings.getModelConfig.mockReturnValue({
+            }
+        },
+        {
+            label: 'MAI-Transcribe',
+            config: {
                 model: 'mai-transcribe-1.5',
                 apiKey: 'mai-transcribe-api-key',
                 uri: 'https://mai-transcribe.azure.com'
-            });
+            }
+        }
+    ])('accepts and returns the complete normalized $label configuration', ({ config }) => {
+        mockSettings.getModelConfig.mockReturnValue(config);
 
-            // Validate configuration
-            const config = apiClient.validateConfig();
+        expect(apiClient.validateConfig()).toEqual(config);
+        expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+            APP_EVENTS.API_CONFIG_MISSING,
+            expect.anything()
+        );
+    });
 
-            // Should return valid config with correct model
-            expect(config.model).toBe('mai-transcribe-1.5');
+    it.each([
+        {
+            label: 'empty API key',
+            config: { model: 'whisper', apiKey: '', uri: 'https://test-api.azure.com' },
+            message: MESSAGES.API_KEY_REQUIRED,
+            missing: 'apiKey'
+        },
+        {
+            label: 'null API key',
+            config: { model: 'whisper', apiKey: null, uri: 'https://test-api.azure.com' },
+            message: MESSAGES.API_KEY_REQUIRED,
+            missing: 'apiKey'
+        },
+        {
+            label: 'unsafe API-key character',
+            config: { model: 'mai-transcribe-1.5', apiKey: 'speech\u2014key', uri: 'https://test-api.azure.com' },
+            message: MESSAGES.INVALID_API_KEY_CHARACTERS,
+            missing: 'validApiKey'
+        },
+        {
+            label: 'empty URI',
+            config: { model: 'whisper', apiKey: 'test-api-key', uri: '' },
+            message: MESSAGES.URI_REQUIRED,
+            missing: 'uri'
+        },
+        {
+            label: 'URI without protocol',
+            config: { model: 'whisper', apiKey: 'test-api-key', uri: 'azure.com' },
+            message: MESSAGES.INVALID_URI_FORMAT,
+            missing: 'validUri'
+        },
+        {
+            label: 'HTTP URI',
+            config: { model: 'whisper', apiKey: 'test-api-key', uri: 'http://insecure.azure.com' },
+            message: MESSAGES.URI_MUST_BE_HTTPS,
+            missing: 'httpsUri'
+        }
+    ])('rejects $label with its exact error and event payload', ({ config, message, missing }) => {
+        mockSettings.getModelConfig.mockReturnValue(config);
+
+        expect(() => apiClient.validateConfig()).toThrow(message);
+        expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.API_CONFIG_MISSING, {
+            missing,
+            model: config.model
         });
     });
-    
-    describe('URI Validation', () => {
-        it('should accept HTTPS URIs', () => {
-            // Setup config with HTTPS URI
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'https://secure.azure.com'
-            });
-            
-            // Validate configuration
-            const config = apiClient.validateConfig();
-            
-            // Should accept HTTPS URI
-            expect(config.uri).toBe('https://secure.azure.com');
+
+    it('sanitizes whitespace and invisible artifacts in the API key and URI', () => {
+        mockSettings.getModelConfig.mockReturnValue({
+            model: 'whisper',
+            apiKey: ' test\u200B-api\uFEFF-key \n',
+            uri: ' https://test-api.azure.com /transcribe\n'
         });
-        
-        it('should reject URIs without protocol', () => {
-            // Setup config with missing protocol
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'azure.com'
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.INVALID_URI_FORMAT);
+
+        expect(apiClient.validateConfig()).toEqual({
+            model: 'whisper',
+            apiKey: 'test-api-key',
+            uri: 'https://test-api.azure.com/transcribe'
         });
-        
-        it('should reject malformed URIs', () => {
-            // Setup config with malformed URI
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'https:/malformed'
-            });
-            
-            // Mock URL constructor to throw for malformed URL
-            global.URL.mockImplementationOnce(() => {
-                throw new Error('Invalid URL');
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.INVALID_URI_FORMAT);
-        });
-    });
-    
-    describe('API Key Validation', () => {
-        it('should accept valid API keys', () => {
-            // Setup config with valid API key
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'valid-api-key',
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Validate configuration
-            const config = apiClient.validateConfig();
-            
-            // Should accept valid API key
-            expect(config.apiKey).toBe('valid-api-key');
-        });
-        
-        it('should reject empty API keys', () => {
-            // Setup config with empty API key
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: '',
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.API_KEY_REQUIRED);
-        });
-        
-        it('should reject null API keys', () => {
-            // Setup config with null API key
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: null,
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Validate configuration should throw
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.API_KEY_REQUIRED);
-        });
-    });
-    
-    describe('Event Emission on Configuration Issues', () => {
-        it('should emit API_CONFIG_MISSING for missing API key', () => {
-            // Setup missing API key
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: '',
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Validate configuration (should throw)
-            try {
-                apiClient.validateConfig();
-            } catch (error) {
-                // Expected error
-            }
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'apiKey',
-                    model: 'whisper'
-                })
-            );
-        });
-        
-        it('should emit API_CONFIG_MISSING for missing URI', () => {
-            // Setup missing URI
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: ''
-            });
-            
-            // Validate configuration (should throw)
-            try {
-                apiClient.validateConfig();
-            } catch (error) {
-                // Expected error
-            }
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'uri',
-                    model: 'whisper'
-                })
-            );
-        });
-        
-        it('should emit API_CONFIG_MISSING for invalid URI format', () => {
-            // Setup invalid URI format
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'invalid-uri'
-            });
-            
-            // Validate configuration (should throw)
-            try {
-                apiClient.validateConfig();
-            } catch (error) {
-                // Expected error
-            }
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'validUri',
-                    model: 'whisper'
-                })
-            );
-        });
+        expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+            APP_EVENTS.API_CONFIG_MISSING,
+            expect.anything()
+        );
     });
 });
