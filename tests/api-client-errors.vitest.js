@@ -113,6 +113,7 @@ describe('AzureAPIClient Error Handling', () => {
                     model: 'whisper'
                 })
             );
+            expect(global.fetch).not.toHaveBeenCalled();
         });
         
         it('should throw error when URI is missing during transcription', async () => {
@@ -134,6 +135,7 @@ describe('AzureAPIClient Error Handling', () => {
                     model: 'whisper'
                 })
             );
+            expect(global.fetch).not.toHaveBeenCalled();
         });
 
         it('should reject API keys unsafe for fetch headers before making a request', async () => {
@@ -156,90 +158,6 @@ describe('AzureAPIClient Error Handling', () => {
             );
         });
         
-        it('should emit event when validateConfig is called with missing API key', () => {
-            // Setup missing API key
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: '',
-                uri: 'https://test-api.azure.com'
-            });
-            
-            // Call validateConfig directly
-            expect(() => apiClient.validateConfig()).toThrow();
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'apiKey',
-                    model: 'whisper'
-                })
-            );
-        });
-        
-        it('should emit event when validateConfig is called with missing URI', () => {
-            // Setup missing URI
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: ''
-            });
-            
-            // Call validateConfig directly
-            expect(() => apiClient.validateConfig()).toThrow();
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'uri',
-                    model: 'whisper'
-                })
-            );
-        });
-        
-        it('should emit event when validateConfig is called with invalid URI format', () => {
-            // Setup invalid URI format
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'invalid-uri'
-            });
-            
-            // Call validateConfig directly
-            expect(() => apiClient.validateConfig()).toThrow();
-            
-            // Should emit API_CONFIG_MISSING event
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'validUri',
-                    model: 'whisper'
-                })
-            );
-        });
-
-        it('should reject an insecure (http) URI in validateConfig', () => {
-            // Valid API key, but a cleartext http:// endpoint
-            mockSettings.getModelConfig.mockReturnValue({
-                model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'http://insecure.openai.azure.com/'
-            });
-
-            // validateConfig() should throw with the HTTPS-required message
-            expect(() => apiClient.validateConfig()).toThrow(MESSAGES.URI_MUST_BE_HTTPS);
-
-            // Should emit API_CONFIG_MISSING with the httpsUri reason
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'httpsUri',
-                    model: 'whisper'
-                })
-            );
-        });
-
         it('should not send the request over an insecure (http) URI', async () => {
             // Valid API key, but a cleartext http:// endpoint
             mockSettings.getModelConfig.mockReturnValue({
@@ -353,23 +271,56 @@ describe('AzureAPIClient Error Handling', () => {
         });
     });
     
-    describe('API Rate Limiting Handling', () => {
+    describe('Retry status behavior', () => {
+        it('recovers from a 429 response and honors Retry-After', async () => {
+            global.fetch
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 429,
+                    headers: { get: vi.fn().mockReturnValue('1') },
+                    text: vi.fn().mockResolvedValue('Too many requests')
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    status: 200,
+                    headers: { get: vi.fn().mockReturnValue('application/json') },
+                    json: vi.fn().mockResolvedValue({ text: 'retried success' })
+                });
+            const onProgress = vi.fn();
+
+            const result = await apiClient.transcribe(new Blob(), onProgress);
+
+            expect(result).toBe('retried success');
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            expect(apiClient._sleep).toHaveBeenCalledWith(1000);
+            expect(onProgress).toHaveBeenCalledWith('Azure returned 429. Retrying in 1s (1/5)...');
+            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_SUCCESS, {
+                model: 'whisper',
+                transcriptionLength: 'retried success'.length
+            });
+            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
+                APP_EVENTS.API_REQUEST_ERROR,
+                expect.anything()
+            );
+        });
+
         it('should handle rate limiting errors (429)', async () => {
             // Mock too many requests response
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 429,
                 headers: {
-                    get: vi.fn().mockReturnValue(null)
+                    get: vi.fn().mockReturnValue('3')
                 },
                 text: vi.fn().mockResolvedValue('Too many requests')
             });
             
             // Attempt to transcribe
             await expect(apiClient.transcribe(new Blob())).rejects.toThrow(
-                'API rate limit reached (429). Please wait a moment and try again.'
+                'API rate limit reached (429). Retry after 3s.'
             );
             expect(global.fetch).toHaveBeenCalledTimes(6);
+            expect(apiClient._sleep).toHaveBeenCalledWith(3000);
             
             // Should emit API_REQUEST_ERROR event with specific status
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
@@ -394,6 +345,8 @@ describe('AzureAPIClient Error Handling', () => {
             
             // Attempt to transcribe
             await expect(apiClient.transcribe(new Blob())).rejects.toThrow('API responded with status: 400');
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(apiClient._sleep).not.toHaveBeenCalled();
             
             // Should emit API_REQUEST_ERROR event with specific status
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
