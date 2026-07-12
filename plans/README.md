@@ -47,7 +47,7 @@ and update your row when done.
 | 019 | Make adapter metadata authoritative for credential storage | P2 | M | — | DONE (implemented as `8db9d8d`, independently approved, and merged in PR #89 as `7930363`) |
 | 020 | Make transcript autosave observable and navigation-safe | P1 | S/M | — | DONE (implemented as `0e9a092`, independently approved, and merged via PR #91 as `a01298a`, 2026-07-13) |
 | 021 | Recover atomically from MediaRecorder lifecycle failures | P1 | M | — | DONE (implemented as `b490280`, independently approved, and merged via PR #93 as `339c561`, 2026-07-13) |
-| 022 | Keep unsaved settings-model changes draft-only | P1 | S | — | DONE (implemented and independently approved as `6a3ff25` on `fix/022-settings-model-draft`; awaiting operator merge) |
+| 022 | Keep unsaved settings-model changes draft-only | P1 | S | — | DONE (implemented as `6a3ff25`, independently approved, and merged via PR #94 as `69e11a8`, 2026-07-13) |
 | 023 | Preserve the browser-selected recording container | P2 | M | 021 | TODO |
 | 024 | Enforce model-specific audio upload limits before network submission | P2 | M | 021 + 023 | TODO |
 | 025 | Make the settings modal keyboard and focus correct | P2 | M | 022 | TODO |
