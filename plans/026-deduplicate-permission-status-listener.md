@@ -3,7 +3,7 @@
 > **Executor instructions**: Follow all steps and verifications. Stop on drift
 > or a STOP condition and touch only scoped files.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- js/permission-manager.js js/audio-handler.js tests/permission-manager.vitest.js tests/audio-handler-integration.vitest.js`
+> **Drift check (run first)**: `git diff --stat 8d17198..HEAD -- js/permission-manager.js js/audio-handler.js tests/permission-manager.vitest.js tests/audio-handler-integration.vitest.js`
 
 ## Status
 
@@ -12,7 +12,7 @@
 - **Risk**: LOW
 - **Depends on**: Plan 021 (to avoid overlapping AudioHandler lifecycle edits)
 - **Category**: perf
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `8d17198`, 2026-07-13 (after Plans 021, 023, and 024)
 
 ## Why this matters
 
