@@ -25,7 +25,7 @@ vi.mock('../js/status-helper.js', () => ({ showTemporaryStatus: vi.fn() }));
 
 const { UI } = await import('../js/ui.js');
 const { TranscriptStore } = await import('../js/transcript-store.js');
-const { TRANSCRIPT_SEGMENT_DIVIDER } = await import('../js/constants.js');
+const { TRANSCRIPT_SEGMENT_DIVIDER, MESSAGES } = await import('../js/constants.js');
 
 function makeStorage(initial = {}) {
     const data = { ...initial };
@@ -80,6 +80,25 @@ describe('Transcript actions: Grab / Restore / append', () => {
             expect(ok).toBe(false);
             expect(ui.transcriptElement.value).toBe('precious'); // not lost from the box
             expect(store.load()?.text).toBe('precious');         // and saved as a record
+        });
+
+        it('keeps the text visible when persistence fails but clipboard succeeds', async () => {
+            const storage = {
+                getItem: vi.fn().mockReturnValue(null),
+                setItem: vi.fn(() => { throw new Error('quota exceeded'); }),
+                removeItem: vi.fn()
+            };
+            ui.transcriptStore = new TranscriptStore(storage, 'tk');
+            ui.transcriptElement.value = 'not safely saved';
+            const statusSpy = vi.spyOn(ui, '_emitStatus');
+
+            const ok = await ui.grabTranscript();
+
+            expect(ok).toBe(true);
+            expect(writeText).toHaveBeenCalledWith('not safely saved');
+            expect(ui.transcriptElement.value).toBe('not safely saved');
+            expect(ui.restoreButton.hidden).toBe(true);
+            expect(statusSpy).toHaveBeenCalledWith(MESSAGES.TRANSCRIPT_AUTOSAVE_FAILED, 'error');
         });
 
         it('cancels a pending empty autosave when Grab clears the box', async () => {

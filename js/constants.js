@@ -256,6 +256,7 @@ export const DEFAULT_RESET_STATUS =
  * @property {string} RECORDING_IN_PROGRESS - Status during active recording
  * @property {string} PROCESSING_AUDIO - Status during transcription processing
  * @property {string} TRANSCRIPTION_COMPLETE - Success message after transcription
+ * @property {string} TRANSCRIPT_AUTOSAVE_FAILED - Warning when transcript persistence fails
  * @property {string} SETTINGS_SAVED - Confirmation when settings are saved
  * @property {string} ERROR_PREFIX - Prefix for error messages
  */
@@ -306,6 +307,7 @@ export const MESSAGES = {
   
   // Transcription
   TRANSCRIPTION_COMPLETE: 'Transcription complete',
+  TRANSCRIPT_AUTOSAVE_FAILED: 'Autosave is unavailable. Copy your transcript before leaving.',
   
   // Clipboard Operations
   TEXT_GRAB_SUCCESS: 'Grabbed to clipboard',

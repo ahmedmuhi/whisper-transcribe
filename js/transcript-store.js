@@ -36,19 +36,20 @@ export class TranscriptStore {
      * clears the slot (there is nothing to recover).
      *
      * @param {string} text
-     * @returns {void}
+     * @returns {boolean} True when the transcript was persisted or cleared.
      */
     save(text) {
-        if (!this.storage) return;
+        if (!this.storage) return false;
         const value = typeof text === 'string' ? text : '';
         if (!value) {
-            this.clear();
-            return;
+            return this.clear();
         }
         try {
             this.storage.setItem(this.key, JSON.stringify({ text: value, savedAt: Date.now() }));
+            return true;
         } catch (error) {
             logger.child('TranscriptStore').debug('Failed to persist transcript:', error);
+            return false;
         }
     }
 
@@ -76,14 +77,16 @@ export class TranscriptStore {
     /**
      * Remove the recovery slot.
      *
-     * @returns {void}
+     * @returns {boolean} True when the recovery slot was removed.
      */
     clear() {
-        if (!this.storage) return;
+        if (!this.storage) return false;
         try {
             this.storage.removeItem(this.key);
+            return true;
         } catch {
             /* storage unavailable — nothing to clear */
+            return false;
         }
     }
 
