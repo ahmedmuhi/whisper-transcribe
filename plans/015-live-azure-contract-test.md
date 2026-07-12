@@ -81,7 +81,7 @@ merges).
 | Purpose | Command | Expected on success |
 |---------|---------|---------------------|
 | List live tests | `npx playwright test --config playwright.live.config.js --list` | 1 test listed |
-| Run live (local) | `AZURE_MAI_TRANSCRIBE_URI=… AZURE_MAI_TRANSCRIBE_API_KEY=… npm run test:browser:live` | `1 passed` |
+| Run live (post-merge) | `gh workflow run live-azure-contract.yml --ref main` then watch the dispatched run | `1 passed` |
 | Run without secrets | `npm run test:browser:live` | `1 skipped` (guard works) |
 | Deterministic suite unaffected | `npm run test:browser` | `1 passed`, live spec NOT listed |
 | Unit suite | `npm run test:coverage` | unchanged pass |
@@ -131,8 +131,24 @@ never write them into any file, output, or commit.)
 
 ### Step 1: Obtain the spoken fixture (operator input — pause here)
 
-Ask the operator for a WAV file at
-`tests/browser-live/fixtures/spoken-phrase.wav`:
+The operator supplied this purpose-recorded source file:
+
+`/mnt/c/Users/AhmedMuhi/Documents/Sound Recordings/Whisper Live Azure Contract - Testing 123.m4a`
+
+It is a 3.95-second, 48 kHz stereo AAC recording of "testing one two three,
+testing one two three" and contains no confidential content. Convert a copy
+locally (this is format conversion of the operator's voice, not synthesized
+speech) into the committed fixture:
+
+```bash
+mkdir -p tests/browser-live/fixtures
+ffmpeg -y \
+  -i '/mnt/c/Users/AhmedMuhi/Documents/Sound Recordings/Whisper Live Azure Contract - Testing 123.m4a' \
+  -ac 1 -ar 48000 -c:a pcm_s16le \
+  tests/browser-live/fixtures/spoken-phrase.wav
+```
+
+The resulting `tests/browser-live/fixtures/spoken-phrase.wav` must be:
 
 - 2–4 seconds, mono preferred, 16-bit PCM (any common sample rate —
   Chromium's fake capture converts).
@@ -140,8 +156,8 @@ Ask the operator for a WAV file at
   e.g. "testing one two three" — recorded for this purpose, containing no
   personal, client, or confidential content (it will live in a public-ish
   repo and be sent to Azure on every run).
-- Record the exact expected keyword (lowercase) — it is hardcoded into the
-  spec in Step 3 (e.g. `testing`).
+- The exact expected keyword is lowercase `testing`; hardcode only that
+  tolerant keyword in the spec in Step 3.
 
 STOP condition #1 applies if the operator cannot supply one — do not
 synthesize speech with any external TTS service (operator has a standing
@@ -182,8 +198,11 @@ export default defineConfig({
     },
     webServer: {
         command: 'node tests/browser/static-server.mjs',
-        url: 'http://127.0.0.1:4173/',
-        reuseExistingServer: !process.env.CI,
+        // Plan 014 proved that an unbound IPv4 readiness probe can hang on
+        // immediately repeated WSL runs under mirrored networking. Reuse its
+        // dedicated IPv6 readiness listener; the app still loads over IPv4.
+        url: 'http://[::1]:4175/',
+        reuseExistingServer: false,
         timeout: 15_000
     },
     projects: [{
@@ -209,7 +228,8 @@ No `globalSetup` (the fixture is committed, not generated). It reuses plan
 
 ### Step 3: Write `tests/browser-live/live-azure.contract.spec.js`
 
-One test, mirroring plan 014's flow but with the real boundary:
+One test, mirroring plan 014's flow but with the real boundary. Use the
+lowercase keyword `testing` from the operator-supplied fixture:
 
 1. **Guard first** (makes local/no-secret runs a clean skip, not a failure):
    ```js
@@ -248,10 +268,12 @@ One test, mirroring plan 014's flow but with the real boundary:
 
 **Verify**:
 `npm run test:browser:live` (script added in Step 4; run WITHOUT env vars)
-→ `1 skipped`. Then, with the operator present to supply real values as
-shell env vars for one run → `1 passed`. If the operator is unavailable,
-mark this sub-verification "pending operator run" in your report rather
-than inventing credentials (STOP #2 covers a failing live run).
+→ `1 skipped`. The operator stored the real values only in GitHub's
+`live-azure` Environment, where they are intentionally write-only. Do not
+attempt to retrieve or duplicate them for a local run. Record the real run
+as "pending post-merge workflow run"; after the workflow reaches `main`, the
+reviewer will dispatch it and require `1 passed` before marking this plan
+DONE. STOP #2 covers a failing live workflow run.
 
 ### Step 4: Add the npm script
 
@@ -324,11 +346,11 @@ Deliberate properties (keep all):
 
 - `workflow_dispatch` ONLY — never push/PR/schedule. Fork PRs therefore can
   never reach the secrets.
-- `environment: live-azure` — a GitHub Environment the **operator** creates,
-  holding both secrets, ideally with required-reviewer protection. Pause
-  here and ask the operator to create it (`AZURE_MAI_TRANSCRIBE_URI`,
-  `AZURE_MAI_TRANSCRIBE_API_KEY`); you cannot and must not do this yourself
-  or place values anywhere in the repo.
+- `environment: live-azure` — the operator created this GitHub Environment
+  and added `AZURE_MAI_TRANSCRIBE_URI` and
+  `AZURE_MAI_TRANSCRIBE_API_KEY`. Their names were verified through GitHub's
+  API; their values are intentionally unreadable and must never be copied
+  into the repo or local shell by the executor.
 - **No artifact upload step** — no report, no trace, no screenshots (the
   config already disables them; the workflow must not re-add them).
 - The explicit secret guard makes a misconfigured manual workflow fail. The
@@ -370,9 +392,10 @@ deterministic smoke `1 passed`; live `1 skipped`.
 Machine-checkable. ALL must hold:
 
 - [ ] `npm run test:browser:live` without env vars → `1 skipped`, exit 0
-- [ ] One operator-witnessed live run → `1 passed` (or explicitly recorded
-      as "pending operator run" in the report and the index row set to
-      BLOCKED on that)
+- [ ] One post-merge `workflow_dispatch` live run → `1 passed`. Before
+      publication, record this as "pending post-merge workflow run" and keep
+      the index IN PROGRESS; this does not block reviewing the implementation
+      for publication. Mark DONE only after the merged workflow passes.
 - [ ] `npm run test:browser` output does not mention
       `live-azure.contract.spec.js`
 - [ ] `.github/workflows/live-azure-contract.yml` contains
