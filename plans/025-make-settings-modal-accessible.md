@@ -3,7 +3,7 @@
 > **Executor instructions**: Follow the plan step by step, preserve Plan 022's
 > draft semantics, and stop on any STOP condition.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- index.html css/styles.css js/settings.js tests/settings-persistence.vitest.js tests/settings-unit.vitest.js`
+> **Drift check (run first)**: `git diff --stat 90e467e..HEAD -- index.html css/styles.css js/settings.js tests/settings-persistence.vitest.js tests/settings-unit.vitest.js`
 
 ## Status
 
@@ -12,7 +12,7 @@
 - **Risk**: MED
 - **Depends on**: Plan 022
 - **Category**: bug
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `90e467e`, 2026-07-13 (after Plan 022)
 
 ## Why this matters
 
@@ -26,7 +26,7 @@ Use the repository's native discard dialog pattern and preserve a safe fallback.
 
 - `index.html:235-280` uses a `<div id="settings-modal" class="modal"
   role="dialog" aria-modal="true">` with a manual backdrop.
-- `js/settings.js:467-485` only writes `style.display` and emits open/close.
+- `js/settings.js:466-485` only writes `style.display` and emits open/close.
 - The document Escape listener at `settings.js:316-328` controls only the
   sidebar.
 - `index.html:225-232` and `js/ui.js:134-146,620-656` are the established native

@@ -31,6 +31,28 @@ vi.mock('../js/status-helper.js', () => ({
 
 const localStorageMock = createLocalStorageMock();
 
+function getEventListener(element, eventName) {
+    const listener = element.addEventListener.mock.calls
+        .find(([registeredEventName]) => registeredEventName === eventName)?.[1];
+
+    expect(listener).toBeTypeOf('function');
+    return listener;
+}
+
+function configureNativeDialog(settings) {
+    const modal = settings.settingsModal;
+    modal.open = false;
+    modal.showModal = vi.fn(function showModal() {
+        this.open = true;
+    });
+    modal.close = vi.fn(function close() {
+        this.open = false;
+    });
+    modal.removeAttribute = vi.fn();
+
+    return modal;
+}
+
 Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
     writable: true
@@ -68,6 +90,13 @@ describe('Settings Persistence & Save Workflow', () => {
                 element.value = 'whisper';
             }
         });
+
+        const modal = document.getElementById(ID.SETTINGS_MODAL);
+        delete modal.showModal;
+        delete modal.close;
+        delete modal.open;
+        delete modal.removeAttribute;
+        delete document.getElementById(ID.SETTINGS_BUTTON).isConnected;
 
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
 
@@ -245,6 +274,126 @@ describe('Settings Persistence & Save Workflow', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_OPENED);
         });
 
+        test('uses native dialog semantics and focuses the first invalid active credential field', () => {
+            const modal = configureNativeDialog(settings);
+            settings.settingsButton.isConnected = true;
+            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
+            settings.whisperKeyInput.value = '';
+
+            settings.openSettingsModal(settings.settingsButton);
+
+            expect(modal.showModal).toHaveBeenCalledOnce();
+            expect(settings.whisperKeyInput.focus).toHaveBeenCalledOnce();
+        });
+
+        test('focuses the modal model selector when active credentials are valid', () => {
+            configureNativeDialog(settings);
+            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+
+            settings.openSettingsModal(settings.settingsButton);
+
+            expect(settings.settingsModelSelect.focus).toHaveBeenCalledOnce();
+        });
+
+        test('falls back to display behavior when native dialogs are unavailable without stranding focus', () => {
+            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+            settings.settingsButton.isConnected = true;
+
+            settings.openSettingsModal(settings.settingsButton);
+            settings.closeSettingsModal();
+
+            expect(settings.settingsModal.style.display).toBe('none');
+            expect(settings.settingsModelSelect.focus).toHaveBeenCalledOnce();
+            expect(settings.settingsButton.focus).toHaveBeenCalledOnce();
+        });
+
+        test('makes the no-showModal fallback visually and accessibly modal while inerting background interaction', () => {
+            const background = document.createElement('main');
+            document.body.appendChild(background);
+            background.inert = false;
+            settings.settingsModal.removeAttribute = vi.fn();
+
+            try {
+                settings.openSettingsModal(settings.settingsButton);
+
+                expect(settings.settingsModal.classList.add).toHaveBeenCalledWith('modal--fallback-open');
+                expect(settings.settingsModal.setAttribute).toHaveBeenCalledWith('role', 'dialog');
+                expect(settings.settingsModal.setAttribute).toHaveBeenCalledWith('aria-modal', 'true');
+                expect(background.inert).toBe(true);
+                expect(background.getAttribute('aria-hidden')).toBe('true');
+
+                settings.closeSettingsModal();
+
+                expect(settings.settingsModal.classList.remove).toHaveBeenCalledWith('modal--fallback-open');
+                expect(settings.settingsModal.removeAttribute).toHaveBeenCalledWith('role');
+                expect(settings.settingsModal.removeAttribute).toHaveBeenCalledWith('aria-modal');
+                expect(background.inert).toBe(false);
+                expect(background.hasAttribute('aria-hidden')).toBe(false);
+            } finally {
+                background.remove();
+            }
+        });
+
+        test('cycles fallback Tab navigation within the modal without adding a native-dialog trap', () => {
+            const firstFocusable = settings.closeModalButton;
+            const lastFocusable = settings.saveSettingsButton;
+            settings.settingsModal.querySelectorAll.mockReturnValue([firstFocusable, lastFocusable]);
+            const forwardTab = { key: 'Tab', shiftKey: false, target: lastFocusable, preventDefault: vi.fn() };
+            const backwardTab = { key: 'Tab', shiftKey: true, target: firstFocusable, preventDefault: vi.fn() };
+
+            settings.openSettingsModal(settings.settingsButton);
+            settings._fallbackModalKeydownHandler(forwardTab);
+            settings._fallbackModalKeydownHandler(backwardTab);
+
+            expect(firstFocusable.focus).toHaveBeenCalledOnce();
+            expect(lastFocusable.focus).toHaveBeenCalledOnce();
+            expect(forwardTab.preventDefault).toHaveBeenCalledOnce();
+            expect(backwardTab.preventDefault).toHaveBeenCalledOnce();
+
+            settings.closeSettingsModal();
+            const modal = configureNativeDialog(settings);
+            settings.openSettingsModal(settings.settingsButton);
+            settings._fallbackModalKeydownHandler(forwardTab);
+
+            expect(modal.showModal).toHaveBeenCalledOnce();
+            expect(firstFocusable.focus).toHaveBeenCalledOnce();
+        });
+
+        test('does not restore focus after startup opens settings without a meaningful invoker', () => {
+            configureNativeDialog(settings);
+            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+
+            settings.openSettingsModal();
+            settings.closeSettingsModal();
+
+            expect(settings.settingsButton.focus).not.toHaveBeenCalled();
+        });
+
+        test('does not return focus to an invoker removed before close', () => {
+            configureNativeDialog(settings);
+            settings.settingsButton.isConnected = true;
+
+            settings.openSettingsModal(settings.settingsButton);
+            settings.settingsButton.isConnected = false;
+            settings.closeSettingsModal();
+
+            expect(settings.settingsButton.focus).not.toHaveBeenCalled();
+        });
+
+        test('uses the settings button as the invoker for settings-button clicks', () => {
+            configureNativeDialog(settings);
+            settings.settingsButton.isConnected = true;
+            const settingsButtonListener = getEventListener(settings.settingsButton, 'click');
+
+            settingsButtonListener();
+            settings.closeSettingsModal();
+
+            expect(settings.settingsButton.focus).toHaveBeenCalledOnce();
+        });
+
         test('should discard an unsaved model draft when closed with the close button', () => {
             const modalModelSelect = settings.settingsModelSelect;
             const modalChangeListener = modalModelSelect.addEventListener.mock.calls
@@ -277,6 +426,79 @@ describe('Settings Persistence & Save Workflow', () => {
 
             expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
             expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
+        });
+
+        test('routes close button, backdrop, and cancel through one discard and return-focus cleanup', () => {
+            const modal = configureNativeDialog(settings);
+            settings.settingsButton.isConnected = true;
+            const modalModelSelect = settings.settingsModelSelect;
+            const modalChangeListener = getEventListener(modalModelSelect, 'change');
+            const closeButtonListener = getEventListener(settings.closeModalButton, 'click');
+            const backdropListener = getEventListener(modal, 'click');
+            const cancelListener = getEventListener(modal, 'cancel');
+            const cancelEvent = { preventDefault: vi.fn() };
+
+            [
+                () => closeButtonListener(),
+                () => backdropListener({ target: modal }),
+                () => cancelListener(cancelEvent)
+            ].forEach(close => {
+                settings.modelSelect.value = MODEL_TYPES.WHISPER;
+                settings.openSettingsModal(settings.settingsButton);
+                modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+                modalChangeListener({ target: modalModelSelect });
+
+                close();
+
+                expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
+                expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
+            });
+
+            expect(modal.close).toHaveBeenCalledTimes(3);
+            expect(settings.settingsButton.focus).toHaveBeenCalledTimes(3);
+            expect(cancelEvent.preventDefault).toHaveBeenCalledOnce();
+        });
+
+        test('keeps Escape owned by the open dialog rather than also unpinning the sidebar', () => {
+            const modal = configureNativeDialog(settings);
+            settings.sidePanel = {
+                classList: { contains: vi.fn(() => true) }
+            };
+            const unpinSidebarSpy = vi.spyOn(settings, 'unpinSidebar');
+            const cancelListener = getEventListener(modal, 'cancel');
+
+            settings.openSettingsModal(settings.settingsButton);
+            settings._panelEscHandler({ key: 'Escape' });
+            cancelListener({ preventDefault: vi.fn() });
+
+            expect(unpinSidebarSpy).not.toHaveBeenCalled();
+            expect(modal.close).toHaveBeenCalledOnce();
+        });
+
+        test('does not add modal handlers during repeated open and close cycles', () => {
+            const modal = configureNativeDialog(settings);
+            const initialHandlerCount = modal.addEventListener.mock.calls.length;
+
+            settings.openSettingsModal(settings.settingsButton);
+            settings.closeSettingsModal();
+            settings.openSettingsModal(settings.settingsButton);
+            settings.closeSettingsModal();
+
+            expect(modal.showModal).toHaveBeenCalledTimes(2);
+            expect(modal.addEventListener.mock.calls).toHaveLength(initialHandlerCount);
+        });
+
+        test('uses the shared close cleanup after a successful save', () => {
+            const modal = configureNativeDialog(settings);
+            settings.settingsButton.isConnected = true;
+            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
+            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
+
+            settings.openSettingsModal(settings.settingsButton);
+            settings.saveSettings();
+
+            expect(modal.close).toHaveBeenCalledOnce();
+            expect(settings.settingsButton.focus).toHaveBeenCalledOnce();
         });
 
         test('should restore the active model as the draft when reopened', () => {

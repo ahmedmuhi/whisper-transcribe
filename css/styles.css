@@ -1000,14 +1000,45 @@ header {
     position: fixed;
     z-index: 1000;
     inset: 0;
+    box-sizing: border-box;
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow-y: auto;
 }
 
-.modal-backdrop {
-    position: absolute;
-    inset: 0;
+.modal[open] {
+    display: block;
+}
+
+.modal.modal--fallback-open {
+    display: block;
+}
+
+.modal::backdrop {
     background: var(--modal-backdrop);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+}
+
+.modal.modal--fallback-open::before {
+    content: '';
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    background: var(--modal-backdrop);
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.modal.modal--fallback-open .modal-content {
+    z-index: 1;
 }
 
 .modal-content {
