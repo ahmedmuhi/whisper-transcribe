@@ -6,6 +6,7 @@ import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, DEFAULT_MODEL_TYPE, RECORDING_
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { modelAdapterRegistry } from './model-adapters/index.js';
 
 /**
  * Settings manager for API configuration and user preferences.
@@ -32,8 +33,11 @@ export class Settings {
     /**
      * Creates a new Settings manager instance.
      * Initializes DOM references and loads saved settings.
+     *
+     * @param {Map<string, object>} [adapterRegistry=modelAdapterRegistry] Registry of model adapters.
      */
-    constructor() {
+    constructor(adapterRegistry = modelAdapterRegistry) {
+        this.adapterRegistry = adapterRegistry;
         this.modelSelect = document.getElementById(ID.MODEL_SELECT);
         this.settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
         this.settingsModal = document.getElementById(ID.SETTINGS_MODAL);
@@ -480,6 +484,53 @@ export class Settings {
         
         eventBus.emit(APP_EVENTS.UI_SETTINGS_CLOSED);
     }
+
+    /**
+     * Resolves the credential storage keys declared by a model adapter.
+     *
+     * @private
+     * @param {string} model Model identifier.
+     * @returns {{apiKey: string, uri: string}} Credential storage keys.
+     * @throws {Error} If the model has no complete credential storage metadata.
+     */
+    _getCredentialStorageKeys(model) {
+        const adapter = this.adapterRegistry.get(model);
+        const storageKeys = adapter?.storageKeys;
+        if (
+            typeof storageKeys?.apiKey !== 'string' ||
+            storageKeys.apiKey.trim() === '' ||
+            typeof storageKeys?.uri !== 'string' ||
+            storageKeys.uri.trim() === ''
+        ) {
+            throw new Error(`Credential storage metadata is missing for model "${model}"`);
+        }
+
+        return {
+            apiKey: storageKeys.apiKey,
+            uri: storageKeys.uri
+        };
+    }
+
+    /**
+     * Loads one model's stored credentials into its cached form inputs.
+     *
+     * @private
+     * @param {string} model Model identifier.
+     * @param {HTMLElement|null} uriInput URI form input.
+     * @param {HTMLElement|null} apiKeyInput API key form input.
+     */
+    _loadStoredCredentials(model, uriInput, apiKeyInput) {
+        const { apiKey, uri } = this._getCredentialStorageKeys(model);
+        const storedUri = localStorage.getItem(uri);
+        const storedApiKey = localStorage.getItem(apiKey);
+
+        if (uriInput && storedUri) {
+            uriInput.value = storedUri;
+        }
+        if (apiKeyInput && storedApiKey) {
+            apiKeyInput.value = storedApiKey;
+        }
+    }
     
     /**
      * Loads current settings from localStorage into the form fields.
@@ -489,29 +540,21 @@ export class Settings {
      * @method loadSettingsToForm
      */
     loadSettingsToForm() {
-        const whisperUri = localStorage.getItem(STORAGE_KEYS.WHISPER_URI);
-        const whisperKey = localStorage.getItem(STORAGE_KEYS.WHISPER_API_KEY);
-
         // Sync modal selector with main UI selector (user's current choice)
         if (this.settingsModelSelect) {
             this.settingsModelSelect.value = this.getCurrentModel();
         }
 
-        if (this.whisperUriInput && whisperUri) {
-            this.whisperUriInput.value = whisperUri;
-        }
-        if (this.whisperKeyInput && whisperKey) {
-            this.whisperKeyInput.value = whisperKey;
-        }
-
-        const maiUri = localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI);
-        const maiKey = localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY);
-        if (this.maiTranscribeUriInput && maiUri) {
-            this.maiTranscribeUriInput.value = maiUri;
-        }
-        if (this.maiTranscribeKeyInput && maiKey) {
-            this.maiTranscribeKeyInput.value = maiKey;
-        }
+        this._loadStoredCredentials(
+            MODEL_TYPES.WHISPER,
+            this.whisperUriInput,
+            this.whisperKeyInput
+        );
+        this._loadStoredCredentials(
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            this.maiTranscribeUriInput,
+            this.maiTranscribeKeyInput
+        );
 
         const savedEnv = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT) || RECORDING_ENVIRONMENTS.QUIET;
         if (this.recordingEnvironmentSelect) {
@@ -610,20 +653,15 @@ export class Settings {
             return;
         }
 
-        const isMai = this._isMaiModel(currentModel);
         const { apiKeyInput: keyInput, uriInput } = this._getActiveInputs();
         const targetUri = uriInput ? uriInput.value.trim() : '';
         const apiKey = keyInput ? keyInput.value.trim() : '';
+        const { apiKey: apiKeyStorageKey, uri: uriStorageKey } = this._getCredentialStorageKeys(currentModel);
 
         const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
-        if (isMai) {
-            localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, targetUri);
-            localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY, apiKey);
-        } else {
-            localStorage.setItem(STORAGE_KEYS.WHISPER_URI, targetUri);
-            localStorage.setItem(STORAGE_KEYS.WHISPER_API_KEY, apiKey);
-        }
+        localStorage.setItem(uriStorageKey, targetUri);
+        localStorage.setItem(apiKeyStorageKey, apiKey);
         
         if (this.recordingEnvironmentSelect) {
             localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, this.recordingEnvironmentSelect.value);
@@ -695,11 +733,11 @@ export class Settings {
      */
     getModelConfig() {
         const model = this.getCurrentModel();
-        const isMai = this._isMaiModel(model);
+        const { apiKey, uri } = this._getCredentialStorageKeys(model);
         return {
             model,
-            apiKey: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY : STORAGE_KEYS.WHISPER_API_KEY),
-            uri: localStorage.getItem(isMai ? STORAGE_KEYS.MAI_TRANSCRIBE_URI : STORAGE_KEYS.WHISPER_URI)
+            apiKey: localStorage.getItem(apiKey),
+            uri: localStorage.getItem(uri)
         };
     }
 

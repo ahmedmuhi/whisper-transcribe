@@ -137,6 +137,14 @@ class AzureAPIClient {
 
 **Note**: For MAI-Transcribe 1.5, the `definition` field contains a JSON payload with `enhancedMode` configuration specifying model `mai-transcribe-1.5` and task `transcribe`. Audio must be converted from WebM to 16kHz mono WAV before submission.
 
+### Model Adapter Contract
+
+Each registered model adapter MUST provide `id`, `label`, `storageKeys.apiKey`,
+`storageKeys.uri`, `buildRequest`, and `parseResponse`. `Settings` consumes
+`storageKeys` to associate a model with its credential namespace. `STORAGE_KEYS`
+owns the literal persisted key values; adapter metadata owns the model-to-key
+association.
+
 ### Event Emission Contracts
 
 | Event Name | Data Payload | Description |
