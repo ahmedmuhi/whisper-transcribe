@@ -2,7 +2,7 @@
  * @fileoverview Model adapter for Azure Whisper translation requests.
  */
 
-import { API_PARAMS, DEFAULT_FILENAME, MESSAGES, MODEL_TYPES, STORAGE_KEYS } from '../constants.js';
+import { API_PARAMS, getWhisperFilename, MESSAGES, MODEL_TYPES, STORAGE_KEYS } from '../constants.js';
 import { parseWhisperResponse } from './response-parsers.js';
 
 export const whisperTranslateModelAdapter = {
@@ -13,8 +13,9 @@ export const whisperTranslateModelAdapter = {
         uri: STORAGE_KEYS.WHISPER_URI
     },
     async buildRequest(audioBlob, config) {
+        const filename = getWhisperFilename(audioBlob.type);
         const formData = new FormData();
-        formData.append(API_PARAMS.FILE, audioBlob, DEFAULT_FILENAME);
+        formData.append(API_PARAMS.FILE, audioBlob, filename);
 
         return {
             headers: { [API_PARAMS.API_KEY_HEADER]: config.apiKey },

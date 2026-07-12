@@ -3,7 +3,7 @@
 > **Executor instructions**: Follow this plan exactly, run every gate, and stop
 > on any STOP condition. Update only the plan status row in the index.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- js/audio-handler.js js/constants.js js/model-adapters/whisper.js js/model-adapters/whisper-translate.js tests/audio-handler-integration.vitest.js tests/model-adapters.vitest.js`
+> **Drift check (run first)**: `git diff --stat 5430373..HEAD -- js/audio-handler.js js/constants.js js/model-adapters/whisper.js js/model-adapters/whisper-translate.js tests/audio-handler-integration.vitest.js tests/model-adapters.vitest.js`
 
 ## Status
 
@@ -12,7 +12,7 @@
 - **Risk**: MED
 - **Depends on**: Plan 021
 - **Category**: bug
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `5430373`, 2026-07-13 (after Plans 021–022)
 
 ## Why this matters
 
@@ -25,9 +25,9 @@ and MAI's deliberate WAV conversion.
 
 ## Current state
 
-- `js/audio-handler.js:182` constructs `new MediaRecorder(stream)` without
+- `js/audio-handler.js:205` constructs `new MediaRecorder(stream)` without
   forcing a type; the browser selects one.
-- `processAndSendAudio()` at `:373` uses
+- `processAndSendAudio()` at `:511-512` uses
   `new Blob(this.audioChunks, { type: 'audio/webm' })` unconditionally.
 - `DEFAULT_FILENAME = 'recording.webm'` at `js/constants.js:227` is used by both
   Whisper adapters.

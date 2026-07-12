@@ -291,9 +291,11 @@ export class AudioHandler {
 
         if (this.stateMachine.getState() !== RECORDING_STATES.STOPPING) return;
 
+        const recorderMimeType = session.recorder?.mimeType;
+
         // Transition to processing
         await this.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
-        await this.processAndSendAudio(session.stream);
+        await this.processAndSendAudio(session.stream, recorderMimeType);
 
         // Cleanup after audio has been processed so chunks remain intact
         this.cleanup();
@@ -506,10 +508,14 @@ export class AudioHandler {
      * @async
      * @method processAndSendAudio
      * @param {MediaStream} stream - The original audio media stream
+     * @param {string} recorderMimeType - MIME type selected by MediaRecorder
      * @returns {Promise<void>} Resolves when transcription is complete or error emitted
      */
-    async processAndSendAudio(stream) {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+    async processAndSendAudio(stream, recorderMimeType = '') {
+        const chunkWithMimeType = this.audioChunks.find(chunk => chunk?.type);
+        const audioBlob = new Blob(this.audioChunks, {
+            type: recorderMimeType || chunkWithMimeType?.type || 'audio/webm'
+        });
         this.pendingRetryBlob = audioBlob;
 
         const result = await this.sendToAzureAPI(audioBlob);
