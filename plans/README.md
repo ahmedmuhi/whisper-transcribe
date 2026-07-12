@@ -50,7 +50,7 @@ and update your row when done.
 | 022 | Keep unsaved settings-model changes draft-only | P1 | S | — | DONE (implemented as `6a3ff25`, independently approved, and merged via PR #94 as `69e11a8`, 2026-07-13) |
 | 023 | Preserve the browser-selected recording container | P2 | M | 021 | DONE (implemented as `b2fb90b`, independently approved, and merged via PR #95 as `63a2c8b`, 2026-07-13) |
 | 024 | Enforce model-specific audio upload limits before network submission | P2 | M | 021 + 023 | DONE (implemented as `daabc17`, independently approved, and merged via PR #96 as `54f4376`, 2026-07-13) |
-| 025 | Make the settings modal keyboard and focus correct | P2 | M | 022 | TODO |
+| 025 | Make the settings modal keyboard and focus correct | P2 | M | 022 | IN PROGRESS (implemented as `9d6d5a3`, independently approved; awaiting merge) |
 | 026 | Subscribe to microphone permission changes exactly once | P2 | S | 021 | TODO |
 | 027 | Normalize API lifecycle events and opt in to event history | P2 | S/M | 021 | TODO |
 | 028 | Provide one supported local-development command and runtime baseline | P2 | S/M | — | TODO |
