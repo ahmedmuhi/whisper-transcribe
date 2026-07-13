@@ -1,8 +1,8 @@
 ---
 title: Recording State Machine Design Specification
-version: 1.2
+version: 1.3
 date_created: 2025-07-07
-last_updated: 2026-07-11
+last_updated: 2026-07-13
 owner: Speech-to-Text Transcription App Team
 tags: [design, state-machine, recording, audio, architecture, app]
 ---
@@ -47,20 +47,20 @@ This specification defines the requirements for a finite state machine that mana
 
 ### State-Specific Requirements
 
-- **REQ-008**: IDLE state SHALL reset UI elements and prepare for new recording sessions
-- **REQ-009**: INITIALIZING state SHALL disable controls and show microphone access status
-- **REQ-010**: RECORDING state SHALL enable recording controls and show recording indicators
-- **REQ-011**: PAUSED state SHALL maintain recording session while showing paused status
-- **REQ-012**: STOPPING state SHALL initiate recording termination and cleanup visualization
-- **REQ-013**: PROCESSING state SHALL show transcription progress and disable user controls
-- **REQ-014**: CANCELLING state SHALL emit cancellation events and disable controls; the caller is responsible for transitioning to IDLE after cleanup
-- **REQ-014a**: CONFIRMING_DISCARD state SHALL preserve the prior active state while the user confirms or rejects discarding a recording
-- **REQ-015**: ERROR state SHALL display error information and enable recovery to IDLE
+- **REQ-008**: IDLE state SHALL emit the default reset status and prepare for a new recording session
+- **REQ-009**: INITIALIZING state SHALL emit the microphone-access status
+- **REQ-010**: RECORDING state SHALL emit the recording-started domain event and recording status
+- **REQ-011**: PAUSED state SHALL emit the recording-paused domain event and paused status
+- **REQ-012**: STOPPING state SHALL emit the recording-stopped domain event, finishing status, and visualization-stop event
+- **REQ-013**: PROCESSING state SHALL emit the processing status
+- **REQ-014**: CANCELLING state SHALL emit cancellation and status events; the caller is responsible for transitioning to IDLE after cleanup
+- **REQ-014a**: CONFIRMING_DISCARD state SHALL keep the recorder running while the user chooses Keep or Discard, then emit a confirmation request with the elapsed-duration stakes
+- **REQ-015**: ERROR state SHALL emit recording-error and error-status events; recovery may transition to IDLE or retry directly to PROCESSING
 
 ### Event Communication Requirements
 
 - **REQ-016**: The state machine SHALL emit RECORDING_STATE_CHANGED events with old and new state information
-- **REQ-017**: State handlers SHALL emit specific UI events for button states, status updates, and spinner controls
+- **REQ-017**: `RECORDING_STATE_CHANGED` SHALL be the single control-render input. State handlers SHALL emit only their documented domain, status, visualization, and discard-confirmation events; they SHALL NOT emit granular button, spinner, pause-control, or controls-reset events.
 - **REQ-018**: The state machine SHALL emit domain-specific events (RECORDING_STARTED, RECORDING_STOPPED, etc.)
 
 ### Validation and Safety Requirements
@@ -137,14 +137,22 @@ class RecordingStateMachine {
 
 | State | Events Emitted | Data Payload |
 |-------|---------------|--------------|
-| IDLE | UI_STATUS_UPDATE, UI_BUTTON_ENABLE_MIC, UI_SPINNER_HIDE, UI_CONTROLS_RESET | `{ message: string, type: 'info' }` |
-| INITIALIZING | UI_STATUS_UPDATE, UI_BUTTON_DISABLE_MIC | `{ message: string, type: 'info' }` |
-| RECORDING | RECORDING_STARTED, UI_STATUS_UPDATE, UI_BUTTON_ENABLE_MIC, UI_BUTTON_SET_RECORDING_STATE | `{ isRecording: true }` |
-| PAUSED | RECORDING_PAUSED, UI_STATUS_UPDATE, UI_BUTTON_SET_PAUSE_STATE | `{ isPaused: true }` |
-| STOPPING | RECORDING_STOPPED, UI_STATUS_UPDATE, UI_BUTTON_SET_RECORDING_STATE, VISUALIZATION_STOP | `{ isRecording: false }` |
-| PROCESSING | API_REQUEST_START, UI_STATUS_UPDATE, UI_BUTTON_DISABLE_MIC, UI_SPINNER_SHOW | `{ message: string, type: 'info' }` |
-| CANCELLING | RECORDING_CANCELLED, UI_STATUS_UPDATE, UI_BUTTON_DISABLE_MIC, UI_SPINNER_HIDE | `{ message: string, type: 'info' }` |
-| ERROR | RECORDING_ERROR, UI_STATUS_UPDATE, UI_BUTTON_ENABLE_MIC, UI_SPINNER_HIDE | `{ error: string }` |
+| IDLE | UI_STATUS_UPDATE | `{ message: DEFAULT_RESET_STATUS, type: 'info' }` |
+| INITIALIZING | UI_STATUS_UPDATE | `{ message: MESSAGES.INITIALIZING_MICROPHONE, type: 'info' }` |
+| RECORDING | RECORDING_STARTED; UI_STATUS_UPDATE | `{}`; `{ message: MESSAGES.RECORDING_IN_PROGRESS, type: 'info' }` |
+| PAUSED | RECORDING_PAUSED; UI_STATUS_UPDATE | `{}`; `{ message: MESSAGES.RECORDING_PAUSED, type: 'info' }` |
+| STOPPING | RECORDING_STOPPED; UI_STATUS_UPDATE; VISUALIZATION_STOP | `{}`; `{ message: MESSAGES.FINISHING_RECORDING, type: 'info' }`; `{}` |
+| PROCESSING | UI_STATUS_UPDATE | `{ message: MESSAGES.PROCESSING_AUDIO, type: 'info' }` |
+| CANCELLING | RECORDING_CANCELLED; UI_STATUS_UPDATE | `{}`; `{ message: MESSAGES.RECORDING_CANCELLED, type: 'info' }` |
+| CONFIRMING_DISCARD | DISCARD_CONFIRM_REQUESTED | `{ durationLabel: string }` (an empty string when no label is provided) |
+| ERROR | RECORDING_ERROR; UI_STATUS_UPDATE | `{ error: string }`; `{ message: string, type: 'error' }` |
+
+Every successful `transitionTo` first emits `RECORDING_STATE_CHANGED` with
+`newState`, `oldState`, and any transition data. The UI uses that event as the
+sole input for rendering the control cluster (including labels, enabled state,
+and the processing indicator); no granular control events are part of the FSM
+contract. In `CONFIRMING_DISCARD`, the recorder continues underneath the dialog
+until Keep or Discard is chosen.
 
 ### State Transitions Matrix
 
@@ -152,12 +160,13 @@ class RecordingStateMachine {
 const STATE_TRANSITIONS = {
     idle: ['initializing', 'error'],
     initializing: ['recording', 'error', 'idle'],
-    recording: ['paused', 'stopping', 'cancelling'],
-    paused: ['recording', 'stopping', 'cancelling'],
+    recording: ['paused', 'stopping', 'cancelling', 'confirmingDiscard'],
+    paused: ['recording', 'stopping', 'cancelling', 'confirmingDiscard'],
     stopping: ['processing', 'error'],
     processing: ['idle', 'error'],
     cancelling: ['idle'],
-    error: ['idle']
+    confirmingDiscard: ['recording', 'paused', 'cancelling'],
+    error: ['idle', 'processing']
 };
 ```
 
@@ -172,10 +181,10 @@ const STATE_TRANSITIONS = {
 
 ### State-Specific Behavior
 
-- **AC-005**: Given the state machine enters RECORDING state, Then UI_BUTTON_SET_RECORDING_STATE event is emitted with isRecording: true
-- **AC-006**: Given the state machine enters PROCESSING state, Then UI_SPINNER_SHOW and UI_BUTTON_DISABLE_MIC events are emitted
+- **AC-005**: Given the state machine enters RECORDING state, Then RECORDING_STATE_CHANGED is emitted before the handler emits RECORDING_STARTED and the recording status; the UI renders controls from the state-change event
+- **AC-006**: Given the state machine enters PROCESSING state, Then the handler emits only the processing status, and the UI renders the processing controls from RECORDING_STATE_CHANGED without granular spinner or button events
 - **AC-007**: Given the state machine enters ERROR state with error data, Then RECORDING_ERROR event is emitted with the error message
-- **AC-008**: Given the state machine enters IDLE state, Then UI controls are reset and microphone button is enabled
+- **AC-008**: Given the state machine enters IDLE state, Then the handler emits the default reset status and the UI renders idle controls from RECORDING_STATE_CHANGED
 
 ### Query Methods
 

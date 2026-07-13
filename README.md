@@ -36,8 +36,7 @@ there's something real to lose.
 ## Also in the box
 
 - **Live waveform visualization** while you speak
-- **Multiple models** — Azure Whisper (and Whisper-translate) plus MAI Transcribe
-  (1 and the newer 1.5 preview)
+- **Selectable models** — Azure Whisper and MAI-Transcribe 1.5 (Preview)
 - **Pause / Resume / Cancel** mid-recording
 - **Noise cancellation** toggle for noisy rooms
 - **Input device selection** — pick which microphone to use
@@ -68,7 +67,7 @@ encoding a long clip never freezes the UI.
 ### Configuration
 
 1. Open settings (gear icon).
-2. Choose a transcription model (Azure Whisper or MAI Transcribe).
+2. Choose a transcription model (Azure Whisper or MAI-Transcribe 1.5).
 3. Enter your credentials:
    - **Target URI** — your full Azure endpoint URL
    - **API Key** — your Azure Speech key
