@@ -4,7 +4,7 @@
 > archived plans. Make no behavior changes. Stop if an apparent mismatch is an
 > unresolved product decision.
 >
-> **Drift check (run first)**: `git diff --stat 559124e..HEAD -- README.md CLAUDE.md spec/spec-design-recording-state-machine.md spec/spec-design-api-client.md js/constants.js js/recording-state-machine.js js/model-adapters/index.js index.html`
+> **Drift check (run first)**: `git diff --stat 4dd870c..HEAD -- README.md CLAUDE.md spec/spec-design-recording-state-machine.md spec/spec-design-api-client.md js/constants.js js/recording-state-machine.js js/model-adapters/index.js index.html`
 
 ## Status
 
@@ -13,7 +13,7 @@
 - **Risk**: LOW
 - **Depends on**: Plan 027
 - **Category**: docs
-- **Planned at**: commit `559124e`, 2026-07-12
+- **Planned at**: refreshed at commit `4dd870c`, 2026-07-13 (after Plans 027–029)
 
 ## Why this matters
 

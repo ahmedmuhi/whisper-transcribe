@@ -1,8 +1,8 @@
 ---
 title: Azure API Client Design Specification
-version: 1.3
+version: 1.4
 date_created: 2025-07-07
-last_updated: 2026-07-12
+last_updated: 2026-07-13
 owner: Speech-to-Text Transcription App Team
 tags: [design, api-client, azure, transcription, architecture, app]
 ---
@@ -46,7 +46,7 @@ The purpose of the `AzureAPIClient` is to abstract all details of communicating 
 - **REQ-005**: The client SHALL construct a `FormData` object to send the audio blob and relevant parameters. For Whisper models, the form includes a `file` field and `language` (except for whisper-translate). For MAI-Transcribe, the form includes an `audio` field (WAV-converted blob) and a JSON `definition` field.
 - **REQ-006**: The client SHALL set the appropriate authentication header: `api-key` for Whisper models, or `Ocp-Apim-Subscription-Key` for MAI-Transcribe.
 - **REQ-007**: The client SHALL parse the API response using structural detection, handling plain text, JSON with a string `text` field, and JSON with a `combinedPhrases` array. A present string `text` field is valid even when empty; an absent or non-string `text` field remains an unknown response unless another supported structure applies.
-- **REQ-008**: The client SHALL emit events for the start, success, and failure of an API request.
+- **REQ-008**: `AzureAPIClient` alone SHALL own structured API-request lifecycle events. Once `adapter.buildRequest` succeeds, it SHALL emit one structured `API_REQUEST_START`; a later successful operation SHALL emit one `API_REQUEST_SUCCESS`. Any failure caught within `transcribe`, including request-construction failures before `API_REQUEST_START` and failures after it, SHALL emit one `API_REQUEST_ERROR`. Internal HTTP retries SHALL NOT create additional lifecycle events; a user-initiated retry starts a new operation and lifecycle.
 - **REQ-008a**: The client SHALL convert audio to WAV format before sending to the MAI-Transcribe model, using the `audio-converter` module.
 
 ### Error Handling Requirements
@@ -149,17 +149,17 @@ association.
 
 | Event Name | Data Payload | Description |
 |---|---|---|
-| `API_REQUEST_START` | `{ model: string, message: string }` | Fired when the transcription request is initiated. |
-| `API_REQUEST_SUCCESS` | `{ model: string, transcriptionLength: number }` | Fired when transcription is successfully completed. |
-| `API_REQUEST_ERROR` | `{ error: string, status?: number, details?: string }` | Fired when any error occurs during the API call. |
+| `API_REQUEST_START` | `{ model: string, message: string }` | Emitted once by `AzureAPIClient` only after adapter request construction succeeds. |
+| `API_REQUEST_SUCCESS` | `{ model: string, transcriptionLength: number }` | Emitted once by `AzureAPIClient` when an operation that emitted `API_REQUEST_START` completes successfully. |
+| `API_REQUEST_ERROR` | `{ error: string, status?: number, details?: string }` | Emitted once by `AzureAPIClient` for any failure caught in `transcribe`, including request-construction failures before `API_REQUEST_START`. |
 | `API_CONFIG_MISSING`| `{ missing: string, model: string }` | Fired by `validateConfig` if settings are invalid. |
 
 ## 5. Acceptance Criteria
 
-- **AC-001**: **Given** a valid audio blob and complete configuration, **When** `transcribe` is called, **Then** it returns the transcribed text as a string and emits `API_REQUEST_START` and `API_REQUEST_SUCCESS`.
+- **AC-001**: **Given** a valid audio blob, complete configuration, and successful adapter request construction, **When** `transcribe` is called, **Then** it returns the transcribed text as a string and `AzureAPIClient` emits one structured `API_REQUEST_START` followed by one `API_REQUEST_SUCCESS`.
 - **AC-002**: **Given** a missing API key, **When** `validateConfig` is called, **Then** it throws an error and emits `API_CONFIG_MISSING`.
 - **AC-003**: **Given** an invalid URI format, **When** `validateConfig` is called, **Then** it throws an error and emits `API_CONFIG_MISSING`.
-- **AC-004**: **Given** the `fetch` call is rejected due to a network error, **When** `transcribe` is called, **Then** it throws an error and emits `API_REQUEST_ERROR` with the network error message.
+- **AC-004**: **Given** a failure is caught during adapter request construction or after `API_REQUEST_START`, **When** `transcribe` is called, **Then** it throws the error and `AzureAPIClient` emits exactly one `API_REQUEST_ERROR`; a construction failure has no preceding `API_REQUEST_START`.
 - **AC-005**: **Given** the API responds with a 401 status code, **When** `transcribe` is called, **Then** it throws an error and emits `API_REQUEST_ERROR` with status 401 and details.
 - **AC-006**: **Given** the API responds with a JSON object containing `combinedPhrases` for a MAI-Transcribe request, **When** `parseResponse` is called, **Then** it correctly extracts and joins the text from each phrase in `combinedPhrases`.
 - **AC-007**: **Given** the API responds with plain text, **When** `parseResponse(data)` is called, **Then** it returns the trimmed text.
@@ -175,7 +175,7 @@ association.
 
 ## 7. Rationale & Context
 
-A dedicated `AzureAPIClient` isolates shared external-API concerns such as validation, retries, timeouts, and lifecycle events. Model-specific request and response behavior lives in adapters registered in `js/model-adapters/index.js`. Adding another Azure-hosted transcription model therefore means implementing and registering an adapter; a separate client is only appropriate when a provider cannot use the shared Azure transport conventions.
+A dedicated `AzureAPIClient` isolates shared external-API concerns such as validation, retries, timeouts, and lifecycle events. It is the sole owner of structured API-request lifecycle events: the recording state machine and audio handler do not emit `API_REQUEST_START`, `API_REQUEST_SUCCESS`, or `API_REQUEST_ERROR`. Model-specific request and response behavior lives in adapters registered in `js/model-adapters/index.js`. Adding another Azure-hosted transcription model therefore means implementing and registering an adapter; a separate client is only appropriate when a provider cannot use the shared Azure transport conventions.
 
 ## 8. Dependencies & External Integrations
 
