@@ -59,3 +59,4 @@ Vitest with `happy-dom`; test files are `tests/*.vitest.js` (the `.vitest.js` su
 ## Repo notes
 
 - `plan/` and `spec/` hold design docs (`plan/2.0-design.md` is the 2.0 interaction-led design; `spec/` has specs for the API client and state machine). The project has no generated-JSDoc workflow; update these tracked documents directly when their corresponding design changes.
+- Issue tracker for agent skills (wayfinder etc.): GitHub Issues on this repo; operations reference lives in `~/.claude/skills/setup-matt-pocock-skills/issue-tracker-github.md`.
