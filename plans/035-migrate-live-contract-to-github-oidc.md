@@ -172,7 +172,7 @@ need a management-plane Reader assignment merely to establish CLI context.
 - `vite.config.js` (OIDC-live build alias only)
 - `tests/browser-live/live-azure.contract.spec.js`
 - `tests/browser-live/authorization-probe.contract.spec.js` (create if keeping
-  no-audio 403 evidence separate improves safety)
+  no-audio authorization-denial evidence separate improves safety)
 - `tests/browser-live/oidc-authentication-factory.js` (create; live-test build only)
 - `tests/browser-live/fixtures/spoken-phrase.wav` (reuse unchanged)
 - `tests/live-contract-hygiene.vitest.js` (create for workflow/source scans)
@@ -181,7 +181,7 @@ need a management-plane Reader assignment merely to establish CLI context.
 
 - Create one Entra workload app/service principal and one federated credential.
 - Add protected environment identifier/Target URI values without printing them.
-- Run the pre-role 403 workflow stage.
+- Run the pre-role token-validated authorization-denial workflow stage.
 - Assign the two named resource-scoped data-plane roles.
 - Run two potentially billable transcription calls.
 - Delete the legacy GitHub environment API-key secret after proof.
@@ -457,7 +457,8 @@ protected inputs.
 - Production-bundle scan proving the OIDC live provider/token markers are absent.
 - Local absent-config run proving zero fetch and no fallback.
 - Test-build-only Playwright contract for both production adapters.
-- One real pre-role 403 per model, no audio, after explicit approval.
+- One real pre-role token-validated HTTP 401/403 per model, no audio, after
+  explicit approval.
 - One real successful transcription per model after exact roles, after approval.
 - Repeat the two-model success at Plan 037's immutable SHA and Plan 038 cutover.
 
@@ -466,7 +467,8 @@ protected inputs.
 - [ ] Live workflow is protected and manual-only with exact OIDC permissions.
 - [ ] Separate workload identity has no secret/certificate and no management/key authority.
 - [ ] Identity federation is restricted to the repository's protected environment.
-- [ ] Pre-role authorization-only probes produce genuine 403 for both endpoints.
+- [ ] Pre-role authorization-only probes produce genuine HTTP 401/403 for both
+  endpoints only after the protected token contract passes.
 - [ ] Exactly the two named resource-scoped roles are assigned.
 - [ ] Live contract covers Whisper and MAI through production client/adapters with one clean POST each.
 - [ ] Token remains process/browser memory only and is masked; no token/key enters storage/logs/artifacts.
@@ -486,8 +488,9 @@ Stop and report instead of improvising if:
 - OIDC requires a client secret/certificate, subscription-wide role, Reader,
   management permission, key access, or reuse of the SPA registration.
 - The workflow token cannot be masked before propagation or could enter an artifact/log/trace.
-- A pre-role probe returns anything other than genuine 403; diagnose federation,
-  audience, existing role, endpoint, and request order privately before proceeding.
+- A pre-role probe returns anything other than token-validated HTTP 401/403;
+  diagnose federation, audience, existing role, endpoint, and request order
+  privately before proceeding.
 - Either successful model call retries, returns unexpected content, or needs a broader role.
 - Any step would expose a real identifier, Target URI, token, key,
   authentication response, audio, transcript, HAR, or identity-bearing screenshot.

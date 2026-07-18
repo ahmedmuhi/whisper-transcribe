@@ -279,7 +279,8 @@ groups, subscription-wide mutation, unresolved variables, or looped enforcement.
 
 Read Plan 037's sanitized ledger and privately inspect underlying run evidence.
 Confirm all automated gates, Pages artifact, six auth sessions, 12 successful
-paths, browser-readable 401s, OIDC 403/role-success evidence, and documentation
+paths, browser-readable 401s, token-validated OIDC pre-role 401/403 denial and
+post-role success evidence, and documentation
 blocker are complete for the same candidate SHA.
 
 Confirm the OIDC federated credential/role surface has only data-plane

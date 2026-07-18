@@ -381,10 +381,10 @@ silent SSO or explicit interaction fallback, logout, and same-tab token renewal.
 
 Separately approve four invalid-placeholder, no-audio bearer probes: both models
 from local and Pages origins. Each must return browser-readable HTTP 401 without
-reading a body. Require the protected OIDC pre-role 403 evidence and post-role
-one-request-per-model success at the candidate. Preserve no live audio,
-transcript, authentication response, identity screenshot, HAR, trace, response
-body, or console export.
+reading a body. Require the protected OIDC token-validated pre-role HTTP 401/403
+evidence and post-role one-request-per-model success at the candidate. Preserve
+no live audio, transcript, authentication response, identity screenshot, HAR,
+trace, response body, or console export.
 
 Any change to authentication, token/request paths, adapters, conversion, Audio
 Source gating/recovery, Vite, callback, workflow, Pages, or the built artifact
@@ -608,7 +608,7 @@ Known-caller inventory: closed; owner confirmation received
 SPA callbacks: local pass | Pages pass | frameability pass
 12-path matrix: 12/12 pass | real Safari confirmed | retries 0
 401 boundary: local Whisper pass | local MAI pass | Pages Whisper pass | Pages MAI pass
-OIDC: pre-role 403 pass | post-role Whisper pass | post-role MAI pass
+OIDC: pre-role token-validated 401/403 pass | post-role Whisper pass | post-role MAI pass
 Whisper enforcement: boolean true | app bearer pass | OIDC pass | current-key no-audio HTTP 401
 MAI enforcement: boolean true | app bearer pass | OIDC pass | current-key no-audio HTTP 401
 Stabilization: 24-hour minimum met | ordinary session pass | final OIDC pass | unexplained errors 0
