@@ -1,152 +1,218 @@
 # Whisper Transcribe
 
-Turn speech into text with Azure Speech Services, wrapped in an interaction-led
-**Dynamic Island** UI. No build step, no bundler, no runtime dependencies — it
-runs straight from raw ES modules in the browser.
+Whisper Transcribe turns microphone recordings or local audio files into text
+using Azure resources the User is already authorized to access. It is a
+browser-only, vanilla JavaScript application with a Dynamic Island-style control
+surface, Microsoft sign-in, and no application backend.
 
-Version 2.0 is a ground-up rethink of the *feel* of the app: the controls morph
-between states like Apple's Dynamic Island, your transcript autosaves and can be
-restored, and every prompt is proportional — you're only asked to confirm when
-there's something real to lose.
+## Highlights
 
-## Highlights (2.0)
-
-- **Dynamic Island controls** — the control cluster reshapes (size, radius) and
-  its contents cross-fade as you move through idle → recording → transcribing.
-  Built with FLIP + the native Web Animations API, zero dependencies. The
-  buttons keep a **fixed hit target** — the island animates *around* them, never
-  scaling the buttons themselves.
-- **Autosave + restore** — your transcript is saved to the browser as you go and
-  offered back after a reload, so a refresh never costs you work.
-- **Grab · Restore** — Grab lifts the transcript to your clipboard and empties
-  the box; Restore brings it back if you clobbered the clipboard by accident, so
-  the take-it-away action is always recoverable. New transcriptions always
-  append, separated by a divider.
-- **Proportional confirm** — discarding a throwaway clip (under ~10s) just
-  happens; discarding a substantial recording asks once, by name. No rote
-  "are you sure?" dialogs.
-- **Soft Precision design** — a lavender light theme and deep-navy dark theme,
-  Instrument Serif display type over Geist Mono, a subtle noise texture and
-  generous radii.
-- **Accessible by construction** — WCAG-AA status colours in both themes, full
-  `prefers-reduced-motion` support (every animation collapses to an instant,
-  correct state), visible focus rings, and decorative motion that can never move
-  a click target.
-
-## Also in the box
-
-- **Live waveform visualization** while you speak
-- **Selectable models** — Azure Whisper and MAI-Transcribe 1.5 (Preview)
-- **Pause / Resume / Cancel** mid-recording
-- **Noise cancellation** toggle for noisy rooms
-- **Input device selection** — pick which microphone to use
-- **Notion-style settings sidebar** with pin / hover / close states
-
-Under the experience, reliability rides along where it serves it: transcription
-requests have a request **timeout** (via `AbortController`), and WAV encoding
-runs **off the main thread** in a Web Worker (with a synchronous fallback), so
-encoding a long clip never freezes the UI.
+- **Microsoft sign-in** — a single-tenant Microsoft Entra SPA uses full-page
+  redirects and an MSAL-managed session cache.
+- **Two Transcription Models** — Azure Whisper and MAI-Transcribe 1.5, each with
+  its own manually configured Target URI.
+- **Two Audio Sources** — record with the microphone or choose local audio with
+  **Upload audio**. Selected Audio is reviewed locally and is sent only after an
+  explicit **Transcribe** action.
+- **Safe recovery** — an Unsent Recording survives authentication or
+  authorization failure in memory until the User downloads, discards, or
+  successfully retries it. Redirects and logout never silently discard audio.
+- **Transcript continuity** — transcriptions append with dividers, autosave to
+  the browser, and support Grab, Restore, and Clear.
+- **Unified User menu** — an initials-only launcher contains the Transcription
+  Model, microphone, appearance, Target URI, Azure help, and logout paths.
+- **Accessible interaction** — fixed hit targets, visible focus, WCAG-AA status
+  colours, proportional confirmation, and complete reduced-motion behavior.
 
 ## How it works
 
-1. Tap the island to start recording — it expands to show a timer, Pause and
-   Discard.
-2. Speak; the waveform reacts in real time.
-3. Tap **Done** to stop and transcribe. The island collapses to a working
-   indicator, then your text appends to the transcript.
+Whisper Transcribe follows the Bring-your-own Azure model: each User authorizes
+an Azure transcription resource available to them, while that resource's owner
+retains access, quota, and billing responsibility. A Target URI identifies the
+destination for a Transcription Model; it does not authorize access.
 
-## Setup
+On startup the control surface shows **Checking sign-in…**. A signed-out User
+chooses **Continue with Microsoft** and returns through the dedicated redirect
+bridge. Recording and Upload audio become available only when authentication is
+ready and the selected model has a valid HTTPS Target URI.
 
-### Prerequisites
+For microphone capture:
 
-- A modern browser (Chrome, Firefox, Edge, Safari)
-- Node.js 22 or newer (CI runs Node 24)
-- An Azure account with **Speech Services** enabled
-- Your Azure target URI and API key
+1. Choose **Start recording**, then pause, resume, finish, or discard as needed.
+2. Choose **Done** to stop. The captured audio becomes an Unsent Recording while
+   it is submitted.
+3. On success, text appends to the transcript and the memory-only recording is
+   released.
 
-### Configuration
+For a local file:
 
-1. Open settings (gear icon).
-2. Choose a transcription model (Azure Whisper or MAI-Transcribe 1.5).
-3. Enter your credentials:
-   - **Target URI** — your full Azure endpoint URL
-   - **API Key** — your Azure Speech key
-4. Save. Credentials are stored only in your browser's local storage.
+1. Choose **Upload audio** and select MP3, MP4, MPEG/MPGA, M4A, WAV, or WebM.
+2. Review the Selected Audio name, format, size, and model-specific validation.
+   Nothing has been sent to Azure at this point.
+3. Choose **Transcribe**. Success converges on the same transcript path as a
+   microphone recording; Remove, Choose another, and Retry stay explicit.
 
-## Architecture
+Only one Audio Source can be active at a time.
 
-- **No build** — raw ES modules, loaded directly; nothing to compile or bundle.
-- **No runtime dependencies** — the Dynamic Island morph, visualizer, and worker
-  all use native browser APIs.
-- **Event bus + finite state machine** — UI, audio handling, and the API client
-  are decoupled through a singleton event bus, and recording state is owned by a
-  single FSM (`RecordingStateMachine`). The control cluster renders from that one
-  state — there's a single source of truth for what's shown, labelled, enabled,
-  and spinning.
+## Privacy and storage
+
+- Audio Sources travel directly from the browser to the User's configured Azure
+  Target URI. This application has no server that receives or stores them.
+- Selected Audio and Unsent Recording blobs are memory-only. They are not put in
+  localStorage, sessionStorage, event history, or logs. Closing the tab releases
+  them, so recover an Unsent Recording before leaving.
+- MSAL alone owns its token cache in `sessionStorage`. Application modules do not
+  persist, emit, or log access tokens.
+- Transcript content, model choice, manual Target URIs, microphone preference,
+  and theme are non-secret browser-local settings stored in `localStorage`.
+- Startup performs a targeted, remove-only cleanup of the two historical
+  credential entries. There is no API-key input or fallback path.
+
+Azure processing remains governed by the User's Azure resource configuration
+and applicable service terms.
+
+## Prerequisites
+
+- Node.js `>=22.12.0` and npm. CI uses Node.js 24.
+- Current Microsoft Edge, Google Chrome, or Safari on macOS. These are the
+  acceptance browsers; Firefox is not currently acceptance-qualified.
+- A single-tenant Microsoft Entra SPA registration for the application.
+- An individual Azure resource for each model the User will use, with its exact
+  HTTPS Target URI known privately.
+- External Azure RBAC assignments at the individual resources:
+  - `Cognitive Services OpenAI User` for the Whisper resource.
+  - `Cognitive Services Speech User` for the MAI-Transcribe 1.5 resource.
+
+Whisper Transcribe diagnoses missing access but never creates or changes RBAC.
+The complete human-gated setup and release procedure is in the
+[keyless operator runbook](docs/keyless-operator-runbook.md).
+
+## Microsoft Entra configuration
+
+Register a **Single-page application** for accounts in one organizational
+directory. Configure only the Microsoft Cognitive Services delegated permission
+needed to act as the signed-in User. Do not add a client secret, certificate, or
+unrelated Microsoft Graph permission.
+
+The redirect URIs must match exactly:
+
+```text
+http://127.0.0.1:4173/auth/redirect.html
+https://ahmedmuhi.github.io/whisper-transcribe/auth/redirect.html
+```
+
+Copy `.env.example` to a local environment file and supply the registration's
+public identifiers privately:
+
+```bash
+VITE_ENTRA_CLIENT_ID=<public-spa-client-identifier>
+VITE_ENTRA_TENANT_ID=<public-directory-identifier>
+```
+
+These values are public SPA build configuration, not credentials. Never put a
+client secret, Azure credential, or Target URI in the Vite environment. For a
+Pages deployment, configure the same two names as GitHub repository variables
+used by `.github/workflows/pages.yml`.
+
+After sign-in, open the initials-only **User menu**:
+
+1. Under **Model**, select Azure Whisper or MAI-Transcribe 1.5.
+2. Under **Settings**, enter both manual HTTPS Target URIs and save changes.
+3. Use **Help & Azure setup** when the app reports HTTP 403. Access must be
+   assigned outside the application.
 
 ## Development
 
-### Install
+Install the exact lockfile graph:
 
 ```bash
-npm install
+npm ci
 ```
 
-### Run locally
+Start the Vite development server at `http://127.0.0.1:4173`:
 
 ```bash
 npm start
 ```
 
-Open the printed loopback URL (by default, http://127.0.0.1:4173/) in a
-browser. Stop the server with Ctrl+C. Debug and info logging is enabled on
-localhost; add `?debug` to the URL when you need to enable it explicitly (for
-example, http://127.0.0.1:4173/?debug).
-
-### Test
+Build and preview the static production artifact:
 
 ```bash
-npm test               # run the test suite (Vitest)
-npm run test:watch     # watch mode
-npm run test:coverage  # run with coverage (enforces thresholds)
-npm run lint           # ESLint
-npm run lint:fix       # ESLint with --fix
-npm run deps:check     # knip — unused files / deps / exports
-npm run size           # size-limit budget check
+npm run build
+npm run preview
 ```
 
-### Browser tests
+`npm run build` writes `dist/`. Preview serves that artifact at
+`http://127.0.0.1:4176`; it is not a production server.
+
+The deterministic verification commands are:
 
 ```bash
-npm run test:browser         # Playwright, headless by default
-npm run test:browser:headed  # requires a GUI
+npm run lint
+npm run test:coverage
+npm run deps:check
+npm run deps:check:prod
+npm audit --audit-level=high
+npm run size
+npm run test:browser
 ```
 
-Stop `npm start` before running browser tests: Playwright launches its own
-test-only static server and local API stub on the same test ports.
+Useful focused commands are `npm test`, `npm run test:watch`,
+`npm run lint:fix`, and `npm run test:browser:headed`. The deterministic browser
+suite uses Chromium and a built test artifact. `npm run test:browser:live` is a
+separate, protected, opt-in two-model OIDC contract; never run it as an ordinary
+local or CI gate.
 
-Coverage thresholds (statements 85 / branches 80 / functions 70 / lines 85) are
-enforced from `vitest.config.js`. Husky runs **lint** on pre-commit and
-**coverage + production-dependency** checks on pre-push.
+Coverage thresholds are statements 85%, branches 80%, functions 70%, and lines
+85%. Husky runs lint before commit and coverage plus the production dependency
+check before push.
+
+## Architecture
+
+- Vite `8.1.5` builds a multi-page static artifact from `index.html` and
+  `auth/redirect.html`; production stays browser-only and uses no UI framework.
+- Exactly pinned `@azure/msal-browser` `5.17.1` is the sole production
+  dependency. Vite and the test tools are build-time dependencies.
+- `AuthenticationService` is the only MSAL owner. A narrow token provider
+  supplies request-local tokens to `AzureAPIClient`, which alone constructs the
+  bearer header. Model adapters remain credential-blind.
+- `RecordingStateMachine` owns microphone lifecycle state.
+  `SelectedAudioController` separately owns one memory-only Selected Audio
+  file. `AudioHandler` and the controller compose the one-Audio-Source safety
+  boundary.
+- The singleton event bus carries presentation-safe state and lifecycle events;
+  token and audio data never cross it.
+- `TranscriptStore` owns the one browser-local transcript record.
+
+HTTP 401 triggers explicit Microsoft recovery while retaining the current
+Unsent Recording or Selected Audio. HTTP 403 points to external RBAC guidance.
+HTTP 429 and selected 5xx responses use bounded retries; authentication and
+authorization failures do not retry.
+
+See [ADR-0001](docs/adr/0001-adopt-vite-and-msal-browser.md) for the packaging
+decision and [CONTEXT.md](CONTEXT.md) for canonical domain language.
 
 ## Deployment
 
-It's a static site — host the folder anywhere (e.g. GitHub Pages):
+GitHub Pages deployment is artifact-based, not branch publication.
+`.github/workflows/pages.yml` installs from the lockfile, builds in Pages mode,
+uploads only `dist/`, and deploys through the protected `github-pages`
+environment. Configure the repository's Pages source as **GitHub Actions** and
+qualify one immutable candidate SHA before deployment; do not serve repository
+source directly.
 
-1. Fork or clone this repository.
-2. Enable GitHub Pages in repository settings.
-3. Serve the branch containing the code.
-
-## Privacy
-
-Audio is processed through *your own* Azure account; no recordings are sent to
-or stored by this application. Your transcript and settings live only in your
-browser's local storage — clearing site data removes them.
+The protected live OIDC workflow is evidence-only and is intentionally separate
+from the SPA identity. Its external identity, federation, RBAC, live-service,
+and later resource-enforcement stages are future human-gated operations in the
+operator runbook. CI never has permission to change Azure resources, RBAC,
+keys, or local-authentication policy.
 
 ## Roadmap
 
-A future 3.0 arc (not in this release) explores Microsoft account sign-in
-(Entra), a Cosmos DB sync backend, and topic mining across past transcripts.
+Future work may improve transcript analysis and browser qualification without
+changing the Bring-your-own Azure ownership model. Multi-tenant sign-in,
+resource discovery, hosted transcription, shared Azure resources, and an
+application backend are not part of the current architecture.
 
 ## License
 

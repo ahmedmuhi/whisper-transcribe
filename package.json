@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "license": "MIT",
-  "description": "A static browser app that turns speech into text with Azure Speech Services, wrapped in an interaction-led Dynamic Island UI.",
+  "description": "A Vite-built, browser-only Bring-your-own Azure transcription app with Microsoft Entra sign-in.",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
