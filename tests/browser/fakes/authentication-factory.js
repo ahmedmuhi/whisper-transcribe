@@ -3,24 +3,42 @@
  */
 
 import { AUTHENTICATION_STATES } from '../../../js/constants.js';
+import { APP_EVENTS, eventBus } from '../../../js/event-bus.js';
 
 const BROWSER_TEST_TOKEN = 'deterministic-test-token';
 
 class FakeAuthenticationService {
+    constructor() {
+        this.state = AUTHENTICATION_STATES.UNINITIALIZED;
+        this.scenario = sessionStorage.getItem('browser_test_auth_scenario') || 'ready';
+    }
+
     async initialize() {
-        return AUTHENTICATION_STATES.READY;
+        this.#setState(AUTHENTICATION_STATES.INITIALIZING);
+        if (this.scenario === 'signed-out') {
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            return this.#setState(AUTHENTICATION_STATES.SIGNED_OUT);
+        }
+        if (this.scenario === 'interaction-required') {
+            return this.#setState(AUTHENTICATION_STATES.INTERACTION_REQUIRED);
+        }
+        return this.#setState(AUTHENTICATION_STATES.READY);
     }
 
     getState() {
-        return AUTHENTICATION_STATES.READY;
+        return this.state;
     }
 
     getAccountPresentation() {
-        return Object.freeze({ name: 'Fake User', username: 'fake-user@example.invalid' });
+        if (this.state !== AUTHENTICATION_STATES.READY) return null;
+        return Object.freeze({
+            name: 'Browser Fixture',
+            username: 'browser-fixture@example.invalid'
+        });
     }
 
     async ensureTokenReady() {
-        return AUTHENTICATION_STATES.READY;
+        return this.state;
     }
 
     async getAccessToken() {
@@ -28,15 +46,21 @@ class FakeAuthenticationService {
     }
 
     async signInRedirect() {
-        return AUTHENTICATION_STATES.READY;
+        return this.#setState(AUTHENTICATION_STATES.READY);
     }
 
     async acquireTokenRedirect() {
-        return AUTHENTICATION_STATES.READY;
+        return this.#setState(AUTHENTICATION_STATES.READY);
     }
 
     async signOutRedirect() {
-        return AUTHENTICATION_STATES.SIGNED_OUT;
+        return this.#setState(AUTHENTICATION_STATES.SIGNED_OUT);
+    }
+
+    #setState(state) {
+        this.state = state;
+        eventBus.emit(APP_EVENTS.AUTHENTICATION_STATE_CHANGED, { state });
+        return state;
     }
 }
 

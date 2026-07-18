@@ -39,8 +39,8 @@ global.localStorage = localStorageMock;
 // Mock DOM elements — comprehensive set for both Settings and UI
 const mockElements = new Map();
 const requiredElementIds = [
-    ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL,
-    ID.SAVE_SETTINGS, ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS,
+    ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT,
+    ID.SAVE_SETTINGS, ID.STATUS, ID.WHISPER_SETTINGS,
     ID.MAI_TRANSCRIBE_SETTINGS, ID.WHISPER_URI, ID.MAI_TRANSCRIBE_URI,
     ID.THEME_TOGGLE, ID.GRAB_TEXT_BUTTON, ID.TRANSCRIPT, ID.TIMER,
     ID.SPINNER_CONTAINER, ID.MOON_ICON, ID.SUN_ICON
@@ -192,7 +192,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             const whisperTargetUri = 'https://whisper.invalid/transcribe';
 
             mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            mockElements.get(ID.MODEL_SELECT).value = 'whisper'; // mirror the modal→main change-sync the direct .value set bypasses (default is now mai-transcribe-1.5)
+            mockElements.get(ID.MODEL_SELECT).value = 'whisper';
             mockElements.get(ID.WHISPER_URI).value = whisperTargetUri;
 
             localStorageMock.getItem.mockImplementation((key) => {
@@ -201,8 +201,8 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                 return null;
             });
 
-            const settingsModal = mockElements.get(ID.SETTINGS_MODAL);
-            settingsModal.style.display = 'block';
+            const userMenu = { closeDetail: vi.fn() };
+            settings.setUserMenu(userMenu);
             // The UI's SETTINGS_SAVED listener runs checkRecordingPrerequisites for real.
             ui.settings = settings;
 
@@ -213,7 +213,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             });
 
             expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, whisperTargetUri);
-            expect(settingsModal.style.display).toBe('none');
+            expect(userMenu.closeDetail).toHaveBeenCalledOnce();
 
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
                 message: MESSAGES.SETTINGS_SAVED,
@@ -249,9 +249,6 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
         vi.clearAllMocks();
         localStorageMock.getItem.mockReturnValue('whisper');
         resetMockElements();
-
-        // Set initial modal state for workflow tests
-        mockElements.get(ID.SETTINGS_MODAL).style.display = 'block';
 
         settings = new Settings();
         ui = new UI();
@@ -365,7 +362,8 @@ describe('Microphone Activation Issue Analysis', () => {
 
             expect(result).toBe(false);
             expect(ui.ready).toBe(false);
-            expect(ui.primaryAction.disabled).toBe(true);
+            expect(ui.primaryAction.hidden).toBe(true);
+            expect(ui.authPrimaryAction.textContent).toBe(MESSAGES.OPEN_SETTINGS);
         });
 
         it('SETTINGS_UPDATED → checkRecordingPrerequisites → primary enabled', () => {
