@@ -1,160 +1,127 @@
 ---
-title: Recording State Machine Design Specification
-version: 1.3
+title: Recording and Audio Source State Design Specification
+version: 2.0
 date_created: 2025-07-07
-last_updated: 2026-07-13
+last_updated: 2026-07-18
 owner: Speech-to-Text Transcription App Team
-tags: [design, state-machine, recording, audio, architecture, app]
+tags: [design, state-machine, recording, selected-audio, authentication, architecture, app]
 ---
 
 # Introduction
 
-This specification defines the design and implementation requirements for the Recording State Machine component within the Speech-to-Text Transcription App. The Recording State Machine manages the complete audio recording lifecycle using a finite state machine pattern, ensuring safe state transitions and coordinating UI updates through event-driven communication.
+This specification defines the implemented microphone
+`RecordingStateMachine` and its composition with authentication readiness,
+Unsent Recording recovery, and the separate `SelectedAudioController`.
 
-## 1. Purpose & Scope
+The recording FSM remains microphone-only. Selected Audio is not represented by
+new recording states. The two owners share one `AzureAPIClient`, one transcript
+completion path, and one Audio Source safety boundary.
 
-This specification defines the requirements for a finite state machine that manages audio recording operations in a browser-based speech transcription application. The state machine ensures valid state transitions, handles state-specific business logic, and coordinates communication between audio recording operations and UI components through an event bus system.
+## 1. Purpose and scope
 
-**Intended Audience**: Software developers, system architects, and QA engineers working on the speech transcription application.
+The recording FSM makes microphone lifecycle transitions predictable and gives
+the UI one source of truth for recording controls. `AudioHandler` coordinates
+the browser recording APIs, authentication readiness, Azure submission, and
+recovery around that FSM.
 
-**Assumptions**: 
-- The application uses vanilla JavaScript with ES6 modules
-- Browser environment with MediaRecorder API support
-- Event-driven architecture with a central event bus
-- Azure Speech Services integration for transcription
+`SelectedAudioController` owns one local file independently. Application
+bootstrap composes both owners so a User cannot activate microphone capture and
+Selected Audio at the same time.
 
-## 2. Definitions
+This specification covers:
 
-- **FSM**: Finite State Machine - a computational model with a finite number of states and defined transitions
-- **State Transition**: The process of moving from one state to another based on defined rules
-- **Event Bus**: Central communication system for decoupled module interaction
-- **MediaRecorder**: Browser API for recording audio/video streams
-- **State Handler**: Method that executes state-specific logic when entering a state
-- **Azure Speech Services**: Microsoft cloud service for speech-to-text transcription
-- **Graceful Stop**: Controlled recording termination with data flush and cleanup
+- the exact nine microphone recording states and transition matrix;
+- event and control-render ownership;
+- authentication and Target URI readiness before recording activation;
+- memory-only Unsent Recording retention and navigation safety;
+- the separate Selected Audio lifecycle and explicit Transcribe boundary;
+- success, authentication, authorization, and retry convergence.
 
-## 3. Requirements, Constraints & Guidelines
+It does not define MSAL internals, model request shapes, Azure RBAC mutation, or
+transcript storage implementation.
 
-### Core Requirements
+## 2. Domain definitions
 
-- **REQ-001**: The state machine SHALL implement exactly 9 defined states: IDLE, INITIALIZING, RECORDING, PAUSED, STOPPING, PROCESSING, CANCELLING, CONFIRMING_DISCARD, ERROR
-- **REQ-002**: The state machine SHALL validate all state transitions using a predefined transition matrix
-- **REQ-003**: The state machine SHALL emit events for all state changes through the event bus
-- **REQ-004**: Each state SHALL have a dedicated handler method for state-specific logic
-- **REQ-005**: The state machine SHALL provide query methods for checking current state and transition capabilities
-- **REQ-006**: The state machine SHALL support asynchronous state transitions
-- **REQ-007**: The state machine SHALL handle invalid transitions gracefully by logging the error and returning false without changing state
+- **Audio Source**: microphone capture or selected local audio supplied by the
+  User for transcription.
+- **Unsent Recording**: valuable captured audio not yet accepted for
+  transcription. It remains memory-only in `AudioHandler` until success or an
+  explicit discard.
+- **Selected Audio**: a local Audio Source held in memory for review and not yet
+  sent to Azure.
+- **Authentication readiness**: a safe state returned by
+  `AuthenticationService.ensureTokenReady(scope)` before microphone access or a
+  Selected Audio submission.
+- **Navigation safety**: token-free state used to block redirect/logout while an
+  Audio Source could be lost.
 
-### State-Specific Requirements
+## 3. Component ownership
 
-- **REQ-008**: IDLE state SHALL emit the default reset status and prepare for a new recording session
-- **REQ-009**: INITIALIZING state SHALL emit the microphone-access status
-- **REQ-010**: RECORDING state SHALL emit the recording-started domain event and recording status
-- **REQ-011**: PAUSED state SHALL emit the recording-paused domain event and paused status
-- **REQ-012**: STOPPING state SHALL emit the recording-stopped domain event, finishing status, and visualization-stop event
-- **REQ-013**: PROCESSING state SHALL emit the processing status
-- **REQ-014**: CANCELLING state SHALL emit cancellation and status events; the caller is responsible for transitioning to IDLE after cleanup
-- **REQ-014a**: CONFIRMING_DISCARD state SHALL keep the recorder running while the user chooses Keep or Discard, then emit a confirmation request with the elapsed-duration stakes
-- **REQ-015**: ERROR state SHALL emit recording-error and error-status events; recovery may transition to IDLE or retry directly to PROCESSING
+| Concern | Owner |
+|---|---|
+| Microphone lifecycle state and legal transitions | `RecordingStateMachine` |
+| MediaRecorder, stream, chunks, Unsent Recording, retry Blob | `AudioHandler` |
+| One memory-only local File and its validation/transcription state | `SelectedAudioController` |
+| Authentication state and token readiness | `AuthenticationService` |
+| Redirect/logout recovery choices | `AuthInteractionController` |
+| One-Audio-Source coordination | `SelectedAudioController.getAudioSafetyState()` composed with `AudioHandler.setAudioSourceCoordinator()` |
+| Recording/Selected Audio presentation and completion | `UI` via event bus |
+| Azure request, bearer header, errors, bounded retries | shared `AzureAPIClient` |
+| Transcript persistence | `TranscriptStore` after `UI_TRANSCRIPTION_READY` |
 
-### Event Communication Requirements
+The FSM MUST NOT own a File, Blob, token, Target URI, User identity, DOM node, or
+Azure request. Selected Audio MUST NOT transition the recording FSM.
 
-- **REQ-016**: The state machine SHALL emit RECORDING_STATE_CHANGED events with old and new state information
-- **REQ-017**: `RECORDING_STATE_CHANGED` SHALL be the single control-render input. State handlers SHALL emit only their documented domain, status, visualization, and discard-confirmation events; they SHALL NOT emit granular button, spinner, pause-control, or controls-reset events.
-- **REQ-018**: The state machine SHALL emit domain-specific events (RECORDING_STARTED, RECORDING_STOPPED, etc.)
+## 4. Readiness and Audio Source activation
 
-### Validation and Safety Requirements
+The UI starts in authentication checking. While authentication is not ready,
+the idle recording action and Upload audio action are unavailable. A signed-out
+or interaction-required User sees explicit **Continue with Microsoft** instead.
 
-- **REQ-019**: All state transitions SHALL be validated against the STATE_TRANSITIONS matrix before execution
-- **REQ-020**: Invalid state transitions SHALL log errors and return false without changing state
-- **REQ-021**: State transition failures SHALL be handled without corrupting the current state
-- **REQ-022**: The state machine SHALL maintain previous state information for debugging and event payloads
+Every microphone start still validates prerequisites defensively, even when the
+UI is already ready:
 
-### Constraints
-
-- **CON-001**: The state machine MUST NOT directly manipulate DOM elements
-- **CON-002**: All UI communication MUST occur through event bus emissions
-- **CON-003**: State transitions MUST be atomic operations
-- **CON-004**: The state machine MUST maintain referential integrity with the AudioHandler
-- **CON-005**: State handlers MUST be idempotent and safe to call multiple times
-
-### Guidelines
-
-- **GUD-001**: Use async/await pattern for all state transition operations
-- **GUD-002**: Include context data in state transition events when relevant
-- **GUD-003**: Provide clear logging for state transitions using scoped loggers (`logger.child('RecordingStateMachine')`)
-- **GUD-004**: Use consistent naming patterns for state handler methods (handle[State]State)
-- **GUD-005**: Implement defensive programming practices for error handling
-
-### Patterns
-
-- **PAT-001**: Implement the State pattern with dedicated handler methods for each state
-- **PAT-002**: Use the Observer pattern through event bus for state change notifications
-- **PAT-003**: Apply the Command pattern for state transition requests
-- **PAT-004**: Follow the Single Responsibility Principle - each state handler manages only its state logic
-
-## 4. Interfaces & Data Contracts
-
-### RecordingStateMachine Class Interface
-
-```javascript
-class RecordingStateMachine {
-    constructor(audioHandler: AudioHandler)
-    
-    // State Management
-    getState(): string
-    canTransitionTo(newState: string): boolean
-    transitionTo(newState: string, data?: Object): Promise<boolean>
-    
-    // State Query Methods
-    isIdle(): boolean
-    isRecording(): boolean
-    isPaused(): boolean
-    isProcessing(): boolean
-    
-    // Capability Query Methods
-    canRecord(): boolean
-    canPause(): boolean
-    canResume(): boolean
-    canInvokeStop(): boolean
-    canCancel(): boolean
-}
+```text
+User chooses Start recording
+  -> reject when Selected Audio exists
+  -> protect authentication-failed Unsent Recording
+  -> transition IDLE/ERROR -> INITIALIZING
+  -> verify browser recording support
+  -> require manual Target URI and validate HTTPS
+  -> ensure token readiness for the selected adapter scope
+  -> request microphone permission
+  -> start MediaRecorder
+  -> transition INITIALIZING -> RECORDING
 ```
 
-### State Transition Data Contract
+Authentication readiness therefore occurs before microphone permission and
+before active `RECORDING`, although the FSM enters `INITIALIZING` to render the
+in-progress prerequisite check. A failure returns to `IDLE` without recording.
 
-```javascript
-// State transition event payload
-{
-    newState: string,           // Target state from RECORDING_STATES
-    oldState: string,           // Previous state
-    error?: string,            // Error message for ERROR state
-    ...additionalData          // Context-specific data
-}
-```
+Selected Audio selection requires authentication `READY`, no current File, and
+`AudioHandler` safety state `SAFE`. A Selected Audio Transcribe action checks
+readiness again for the snapshotted model before calling Azure.
 
-### Event Emissions Contract
+## 5. RecordingStateMachine contract
 
-| State | Events Emitted | Data Payload |
-|-------|---------------|--------------|
-| IDLE | UI_STATUS_UPDATE | `{ message: DEFAULT_RESET_STATUS, type: 'info' }` |
-| INITIALIZING | UI_STATUS_UPDATE | `{ message: MESSAGES.INITIALIZING_MICROPHONE, type: 'info' }` |
-| RECORDING | RECORDING_STARTED; UI_STATUS_UPDATE | `{}`; `{ message: MESSAGES.RECORDING_IN_PROGRESS, type: 'info' }` |
-| PAUSED | RECORDING_PAUSED; UI_STATUS_UPDATE | `{}`; `{ message: MESSAGES.RECORDING_PAUSED, type: 'info' }` |
-| STOPPING | RECORDING_STOPPED; UI_STATUS_UPDATE; VISUALIZATION_STOP | `{}`; `{ message: MESSAGES.FINISHING_RECORDING, type: 'info' }`; `{}` |
-| PROCESSING | UI_STATUS_UPDATE | `{ message: MESSAGES.PROCESSING_AUDIO, type: 'info' }` |
-| CANCELLING | RECORDING_CANCELLED; UI_STATUS_UPDATE | `{}`; `{ message: MESSAGES.RECORDING_CANCELLED, type: 'info' }` |
-| CONFIRMING_DISCARD | DISCARD_CONFIRM_REQUESTED | `{ durationLabel: string }` (an empty string when no label is provided) |
-| ERROR | RECORDING_ERROR; UI_STATUS_UPDATE | `{ error: string }`; `{ message: string, type: 'error' }` |
+### 5.1 Exact states
 
-Every successful `transitionTo` first emits `RECORDING_STATE_CHANGED` with
-`newState`, `oldState`, and any transition data. The UI uses that event as the
-sole input for rendering the control cluster (including labels, enabled state,
-and the processing indicator); no granular control events are part of the FSM
-contract. In `CONFIRMING_DISCARD`, the recorder continues underneath the dialog
-until Keep or Discard is chosen.
+| State | Meaning | Handler-owned emissions |
+|---|---|---|
+| `IDLE` | Ready for a new microphone attempt | default `UI_STATUS_UPDATE` |
+| `INITIALIZING` | Checking prerequisites and starting MediaRecorder | initializing status |
+| `RECORDING` | Microphone capture active | `RECORDING_STARTED`, recording status |
+| `PAUSED` | Capture paused | `RECORDING_PAUSED`, paused status |
+| `STOPPING` | Recorder stop/data flush in progress | `RECORDING_STOPPED`, finishing status, `VISUALIZATION_STOP` |
+| `PROCESSING` | Captured Blob is being transcribed | processing status |
+| `CANCELLING` | Capture is being discarded and cleaned | `RECORDING_CANCELLED`, cancelled status |
+| `CONFIRMING_DISCARD` | Substantial active recording awaits Keep/Discard | `DISCARD_CONFIRM_REQUESTED` with duration label |
+| `ERROR` | Capture or transcription failed | `RECORDING_ERROR`, error status |
 
-### State Transitions Matrix
+There are exactly nine states. `CONFIRMING_DISCARD` leaves the recorder running
+under the dialog until Keep or Discard is selected.
+
+### 5.2 Exact transition matrix
 
 ```javascript
 const STATE_TRANSITIONS = {
@@ -170,239 +137,207 @@ const STATE_TRANSITIONS = {
 };
 ```
 
-## 5. Acceptance Criteria
+`transitionTo(newState, data)` validates first. An invalid transition logs
+through the centralized error handler, returns `false`, and leaves state
+unchanged. A valid transition stores `previousState`, updates current state,
+emits `RECORDING_STATE_CHANGED`, and then awaits the target handler. If a
+handler throws, the new state has already committed and the caller owns
+recovery.
 
-### State Management
-
-- **AC-001**: Given the state machine is in IDLE state, When transitionTo('initializing') is called, Then the state changes to INITIALIZING and RECORDING_STATE_CHANGED event is emitted
-- **AC-002**: Given the state machine is in RECORDING state, When transitionTo('idle') is called, Then the transition is rejected and state remains RECORDING
-- **AC-003**: Given any state, When an invalid state transition is attempted, Then canTransitionTo() returns false and no state change occurs
-- **AC-004**: Given the state machine transitions to any state, Then the previous state is stored and available in transition events
-
-### State-Specific Behavior
-
-- **AC-005**: Given the state machine enters RECORDING state, Then RECORDING_STATE_CHANGED is emitted before the handler emits RECORDING_STARTED and the recording status; the UI renders controls from the state-change event
-- **AC-006**: Given the state machine enters PROCESSING state, Then the handler emits only the processing status, and the UI renders the processing controls from RECORDING_STATE_CHANGED without granular spinner or button events
-- **AC-007**: Given the state machine enters ERROR state with error data, Then RECORDING_ERROR event is emitted with the error message
-- **AC-008**: Given the state machine enters IDLE state, Then the handler emits the default reset status and the UI renders idle controls from RECORDING_STATE_CHANGED
-
-### Query Methods
-
-- **AC-009**: Given the state machine is in RECORDING state, When isRecording() is called, Then it returns true
-- **AC-010**: Given the state machine is in PAUSED state, When canResume() is called, Then it returns true
-- **AC-011**: Given the state machine is in IDLE or ERROR state, When canRecord() is called, Then it returns true
-- **AC-012**: Given the state machine is in PROCESSING state, When canCancel() is called, Then it returns false
-- **AC-012a**: Given the state machine is in RECORDING, PAUSED, STOPPING, or CANCELLING state, When canInvokeStop() is called, Then it returns true
-
-### Error Handling
-
-- **AC-013**: Given a state handler throws an exception, When transitionTo() is called, Then the error propagates to the caller (the state has already been updated before the handler runs)
-- **AC-014**: Given an invalid state name is provided, When transitionTo() is called, Then the operation returns false and logs an error
-- **AC-015**: Given the AudioHandler reference is null, When the state machine is constructed, Then it handles the error gracefully
-
-## 6. Test Automation Strategy
-
-### Test Levels
-
-- **Unit Tests**: State transition logic, query methods, validation rules
-- **Integration Tests**: Event emission verification, AudioHandler integration
-- **End-to-End Tests**: Complete recording workflow state transitions
-
-### Frameworks
-
-- **Vitest**: Primary testing framework with ES modules support
-- **Happy-DOM**: Browser environment simulation for event testing
-- **vi.fn()**: Mock functions for event bus and AudioHandler dependencies
-
-### Test Data Management
-
-- Create mock AudioHandler instances with minimal interface
-- Use spy functions to capture event emissions
-- Generate test matrices for all valid and invalid state transitions
-
-### CI/CD Integration
-
-- Run state machine tests on every pull request
-- Include coverage thresholds: 85% statements, 80% branches, 70% functions
-- Fail builds on state transition logic regressions
-
-### Coverage Requirements
-
-- **Minimum 90% coverage** for state transition logic
-- **100% coverage** for state validation methods
-- **85% overall coverage** for the RecordingStateMachine class
-
-### Performance Testing
-
-- Validate state transition performance under rapid sequential calls
-- Test memory usage during long-running state machines
-- Verify event emission performance with multiple listeners
-
-## 7. Rationale & Context
-
-### Design Decisions
-
-**Finite State Machine Pattern**: Chosen to ensure safe state transitions and prevent invalid recording states that could corrupt audio data or leave the UI in inconsistent states. The pattern provides clear boundaries between different recording phases and makes the system predictable and testable.
-
-**Event-Driven Communication**: Decouples the state machine from UI components, allowing the recording logic to be independent of presentation concerns. This enables easier testing, better maintainability, and supports future UI modifications without changing core business logic.
-
-**Async State Transitions**: Recording operations often involve browser APIs (MediaRecorder, getUserMedia) that are asynchronous. Async state transitions allow proper coordination with these APIs while maintaining responsive UI updates.
-
-**Validation Before Transition**: Prevents invalid state changes that could corrupt the recording workflow or leave the system in an undefined state. Early validation provides clear error messages and maintains system integrity.
-
-### Context
-
-The speech transcription application operates in a browser environment where recording operations must coordinate with:
-- MediaRecorder API for audio capture
-- User permission requests for microphone access
-- Azure Speech Services for transcription
-- Real-time UI updates and user feedback
-- Error recovery and user guidance
-
-The state machine provides a reliable foundation for managing these complex interactions while maintaining a consistent user experience.
-
-## 8. Dependencies & External Integrations
-
-### Module Dependencies
-
-- **DEP-001**: AudioHandler class - Provides recording operations and coordinates with MediaRecorder API
-- **DEP-002**: EventBus module - Central communication system for emitting state change events
-- **DEP-003**: Constants module - RECORDING_STATES, STATE_TRANSITIONS, and MESSAGES definitions
-- **DEP-004**: Logger module - Structured logging for state transitions and error reporting
-- **DEP-005**: ErrorHandler module - Centralized error processing and reporting
-
-### Browser API Dependencies
-
-- **API-001**: MediaRecorder API - For audio recording operations coordinated by state transitions
-- **API-002**: getUserMedia API - For microphone access during INITIALIZING state
-- **API-003**: Event system - For event bus implementation and cross-component communication
-
-### External Service Dependencies
-
-- **SVC-001**: Azure Speech Services - Transcription processing during PROCESSING state
-- **SVC-002**: Browser permissions system - Microphone access management during state transitions
-
-### Infrastructure Dependencies
-
-- **INF-001**: ES6 Module system - For importing dependencies and exporting the state machine class
-- **INF-002**: Browser console - For error logging and debugging state transitions
-
-## 9. Examples & Edge Cases
-
-### Basic State Transition Flow
+### 5.3 Interface
 
 ```javascript
-// Initialize state machine
-const stateMachine = new RecordingStateMachine(audioHandler);
-
-// Start recording workflow
-if (stateMachine.canRecord()) {
-    await stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
-    // After microphone access granted
-    await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-}
-
-// Pause recording
-if (stateMachine.canPause()) {
-    await stateMachine.transitionTo(RECORDING_STATES.PAUSED);
-}
-
-// Resume recording
-if (stateMachine.canResume()) {
-    await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-}
-
-// Stop and process
-await stateMachine.transitionTo(RECORDING_STATES.STOPPING);
-await stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
-// After transcription complete
-await stateMachine.transitionTo(RECORDING_STATES.IDLE);
-```
-
-### Error Handling Pattern
-
-```javascript
-// Handle microphone access denial
-try {
-    await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-} catch (error) {
-    await stateMachine.transitionTo(RECORDING_STATES.ERROR, { 
-        error: 'Microphone access denied' 
-    });
-}
-
-// Recovery from error state
-if (stateMachine.getState() === RECORDING_STATES.ERROR) {
-    await stateMachine.transitionTo(RECORDING_STATES.IDLE);
+class RecordingStateMachine {
+    constructor(audioHandler)
+    getState(): string
+    canTransitionTo(newState): boolean
+    transitionTo(newState, data?): Promise<boolean>
+    isIdle(): boolean
+    isRecording(): boolean
+    isPaused(): boolean
+    isProcessing(): boolean
+    canRecord(): boolean
+    canPause(): boolean
+    canResume(): boolean
+    canInvokeStop(): boolean
+    canCancel(): boolean
 }
 ```
 
-### Edge Cases
+`canRecord()` is true in `IDLE` or `ERROR`. `canInvokeStop()` is true in
+`RECORDING`, `PAUSED`, `STOPPING`, or `CANCELLING`. Those are FSM capabilities,
+not complete application readiness; authentication, configuration, and
+Audio Source coordination are checked by the surrounding owners.
 
-**Rapid State Transitions**: Multiple quick button presses should be handled gracefully
-```javascript
-// Only first transition should succeed
-await Promise.all([
-    stateMachine.transitionTo(RECORDING_STATES.STOPPING),
-    stateMachine.transitionTo(RECORDING_STATES.CANCELLING),  // Should fail
-    stateMachine.transitionTo(RECORDING_STATES.PAUSED)       // Should fail
-]);
-```
+## 6. Event and presentation ownership
 
-**State Handler Exceptions**: State is updated before the handler runs, so a throwing handler leaves the machine in the new state. The caller is responsible for catching and recovering.
+Every successful transition first emits:
+
 ```javascript
-// If handleRecordingState throws, state has already moved to RECORDING
-try {
-    await stateMachine.transitionTo(RECORDING_STATES.RECORDING);
-} catch (error) {
-    // State is now RECORDING, not INITIALIZING — caller must handle recovery
-    await stateMachine.transitionTo(RECORDING_STATES.ERROR, { error: error.message });
+{
+    newState: '<RECORDING_STATES value>',
+    oldState: '<previous value>',
+    ...safeTransitionData
 }
 ```
 
-**Missing Dependencies**: Graceful degradation when dependencies are unavailable
-```javascript
-// AudioHandler reference becomes null
-const stateMachine = new RecordingStateMachine(null);
-// Should handle gracefully without throwing
+`RECORDING_STATE_CHANGED` is the sole recording-control render input for labels,
+enabled state, visible actions, and processing indicator. FSM handlers emit
+only their documented domain/status/visualization/discard events. They MUST NOT
+emit or manipulate granular button/spinner/reset presentation.
+
+No recording event may contain captured chunks, an Unsent Recording Blob,
+Selected Audio File, token, Target URI, authentication response, or transcript
+body. `UI_TRANSCRIPTION_READY` is the deliberate transcript-content event and is
+not part of the FSM state payload.
+
+## 7. Unsent Recording lifecycle and navigation safety
+
+When MediaRecorder stops normally, `AudioHandler` constructs the captured Blob
+and assigns it to `pendingRetryBlob` before calling Azure. That Blob is the
+Unsent Recording. It remains in application memory during `PROCESSING` and after
+a failed submission.
+
+On success, `AudioHandler` clears the Blob, clears recovery metadata, empties
+chunks, and transitions `PROCESSING -> IDLE`.
+
+On failure, `AudioHandler` retains the same Blob and transitions
+`PROCESSING -> ERROR` with a safe message and retry capability:
+
+- ordinary retryable application/service failures may use the explicit Retry
+  action (`ERROR -> PROCESSING`);
+- upload-limit failures are not retryable without a new Audio Source;
+- HTTP 401 and 403 require external recovery rather than blind retry.
+
+`getAudioSafetyState()` exposes only:
+
+- `UNSENT` whenever `pendingRetryBlob` exists, including while that Blob is in
+  its initial `PROCESSING` attempt or an explicit retry;
+- otherwise, `ACTIVE` while microphone initialization, capture, stop,
+  processing, or cancellation is active; or
+- `SAFE` otherwise.
+
+`AuthInteractionController` uses that token-free state before full-page sign-in
+or logout:
+
+- `ACTIVE` blocks navigation;
+- `SELECTED` blocks navigation until Selected Audio is removed;
+- `UNSENT` offers a local download while retaining the Blob, followed by an
+  explicit Continue, or an explicit proportional discard followed by redirect;
+- `SAFE` permits the requested redirect.
+
+Downloading marks only that the browser download lifecycle was initiated; it
+does not discard the Blob or navigate. No module automatically redirects,
+uploads, logs out, or discards an Audio Source.
+
+## 8. Selected Audio contract
+
+`SelectedAudioController` privately owns one `File` and exposes only a frozen,
+safe display snapshot. The exact states are:
+
+| State | Entry/meaning | Allowed User recovery |
+|---|---|---|
+| `IDLE` | no File | Select an Audio Source |
+| `CHECKING` | local format/size/duration validation | wait |
+| `READY` | accepted for snapshotted model; nothing sent | Transcribe, Remove, or Replace through chooser |
+| `UNSUPPORTED` | format or decode cannot be accepted | Choose another or Remove |
+| `TOO_LARGE` | model upload limit exceeded | Choose another or Remove |
+| `TRANSCRIBING` | explicit request active | wait; navigation remains unsafe |
+| `FAILED` | same File retained with safe error | Retry or Remove |
+
+Selection is memory-only. Snapshots/events may contain name, size, optional
+duration, format, model, state, and safe error metadata, but never the File,
+bytes, object URL, token, or Target URI. Temporary metadata object URLs are
+revoked on every outcome.
+
+A model change revalidates the current File unless it is already transcribing.
+Before submission the controller checks that the current model still matches
+the validated snapshot and ensures authentication readiness for that model's
+scope. This prevents stale/ABA model submission.
+
+## 9. One API client and success convergence
+
+Both Audio Sources call the same injected `AzureAPIClient`:
+
+```text
+microphone: STOPPING -> PROCESSING -> AzureAPIClient ─┐
+                                                     ├─ UI_TRANSCRIPTION_READY
+Selected Audio: READY -> TRANSCRIBING -> AzureAPIClient ┘
+                                                               │
+                                                               └─ UI append + TranscriptStore autosave
 ```
 
-## 10. Validation Criteria
+On Selected Audio success, the controller emits `UI_TRANSCRIPTION_READY`, emits
+the temporary completion status, removes the File, and returns to `IDLE`.
+On microphone success, `AudioHandler` emits the same transcription-ready and
+completion events, clears the Unsent Recording, and transitions to recording
+`IDLE`.
 
-### Functional Validation
+The convergence guarantees identical append/divider/autosave behavior without
+putting file states into the recording FSM.
 
-- All 9 states are implemented with corresponding handler methods
-- State transition matrix matches implementation behavior exactly
-- Event emissions match the documented interface contracts
-- Query methods return correct boolean values for all states
-- Error conditions are handled without state corruption
+## 10. Authentication and authorization recovery
 
-### Performance Validation
+- **Not ready before capture/submit**: emit safe
+  `AUTHENTICATION_STATE_CHANGED`, keep network/microphone action gated, and
+  present explicit Continue with Microsoft when appropriate.
+- **HTTP 401**: retain the Audio Source. For microphone capture, present
+  download/discard authentication recovery; for Selected Audio, retain the File
+  in `FAILED` for explicit recovery. Never retry or redirect automatically.
+- **HTTP 403**: retain the Audio Source and present Azure setup/RBAC guidance.
+  The app never assigns a role or broadens authorization.
+- **HTTP 429/selected 5xx/timeouts**: use only the bounded API-client behavior;
+  then retain the Audio Source for explicit retry when the boundary is
+  exhausted.
 
-- State transitions complete within 100ms under normal conditions
-- Event emissions do not block state transition execution
-- Memory usage remains stable during extended operation
-- No memory leaks from event listener accumulation
+## 11. Acceptance criteria
 
-### Integration Validation
+- **AC-001**: The FSM implements exactly the nine documented states and exact
+  transition matrix.
+- **AC-002**: Invalid transitions return false without changing state.
+- **AC-003**: Every valid transition emits `RECORDING_STATE_CHANGED` before the
+  target handler's documented events.
+- **AC-004**: Recording controls render only from recording state changes; no
+  handler directly manipulates DOM or emits granular control commands.
+- **AC-005**: Signed-out, interaction-required, configuration-failed, or
+  authentication-failed state prevents microphone and Upload audio activation.
+- **AC-006**: A start attempt verifies HTTPS configuration and token readiness
+  before microphone permission and before entering `RECORDING`.
+- **AC-007**: A failed microphone submission retains one memory-only Unsent
+  Recording until success or explicit discard.
+- **AC-008**: Authentication redirect and logout cannot lose active, Unsent, or
+  Selected Audio; download alone does not navigate.
+- **AC-009**: Selected Audio uses the separate seven-state controller and never
+  adds a recording FSM state.
+- **AC-010**: Only one Audio Source can be active.
+- **AC-011**: Selected Audio sends nothing before explicit Transcribe and
+  retains the same File for explicit Retry after ordinary failure.
+- **AC-012**: Both sources use the one API client and converge through
+  `UI_TRANSCRIPTION_READY` to transcript append/autosave.
+- **AC-013**: HTTP 401 and 403 cause distinct, non-retrying recovery while
+  retaining valuable audio.
+- **AC-014**: No state, snapshot, event, log, or storage record contains audio
+  bytes, a File/Blob, bearer token, authentication response, or Target URI.
 
-- AudioHandler integration maintains proper state synchronization
-- Event bus communication functions correctly with UI components
-- Error handling integrates properly with centralized error management
-- Logging integration provides adequate debugging information
+## 12. Verification
 
-### Reliability Validation
+Primary deterministic coverage includes:
 
-- Invalid state transitions are consistently rejected
-- State machine recovers properly from error conditions
-- Concurrent state transition attempts are handled safely
-- System remains stable under stress testing conditions
+- `tests/recording-state-machine.vitest.js` — exact transitions, handler order,
+  query methods, and single control-render event;
+- `tests/recording-integration.vitest.js` and
+  `tests/audio-handler-integration.vitest.js` — MediaRecorder lifecycle,
+  readiness, processing, and completion;
+- `tests/auth-recovery.vitest.js` and `tests/discard-flow.vitest.js` — Unsent
+  Recording download/discard/navigation safety;
+- `tests/audio-source-coordination.vitest.js` — one active Audio Source;
+- `tests/selected-audio.vitest.js` and `tests/selected-audio-ui.vitest.js` —
+  memory-only File state, model revalidation, explicit Transcribe, and recovery;
+- `tests/browser/auth-menu-recovery.spec.js` — built-browser checking, 401, 403,
+  User menu, and narrow layout behavior;
+- `tests/browser/selected-audio.spec.js` — built-browser Variant B selection,
+  local validation, explicit request, retry, privacy, and success convergence.
 
-## 11. Related Specifications / Further Reading
-
-- **Audio Handler Integration Specification** - Details the coordination between state machine and audio recording operations
-- **Event Bus Communication Specification** - Defines the event-driven communication patterns used throughout the application
-- **Error Handling Strategy Specification** - Describes centralized error management and recovery procedures
-- **UI Component Integration Specification** - Documents how UI components respond to state machine events
-- **Browser API Integration Guidelines** - Best practices for working with MediaRecorder and getUserMedia APIs
-- **Testing Strategy Documentation** - Comprehensive testing approaches for event-driven applications
+Any change to authentication readiness, navigation safety, recording states,
+Selected Audio, API error categories, or completion events requires the full
+coverage, lint, dependency, audit, size, and deterministic browser gates.
