@@ -1,6 +1,6 @@
 # Plan 037: Qualify one immutable keyless release candidate across CI, Pages, and all 12 browser paths
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -432,7 +432,7 @@ Only then mark Plan 037 DONE and authorize Plan 038 to begin.
 
 Stop and invalidate/report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Any prerequisite plan is incomplete or docs/code disagree.
 - Worktree is dirty, build is nondeterministic, or workflow head SHA differs.
 - Any automated gate fails, is skipped, focused, weakened, or requires source change.

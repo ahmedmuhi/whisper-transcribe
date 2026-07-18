@@ -633,7 +633,7 @@ the scan merely to pass.
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plan 031 is not complete or its callback/build contract differs materially.
 - The retained app registration does not expose the delegated Cognitive
   Services permission needed for `https://cognitiveservices.azure.com/.default`.

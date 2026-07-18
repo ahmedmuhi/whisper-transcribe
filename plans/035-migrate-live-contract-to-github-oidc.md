@@ -1,6 +1,6 @@
 # Plan 035: Migrate the live two-model Azure contract to a least-privilege GitHub OIDC identity
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -473,7 +473,7 @@ protected inputs.
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plan 032's token-provider/client boundary is incomplete or would require a production test hook.
 - OIDC requires a client secret/certificate, subscription-wide role, Reader,
   management permission, key access, or reuse of the SPA registration.

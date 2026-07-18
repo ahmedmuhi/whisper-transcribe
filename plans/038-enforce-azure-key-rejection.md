@@ -1,6 +1,6 @@
 # Plan 038: Enforce Azure key rejection one resource at a time and retire every legacy key
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -549,7 +549,7 @@ the product never falls back automatically.
 
 Stop before improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plan 037 is incomplete, evidence SHAs differ, or the candidate changed.
 - Azure authentication/context expires or tenant/subscription/resource identity
   is not explicitly confirmed.

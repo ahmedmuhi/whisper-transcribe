@@ -12,7 +12,7 @@ from a fresh whole-repository `deep` audit on 2026-07-12 at commit `559124e`
 browser layers). Plans 031–038 were generated on 2026-07-18 from the canonical
 Wayfinder specification in issue 112 at commit `e1f7083`; the User approved
 the complete dependency-ordered title batch and sanitized public issue
-publication. Their required executor is `gpt-5.6-terra` with high reasoning;
+publication. Their required executor is `gpt-5.6-sol` with extra-high (`xhigh`) reasoning;
 if unavailable, stop and ask before substituting. Execute in the order below
 unless dependencies say otherwise.
 Each executor: read the plan fully before starting, honor its STOP conditions,
