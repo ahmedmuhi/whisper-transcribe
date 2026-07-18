@@ -16,12 +16,20 @@ describe('Vite build contract', () => {
         const indexPath = path.join(distDirectory, 'index.html');
         const redirectPath = path.join(distDirectory, 'auth/redirect.html');
         const redirectSource = readFileSync(redirectSourcePath, 'utf8');
+        const redirectBuild = readFileSync(redirectPath, 'utf8');
+        const trackedDistFiles = execFileSync('git', ['ls-files', '--', 'dist'], {
+            cwd: repoRoot,
+            encoding: 'utf8'
+        });
 
         expect(existsSync(indexPath)).toBe(true);
         expect(existsSync(redirectPath)).toBe(true);
         expect(existsSync(path.join(distDirectory, 'js/main.js'))).toBe(false);
+        expect(trackedDistFiles).toBe('');
         expect(readFileSync(indexPath, 'utf8')).toMatch(/assets\/.+\.js/);
-        expect(readFileSync(redirectPath, 'utf8')).toContain('Completing sign-in');
+        expect(redirectBuild).toContain('Completing sign-in');
+        expect(redirectBuild).toMatch(/assets\/redirect-[^"]+\.js/);
+        expect(redirectBuild).not.toMatch(/assets\/(?:main|constants|visualization|audio-converter\.worker)-[^"]+\.js/);
         expect(redirectSource).not.toMatch(/js\/main|AudioHandler|AzureAPIClient|localStorage|microphone/);
     });
 
