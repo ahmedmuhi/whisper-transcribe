@@ -59,10 +59,11 @@ export class UI {
         // Transcript + status + visualiser
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
-        this.transcriptArea = document.querySelector?.('.transcript-area') || null;
-        this.transcriptBody = document.querySelector?.('.transcript-body') || null;
-        this.transcriptEmpty = document.querySelector?.('.transcript-empty') || null;
-        this.transcriptActions = document.querySelector?.('.transcript-actions') || null;
+        const query = document.querySelector?.bind(document);
+        this.transcriptArea = query?.('.transcript-area') || null;
+        this.transcriptBody = query?.('.transcript-body') || null;
+        this.transcriptEmpty = query?.('.transcript-empty') || null;
+        this.transcriptActions = query?.('.transcript-actions') || null;
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
         this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
         this.timerElement = document.getElementById(ID.TIMER);
@@ -487,7 +488,7 @@ export class UI {
             this.#restoreDragPresentation();
             return;
         }
-        this.transcriptBody?.classList?.add('selected-audio-dragging');
+        this.transcriptBody?.classList.add('selected-audio-dragging');
     }
 
     async #handleAudioDrop(event) {
@@ -508,7 +509,7 @@ export class UI {
     }
 
     #restoreDragPresentation() {
-        this.transcriptBody?.classList?.remove('selected-audio-dragging');
+        this.transcriptBody?.classList.remove('selected-audio-dragging');
     }
 
     async #handleSelectedAudioAction(action) {
@@ -548,12 +549,12 @@ export class UI {
         const panelState = [SELECTED_AUDIO_STATES.READY, SELECTED_AUDIO_STATES.TOO_LARGE].includes(state)
             ? `${state}-${snapshot.model}`
             : state;
-        const panels = this.#selectedWorkspace?.querySelectorAll?.('[data-selected-state]') || [];
+        const panels = this.#selectedWorkspace?.querySelectorAll('[data-selected-state]') || [];
         panels.forEach(panel => {
             panel.hidden = panel.dataset.selectedState !== panelState;
         });
-        const panel = this.#selectedWorkspace?.querySelector?.(`[data-selected-state="${panelState}"]`);
-        const verdict = panel?.querySelector?.('[data-selected-verdict]');
+        const panel = this.#selectedWorkspace?.querySelector(`[data-selected-state="${panelState}"]`);
+        const verdict = panel?.querySelector('[data-selected-verdict]');
         if (state === SELECTED_AUDIO_STATES.FAILED && verdict) {
             verdict.textContent = snapshot.errorMessage || 'Azure request failed.';
             const authFailure = [
@@ -563,7 +564,8 @@ export class UI {
             const retry = panel.querySelector('[data-selected-action="retry"]');
             if (retry) retry.hidden = authFailure;
         }
-        panel?.querySelector?.('[data-selected-action]:not([hidden])')?.focus?.();
+        (panel?.querySelector('[data-selected-action]:not([hidden])')
+            || this.#selectedWorkspace)?.focus?.();
     }
 
     #formatSelectedAudioMetadata(snapshot) {

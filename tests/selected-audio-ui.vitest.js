@@ -305,6 +305,17 @@ describe('Selected Audio Variant B review states', () => {
         expect(ui.controlCluster.hidden).toBe(true);
     });
 
+    it.each([
+        SELECTED_AUDIO_STATES.CHECKING,
+        SELECTED_AUDIO_STATES.TRANSCRIBING
+    ])('keeps keyboard focus in the workspace while %s has no action', (state) => {
+        createHarness();
+
+        emitSnapshot(readySnapshot({ state }));
+
+        expect(document.activeElement).toBe(selectedWorkspace());
+    });
+
     it('uses explicit Transcribe/Retry and replacement/removal actions', async () => {
         const { ui, selectedAudioController } = createHarness();
         emitSnapshot(readySnapshot());
