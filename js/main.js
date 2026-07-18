@@ -4,11 +4,13 @@ import { AzureAPIClient } from './api-client.js';
 import { AudioHandler } from './audio-handler.js';
 import { TranscriptStore } from './transcript-store.js';
 import { logger } from './logger.js';
+import { cleanupLegacyCredentials } from './legacy-credential-cleanup.js';
 
 /**
  * @fileoverview Application entry point: initializes core modules on DOMContentLoaded.
  */
 document.addEventListener('DOMContentLoaded', () => {
+    cleanupLegacyCredentials();
     logger.info('Initializing Speech-to-Text App...');
 
     const settings = new Settings();
