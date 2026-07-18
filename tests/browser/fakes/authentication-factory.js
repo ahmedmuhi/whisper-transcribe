@@ -7,6 +7,36 @@ import { APP_EVENTS, eventBus } from '../../../js/event-bus.js';
 
 const BROWSER_TEST_TOKEN = 'deterministic-test-token';
 
+eventBus.setHistoryEnabled(true);
+globalThis.__browserTestEventHistoryIsPrivate = () => {
+    const visited = new Set();
+    const isPrivateValue = (value) => {
+        if (value === null || value === undefined) return true;
+        if (
+            value instanceof Blob
+            || value instanceof ArrayBuffer
+            || ArrayBuffer.isView(value)
+        ) {
+            return false;
+        }
+        if (typeof value === 'string') {
+            return !value.startsWith('blob:')
+                && !value.includes(BROWSER_TEST_TOKEN)
+                && !value.includes('Browser Fixture')
+                && !value.includes('browser-fixture@example.invalid')
+                && !/^https?:\/\//iu.test(value);
+        }
+        if (typeof value !== 'object') return true;
+        if (visited.has(value)) return true;
+        visited.add(value);
+        return Object.entries(value).every(([key, entry]) => (
+            !/(?:token|target.?uri|identity|account|username)/iu.test(key)
+            && isPrivateValue(entry)
+        ));
+    };
+    return eventBus.getHistory().every(({ data }) => isPrivateValue(data));
+};
+
 class FakeAuthenticationService {
     constructor() {
         this.state = AUTHENTICATION_STATES.UNINITIALIZED;

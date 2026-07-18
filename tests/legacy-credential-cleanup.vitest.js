@@ -71,6 +71,8 @@ vi.mock('../js/audio-handler.js', () => ({
         constructor() {
             bootstrapOrder.push('audio-handler:construct');
         }
+
+        setAudioSourceCoordinator() {}
     }
 }));
 

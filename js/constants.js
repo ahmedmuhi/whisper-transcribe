@@ -96,6 +96,9 @@ export const MAI_TRANSCRIBE_MAX_UPLOAD_BYTES = (300 * 1024 * 1024) - 1;
 /** Stable input-validation code for model upload-size failures. */
 export const AUDIO_UPLOAD_LIMIT_ERROR_CODE = 'audio-upload-limit-exceeded';
 
+/** Stable input-validation code for unsupported or undecodable local audio. */
+export const AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE = 'audio-format-unsupported';
+
 /**
  * The model selected out of the box when the user has no saved preference.
  * Single source of truth for the default — referenced by the Settings
@@ -133,7 +136,19 @@ export const AUTH_PRESENTATION_STATES = Object.freeze({
 export const AUDIO_SAFETY_STATES = Object.freeze({
   SAFE: 'safe',
   ACTIVE: 'active-recording',
-  UNSENT: 'unsent-recording'
+  UNSENT: 'unsent-recording',
+  SELECTED: 'selected-audio'
+});
+
+/** Memory-only Selected Audio lifecycle, independent of RecordingStateMachine. */
+export const SELECTED_AUDIO_STATES = Object.freeze({
+  IDLE: 'idle',
+  CHECKING: 'checking',
+  READY: 'ready',
+  UNSUPPORTED: 'unsupported',
+  TOO_LARGE: 'tooLarge',
+  TRANSCRIBING: 'transcribing',
+  FAILED: 'failed'
 });
 
 /** Token-free outcomes from the authentication interaction controller. */
@@ -188,57 +203,47 @@ export const CONTENT_TYPES = {
  * @property {string} SPINNER_CONTAINER - Loading spinner container
  */
 export const ID = Object.freeze({
-  // Buttons
   GRAB_TEXT_BUTTON: 'grab-text-button',
-  RESTORE_BUTTON:   'restore-button',
-  SAVE_SETTINGS:    'save-settings',
-  THEME_TOGGLE:     'theme-toggle',
-
-  // Guided-morph control cluster + discard dialog
-  CONTROL_CLUSTER:     'control-cluster',
-  PRIMARY_ACTION:      'primary-action',
-  SECONDARY_ACTION:    'secondary-action',
-  DISCARD_ACTION:      'discard-action',
-  RETRY_ACTION:        'retry-action',
-  DISCARD_DIALOG:      'discard-dialog',
+  RESTORE_BUTTON: 'restore-button',
+  SAVE_SETTINGS: 'save-settings',
+  THEME_TOGGLE: 'theme-toggle',
+  CONTROL_CLUSTER: 'control-cluster',
+  PRIMARY_ACTION: 'primary-action',
+  SECONDARY_ACTION: 'secondary-action',
+  DISCARD_ACTION: 'discard-action',
+  RETRY_ACTION: 'retry-action',
+  UPLOAD_ACTION: 'upload-action',
+  AUDIO_FILE_INPUT: 'audio-file-input',
+  DISCARD_DIALOG: 'discard-dialog',
   DISCARD_DIALOG_TITLE: 'discard-dialog-title',
   DISCARD_DIALOG_BODY: 'discard-dialog-body',
-  DISCARD_KEEP:        'discard-keep',
-  DISCARD_CONFIRM:     'discard-confirm',
-  AUTH_CONTEXT:        'auth-context',
-  AUTH_CONTEXT_TITLE:  'auth-context-title',
-  AUTH_CONTEXT_BODY:   'auth-context-body',
-  AUTH_CONTEXT_NOTE:   'auth-context-note',
+  DISCARD_KEEP: 'discard-keep',
+  DISCARD_CONFIRM: 'discard-confirm',
+  AUTH_CONTEXT: 'auth-context',
+  AUTH_CONTEXT_TITLE: 'auth-context-title',
+  AUTH_CONTEXT_BODY: 'auth-context-body',
+  AUTH_CONTEXT_NOTE: 'auth-context-note',
   AUTH_PRIMARY_ACTION: 'auth-primary-action',
   AUTH_SECONDARY_ACTION: 'auth-secondary-action',
-
-  // Status & text areas
-  STATUS:           'status',
-  TRANSCRIPT:       'transcript',
-  TIMER:            'timer',
-
-  // User-menu settings panes
+  SELECTED_AUDIO_WORKSPACE: 'selected-audio-workspace',
+  SELECTED_AUDIO_FILE: 'selected-audio-file',
+  SELECTED_AUDIO_NAME: 'selected-audio-name',
+  SELECTED_AUDIO_METADATA: 'selected-audio-metadata',
+  STATUS: 'status',
+  TRANSCRIPT: 'transcript',
+  TIMER: 'timer',
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
-
-  // Selectors / inputs
-  MODEL_SELECT:     'model-select',
+  MODEL_SELECT: 'model-select',
   SETTINGS_MODEL_SELECT: 'settings-model-select',
   RECORDING_ENVIRONMENT: 'recording-environment',
-  WHISPER_URI:      'whisper-uri',
+  WHISPER_URI: 'whisper-uri',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
-
-  NOISE_TOGGLE:     'noise-toggle',
-  INPUT_DEVICE:     'input-device',
-
-  // Canvas / visualiser
-  VISUALIZER:       'visualizer',
-
-  // Icons
-  MOON_ICON:        'moon-icon',
-  SUN_ICON:         'sun-icon',
-
-  // Misc
+  NOISE_TOGGLE: 'noise-toggle',
+  INPUT_DEVICE: 'input-device',
+  VISUALIZER: 'visualizer',
+  MOON_ICON: 'moon-icon',
+  SUN_ICON: 'sun-icon',
   SPINNER_CONTAINER: 'spinner-container'
 });
 
@@ -259,18 +264,44 @@ export const DEFAULT_LANGUAGE  = 'en';
 export const DEFAULT_FILENAME      = 'recording.webm';
 export const DEFAULT_WAV_FILENAME  = 'recording.wav';
 
-const WHISPER_FILENAMES_BY_MIME_TYPE = Object.freeze({
-  'audio/webm': DEFAULT_FILENAME,
-  'audio/mp3': 'recording.mp3',
-  'audio/mpeg': 'recording.mpeg',
-  'audio/mpga': 'recording.mpga',
-  'audio/mp4': 'recording.mp4',
-  'audio/m4a': 'recording.m4a',
-  'audio/x-m4a': 'recording.m4a',
-  'audio/wav': DEFAULT_WAV_FILENAME,
-  'audio/wave': DEFAULT_WAV_FILENAME,
-  'audio/x-wav': DEFAULT_WAV_FILENAME
-});
+const AUDIO_FORMATS_BY_MIME_TYPE = {
+  'audio/mp3': ['MP3', 'mp3'],
+  'audio/mpeg': ['MPEG', 'mpeg'],
+  'audio/mpga': ['MPGA', 'mpga'],
+  'audio/mp4': ['MP4', 'mp4'],
+  'audio/m4a': ['M4A', 'm4a'],
+  'audio/x-m4a': ['M4A', 'm4a'],
+  'audio/wav': ['WAV', 'wav'],
+  'audio/wave': ['WAV', 'wav'],
+  'audio/x-wav': ['WAV', 'wav'],
+  'audio/webm': ['WebM', 'webm']
+};
+
+/** Copy-safe list matching the retained adapters' local-file allowlist. */
+export const SUPPORTED_AUDIO_FORMATS_LABEL = 'MP3, MP4, MPEG/MPGA, M4A, WAV, and WebM';
+
+/**
+ * Resolves a supported local audio format. A present MIME type is authoritative;
+ * extension fallback is used only when the browser supplied no MIME type.
+ *
+ * @param {string} mimeType Browser-supplied MIME type, optionally with parameters.
+ * @param {string} sourceName Local display name used only for empty-MIME fallback.
+ * @returns {{format: string, extension: string}|null}
+ */
+export function resolveSupportedAudioFormat(mimeType, sourceName = '') {
+  const normalizedMimeType = typeof mimeType === 'string'
+    ? mimeType.split(';', 1)[0].trim().toLowerCase()
+    : '';
+  const extensionMatch = typeof sourceName === 'string'
+    ? sourceName.trim().match(/\.([a-z0-9]+)$/iu)
+    : null;
+  const extension = extensionMatch?.[1].toLowerCase() || '';
+  const key = normalizedMimeType || (/^(?:mp3|mp4|mpeg|mpga|m4a|wav|webm)$/u.test(extension)
+    ? `audio/${extension}`
+    : '');
+  const format = AUDIO_FORMATS_BY_MIME_TYPE[key];
+  return format ? { format: format[0], extension: format[1] } : null;
+}
 
 /**
  * Returns an Azure Whisper-compatible filename for an audio MIME type.
@@ -282,22 +313,26 @@ const WHISPER_FILENAMES_BY_MIME_TYPE = Object.freeze({
  * @returns {string} ASCII upload filename with a matching container extension
  * @throws {Error} When the MIME type is unsupported by Azure Whisper
  */
-export function getWhisperFilename(mimeType) {
+export function getWhisperFilename(mimeType, sourceName = '') {
   const normalizedMimeType = typeof mimeType === 'string'
     ? mimeType.split(';', 1)[0].trim().toLowerCase()
     : '';
 
-  if (!normalizedMimeType) {
+  if (!normalizedMimeType && !sourceName) {
     return DEFAULT_FILENAME;
   }
 
-  const filename = WHISPER_FILENAMES_BY_MIME_TYPE[normalizedMimeType];
+  const format = resolveSupportedAudioFormat(normalizedMimeType, sourceName);
+  const filename = format && `recording.${format.extension}`;
 
   if (!filename) {
-    throw new Error(
+    const error = new Error(
       `Unsupported audio MIME type for Whisper upload: ${mimeType || '(empty)'}. `
-      + 'Supported types: MP3, MP4, MPEG, MPGA, M4A, WAV, and WebM.'
+      + `Supported types: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`
     );
+    error.code = AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE;
+    error.retryable = false;
+    throw error;
   }
 
   return filename;
@@ -362,6 +397,7 @@ export const MESSAGES = {
   AUTHENTICATION_REQUIRED: 'Authentication is required to transcribe this recording.',
   AZURE_AUTHORIZATION_DENIED: 'The signed-in identity is not authorized for this Azure resource. Ask an administrator to review Azure RBAC.',
   UNSENT_RECORDING_REQUIRES_RECOVERY: 'Recover or discard the Unsent Recording before starting another recording.',
+  SELECTED_AUDIO_REQUIRES_REMOVAL: 'Remove Selected Audio before starting a recording.',
   AUTH_CHECKING: 'Checking sign-in…',
   AUTH_SIGN_IN_TITLE: 'Microsoft sign in required',
   AUTH_SIGN_IN_BODY: 'Sign in before recording.',

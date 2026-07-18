@@ -99,7 +99,8 @@ describe('authentication navigation safety', () => {
 
     it.each([
         AUDIO_SAFETY_STATES.ACTIVE,
-        AUDIO_SAFETY_STATES.UNSENT
+        AUDIO_SAFETY_STATES.UNSENT,
+        AUDIO_SAFETY_STATES.SELECTED
     ])('blocks navigation with zero redirect calls for %s audio', async (audioState) => {
         const harness = createHarness(audioState);
 
@@ -123,7 +124,8 @@ describe('authentication navigation safety', () => {
 
     it.each([
         AUDIO_SAFETY_STATES.ACTIVE,
-        AUDIO_SAFETY_STATES.UNSENT
+        AUDIO_SAFETY_STATES.UNSENT,
+        AUDIO_SAFETY_STATES.SELECTED
     ])('blocks logout with zero logout calls for %s audio', async (audioState) => {
         const harness = createHarness(audioState);
 

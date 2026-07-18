@@ -16,12 +16,14 @@ import {
     ID,
     TRANSCRIPT_SEGMENT_DIVIDER,
     RECORDING_STATES,
+    SELECTED_AUDIO_STATES,
     STATUS_TYPE_CLASSES
 } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { VisualizationController } from './visualization.js';
 
 /**
  * User interface controller for managing DOM interactions and visual states.
@@ -36,17 +38,32 @@ import { logger } from './logger.js';
  * @fires APP_EVENTS.UI_THEME_CHANGED
  */
 export class UI {
+    #selectedController;
+    #selectedSnapshot;
+    #selectedWorkspace;
+    #selectedFile;
+    #selectedName;
+    #selectedMetadata;
+    #replaceOnPick = false;
+    #dragRegistered = false;
+
     /**
      * Creates a new UI controller instance and resolves DOM references.
      */
     constructor({
         authenticationState = AUTH_PRESENTATION_STATES.READY,
         authInteractionController = null,
+        selectedAudioController = null,
         openHelp = null
     } = {}) {
         // Transcript + status + visualiser
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
+        const query = document.querySelector?.bind(document);
+        this.transcriptArea = query?.('.transcript-area') || null;
+        this.transcriptBody = query?.('.transcript-body') || null;
+        this.transcriptEmpty = query?.('.transcript-empty') || null;
+        this.transcriptActions = query?.('.transcript-actions') || null;
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
         this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
         this.timerElement = document.getElementById(ID.TIMER);
@@ -60,6 +77,17 @@ export class UI {
         this.secondaryAction = document.getElementById(ID.SECONDARY_ACTION);
         this.discardAction = document.getElementById(ID.DISCARD_ACTION);
         this.retryAction = document.getElementById(ID.RETRY_ACTION);
+        this.uploadAction = document.getElementById(ID.UPLOAD_ACTION);
+        this.audioFileInput = document.getElementById(ID.AUDIO_FILE_INPUT);
+
+        // Selected Audio owns one File elsewhere; UI receives safe snapshots only.
+        this.#selectedController = selectedAudioController;
+        this.#selectedSnapshot = selectedAudioController?.getSnapshot?.()
+            || { state: SELECTED_AUDIO_STATES.IDLE };
+        this.#selectedWorkspace = document.getElementById(ID.SELECTED_AUDIO_WORKSPACE);
+        this.#selectedFile = document.getElementById(ID.SELECTED_AUDIO_FILE);
+        this.#selectedName = document.getElementById(ID.SELECTED_AUDIO_NAME);
+        this.#selectedMetadata = document.getElementById(ID.SELECTED_AUDIO_METADATA);
 
         // Token-free authentication presentation inside the Dynamic Island.
         this.authContext = document.getElementById(ID.AUTH_CONTEXT);
@@ -181,6 +209,33 @@ export class UI {
         if (this.retryAction) {
             this.retryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED));
         }
+        if (this.uploadAction) {
+            this.uploadAction.addEventListener('click', () => this.#openAudioPicker(false));
+        }
+        if (this.audioFileInput) {
+            this.audioFileInput.addEventListener('change', () => {
+                void this.#handleAudioPickerChange();
+            });
+            this.audioFileInput.addEventListener('cancel', () => this.#restoreDragPresentation());
+        }
+        if (this.#selectedWorkspace) {
+            this.#selectedWorkspace.addEventListener('click', event => {
+                const action = event.target.closest?.('[data-selected-action]')
+                    ?.dataset.selectedAction;
+                if (action) void this.#handleSelectedAudioAction(action);
+            });
+        }
+        if (!this.#dragRegistered && typeof document.addEventListener === 'function') {
+            document.addEventListener('dragover', event => this.#handleAudioDragOver(event));
+            document.addEventListener('dragleave', () => this.#restoreDragPresentation());
+            document.addEventListener('drop', event => {
+                void this.#handleAudioDrop(event);
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') this.#restoreDragPresentation();
+            });
+            this.#dragRegistered = true;
+        }
         if (this.authPrimaryAction) {
             this.authPrimaryAction.addEventListener('click', () => {
                 void this._handleAuthenticationAction(this.authPrimaryAction.dataset.authAction);
@@ -289,6 +344,13 @@ export class UI {
             this.hideSpinner();
         });
 
+        eventBus.on(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, (snapshot) => {
+            const previousState = this.#selectedSnapshot?.state;
+            this.#selectedSnapshot = snapshot;
+            this.#renderSelectedAudio(snapshot, previousState);
+            this.renderControls(this.currentState);
+        });
+
         eventBus.on(APP_EVENTS.API_REQUEST_ERROR, (data) => {
             this.hideSpinner();
             if (data?.code === API_ERROR_CODES.AUTHENTICATION_REQUIRED) {
@@ -333,7 +395,6 @@ export class UI {
                 this.visualizationController = null;
             }
             try {
-                const { VisualizationController } = await import('./visualization.js');
                 const { stream } = data;
                 const isDarkTheme = document.documentElement.classList.contains('dark-theme');
                 if (this.visualizer && stream) {
@@ -345,13 +406,7 @@ export class UI {
             }
         });
 
-        eventBus.on(APP_EVENTS.VISUALIZATION_STOP, () => {
-            if (this.visualizationController) {
-                this.visualizationController.stop();
-                this.visualizationController = null;
-            }
-            this.clearVisualization();
-        });
+        eventBus.on(APP_EVENTS.VISUALIZATION_STOP, () => this.stopVisualization());
 
         eventBus.on(APP_EVENTS.UI_TIMER_UPDATE, (data) => this.updateTimer(data.display));
         eventBus.on(APP_EVENTS.UI_TIMER_RESET, () => this.updateTimer('00:00'));
@@ -399,6 +454,141 @@ export class UI {
         }
     }
 
+    // ───────────────────────── Selected Audio ─────────────────────────
+
+    #openAudioPicker(replaceSelectedAudio) {
+        this.#restoreDragPresentation();
+        this.#replaceOnPick = Boolean(replaceSelectedAudio);
+        this.audioFileInput?.click?.();
+    }
+
+    async #handleAudioPickerChange() {
+        const files = Array.from(this.audioFileInput?.files || []);
+        try {
+            if (files.length !== 1) return;
+            if (this.#replaceOnPick) {
+                await this.#selectedController?.replace?.(files[0]);
+            } else if (this.#canSelectAudio(files.length === 1)) {
+                await this.#selectedController?.select?.(files[0]);
+            }
+        } finally {
+            this.#replaceOnPick = false;
+            if (this.audioFileInput) this.audioFileInput.value = '';
+            this.#restoreDragPresentation();
+        }
+    }
+
+    #handleAudioDragOver(event) {
+        const transfer = event.dataTransfer;
+        if (!transfer) return;
+        event.preventDefault();
+        if (!this.#canSelectAudio(
+            transfer.items.length === 1 && transfer.items[0].kind === 'file'
+        )) {
+            this.#restoreDragPresentation();
+            return;
+        }
+        this.transcriptBody?.classList.add('selected-audio-dragging');
+    }
+
+    async #handleAudioDrop(event) {
+        if (!event.dataTransfer) return;
+        event.preventDefault();
+        const files = Array.from(event.dataTransfer.files || []);
+        const accepted = this.#canSelectAudio(files.length === 1);
+        this.#restoreDragPresentation();
+        if (accepted) await this.#selectedController?.select?.(files[0]);
+    }
+
+    #canSelectAudio(singleFile) {
+        return singleFile
+            && this.currentState === RECORDING_STATES.IDLE
+            && this.ready
+            && this.#selectedSnapshot?.state === SELECTED_AUDIO_STATES.IDLE
+            && this.#selectedController?.canSelectAudio?.() === true;
+    }
+
+    #restoreDragPresentation() {
+        this.transcriptBody?.classList.remove('selected-audio-dragging');
+    }
+
+    async #handleSelectedAudioAction(action) {
+        if (action === 'transcribe' || action === 'retry') {
+            await this.#selectedController?.transcribe?.();
+        } else if (action === 'choose') {
+            this.#openAudioPicker(true);
+        } else if (action === 'remove') {
+            this.#selectedController?.remove?.();
+        }
+    }
+
+    #renderSelectedAudio(snapshot, previousState = SELECTED_AUDIO_STATES.IDLE) {
+        const state = snapshot?.state || SELECTED_AUDIO_STATES.IDLE;
+        const isIdle = state === SELECTED_AUDIO_STATES.IDLE;
+        if (this.#selectedWorkspace) this.#selectedWorkspace.hidden = isIdle;
+        if (this.transcriptElement) this.transcriptElement.hidden = !isIdle;
+        if (this.transcriptEmpty) this.transcriptEmpty.hidden = !isIdle;
+        if (this.transcriptActions) this.transcriptActions.hidden = !isIdle;
+        this.transcriptArea?.classList?.toggle('selected-audio-active', !isIdle);
+
+        if (isIdle) {
+            this.#restoreDragPresentation();
+            if (previousState !== SELECTED_AUDIO_STATES.TRANSCRIBING) {
+                this.uploadAction?.focus?.();
+            }
+            return;
+        }
+
+        if (this.#selectedName) this.#selectedName.textContent = snapshot.name || 'Selected audio';
+        if (this.#selectedMetadata) {
+            this.#selectedMetadata.textContent = this.#formatSelectedAudioMetadata(snapshot);
+        }
+        if (this.#selectedFile) {
+            this.#selectedFile.hidden = state === SELECTED_AUDIO_STATES.CHECKING;
+        }
+        const panelState = [SELECTED_AUDIO_STATES.READY, SELECTED_AUDIO_STATES.TOO_LARGE].includes(state)
+            ? `${state}-${snapshot.model}`
+            : state;
+        const panels = this.#selectedWorkspace?.querySelectorAll('[data-selected-state]') || [];
+        panels.forEach(panel => {
+            panel.hidden = panel.dataset.selectedState !== panelState;
+        });
+        const panel = this.#selectedWorkspace?.querySelector(`[data-selected-state="${panelState}"]`);
+        const verdict = panel?.querySelector('[data-selected-verdict]');
+        if (state === SELECTED_AUDIO_STATES.FAILED && verdict) {
+            verdict.textContent = snapshot.errorMessage || 'Azure request failed.';
+            const authFailure = [
+                API_ERROR_CODES.AUTHENTICATION_REQUIRED,
+                API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED
+            ].includes(snapshot.errorCode);
+            const retry = panel.querySelector('[data-selected-action="retry"]');
+            if (retry) retry.hidden = authFailure;
+        }
+        (panel?.querySelector('[data-selected-action]:not([hidden])')
+            || this.#selectedWorkspace)?.focus?.();
+    }
+
+    #formatSelectedAudioMetadata(snapshot) {
+        const duration = Number.isFinite(snapshot.duration)
+            ? this.#formatSelectedAudioDuration(snapshot.duration)
+            : 'Duration unavailable';
+        return `${duration} · ${this.#formatSelectedAudioSize(snapshot.size)} · ${snapshot.format || 'Unknown format'}`;
+    }
+
+    #formatSelectedAudioDuration(durationSeconds) {
+        const totalSeconds = Math.max(0, Math.round(durationSeconds));
+        return new Date(totalSeconds * 1000).toISOString()
+            .slice(totalSeconds >= 3600 ? 11 : 14, 19)
+            .replace(/^0/u, '');
+    }
+
+    #formatSelectedAudioSize(size) {
+        if (!Number.isFinite(size) || size < 0) return 'Size unavailable';
+        if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+        if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+        return `${size} bytes`;
+    }
+
     // ───────────────────────── Control rendering ─────────────────────────
 
     /**
@@ -416,6 +606,11 @@ export class UI {
      * @returns {void}
      */
     renderControls(state) {
+        if (this.#selectedSnapshot?.state !== SELECTED_AUDIO_STATES.IDLE) {
+            if (this.controlCluster) this.controlCluster.hidden = true;
+            return;
+        }
+        if (this.controlCluster) this.controlCluster.hidden = false;
         const authenticationConfig = this._authenticationControlConfig(state);
         const cfg = this._controlConfig(state);
 
@@ -427,6 +622,7 @@ export class UI {
                 this._applyButton(this.secondaryAction, { hidden: true });
                 this._applyButton(this.discardAction, { hidden: true });
                 this._applyButton(this.retryAction, { hidden: true });
+                this._applyButton(this.uploadAction, { hidden: true });
                 if (this.timerElement) this.timerElement.hidden = true;
                 this._setIslandState('island-auth');
                 this.controlCluster?.classList?.toggle('island-has-indicator', false);
@@ -440,6 +636,7 @@ export class UI {
             this._applyButton(this.secondaryAction, cfg.secondary);
             this._applyButton(this.discardAction, cfg.discard);
             this._applyButton(this.retryAction, cfg.retry);
+            this._applyButton(this.uploadAction, cfg.upload);
 
             if (this.primaryAction && this.primaryAction.classList) {
                 this.primaryAction.classList.toggle('recording', Boolean(cfg.primary.recording));
@@ -851,6 +1048,7 @@ export class UI {
         const hidden = Object.freeze({ hidden: true });
         const idle = {
             primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: !this.ready, recording: false },
+            upload: { label: 'Upload audio', hidden: false, disabled: !this.ready },
             secondary: hidden,
             discard: hidden,
             retry: hidden,
@@ -862,10 +1060,12 @@ export class UI {
         const busy = (label, spinner = false) => ({
             ...idle,
             primary: { label, hidden: false, disabled: true, recording: false },
+            upload: hidden,
             spinner
         });
         const active = (secondaryLabel) => ({
             primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
+            upload: hidden,
             secondary: { label: secondaryLabel, hidden: false },
             discard: { hidden: false },
             retry: hidden,
@@ -878,7 +1078,11 @@ export class UI {
             case S.PAUSED: return active(MESSAGES.CONTROL_RESUME);
             case S.CONFIRMING_DISCARD:
                 // The dialog owns the interaction; the cluster stays but inert.
-                return { ...idle, primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true } };
+                return {
+                    ...idle,
+                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true },
+                    upload: hidden
+                };
             case S.STOPPING: return busy(MESSAGES.CONTROL_FINISHING);
             case S.PROCESSING: return busy(MESSAGES.CONTROL_TRANSCRIBING, true);
             case S.CANCELLING: return busy(MESSAGES.CONTROL_START);
@@ -889,6 +1093,7 @@ export class UI {
                 return {
                     ...idle,
                     primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: false, recording: false },
+                    upload: hidden,
                     retry: { hidden: !this.canRetry, label: MESSAGES.RETRY_TRANSCRIPTION }
                 };
             case S.IDLE:
@@ -1078,12 +1283,6 @@ export class UI {
         eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: true });
         eventBus.emit(APP_EVENTS.APP_READY);
         return true;
-    }
-
-    enableMicrophoneAfterFix() {
-        if (this.checkRecordingPrerequisites()) {
-            logger.child('UI').info('Microphone re-enabled after fixing prerequisites');
-        }
     }
 
     // ───────────────────────── Status + transcript ─────────────────────────
@@ -1294,12 +1493,6 @@ export class UI {
     }
 
     // ───────────────────────── Settings + visualisation helpers ─────────────────────────
-
-    openSettingsModal() {
-        if (this.settings) {
-            this.settings.openSettingsModal();
-        }
-    }
 
     clearVisualization() {
         if (this.visualizer) {

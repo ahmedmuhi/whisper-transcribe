@@ -274,6 +274,8 @@ export class UserMenu {
             if (this.continueLogoutButton) this.continueLogoutButton.hidden = true;
         } else if (result?.state === AUDIO_SAFETY_STATES.ACTIVE) {
             this._setStatus('Finish or discard the recording before logging out.');
+        } else if (result?.state === AUDIO_SAFETY_STATES.SELECTED) {
+            this._setStatus('Remove Selected Audio before logging out.');
         } else if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
             this._setStatus(MESSAGES.LOGOUT_FAILED);
         }

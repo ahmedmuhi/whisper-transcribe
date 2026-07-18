@@ -4,6 +4,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     API_PARAMS,
     DEFAULT_FILENAME,
@@ -346,6 +347,20 @@ describe('AzureAPIClient model adapter registry', () => {
         });
     });
 
+    it('uses extension fallback for an empty-MIME local File without sending its local name', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
+        const audioFile = new File(['deterministic-placeholder'], 'local-choice.mp3');
+        mockTextResponse('Whisper text');
+
+        await apiClient.transcribe(audioFile);
+
+        expect(getFormEntry(API_PARAMS.FILE)).toEqual({
+            key: API_PARAMS.FILE,
+            value: audioFile,
+            filename: 'recording.mp3'
+        });
+    });
+
     it('rejects unsupported Whisper audio before token acquisition and fetch', async () => {
         const tokenProvider = createTokenProvider();
         const apiClient = new AzureAPIClient(createSettings(MODEL_TYPES.WHISPER), tokenProvider);
@@ -353,6 +368,20 @@ describe('AzureAPIClient model adapter registry', () => {
         await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/ogg' })))
             .rejects.toThrow('Unsupported audio MIME type for Whisper upload: audio/ogg.');
 
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('rejects a present unsupported MIME even when the local extension is supported', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(createSettings(MODEL_TYPES.WHISPER), tokenProvider);
+        const audioFile = new File(['deterministic-placeholder'], 'conflict.wav', {
+            type: 'audio/ogg'
+        });
+
+        await expect(apiClient.transcribe(audioFile)).rejects.toMatchObject({
+            code: AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE
+        });
         expect(tokenProvider.getToken).not.toHaveBeenCalled();
         expect(globalThis.fetch).not.toHaveBeenCalled();
     });
@@ -394,6 +423,24 @@ describe('AzureAPIClient model adapter registry', () => {
             combinedPhrases: [{ text: 'Combined output.' }],
             text: 'Text field output.'
         })).toBe('Combined output.');
+    });
+
+    it('rejects unsupported local audio before MAI conversion or fetch', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(
+            createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5),
+            tokenProvider
+        );
+        const audioFile = new File(['deterministic-placeholder'], 'unsupported.ogg', {
+            type: 'audio/ogg'
+        });
+
+        await expect(apiClient.transcribe(audioFile)).rejects.toMatchObject({
+            code: AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE
+        });
+        expect(convertToWav).not.toHaveBeenCalled();
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
     it('accepts MAI audio at the strict less-than-300-MB boundary after conversion', async () => {
