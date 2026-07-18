@@ -79,6 +79,7 @@ export class AudioHandler {
             eventBus.on(APP_EVENTS.DISCARD_CONFIRMED, () => this.confirmDiscard()),
             eventBus.on(APP_EVENTS.DISCARD_KEPT, () => this.keepRecording()),
             eventBus.on(APP_EVENTS.RETRY_BUTTON_CLICKED, () => this.retryPendingTranscription()),
+            eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => this.settings.openSettingsModal()),
         ];
     }
 

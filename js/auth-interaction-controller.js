@@ -13,6 +13,12 @@ const UNSENT_DISCARD_CONFIRMATION = Object.freeze({
     confirmLabel: 'Discard recording and sign in'
 });
 
+const UNSENT_LOGOUT_CONFIRMATION = Object.freeze({
+    title: 'Discard Unsent Recording?',
+    message: 'Discard the Unsent Recording and log out?',
+    confirmLabel: 'Discard recording and log out'
+});
+
 export class AuthInteractionController {
     constructor({ authenticationService, audioSafety, getScope, confirmDiscard }) {
         this.authenticationService = authenticationService;
@@ -81,6 +87,34 @@ export class AuthInteractionController {
             return { state };
         }
 
+        await this.authenticationService.signOutRedirect();
+        return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+    }
+
+    async continueLogoutAfterDownload() {
+        const state = this.#getAudioSafetyState();
+        if (!this.downloadInitiated || state !== AUDIO_SAFETY_STATES.UNSENT) {
+            return { state };
+        }
+        await this.authenticationService.signOutRedirect();
+        return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+    }
+
+    async discardUnsentAndLogOut() {
+        const state = this.#getAudioSafetyState();
+        if (state !== AUDIO_SAFETY_STATES.UNSENT) return { state };
+
+        const confirmed = await this.confirmDiscard?.(UNSENT_LOGOUT_CONFIRMATION);
+        if (!confirmed) return { state: AUTH_RECOVERY_STATES.CANCELLED };
+        if (!this.audioSafety.discardUnsentRecording()) {
+            return { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+
+        this.downloadInitiated = false;
+        const postDiscardState = this.#getAudioSafetyState();
+        if (postDiscardState !== AUDIO_SAFETY_STATES.SAFE) {
+            return { state: postDiscardState };
+        }
         await this.authenticationService.signOutRedirect();
         return { state: AUTH_RECOVERY_STATES.NAVIGATING };
     }

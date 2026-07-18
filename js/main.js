@@ -7,6 +7,7 @@ import { logger } from './logger.js';
 import { cleanupLegacyCredentials } from './legacy-credential-cleanup.js';
 import { createTokenProvider } from './token-provider.js';
 import { AuthInteractionController } from './auth-interaction-controller.js';
+import { UserMenu } from './user-menu.js';
 import { AUTH_PRESENTATION_STATES } from './constants.js';
 
 /**
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { AuthenticationService } = await import('./authentication-service.js');
     const authenticationService = new AuthenticationService();
+    const authenticationInitialization = authenticationService.initialize();
     const settings = new Settings();
     const transcriptStore = new TranscriptStore();
     const tokenProvider = createTokenProvider(authenticationService);
@@ -31,12 +33,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         confirmDiscard: (confirmation) => ui.confirmUnsentDiscard(confirmation)
     });
     ui = new UI({
-        authenticationState: AUTH_PRESENTATION_STATES.CHECKING,
+        authenticationState: authenticationService.getState?.()
+            ?? AUTH_PRESENTATION_STATES.CHECKING,
         authInteractionController
     });
+    const userMenu = new UserMenu({
+        authenticationService,
+        authInteractionController,
+        settings
+    });
+    settings.setUserMenu?.(userMenu);
 
     ui.init(settings, transcriptStore);
-    await authenticationService.initialize();
+    userMenu.init();
+    await authenticationInitialization;
 
     logger.info('Speech-to-Text App initialized');
 });

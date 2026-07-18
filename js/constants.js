@@ -45,7 +45,6 @@ export const STORAGE_KEYS = {
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
-  SIDEBAR_PINNED:        'sidebar_pinned',
   TRANSCRIPT_RECORD:     'transcript_record'
 };
 
@@ -179,20 +178,17 @@ export const CONTENT_TYPES = {
  * 
  * @constant {Object} ID
  * @readonly
- * @property {string} SETTINGS_BUTTON - Open settings modal button
  * @property {string} GRAB_TEXT_BUTTON - Copy transcription text button
  * @property {string} SAVE_SETTINGS - Save settings button
  * @property {string} THEME_TOGGLE - Theme switching toggle button
  * @property {string} STATUS - Status message display element
  * @property {string} TRANSCRIPT - Transcription text display area
  * @property {string} TIMER - Recording timer display element
- * @property {string} SETTINGS_MODAL - Settings configuration modal
  * @property {string} VISUALIZER - Audio visualization canvas element
  * @property {string} SPINNER_CONTAINER - Loading spinner container
  */
 export const ID = Object.freeze({
   // Buttons
-  SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
   RESTORE_BUTTON:   'restore-button',
   SAVE_SETTINGS:    'save-settings',
@@ -221,9 +217,7 @@ export const ID = Object.freeze({
   TRANSCRIPT:       'transcript',
   TIMER:            'timer',
 
-  // Modals & panes
-  SETTINGS_MODAL:   'settings-modal',
-  CLOSE_MODAL:      'close-modal',
+  // User-menu settings panes
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
 
@@ -234,11 +228,6 @@ export const ID = Object.freeze({
   WHISPER_URI:      'whisper-uri',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
 
-  // Side panel
-  SIDE_PANEL:       'side-panel',
-  PANEL_TOGGLE:     'panel-toggle',
-  PANEL_CLOSE:      'panel-close',
-  PANEL_BACKDROP:   'panel-backdrop',
   NOISE_TOGGLE:     'noise-toggle',
   INPUT_DEVICE:     'input-device',
 
