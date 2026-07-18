@@ -16,6 +16,7 @@ import {
     ID,
     TRANSCRIPT_SEGMENT_DIVIDER,
     RECORDING_STATES,
+    SELECTED_AUDIO_STATES,
     STATUS_TYPE_CLASSES
 } from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
@@ -42,11 +43,19 @@ export class UI {
     constructor({
         authenticationState = AUTH_PRESENTATION_STATES.READY,
         authInteractionController = null,
+        selectedAudioController = null,
+        audioSourceCoordinator = null,
         openHelp = null
     } = {}) {
         // Transcript + status + visualiser
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
+        this.transcriptArea = document.querySelector?.('.transcript-area') || null;
+        this.transcriptBody = document.querySelector?.('.transcript-body') || null;
+        this.transcriptEmpty = document.querySelector?.('.transcript-empty') || null;
+        this.transcriptEmptyTitle = document.querySelector?.('.transcript-empty-title') || null;
+        this.transcriptEmptyHint = document.querySelector?.('.transcript-empty-hint') || null;
+        this.transcriptActions = document.querySelector?.('.transcript-actions') || null;
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
         this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
         this.timerElement = document.getElementById(ID.TIMER);
@@ -60,6 +69,26 @@ export class UI {
         this.secondaryAction = document.getElementById(ID.SECONDARY_ACTION);
         this.discardAction = document.getElementById(ID.DISCARD_ACTION);
         this.retryAction = document.getElementById(ID.RETRY_ACTION);
+        this.uploadAction = document.getElementById(ID.UPLOAD_ACTION);
+        this.audioFileInput = document.getElementById(ID.AUDIO_FILE_INPUT);
+
+        // Selected Audio owns one File elsewhere; UI receives safe snapshots only.
+        this.selectedAudioController = selectedAudioController;
+        this.audioSourceCoordinator = audioSourceCoordinator;
+        this.selectedAudioSnapshot = selectedAudioController?.getSnapshot?.()
+            || { state: SELECTED_AUDIO_STATES.IDLE };
+        this.selectedAudioWorkspace = document.getElementById(ID.SELECTED_AUDIO_WORKSPACE);
+        this.selectedAudioFile = document.getElementById(ID.SELECTED_AUDIO_FILE);
+        this.selectedAudioName = document.getElementById(ID.SELECTED_AUDIO_NAME);
+        this.selectedAudioMetadata = document.getElementById(ID.SELECTED_AUDIO_METADATA);
+        this.selectedAudioProgress = document.getElementById(ID.SELECTED_AUDIO_PROGRESS);
+        this.selectedAudioProgressTitle = document.getElementById(ID.SELECTED_AUDIO_PROGRESS_TITLE);
+        this.selectedAudioVerdict = document.getElementById(ID.SELECTED_AUDIO_VERDICT);
+        this.selectedAudioNote = document.getElementById(ID.SELECTED_AUDIO_NOTE);
+        this.selectedAudioPrimary = document.getElementById(ID.SELECTED_AUDIO_PRIMARY);
+        this.selectedAudioRemove = document.getElementById(ID.SELECTED_AUDIO_REMOVE);
+        this._replaceSelectedAudioOnPick = false;
+        this._audioDragRegistered = false;
 
         // Token-free authentication presentation inside the Dynamic Island.
         this.authContext = document.getElementById(ID.AUTH_CONTEXT);
@@ -181,6 +210,36 @@ export class UI {
         if (this.retryAction) {
             this.retryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED));
         }
+        if (this.uploadAction) {
+            this.uploadAction.addEventListener('click', () => this._openAudioPicker(false));
+        }
+        if (this.audioFileInput) {
+            this.audioFileInput.addEventListener('change', () => {
+                void this._handleAudioPickerChange();
+            });
+            this.audioFileInput.addEventListener('cancel', () => this._restoreDragPresentation());
+        }
+        if (this.selectedAudioPrimary) {
+            this.selectedAudioPrimary.addEventListener('click', () => {
+                void this._handleSelectedAudioPrimary();
+            });
+        }
+        if (this.selectedAudioRemove) {
+            this.selectedAudioRemove.addEventListener('click', () => {
+                this.selectedAudioController?.remove?.();
+            });
+        }
+        if (!this._audioDragRegistered && typeof document.addEventListener === 'function') {
+            document.addEventListener('dragover', event => this._handleAudioDragOver(event));
+            document.addEventListener('dragleave', () => this._restoreDragPresentation());
+            document.addEventListener('drop', event => {
+                void this._handleAudioDrop(event);
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') this._restoreDragPresentation();
+            });
+            this._audioDragRegistered = true;
+        }
         if (this.authPrimaryAction) {
             this.authPrimaryAction.addEventListener('click', () => {
                 void this._handleAuthenticationAction(this.authPrimaryAction.dataset.authAction);
@@ -287,6 +346,13 @@ export class UI {
         eventBus.on(APP_EVENTS.UI_TRANSCRIPTION_READY, (data) => {
             this.displayTranscription(data.text);
             this.hideSpinner();
+        });
+
+        eventBus.on(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, (snapshot) => {
+            const previousState = this.selectedAudioSnapshot?.state;
+            this.selectedAudioSnapshot = snapshot;
+            this._renderSelectedAudio(snapshot, previousState);
+            this.renderControls(this.currentState);
         });
 
         eventBus.on(APP_EVENTS.API_REQUEST_ERROR, (data) => {
@@ -399,6 +465,200 @@ export class UI {
         }
     }
 
+    // ───────────────────────── Selected Audio ─────────────────────────
+
+    _openAudioPicker(replaceSelectedAudio) {
+        this._restoreDragPresentation();
+        this._replaceSelectedAudioOnPick = Boolean(replaceSelectedAudio);
+        this.audioFileInput?.click?.();
+    }
+
+    async _handleAudioPickerChange() {
+        const files = Array.from(this.audioFileInput?.files || []);
+        try {
+            if (files.length !== 1) return;
+            if (this._replaceSelectedAudioOnPick) {
+                await this.selectedAudioController?.replace?.(files[0]);
+            } else if (this._canAcceptSelectedAudio(files)) {
+                await this.selectedAudioController?.select?.(files[0]);
+            }
+        } finally {
+            this._replaceSelectedAudioOnPick = false;
+            if (this.audioFileInput) this.audioFileInput.value = '';
+            this._restoreDragPresentation();
+        }
+    }
+
+    _handleAudioDragOver(event) {
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (!event.dataTransfer) return;
+        event.preventDefault();
+        if (!this._canAcceptSelectedAudio(files)) {
+            this._restoreDragPresentation();
+            return;
+        }
+        event.dataTransfer.dropEffect = 'copy';
+        this.transcriptBody?.classList?.add('selected-audio-dragging');
+        if (this.transcriptEmptyTitle) this.transcriptEmptyTitle.textContent = 'Drop an audio file here';
+        if (this.transcriptEmptyHint) this.transcriptEmptyHint.textContent = '';
+    }
+
+    async _handleAudioDrop(event) {
+        if (!event.dataTransfer) return;
+        event.preventDefault();
+        const files = Array.from(event.dataTransfer.files || []);
+        const accepted = this._canAcceptSelectedAudio(files);
+        this._restoreDragPresentation();
+        if (accepted) await this.selectedAudioController?.select?.(files[0]);
+    }
+
+    _canAcceptSelectedAudio(files) {
+        return files.length === 1
+            && this.currentState === RECORDING_STATES.IDLE
+            && this.ready
+            && this.selectedAudioSnapshot?.state === SELECTED_AUDIO_STATES.IDLE
+            && this.audioSourceCoordinator?.canSelectAudio?.() === true;
+    }
+
+    _restoreDragPresentation() {
+        this.transcriptBody?.classList?.remove('selected-audio-dragging');
+        if (this.transcriptEmptyTitle) this.transcriptEmptyTitle.textContent = 'Record or upload audio';
+        if (this.transcriptEmptyHint) this.transcriptEmptyHint.textContent = 'Drop an audio file here';
+    }
+
+    async _handleSelectedAudioPrimary() {
+        const action = this.selectedAudioPrimary?.dataset?.selectedAction;
+        if (action === 'transcribe' || action === 'retry') {
+            await this.selectedAudioController?.transcribe?.();
+        } else if (action === 'choose') {
+            this._openAudioPicker(true);
+        }
+    }
+
+    _renderSelectedAudio(snapshot, previousState = SELECTED_AUDIO_STATES.IDLE) {
+        const state = snapshot?.state || SELECTED_AUDIO_STATES.IDLE;
+        const isIdle = state === SELECTED_AUDIO_STATES.IDLE;
+        if (this.selectedAudioWorkspace) this.selectedAudioWorkspace.hidden = isIdle;
+        if (this.transcriptElement) this.transcriptElement.hidden = !isIdle;
+        if (this.transcriptEmpty) this.transcriptEmpty.hidden = !isIdle;
+        if (this.transcriptActions) this.transcriptActions.hidden = !isIdle;
+        this.transcriptArea?.classList?.toggle('selected-audio-active', !isIdle);
+
+        if (isIdle) {
+            this._restoreDragPresentation();
+            if (previousState !== SELECTED_AUDIO_STATES.TRANSCRIBING) {
+                this.uploadAction?.focus?.();
+            }
+            return;
+        }
+
+        if (this.selectedAudioName) this.selectedAudioName.textContent = snapshot.name || 'Selected audio';
+        if (this.selectedAudioMetadata) {
+            this.selectedAudioMetadata.textContent = this._formatSelectedAudioMetadata(snapshot);
+        }
+        if (this.selectedAudioFile) {
+            this.selectedAudioFile.hidden = state === SELECTED_AUDIO_STATES.CHECKING;
+        }
+        if (this.selectedAudioProgress) {
+            this.selectedAudioProgress.hidden = ![
+                SELECTED_AUDIO_STATES.CHECKING,
+                SELECTED_AUDIO_STATES.TRANSCRIBING
+            ].includes(state);
+        }
+        if (this.selectedAudioVerdict) {
+            this.selectedAudioVerdict.textContent = '';
+            this.selectedAudioVerdict.classList.remove('selected-audio-verdict-error');
+            this.selectedAudioVerdict.setAttribute('role', 'status');
+        }
+        if (this.selectedAudioNote) this.selectedAudioNote.textContent = '';
+        if (this.selectedAudioProgressTitle) this.selectedAudioProgressTitle.textContent = '';
+
+        let primary = { hidden: true };
+        let remove = { hidden: true };
+        if (state === SELECTED_AUDIO_STATES.CHECKING) {
+            if (this.selectedAudioProgressTitle) {
+                this.selectedAudioProgressTitle.textContent = 'Checking format and file size…';
+            }
+            if (this.selectedAudioNote) this.selectedAudioNote.textContent = 'Nothing has been sent to Azure.';
+        } else if (state === SELECTED_AUDIO_STATES.READY) {
+            if (this.selectedAudioVerdict) {
+                this.selectedAudioVerdict.textContent = `Ready for ${snapshot.modelLabel}`;
+            }
+            primary = { label: 'Transcribe', action: 'transcribe' };
+            remove = { label: 'Remove' };
+        } else if (state === SELECTED_AUDIO_STATES.UNSUPPORTED) {
+            this._setSelectedAudioError('Unsupported audio file. Choose MP3, MP4, MPEG/MPGA, M4A, WAV, or WebM.');
+            primary = { label: 'Choose another', action: 'choose' };
+            remove = { label: 'Remove' };
+        } else if (state === SELECTED_AUDIO_STATES.TOO_LARGE) {
+            const size = this._formatSelectedAudioSize(snapshot.size);
+            const limit = snapshot.model === 'whisper' ? '25 MB maximum' : 'under 300 MB after conversion';
+            this._setSelectedAudioError(
+                `${size} is too large for ${snapshot.modelLabel} (${limit}).`
+            );
+            primary = { label: 'Choose another', action: 'choose' };
+            remove = { label: 'Remove' };
+        } else if (state === SELECTED_AUDIO_STATES.TRANSCRIBING) {
+            if (this.selectedAudioProgressTitle) {
+                this.selectedAudioProgressTitle.textContent = 'Sending and transcribing…';
+            }
+            if (this.selectedAudioNote) {
+                this.selectedAudioNote.textContent = 'Azure does not provide a reliable percentage; progress remains indeterminate.';
+            }
+        } else if (state === SELECTED_AUDIO_STATES.FAILED) {
+            this._setSelectedAudioError(snapshot.errorMessage || 'Azure request failed.');
+            const authFailure = [
+                API_ERROR_CODES.AUTHENTICATION_REQUIRED,
+                API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED
+            ].includes(snapshot.errorCode);
+            primary = authFailure
+                ? { hidden: true }
+                : { label: 'Retry', action: 'retry' };
+            remove = { label: 'Remove' };
+        }
+
+        this._applyButton(this.selectedAudioPrimary, primary);
+        if (this.selectedAudioPrimary?.dataset) {
+            this.selectedAudioPrimary.dataset.selectedAction = primary.action || '';
+        }
+        this._applyButton(this.selectedAudioRemove, remove);
+        if (!primary.hidden) this.selectedAudioPrimary?.focus?.();
+        else if (!remove.hidden && state === SELECTED_AUDIO_STATES.FAILED) {
+            this.selectedAudioRemove?.focus?.();
+        }
+    }
+
+    _setSelectedAudioError(message) {
+        if (!this.selectedAudioVerdict) return;
+        this.selectedAudioVerdict.textContent = message;
+        this.selectedAudioVerdict.classList.add('selected-audio-verdict-error');
+        this.selectedAudioVerdict.setAttribute('role', 'alert');
+    }
+
+    _formatSelectedAudioMetadata(snapshot) {
+        const duration = Number.isFinite(snapshot.duration)
+            ? this._formatSelectedAudioDuration(snapshot.duration)
+            : 'Duration unavailable';
+        return `${duration} · ${this._formatSelectedAudioSize(snapshot.size)} · ${snapshot.format || 'Unknown format'}`;
+    }
+
+    _formatSelectedAudioDuration(durationSeconds) {
+        const totalSeconds = Math.max(0, Math.round(durationSeconds));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return hours > 0
+            ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+            : `${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    _formatSelectedAudioSize(size) {
+        if (!Number.isFinite(size) || size < 0) return 'Size unavailable';
+        if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+        if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
+        return `${size} bytes`;
+    }
+
     // ───────────────────────── Control rendering ─────────────────────────
 
     /**
@@ -416,6 +676,11 @@ export class UI {
      * @returns {void}
      */
     renderControls(state) {
+        if (this.selectedAudioSnapshot?.state !== SELECTED_AUDIO_STATES.IDLE) {
+            if (this.controlCluster) this.controlCluster.hidden = true;
+            return;
+        }
+        if (this.controlCluster) this.controlCluster.hidden = false;
         const authenticationConfig = this._authenticationControlConfig(state);
         const cfg = this._controlConfig(state);
 
@@ -427,6 +692,7 @@ export class UI {
                 this._applyButton(this.secondaryAction, { hidden: true });
                 this._applyButton(this.discardAction, { hidden: true });
                 this._applyButton(this.retryAction, { hidden: true });
+                this._applyButton(this.uploadAction, { hidden: true });
                 if (this.timerElement) this.timerElement.hidden = true;
                 this._setIslandState('island-auth');
                 this.controlCluster?.classList?.toggle('island-has-indicator', false);
@@ -440,6 +706,7 @@ export class UI {
             this._applyButton(this.secondaryAction, cfg.secondary);
             this._applyButton(this.discardAction, cfg.discard);
             this._applyButton(this.retryAction, cfg.retry);
+            this._applyButton(this.uploadAction, cfg.upload);
 
             if (this.primaryAction && this.primaryAction.classList) {
                 this.primaryAction.classList.toggle('recording', Boolean(cfg.primary.recording));
@@ -851,6 +1118,7 @@ export class UI {
         const hidden = Object.freeze({ hidden: true });
         const idle = {
             primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: !this.ready, recording: false },
+            upload: { label: 'Upload audio', hidden: false, disabled: !this.ready },
             secondary: hidden,
             discard: hidden,
             retry: hidden,
@@ -862,10 +1130,12 @@ export class UI {
         const busy = (label, spinner = false) => ({
             ...idle,
             primary: { label, hidden: false, disabled: true, recording: false },
+            upload: hidden,
             spinner
         });
         const active = (secondaryLabel) => ({
             primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: false, recording: true },
+            upload: hidden,
             secondary: { label: secondaryLabel, hidden: false },
             discard: { hidden: false },
             retry: hidden,
@@ -878,7 +1148,11 @@ export class UI {
             case S.PAUSED: return active(MESSAGES.CONTROL_RESUME);
             case S.CONFIRMING_DISCARD:
                 // The dialog owns the interaction; the cluster stays but inert.
-                return { ...idle, primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true } };
+                return {
+                    ...idle,
+                    primary: { label: MESSAGES.CONTROL_DONE, hidden: false, disabled: true, recording: true },
+                    upload: hidden
+                };
             case S.STOPPING: return busy(MESSAGES.CONTROL_FINISHING);
             case S.PROCESSING: return busy(MESSAGES.CONTROL_TRANSCRIBING, true);
             case S.CANCELLING: return busy(MESSAGES.CONTROL_START);
@@ -889,6 +1163,7 @@ export class UI {
                 return {
                     ...idle,
                     primary: { label: MESSAGES.CONTROL_START, hidden: false, disabled: false, recording: false },
+                    upload: hidden,
                     retry: { hidden: !this.canRetry, label: MESSAGES.RETRY_TRANSCRIPTION }
                 };
             case S.IDLE:

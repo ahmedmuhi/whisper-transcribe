@@ -9,6 +9,8 @@ import { createTokenProvider } from './token-provider.js';
 import { AuthInteractionController } from './auth-interaction-controller.js';
 import { UserMenu } from './user-menu.js';
 import { AUTH_PRESENTATION_STATES } from './constants.js';
+import { SelectedAudioController } from './selected-audio-controller.js';
+import { AudioSourceCoordinator } from './audio-source-coordinator.js';
 
 /**
  * @fileoverview Application entry point: initializes core modules on DOMContentLoaded.
@@ -25,17 +27,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tokenProvider = createTokenProvider(authenticationService);
     const apiClient = new AzureAPIClient(settings, tokenProvider);
     const audioHandler = new AudioHandler(apiClient, settings, authenticationService);
+    const selectedAudioController = new SelectedAudioController({
+        settings,
+        authenticationReadiness: authenticationService,
+        apiClient,
+        recordingSafety: audioHandler
+    });
+    const audioSourceCoordinator = new AudioSourceCoordinator({
+        recordingSafety: audioHandler,
+        selectedAudio: selectedAudioController
+    });
+    audioHandler.setAudioSourceCoordinator?.(audioSourceCoordinator);
     let ui;
     const authInteractionController = new AuthInteractionController({
         authenticationService,
-        audioSafety: audioHandler,
+        audioSafety: audioSourceCoordinator,
         getScope: () => apiClient.getScopeForModel(settings.getCurrentModel()),
         confirmDiscard: (confirmation) => ui.confirmUnsentDiscard(confirmation)
     });
     ui = new UI({
         authenticationState: authenticationService.getState?.()
             ?? AUTH_PRESENTATION_STATES.CHECKING,
-        authInteractionController
+        authInteractionController,
+        selectedAudioController,
+        audioSourceCoordinator
     });
     const userMenu = new UserMenu({
         authenticationService,

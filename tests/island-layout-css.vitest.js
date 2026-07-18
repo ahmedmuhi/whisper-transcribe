@@ -32,3 +32,14 @@ describe('User menu responsive layout CSS', () => {
         expect(css).not.toMatch(/side-panel|sidebar-pinned|panel-backdrop|panel-toggle/);
     });
 });
+
+describe('Selected Audio responsive layout CSS', () => {
+    it('bounds the review workspace and stacks actions at phone widths', () => {
+        expect(css).toMatch(/\.selected-audio-workspace\s*\{[^}]*width:\s*min\([^;]*100%/s);
+        expect(css).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*\.selected-audio-actions\s*\{[^}]*width:\s*100%/s);
+    });
+
+    it('collapses Selected Audio progress animation for reduced motion', () => {
+        expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.selected-audio-dot[\s\S]*animation:\s*none\s*!important/s);
+    });
+});

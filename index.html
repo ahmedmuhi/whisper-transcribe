@@ -69,17 +69,38 @@
                 <!-- Onboarding empty-state: calmer than a bare placeholder. Hidden by
                      CSS once the textarea holds text (:placeholder-shown sibling). -->
                 <div class="transcript-empty" aria-hidden="true">
-                    <span class="transcript-empty-mark">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                        </svg>
-                    </span>
-                    <p class="transcript-empty-title">Nothing transcribed yet</p>
-                    <p class="transcript-empty-hint">Tap the island below to start recording — your words land here.</p>
+                    <p class="transcript-empty-title">Record or upload audio</p>
+                    <p class="transcript-empty-hint">Drop an audio file here</p>
                 </div>
+                <section id="selected-audio-workspace" class="selected-audio-workspace"
+                         aria-labelledby="selected-audio-heading" tabindex="-1" hidden>
+                    <p id="selected-audio-heading" class="selected-audio-eyebrow">Selected Audio</p>
+                    <div id="selected-audio-file" class="selected-audio-file" hidden>
+                        <span class="selected-audio-file-mark" aria-hidden="true">♪</span>
+                        <span class="selected-audio-file-copy">
+                            <strong id="selected-audio-name"></strong>
+                            <small id="selected-audio-metadata"></small>
+                        </span>
+                    </div>
+                    <div id="selected-audio-progress" class="selected-audio-progress" role="status" hidden>
+                        <span class="selected-audio-dots" aria-hidden="true">
+                            <span class="selected-audio-dot"></span>
+                            <span class="selected-audio-dot"></span>
+                            <span class="selected-audio-dot"></span>
+                        </span>
+                        <strong id="selected-audio-progress-title"></strong>
+                    </div>
+                    <div id="selected-audio-verdict" class="selected-audio-verdict" role="status"></div>
+                    <p id="selected-audio-note" class="selected-audio-note"></p>
+                    <div class="selected-audio-actions">
+                        <button id="selected-audio-primary" type="button" class="btn btn-primary" hidden>
+                            <span class="btn-label"></span>
+                        </button>
+                        <button id="selected-audio-remove" type="button" class="btn btn-secondary" hidden>
+                            <span class="btn-label">Remove</span>
+                        </button>
+                    </div>
+                </section>
             </div>
         </div>
 
@@ -90,6 +111,9 @@
             </div>
 
             <div id="status" class="status" aria-live="polite">Loading...</div>
+
+            <input id="audio-file-input" class="sr-only" type="file"
+                   accept="audio/mp3,audio/mpeg,audio/mpga,audio/mp4,audio/m4a,audio/x-m4a,audio/wav,audio/wave,audio/x-wav,audio/webm,.mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm">
 
             <!-- Dynamic Island: a single pill that reshapes by FSM state, with its
                  contents cross-fading between compact and expanded forms. -->
@@ -119,6 +143,10 @@
                         <line x1="8" y1="23" x2="16" y2="23"></line>
                     </svg>
                     <span class="btn-label">Start recording</span>
+                </button>
+
+                <button id="upload-action" class="btn btn-secondary" hidden disabled>
+                    <span class="btn-label">Upload audio</span>
                 </button>
 
                 <button id="secondary-action" class="btn btn-secondary" hidden>
