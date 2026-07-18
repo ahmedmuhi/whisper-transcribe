@@ -9,10 +9,13 @@ import { cleanupLegacyCredentials } from './legacy-credential-cleanup.js';
 /**
  * @fileoverview Application entry point: initializes core modules on DOMContentLoaded.
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     cleanupLegacyCredentials();
     logger.info('Initializing Speech-to-Text App...');
 
+    const { AuthenticationService } = await import('./authentication-service.js');
+    const authenticationService = new AuthenticationService();
+    await authenticationService.initialize();
     const settings = new Settings();
     const transcriptStore = new TranscriptStore();
     const ui = new UI();

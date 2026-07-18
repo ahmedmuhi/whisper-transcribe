@@ -4,7 +4,7 @@
 
 const IDENTIFIER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NON_TENANT_AUTHORITIES = new Set(['common', 'organizations', 'consumers']);
-const CONFIGURATION_ERROR_MESSAGE = 'Microsoft Entra authentication is not configured.';
+import { MESSAGES } from './constants.js';
 
 export const AUTHENTICATION_ERROR_CODES = Object.freeze({
     CONFIGURATION_INVALID: 'authentication-configuration-invalid'
@@ -14,7 +14,7 @@ export const COGNITIVE_SERVICES_SCOPE = 'https://cognitiveservices.azure.com/.de
 
 class AuthenticationConfigurationError extends Error {
     constructor() {
-        super(CONFIGURATION_ERROR_MESSAGE);
+        super(MESSAGES.AUTHENTICATION_NOT_CONFIGURED);
         this.name = 'AuthenticationConfigurationError';
         this.code = AUTHENTICATION_ERROR_CODES.CONFIGURATION_INVALID;
     }

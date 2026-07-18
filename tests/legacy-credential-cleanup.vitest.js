@@ -21,6 +21,18 @@ const loggerMock = vi.hoisted(() => {
 });
 
 vi.mock('../js/logger.js', () => ({ logger: loggerMock }));
+vi.mock('../js/authentication-service.js', () => ({
+    AuthenticationService: class AuthenticationService {
+        constructor() {
+            bootstrapOrder.push('authentication:construct');
+        }
+
+        async initialize() {
+            bootstrapOrder.push('authentication:initialize');
+            localStorage.getItem('fake_msal_cache_entry');
+        }
+    }
+}));
 vi.mock('../js/settings.js', () => ({
     Settings: class Settings {
         constructor() {
@@ -171,11 +183,14 @@ describe('legacy credential cleanup', () => {
             .findLast(([eventName]) => eventName === 'DOMContentLoaded')?.[1];
         expect(bootstrap).toBeTypeOf('function');
 
-        bootstrap();
+        await bootstrap();
 
-        expect(bootstrapOrder.slice(0, 3)).toEqual([
+        expect(bootstrapOrder.slice(0, 6)).toEqual([
             'remove:whisper_api_key',
             'remove:mai_transcribe_api_key',
+            'authentication:construct',
+            'authentication:initialize',
+            'read:fake_msal_cache_entry',
             'settings:construct'
         ]);
         expect(bootstrapOrder.indexOf('settings:construct'))

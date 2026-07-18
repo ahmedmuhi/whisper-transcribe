@@ -125,6 +125,18 @@ export const AUDIO_UPLOAD_LIMIT_ERROR_CODE = 'audio-upload-limit-exceeded';
  */
 export const DEFAULT_MODEL_TYPE = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
 
+/** Safe authentication states exposed across module boundaries. */
+export const AUTHENTICATION_STATES = Object.freeze({
+  UNINITIALIZED: 'uninitialized',
+  INITIALIZING: 'initializing',
+  READY: 'ready',
+  SIGNED_OUT: 'signed-out',
+  INTERACTION_REQUIRED: 'interaction-required',
+  CONFIGURATION_ERROR: 'configuration-error',
+  NETWORK_ERROR: 'network-error',
+  AUTHENTICATION_ERROR: 'authentication-error'
+});
+
 /**
  * HTTP method constants for API requests.
  * 
@@ -330,6 +342,8 @@ export const MESSAGES = {
   CONFIGURE_AZURE: 'Please configure Azure OpenAI settings',
   FILL_REQUIRED_FIELDS: 'Please fill in all required fields',
   SETTINGS_SAVED: 'Settings saved',
+  AUTHENTICATION_NOT_CONFIGURED: 'Microsoft Entra authentication is not configured.',
+  AUTHENTICATION_TOKEN_UNAVAILABLE: 'Microsoft Entra authentication could not provide a token.',
   
   // API Validation
   API_KEY_REQUIRED: 'API key is required',

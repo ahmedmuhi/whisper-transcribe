@@ -11,6 +11,18 @@ export default defineConfig(({ mode }) => ({
             input: {
                 main: resolve(projectRoot, 'index.html'),
                 redirect: resolve(projectRoot, 'auth/redirect.html')
+            },
+            output: {
+                manualChunks(moduleId) {
+                    const normalizedId = moduleId.replaceAll('\\', '/');
+                    if (
+                        normalizedId.endsWith('/js/authentication-service.js') ||
+                        normalizedId.includes('/node_modules/@azure/msal-')
+                    ) {
+                        return 'authentication';
+                    }
+                    return undefined;
+                }
             }
         }
     }
