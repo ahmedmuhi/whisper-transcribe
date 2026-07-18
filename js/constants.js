@@ -203,69 +203,47 @@ export const CONTENT_TYPES = {
  * @property {string} SPINNER_CONTAINER - Loading spinner container
  */
 export const ID = Object.freeze({
-  // Buttons
   GRAB_TEXT_BUTTON: 'grab-text-button',
-  RESTORE_BUTTON:   'restore-button',
-  SAVE_SETTINGS:    'save-settings',
-  THEME_TOGGLE:     'theme-toggle',
-
-  // Guided-morph control cluster + discard dialog
-  CONTROL_CLUSTER:     'control-cluster',
-  PRIMARY_ACTION:      'primary-action',
-  SECONDARY_ACTION:    'secondary-action',
-  DISCARD_ACTION:      'discard-action',
-  RETRY_ACTION:        'retry-action',
-  UPLOAD_ACTION:       'upload-action',
-  AUDIO_FILE_INPUT:    'audio-file-input',
-  DISCARD_DIALOG:      'discard-dialog',
+  RESTORE_BUTTON: 'restore-button',
+  SAVE_SETTINGS: 'save-settings',
+  THEME_TOGGLE: 'theme-toggle',
+  CONTROL_CLUSTER: 'control-cluster',
+  PRIMARY_ACTION: 'primary-action',
+  SECONDARY_ACTION: 'secondary-action',
+  DISCARD_ACTION: 'discard-action',
+  RETRY_ACTION: 'retry-action',
+  UPLOAD_ACTION: 'upload-action',
+  AUDIO_FILE_INPUT: 'audio-file-input',
+  DISCARD_DIALOG: 'discard-dialog',
   DISCARD_DIALOG_TITLE: 'discard-dialog-title',
   DISCARD_DIALOG_BODY: 'discard-dialog-body',
-  DISCARD_KEEP:        'discard-keep',
-  DISCARD_CONFIRM:     'discard-confirm',
-  AUTH_CONTEXT:        'auth-context',
-  AUTH_CONTEXT_TITLE:  'auth-context-title',
-  AUTH_CONTEXT_BODY:   'auth-context-body',
-  AUTH_CONTEXT_NOTE:   'auth-context-note',
+  DISCARD_KEEP: 'discard-keep',
+  DISCARD_CONFIRM: 'discard-confirm',
+  AUTH_CONTEXT: 'auth-context',
+  AUTH_CONTEXT_TITLE: 'auth-context-title',
+  AUTH_CONTEXT_BODY: 'auth-context-body',
+  AUTH_CONTEXT_NOTE: 'auth-context-note',
   AUTH_PRIMARY_ACTION: 'auth-primary-action',
   AUTH_SECONDARY_ACTION: 'auth-secondary-action',
   SELECTED_AUDIO_WORKSPACE: 'selected-audio-workspace',
   SELECTED_AUDIO_FILE: 'selected-audio-file',
   SELECTED_AUDIO_NAME: 'selected-audio-name',
   SELECTED_AUDIO_METADATA: 'selected-audio-metadata',
-  SELECTED_AUDIO_PROGRESS: 'selected-audio-progress',
-  SELECTED_AUDIO_PROGRESS_TITLE: 'selected-audio-progress-title',
-  SELECTED_AUDIO_VERDICT: 'selected-audio-verdict',
-  SELECTED_AUDIO_NOTE: 'selected-audio-note',
-  SELECTED_AUDIO_PRIMARY: 'selected-audio-primary',
-  SELECTED_AUDIO_REMOVE: 'selected-audio-remove',
-
-  // Status & text areas
-  STATUS:           'status',
-  TRANSCRIPT:       'transcript',
-  TIMER:            'timer',
-
-  // User-menu settings panes
+  STATUS: 'status',
+  TRANSCRIPT: 'transcript',
+  TIMER: 'timer',
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
-
-  // Selectors / inputs
-  MODEL_SELECT:     'model-select',
+  MODEL_SELECT: 'model-select',
   SETTINGS_MODEL_SELECT: 'settings-model-select',
   RECORDING_ENVIRONMENT: 'recording-environment',
-  WHISPER_URI:      'whisper-uri',
+  WHISPER_URI: 'whisper-uri',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
-
-  NOISE_TOGGLE:     'noise-toggle',
-  INPUT_DEVICE:     'input-device',
-
-  // Canvas / visualiser
-  VISUALIZER:       'visualizer',
-
-  // Icons
-  MOON_ICON:        'moon-icon',
-  SUN_ICON:         'sun-icon',
-
-  // Misc
+  NOISE_TOGGLE: 'noise-toggle',
+  INPUT_DEVICE: 'input-device',
+  VISUALIZER: 'visualizer',
+  MOON_ICON: 'moon-icon',
+  SUN_ICON: 'sun-icon',
   SPINNER_CONTAINER: 'spinner-container'
 });
 
@@ -286,28 +264,18 @@ export const DEFAULT_LANGUAGE  = 'en';
 export const DEFAULT_FILENAME      = 'recording.webm';
 export const DEFAULT_WAV_FILENAME  = 'recording.wav';
 
-const AUDIO_FORMATS_BY_MIME_TYPE = Object.freeze({
-  'audio/mp3': Object.freeze({ format: 'MP3', extension: 'mp3' }),
-  'audio/mpeg': Object.freeze({ format: 'MPEG', extension: 'mpeg' }),
-  'audio/mpga': Object.freeze({ format: 'MPGA', extension: 'mpga' }),
-  'audio/mp4': Object.freeze({ format: 'MP4', extension: 'mp4' }),
-  'audio/m4a': Object.freeze({ format: 'M4A', extension: 'm4a' }),
-  'audio/x-m4a': Object.freeze({ format: 'M4A', extension: 'm4a' }),
-  'audio/wav': Object.freeze({ format: 'WAV', extension: 'wav' }),
-  'audio/wave': Object.freeze({ format: 'WAV', extension: 'wav' }),
-  'audio/x-wav': Object.freeze({ format: 'WAV', extension: 'wav' }),
-  'audio/webm': Object.freeze({ format: 'WebM', extension: 'webm' })
-});
-
-const AUDIO_FORMATS_BY_EXTENSION = Object.freeze({
-  mp3: AUDIO_FORMATS_BY_MIME_TYPE['audio/mp3'],
-  mp4: AUDIO_FORMATS_BY_MIME_TYPE['audio/mp4'],
-  mpeg: AUDIO_FORMATS_BY_MIME_TYPE['audio/mpeg'],
-  mpga: AUDIO_FORMATS_BY_MIME_TYPE['audio/mpga'],
-  m4a: AUDIO_FORMATS_BY_MIME_TYPE['audio/m4a'],
-  wav: AUDIO_FORMATS_BY_MIME_TYPE['audio/wav'],
-  webm: AUDIO_FORMATS_BY_MIME_TYPE['audio/webm']
-});
+const AUDIO_FORMATS_BY_MIME_TYPE = {
+  'audio/mp3': ['MP3', 'mp3'],
+  'audio/mpeg': ['MPEG', 'mpeg'],
+  'audio/mpga': ['MPGA', 'mpga'],
+  'audio/mp4': ['MP4', 'mp4'],
+  'audio/m4a': ['M4A', 'm4a'],
+  'audio/x-m4a': ['M4A', 'm4a'],
+  'audio/wav': ['WAV', 'wav'],
+  'audio/wave': ['WAV', 'wav'],
+  'audio/x-wav': ['WAV', 'wav'],
+  'audio/webm': ['WebM', 'webm']
+};
 
 /** Copy-safe list matching the retained adapters' local-file allowlist. */
 export const SUPPORTED_AUDIO_FORMATS_LABEL = 'MP3, MP4, MPEG/MPGA, M4A, WAV, and WebM';
@@ -324,15 +292,15 @@ export function resolveSupportedAudioFormat(mimeType, sourceName = '') {
   const normalizedMimeType = typeof mimeType === 'string'
     ? mimeType.split(';', 1)[0].trim().toLowerCase()
     : '';
-  if (normalizedMimeType) {
-    return AUDIO_FORMATS_BY_MIME_TYPE[normalizedMimeType] || null;
-  }
-
-  const normalizedName = typeof sourceName === 'string' ? sourceName.trim() : '';
-  const extensionMatch = normalizedName.match(/\.([a-z0-9]+)$/iu);
-  return extensionMatch
-    ? AUDIO_FORMATS_BY_EXTENSION[extensionMatch[1].toLowerCase()] || null
+  const extensionMatch = typeof sourceName === 'string'
+    ? sourceName.trim().match(/\.([a-z0-9]+)$/iu)
     : null;
+  const extension = extensionMatch?.[1].toLowerCase() || '';
+  const key = normalizedMimeType || (/^(?:mp3|mp4|mpeg|mpga|m4a|wav|webm)$/u.test(extension)
+    ? `audio/${extension}`
+    : '');
+  const format = AUDIO_FORMATS_BY_MIME_TYPE[key];
+  return format ? { format: format[0], extension: format[1] } : null;
 }
 
 /**

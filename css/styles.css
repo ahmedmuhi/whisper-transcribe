@@ -754,6 +754,16 @@ body > header {
     line-height: 1.4;
 }
 
+.transcript-drop-title,
+.transcript-body.selected-audio-dragging .transcript-idle-title,
+.transcript-body.selected-audio-dragging .transcript-empty-hint {
+    display: none;
+}
+
+.transcript-body.selected-audio-dragging .transcript-drop-title {
+    display: inline;
+}
+
 .transcript-body.selected-audio-dragging .transcript-content {
     border: 2px dashed var(--accent);
     background: var(--accent-subtle);
@@ -784,6 +794,13 @@ body > header {
     font-size: 0.65rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+}
+
+.selected-audio-state {
+    width: 100%;
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
 }
 
 .selected-audio-file {

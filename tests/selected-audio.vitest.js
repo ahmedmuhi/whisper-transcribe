@@ -2,7 +2,7 @@
  * @fileoverview Memory ownership and local validation for Selected Audio.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     API_ERROR_CODES,
     AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE,
@@ -34,7 +34,8 @@ function createHarness({
     authState = AUTHENTICATION_STATES.READY,
     readinessState = authState,
     audioSafetyState = AUDIO_SAFETY_STATES.SAFE,
-    duration = 12.5
+    duration = 12.5,
+    durationReader: injectedDurationReader = null
 } = {}) {
     let currentModel = model;
     const settings = {
@@ -46,17 +47,12 @@ function createHarness({
     };
     const apiClient = {
         getScopeForModel: vi.fn(() => 'https://scope.invalid/.default'),
-        getModelLabel: vi.fn(activeModel => (
-            activeModel === MODEL_TYPES.WHISPER
-                ? 'Azure Whisper'
-                : 'Azure MAI-Transcribe 1.5'
-        )),
         transcribe: vi.fn().mockResolvedValue('Deterministic transcript')
     };
     const recordingSafety = {
         getAudioSafetyState: vi.fn(() => audioSafetyState)
     };
-    const durationReader = vi.fn().mockResolvedValue(duration);
+    const durationReader = injectedDurationReader || vi.fn().mockResolvedValue(duration);
     const controller = new SelectedAudioController({
         settings,
         authenticationReadiness,
@@ -109,10 +105,7 @@ describe('SelectedAudioController memory-only state and validation', () => {
             size: 1_536,
             duration: 12.5,
             format: 'WAV',
-            model: MODEL_TYPES.WHISPER,
-            modelLabel: 'Azure Whisper',
-            errorCode: null,
-            errorMessage: ''
+            model: MODEL_TYPES.WHISPER
         });
         expect(Object.values(controller.getSnapshot())).not.toContain(file);
         expect(durationReader).toHaveBeenCalledWith(file, {
@@ -245,6 +238,11 @@ describe('SelectedAudioController memory-only state and validation', () => {
 });
 
 describe('Selected Audio duration metadata cleanup', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
+
     function createAudioElement() {
         const audio = new EventTarget();
         audio.duration = 8.25;
@@ -253,17 +251,19 @@ describe('Selected Audio duration metadata cleanup', () => {
         return audio;
     }
 
+    function installBrowserMetadataStubs(audio, revokeObjectURL) {
+        vi.spyOn(document, 'createElement').mockReturnValue(audio);
+        vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:short-lived');
+        vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURL);
+    }
+
     it('revokes its short-lived object URL after metadata succeeds', async () => {
         const audio = createAudioElement();
         const revokeObjectURL = vi.fn();
-        const result = readSelectedAudioDuration(createFile(), {
-            createAudio: () => audio,
-            createObjectURL: vi.fn(() => 'blob:short-lived'),
-            revokeObjectURL,
-            timeoutMs: 1_000
-        });
+        installBrowserMetadataStubs(audio, revokeObjectURL);
+        const result = readSelectedAudioDuration(createFile());
 
-        audio.dispatchEvent(new Event('loadedmetadata'));
+        audio.onloadedmetadata();
 
         await expect(result).resolves.toBe(8.25);
         expect(revokeObjectURL).toHaveBeenCalledOnce();
@@ -275,33 +275,37 @@ describe('Selected Audio duration metadata cleanup', () => {
         vi.useFakeTimers();
         const audio = createAudioElement();
         const revokeObjectURL = vi.fn();
-        const result = readSelectedAudioDuration(createFile(), {
-            createAudio: () => audio,
-            createObjectURL: vi.fn(() => 'blob:short-lived'),
-            revokeObjectURL,
-            timeoutMs: 25
-        });
+        installBrowserMetadataStubs(audio, revokeObjectURL);
+        const result = readSelectedAudioDuration(createFile());
 
-        if (outcome === 'error') audio.dispatchEvent(new Event('error'));
-        else await vi.advanceTimersByTimeAsync(25);
+        if (outcome === 'error') audio.onerror();
+        else await vi.advanceTimersByTimeAsync(5_000);
 
         await expect(result).resolves.toBeNull();
         expect(revokeObjectURL).toHaveBeenCalledOnce();
         vi.useRealTimers();
     });
 
+    it('revokes its object URL when the browser rejects media source assignment', async () => {
+        const audio = createAudioElement();
+        Object.defineProperty(audio, 'src', {
+            set() {
+                throw new Error('Media source unavailable');
+            }
+        });
+        const revokeObjectURL = vi.fn();
+        installBrowserMetadataStubs(audio, revokeObjectURL);
+
+        await expect(readSelectedAudioDuration(createFile())).resolves.toBeNull();
+        expect(revokeObjectURL).toHaveBeenCalledOnce();
+    });
+
     it('revokes its object URL immediately when Selected Audio is removed during metadata loading', async () => {
         const audio = createAudioElement();
         const revokeObjectURL = vi.fn();
-        const durationReader = (file, { signal }) => readSelectedAudioDuration(file, {
-            createAudio: () => audio,
-            createObjectURL: vi.fn(() => 'blob:short-lived'),
-            revokeObjectURL,
-            signal,
-            timeoutMs: 1_000
-        });
-        const { controller } = createHarness();
-        controller.durationReader = durationReader;
+        installBrowserMetadataStubs(audio, revokeObjectURL);
+        const durationReader = (file, { signal }) => readSelectedAudioDuration(file, { signal });
+        const { controller } = createHarness({ durationReader });
 
         const selecting = controller.select(createFile());
         expect(controller.remove()).toBe(true);
@@ -341,7 +345,7 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
             type: 'success'
         }));
         expect(controller.getSnapshot()).toEqual({ state: SELECTED_AUDIO_STATES.IDLE });
-        expect(controller.hasSelectedAudio()).toBe(false);
+        expect(controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
     });
 
     it('retains the same File after an Azure failure and Retry does not add another retry loop', async () => {
@@ -357,7 +361,7 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
             state: SELECTED_AUDIO_STATES.FAILED,
             errorMessage: 'Service unavailable'
         });
-        expect(controller.hasSelectedAudio()).toBe(true);
+        expect(controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SELECTED);
 
         await expect(controller.transcribe()).resolves.toBe(true);
         expect(apiClient.transcribe).toHaveBeenCalledTimes(2);
@@ -378,7 +382,7 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
         await expect(controller.transcribe()).resolves.toBe(false);
 
         expect(controller.getSnapshot().state).toBe(expectedState);
-        expect(controller.hasSelectedAudio()).toBe(true);
+        expect(controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SELECTED);
     });
 
     it('retains Selected Audio and enters auth recovery when readiness requires interaction', async () => {
@@ -396,7 +400,7 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
             state: SELECTED_AUDIO_STATES.FAILED,
             errorCode: API_ERROR_CODES.AUTHENTICATION_REQUIRED
         });
-        expect(controller.hasSelectedAudio()).toBe(true);
+        expect(controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SELECTED);
         expect(authEvents).toEqual([{ state: AUTHENTICATION_STATES.INTERACTION_REQUIRED }]);
     });
 

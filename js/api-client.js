@@ -415,11 +415,6 @@ export class AzureAPIClient {
         return this._getModelAdapter(model).scope;
     }
 
-    /** Returns adapter-owned display metadata without exposing request configuration. */
-    getModelLabel(model) {
-        return this._getModelAdapter(model).label;
-    }
-
     /**
      * Parses API response data from text or JSON format.
      *

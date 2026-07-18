@@ -44,15 +44,12 @@ function createHarness({ canSelect = true } = {}) {
         replace: vi.fn().mockResolvedValue(true),
         remove: vi.fn(() => true),
         transcribe: vi.fn().mockResolvedValue(true),
-        getSnapshot: vi.fn(() => ({ state: SELECTED_AUDIO_STATES.IDLE }))
-    };
-    const audioSourceCoordinator = {
+        getSnapshot: vi.fn(() => ({ state: SELECTED_AUDIO_STATES.IDLE })),
         canSelectAudio: vi.fn(() => canSelect)
     };
     const ui = new UI({
         authenticationState: AUTH_PRESENTATION_STATES.READY,
-        selectedAudioController,
-        audioSourceCoordinator
+        selectedAudioController
     });
     ui.settings = {
         getModelConfig: vi.fn(() => ({
@@ -65,11 +62,26 @@ function createHarness({ canSelect = true } = {}) {
     ui.setupEventBusListeners();
     ui._setReady(true);
 
-    return { ui, selectedAudioController, audioSourceCoordinator };
+    return { ui, selectedAudioController };
 }
 
 function emitSnapshot(snapshot) {
     eventBus.emit(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, snapshot);
+}
+
+function selectedWorkspace() {
+    return document.querySelector('#selected-audio-workspace');
+}
+
+function selectedPanel(_ui, state) {
+    const panelState = [SELECTED_AUDIO_STATES.READY, SELECTED_AUDIO_STATES.TOO_LARGE].includes(state)
+        ? `${state}-${MODEL_TYPES.WHISPER}`
+        : state;
+    return selectedWorkspace().querySelector(`[data-selected-state="${panelState}"]`);
+}
+
+function selectedAction(ui, state, action) {
+    return selectedPanel(ui, state).querySelector(`[data-selected-action="${action}"]`);
 }
 
 function fileDragEvent(type, files) {
@@ -93,7 +105,7 @@ describe('Selected Audio production markup and idle controls', () => {
     it('uses accepted two-line idle copy without a permanent decorative upload icon', () => {
         const { ui } = createHarness();
 
-        expect(document.querySelector('.transcript-empty-title').textContent)
+        expect(document.querySelector('.transcript-idle-title').textContent)
             .toBe('Record or upload audio');
         expect(document.querySelector('.transcript-empty-hint').textContent)
             .toBe('Drop an audio file here');
@@ -147,11 +159,13 @@ describe('Selected Audio picker and transient drag/drop', () => {
 
         document.dispatchEvent(fileDragEvent('dragover', [file]));
         expect(ui.transcriptBody.classList.contains('selected-audio-dragging')).toBe(true);
-        expect(ui.transcriptEmptyTitle.textContent).toBe('Drop an audio file here');
+        expect(document.querySelector('.transcript-drop-title').textContent)
+            .toBe('Drop an audio file here');
 
         document.dispatchEvent(fileDragEvent('dragleave', [file]));
         expect(ui.transcriptBody.classList.contains('selected-audio-dragging')).toBe(false);
-        expect(ui.transcriptEmptyTitle.textContent).toBe('Record or upload audio');
+        expect(document.querySelector('.transcript-idle-title').textContent)
+            .toBe('Record or upload audio');
     });
 
     it('prevents drop navigation and selects without an automatic Azure action', async () => {
@@ -182,7 +196,8 @@ describe('Selected Audio picker and transient drag/drop', () => {
 
         expect(selectedAudioController.select).not.toHaveBeenCalled();
         expect(ui.transcriptBody.classList.contains('selected-audio-dragging')).toBe(false);
-        expect(ui.transcriptEmptyTitle.textContent).toBe('Record or upload audio');
+        expect(document.querySelector('.transcript-idle-title').textContent)
+            .toBe('Record or upload audio');
     });
 
     it('Escape and picker cancel restore transient drag presentation', () => {
@@ -210,9 +225,9 @@ describe('Selected Audio Variant B review states', () => {
 
         emitSnapshot(readySnapshot({ state: SELECTED_AUDIO_STATES.CHECKING }));
 
-        expect(ui.selectedAudioWorkspace.hidden).toBe(false);
-        expect(ui.selectedAudioWorkspace.textContent).toContain('Checking format and file size…');
-        expect(ui.selectedAudioWorkspace.textContent).toContain('Nothing has been sent to Azure.');
+        expect(selectedWorkspace().hidden).toBe(false);
+        expect(selectedWorkspace().textContent).toContain('Checking format and file size…');
+        expect(selectedWorkspace().textContent).toContain('Nothing has been sent to Azure.');
         expect(ui.controlCluster.hidden).toBe(true);
     });
 
@@ -221,22 +236,29 @@ describe('Selected Audio Variant B review states', () => {
 
         emitSnapshot(readySnapshot({ name: '<img src=x onerror=alert(1)>.wav' }));
 
-        expect(ui.selectedAudioName.textContent).toBe('<img src=x onerror=alert(1)>.wav');
-        expect(ui.selectedAudioWorkspace.querySelector('img')).toBeNull();
-        expect(ui.selectedAudioMetadata.textContent).toBe('1:05 · 1.5 KB · WAV');
-        expect(ui.selectedAudioWorkspace.textContent.match(/Azure Whisper/gu)).toHaveLength(1);
-        expect(ui.selectedAudioVerdict.textContent).toBe('Ready for Azure Whisper');
-        expect(ui.selectedAudioPrimary.textContent.trim()).toBe('Transcribe');
-        expect(ui.selectedAudioRemove.textContent.trim()).toBe('Remove');
-        expect(document.activeElement).toBe(ui.selectedAudioPrimary);
+        expect(document.querySelector('#selected-audio-name').textContent)
+            .toBe('<img src=x onerror=alert(1)>.wav');
+        expect(selectedWorkspace().querySelector('img')).toBeNull();
+        expect(document.querySelector('#selected-audio-metadata').textContent)
+            .toBe('1:05 · 1.5 KB · WAV');
+        const panel = selectedPanel(ui, SELECTED_AUDIO_STATES.READY);
+        expect(panel.textContent.match(/Azure Whisper/gu)).toHaveLength(1);
+        const primary = selectedAction(ui, SELECTED_AUDIO_STATES.READY, 'transcribe');
+        expect(panel.querySelector('.selected-audio-verdict').textContent)
+            .toBe('Ready for Azure Whisper');
+        expect(primary.textContent.trim()).toBe('Transcribe');
+        expect(selectedAction(ui, SELECTED_AUDIO_STATES.READY, 'remove').textContent.trim())
+            .toBe('Remove');
+        expect(document.activeElement).toBe(primary);
     });
 
     it('shows Duration unavailable honestly when metadata cannot be read', () => {
-        const { ui } = createHarness();
+        createHarness();
 
         emitSnapshot(readySnapshot({ duration: null }));
 
-        expect(ui.selectedAudioMetadata.textContent).toContain('Duration unavailable');
+        expect(document.querySelector('#selected-audio-metadata').textContent)
+            .toContain('Duration unavailable');
     });
 
     it.each([
@@ -252,9 +274,10 @@ describe('Selected Audio Variant B review states', () => {
             errorMessage: state === SELECTED_AUDIO_STATES.FAILED ? 'Azure request failed' : ''
         }));
 
-        expect(ui.selectedAudioVerdict.textContent).toContain(expectedCopy);
-        expect(ui.selectedAudioPrimary.textContent.trim()).toBe(expectedPrimary);
-        expect(ui.selectedAudioRemove.textContent.trim()).toBe('Remove');
+        const panel = selectedPanel(ui, state);
+        expect(panel.querySelector('.selected-audio-verdict').textContent).toContain(expectedCopy);
+        expect(panel.querySelector('.btn-primary').textContent.trim()).toBe(expectedPrimary);
+        expect(selectedAction(ui, state, 'remove').textContent.trim()).toBe('Remove');
     });
 
     it('renders honest indeterminate transcription with no percentage or source controls', () => {
@@ -262,10 +285,10 @@ describe('Selected Audio Variant B review states', () => {
 
         emitSnapshot(readySnapshot({ state: SELECTED_AUDIO_STATES.TRANSCRIBING }));
 
-        expect(ui.selectedAudioWorkspace.textContent).toContain('Sending and transcribing…');
-        expect(ui.selectedAudioWorkspace.textContent).not.toMatch(/\d+%/u);
-        expect(ui.selectedAudioPrimary.hidden).toBe(true);
-        expect(ui.selectedAudioRemove.hidden).toBe(true);
+        expect(selectedWorkspace().textContent).toContain('Sending and transcribing…');
+        expect(selectedWorkspace().textContent).not.toMatch(/\d+%/u);
+        expect(selectedPanel(ui, SELECTED_AUDIO_STATES.TRANSCRIBING)
+            .querySelector('[data-selected-action]')).toBeNull();
         expect(ui.controlCluster.hidden).toBe(true);
     });
 
@@ -273,16 +296,16 @@ describe('Selected Audio Variant B review states', () => {
         const { ui, selectedAudioController } = createHarness();
         emitSnapshot(readySnapshot());
 
-        ui.selectedAudioPrimary.click();
+        selectedAction(ui, SELECTED_AUDIO_STATES.READY, 'transcribe').click();
         await Promise.resolve();
         expect(selectedAudioController.transcribe).toHaveBeenCalledOnce();
 
         emitSnapshot(readySnapshot({ state: SELECTED_AUDIO_STATES.UNSUPPORTED }));
         const pickerSpy = vi.spyOn(ui.audioFileInput, 'click');
-        ui.selectedAudioPrimary.click();
+        selectedAction(ui, SELECTED_AUDIO_STATES.UNSUPPORTED, 'choose').click();
         expect(pickerSpy).toHaveBeenCalledOnce();
 
-        ui.selectedAudioRemove.click();
+        selectedAction(ui, SELECTED_AUDIO_STATES.UNSUPPORTED, 'remove').click();
         expect(selectedAudioController.remove).toHaveBeenCalledOnce();
     });
 
@@ -295,8 +318,8 @@ describe('Selected Audio Variant B review states', () => {
             errorMessage: 'Authentication is required.'
         }));
 
-        expect(ui.selectedAudioPrimary.hidden).toBe(true);
-        expect(ui.selectedAudioRemove.hidden).toBe(false);
-        expect(ui.selectedAudioWorkspace.textContent).not.toContain('Retry silently');
+        expect(selectedAction(ui, SELECTED_AUDIO_STATES.FAILED, 'retry').hidden).toBe(true);
+        expect(selectedAction(ui, SELECTED_AUDIO_STATES.FAILED, 'remove').hidden).toBe(false);
+        expect(selectedWorkspace().textContent).not.toContain('Retry silently');
     });
 });

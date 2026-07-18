@@ -42,6 +42,8 @@ const ACTIVE_AUDIO_SAFETY_STATES = new Set([
  * @fires APP_EVENTS.UI_TRANSCRIPTION_READY
  */
 export class AudioHandler {
+    #sourceCoordinator = null;
+
     /**
      * Creates a new AudioHandler instance.
      * 
@@ -64,7 +66,6 @@ export class AudioHandler {
         this.pendingRetryDownloadInitiated = false;
         this.activeStream = null;
         this._activeRecordingSession = null;
-        this.audioSourceCoordinator = null;
 
         this.permissionManager = new PermissionManager();
         
@@ -90,11 +91,11 @@ export class AudioHandler {
      * This setter resolves bootstrap ordering without coupling AudioHandler to
      * the Selected Audio implementation.
      *
-     * @param {{canStartRecording(): boolean}} coordinator
+     * @param {{getAudioSafetyState(): string}} coordinator
      * @returns {void}
      */
     setAudioSourceCoordinator(coordinator) {
-        this.audioSourceCoordinator = coordinator;
+        this.#sourceCoordinator = coordinator;
     }
 
     /**
@@ -192,7 +193,7 @@ export class AudioHandler {
      */
     async startRecordingFlow() {
         try {
-            if (this.audioSourceCoordinator?.canStartRecording?.() === false) {
+            if (this.#sourceCoordinator?.getAudioSafetyState?.() === AUDIO_SAFETY_STATES.SELECTED) {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                     message: MESSAGES.SELECTED_AUDIO_REQUIRES_REMOVAL,
                     type: 'error'

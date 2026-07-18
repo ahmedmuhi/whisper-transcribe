@@ -197,7 +197,7 @@ describe('AudioHandler Integration', () => {
     it('blocks recording before auth or microphone access while Selected Audio exists', async () => {
       const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
       audioHandler.setAudioSourceCoordinator({
-        canStartRecording: vi.fn(() => false)
+        getAudioSafetyState: vi.fn(() => AUDIO_SAFETY_STATES.SELECTED)
       });
 
       await audioHandler.startRecordingFlow();

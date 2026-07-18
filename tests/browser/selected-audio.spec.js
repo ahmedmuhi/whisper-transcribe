@@ -103,16 +103,17 @@ test('picker review stays local until explicit Transcribe and converges on the t
 
     await chooseGeneratedWav(page);
 
-    await expect(page.locator('#selected-audio-verdict'))
+    await expect(page.locator('[data-selected-state="ready-mai-transcribe-1.5"] .selected-audio-verdict'))
         .toHaveText('Ready for Azure MAI-Transcribe 1.5');
     await expect(page.locator('#selected-audio-name')).toHaveText('generated-selected.wav');
     await expect(page.locator('#selected-audio-metadata')).toContainText('WAV');
-    await expect(page.locator('#selected-audio-primary')).toHaveText('Transcribe');
-    await expect(page.locator('#selected-audio-primary')).toBeFocused();
+    const transcribe = page.locator('[data-selected-action="transcribe"]');
+    await expect(transcribe).toHaveText('Transcribe');
+    await expect(transcribe).toBeFocused();
     await expect(page.locator('#control-cluster')).toBeHidden();
     expect((await fetchObservations()).postCount).toBe(0);
 
-    await page.locator('#selected-audio-primary').click();
+    await transcribe.click();
     const request = await requestPromise;
 
     await expect(page.locator('#transcript')).toHaveValue('Browser smoke transcript');
@@ -120,7 +121,7 @@ test('picker review stays local until explicit Transcribe and converges on the t
     await expect(page.locator('#selected-audio-workspace')).toBeHidden();
     await expect(page.locator('#primary-action')).toHaveText('Start recording');
     await expect(page.locator('#upload-action')).toHaveText('Upload audio');
-    await expect(page.locator('.transcript-empty-title')).toHaveText('Record or upload audio');
+    await expect(page.locator('.transcript-idle-title')).toHaveText('Record or upload audio');
     expect(request.headers().authorization).toBe(`Bearer ${fakeToken}`);
 
     const api = await fetchObservations();
@@ -164,32 +165,36 @@ test('drop, local rejection, source concurrency, and 390 px layout make zero req
     });
     await transcriptBody.dispatchEvent('dragover', { dataTransfer });
     await expect(transcriptBody).toHaveClass(/selected-audio-dragging/);
-    await expect(page.locator('.transcript-empty-title')).toHaveText('Drop an audio file here');
+    await expect(page.locator('.transcript-drop-title')).toBeVisible();
     await transcriptBody.dispatchEvent('drop', { dataTransfer });
 
-    await expect(page.locator('#selected-audio-verdict')).toHaveText('Ready for Azure Whisper');
+    await expect(page.locator('[data-selected-state="ready-whisper"] .selected-audio-verdict'))
+        .toHaveText('Ready for Azure Whisper');
     await expect(page.locator('#primary-action')).toBeHidden();
     await expect(page.locator('#upload-action')).toBeHidden();
     await expectNoViewportOverflow(page);
     expect((await fetchObservations()).postCount).toBe(0);
 
-    await page.locator('#selected-audio-remove').click();
+    await page.locator('[data-selected-state="ready-whisper"] [data-selected-action="remove"]').click();
     await expect(page.locator('#upload-action')).toBeVisible();
     await setSyntheticFile(page, { name: 'unsupported.ogg', type: 'audio/ogg', size: 64 });
-    await expect(page.locator('#selected-audio-verdict')).toContainText('Unsupported audio file');
-    await expect(page.locator('#selected-audio-primary')).toHaveText('Choose another');
+    await expect(page.locator('[data-selected-state="unsupported"] .selected-audio-verdict'))
+        .toContainText('Unsupported audio file');
+    await expect(page.locator('[data-selected-state="unsupported"] .btn-primary'))
+        .toHaveText('Choose another');
     expect((await fetchObservations()).postCount).toBe(0);
 
-    await page.locator('#selected-audio-remove').click();
+    await page.locator('[data-selected-state="unsupported"] [data-selected-action="remove"]').click();
     await setSyntheticFile(page, {
         name: 'oversized-test.wav',
         type: 'audio/wav',
         size: (25 * 1024 * 1024) + 1
     });
-    await expect(page.locator('#selected-audio-verdict')).toContainText('25 MB maximum');
+    await expect(page.locator('[data-selected-state="tooLarge-whisper"] .selected-audio-verdict'))
+        .toContainText('25 MB maximum');
     expect((await fetchObservations()).postCount).toBe(0);
 
-    await page.locator('#selected-audio-remove').click();
+    await page.locator('[data-selected-state="tooLarge-whisper"] [data-selected-action="remove"]').click();
     await page.locator('#primary-action').click();
     await expect(page.locator('#primary-action')).toHaveText('Done');
     await expect(page.locator('#upload-action')).toBeHidden();
@@ -224,17 +229,19 @@ test('failed Azure request retains the same file for one explicit Retry', async 
     });
     const observations = await openApp(page);
     await chooseGeneratedWav(page, 'retained-test.wav');
-    await expect(page.locator('#selected-audio-verdict'))
+    await expect(page.locator('[data-selected-state="ready-mai-transcribe-1.5"] .selected-audio-verdict'))
         .toHaveText('Ready for Azure MAI-Transcribe 1.5');
 
-    await page.locator('#selected-audio-primary').click();
+    await page.locator('[data-selected-action="transcribe"]').click();
 
-    await expect(page.locator('#selected-audio-primary')).toHaveText('Retry');
+    const retry = page.locator('[data-selected-action="retry"]');
+    await expect(retry).toHaveText('Retry');
     await expect(page.locator('#selected-audio-name')).toHaveText('retained-test.wav');
-    await expect(page.locator('#selected-audio-remove')).toBeVisible();
+    await expect(page.locator('[data-selected-state="failed"] [data-selected-action="remove"]'))
+        .toBeVisible();
     expect(postAttempts).toBe(1);
 
-    await page.locator('#selected-audio-primary').click();
+    await retry.click();
 
     await expect(page.locator('#transcript')).toHaveValue('Browser smoke transcript');
     expect(postAttempts).toBe(2);

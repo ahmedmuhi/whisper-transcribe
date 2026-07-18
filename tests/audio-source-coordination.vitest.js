@@ -3,74 +3,82 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { AudioSourceCoordinator } from '../js/audio-source-coordinator.js';
-import { AUDIO_SAFETY_STATES } from '../js/constants.js';
+import {
+    AUDIO_SAFETY_STATES,
+    AUTHENTICATION_STATES,
+    MODEL_TYPES
+} from '../js/constants.js';
+import { SelectedAudioController } from '../js/selected-audio-controller.js';
 
-function createHarness({
-    recordingState = AUDIO_SAFETY_STATES.SAFE,
-    selectedState = AUDIO_SAFETY_STATES.SAFE
-} = {}) {
+function createHarness(recordingState = AUDIO_SAFETY_STATES.SAFE) {
+    let currentRecordingState = recordingState;
     const recordingSafety = {
-        getAudioSafetyState: vi.fn(() => recordingState),
+        getAudioSafetyState: vi.fn(() => currentRecordingState),
         downloadUnsentRecording: vi.fn(() => true),
         wasUnsentRecordingDownloadInitiated: vi.fn(() => true),
         discardUnsentRecording: vi.fn(() => true)
     };
-    const selectedAudio = {
-        getAudioSafetyState: vi.fn(() => selectedState),
-        remove: vi.fn(() => true)
-    };
-    return {
-        coordinator: new AudioSourceCoordinator({ recordingSafety, selectedAudio }),
+    const controller = new SelectedAudioController({
+        settings: { getCurrentModel: () => MODEL_TYPES.WHISPER },
+        authenticationReadiness: {
+            getState: () => AUTHENTICATION_STATES.READY
+        },
+        apiClient: {},
         recordingSafety,
-        selectedAudio
+        durationReader: vi.fn().mockResolvedValue(null)
+    });
+    return {
+        controller,
+        recordingSafety,
+        setRecordingState(state) {
+            currentRecordingState = state;
+        },
+        async select() {
+            currentRecordingState = AUDIO_SAFETY_STATES.SAFE;
+            await controller.select(new File(['deterministic'], 'source.wav', {
+                type: 'audio/wav'
+            }));
+        }
     };
 }
 
-describe('AudioSourceCoordinator', () => {
+describe('SelectedAudioController source coordination', () => {
     it.each([
         AUDIO_SAFETY_STATES.ACTIVE,
         AUDIO_SAFETY_STATES.UNSENT
-    ])('preserves recording safety priority for %s', (recordingState) => {
-        const { coordinator } = createHarness({
-            recordingState,
-            selectedState: AUDIO_SAFETY_STATES.SELECTED
-        });
+    ])('preserves recording safety priority for %s', async (recordingState) => {
+        const harness = createHarness();
+        await harness.select();
+        harness.setRecordingState(recordingState);
 
-        expect(coordinator.getAudioSafetyState()).toBe(recordingState);
-        expect(coordinator.canSelectAudio()).toBe(false);
+        expect(harness.controller.getAudioSafetyState()).toBe(recordingState);
+        expect(harness.controller.canSelectAudio()).toBe(false);
     });
 
-    it('reports Selected Audio through the same navigation-safety boundary', () => {
-        const { coordinator } = createHarness({
-            selectedState: AUDIO_SAFETY_STATES.SELECTED
-        });
+    it('reports Selected Audio through the same navigation-safety boundary', async () => {
+        const { controller, select } = createHarness();
+        await select();
 
-        expect(coordinator.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SELECTED);
-        expect(coordinator.canSelectAudio()).toBe(false);
-        expect(coordinator.canStartRecording()).toBe(false);
+        expect(controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SELECTED);
+        expect(controller.canSelectAudio()).toBe(false);
     });
 
     it('allows either source only when both owners are safe', () => {
-        const { coordinator } = createHarness();
+        const { controller } = createHarness();
 
-        expect(coordinator.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
-        expect(coordinator.canSelectAudio()).toBe(true);
-        expect(coordinator.canStartRecording()).toBe(true);
+        expect(controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+        expect(controller.canSelectAudio()).toBe(true);
     });
 
     it('delegates only the existing Unsent Recording recovery operations', () => {
-        const { coordinator, recordingSafety, selectedAudio } = createHarness({
-            recordingState: AUDIO_SAFETY_STATES.UNSENT
-        });
+        const { controller, recordingSafety } = createHarness(AUDIO_SAFETY_STATES.UNSENT);
 
-        expect(coordinator.downloadUnsentRecording()).toBe(true);
-        expect(coordinator.wasUnsentRecordingDownloadInitiated()).toBe(true);
-        expect(coordinator.discardUnsentRecording()).toBe(true);
+        expect(controller.downloadUnsentRecording()).toBe(true);
+        expect(controller.wasUnsentRecordingDownloadInitiated()).toBe(true);
+        expect(controller.discardUnsentRecording()).toBe(true);
 
         expect(recordingSafety.downloadUnsentRecording).toHaveBeenCalledOnce();
         expect(recordingSafety.wasUnsentRecordingDownloadInitiated).toHaveBeenCalledOnce();
         expect(recordingSafety.discardUnsentRecording).toHaveBeenCalledOnce();
-        expect(selectedAudio.remove).not.toHaveBeenCalled();
     });
 });

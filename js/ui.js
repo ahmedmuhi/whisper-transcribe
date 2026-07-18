@@ -23,6 +23,7 @@ import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
+import { VisualizationController } from './visualization.js';
 
 /**
  * User interface controller for managing DOM interactions and visual states.
@@ -37,6 +38,15 @@ import { logger } from './logger.js';
  * @fires APP_EVENTS.UI_THEME_CHANGED
  */
 export class UI {
+    #selectedController;
+    #selectedSnapshot;
+    #selectedWorkspace;
+    #selectedFile;
+    #selectedName;
+    #selectedMetadata;
+    #replaceOnPick = false;
+    #dragRegistered = false;
+
     /**
      * Creates a new UI controller instance and resolves DOM references.
      */
@@ -44,7 +54,6 @@ export class UI {
         authenticationState = AUTH_PRESENTATION_STATES.READY,
         authInteractionController = null,
         selectedAudioController = null,
-        audioSourceCoordinator = null,
         openHelp = null
     } = {}) {
         // Transcript + status + visualiser
@@ -53,8 +62,6 @@ export class UI {
         this.transcriptArea = document.querySelector?.('.transcript-area') || null;
         this.transcriptBody = document.querySelector?.('.transcript-body') || null;
         this.transcriptEmpty = document.querySelector?.('.transcript-empty') || null;
-        this.transcriptEmptyTitle = document.querySelector?.('.transcript-empty-title') || null;
-        this.transcriptEmptyHint = document.querySelector?.('.transcript-empty-hint') || null;
         this.transcriptActions = document.querySelector?.('.transcript-actions') || null;
         this.grabTextButton = document.getElementById(ID.GRAB_TEXT_BUTTON);
         this.restoreButton = document.getElementById(ID.RESTORE_BUTTON);
@@ -73,22 +80,13 @@ export class UI {
         this.audioFileInput = document.getElementById(ID.AUDIO_FILE_INPUT);
 
         // Selected Audio owns one File elsewhere; UI receives safe snapshots only.
-        this.selectedAudioController = selectedAudioController;
-        this.audioSourceCoordinator = audioSourceCoordinator;
-        this.selectedAudioSnapshot = selectedAudioController?.getSnapshot?.()
+        this.#selectedController = selectedAudioController;
+        this.#selectedSnapshot = selectedAudioController?.getSnapshot?.()
             || { state: SELECTED_AUDIO_STATES.IDLE };
-        this.selectedAudioWorkspace = document.getElementById(ID.SELECTED_AUDIO_WORKSPACE);
-        this.selectedAudioFile = document.getElementById(ID.SELECTED_AUDIO_FILE);
-        this.selectedAudioName = document.getElementById(ID.SELECTED_AUDIO_NAME);
-        this.selectedAudioMetadata = document.getElementById(ID.SELECTED_AUDIO_METADATA);
-        this.selectedAudioProgress = document.getElementById(ID.SELECTED_AUDIO_PROGRESS);
-        this.selectedAudioProgressTitle = document.getElementById(ID.SELECTED_AUDIO_PROGRESS_TITLE);
-        this.selectedAudioVerdict = document.getElementById(ID.SELECTED_AUDIO_VERDICT);
-        this.selectedAudioNote = document.getElementById(ID.SELECTED_AUDIO_NOTE);
-        this.selectedAudioPrimary = document.getElementById(ID.SELECTED_AUDIO_PRIMARY);
-        this.selectedAudioRemove = document.getElementById(ID.SELECTED_AUDIO_REMOVE);
-        this._replaceSelectedAudioOnPick = false;
-        this._audioDragRegistered = false;
+        this.#selectedWorkspace = document.getElementById(ID.SELECTED_AUDIO_WORKSPACE);
+        this.#selectedFile = document.getElementById(ID.SELECTED_AUDIO_FILE);
+        this.#selectedName = document.getElementById(ID.SELECTED_AUDIO_NAME);
+        this.#selectedMetadata = document.getElementById(ID.SELECTED_AUDIO_METADATA);
 
         // Token-free authentication presentation inside the Dynamic Island.
         this.authContext = document.getElementById(ID.AUTH_CONTEXT);
@@ -211,34 +209,31 @@ export class UI {
             this.retryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED));
         }
         if (this.uploadAction) {
-            this.uploadAction.addEventListener('click', () => this._openAudioPicker(false));
+            this.uploadAction.addEventListener('click', () => this.#openAudioPicker(false));
         }
         if (this.audioFileInput) {
             this.audioFileInput.addEventListener('change', () => {
-                void this._handleAudioPickerChange();
+                void this.#handleAudioPickerChange();
             });
-            this.audioFileInput.addEventListener('cancel', () => this._restoreDragPresentation());
+            this.audioFileInput.addEventListener('cancel', () => this.#restoreDragPresentation());
         }
-        if (this.selectedAudioPrimary) {
-            this.selectedAudioPrimary.addEventListener('click', () => {
-                void this._handleSelectedAudioPrimary();
-            });
-        }
-        if (this.selectedAudioRemove) {
-            this.selectedAudioRemove.addEventListener('click', () => {
-                this.selectedAudioController?.remove?.();
+        if (this.#selectedWorkspace) {
+            this.#selectedWorkspace.addEventListener('click', event => {
+                const action = event.target.closest?.('[data-selected-action]')
+                    ?.dataset.selectedAction;
+                if (action) void this.#handleSelectedAudioAction(action);
             });
         }
-        if (!this._audioDragRegistered && typeof document.addEventListener === 'function') {
-            document.addEventListener('dragover', event => this._handleAudioDragOver(event));
-            document.addEventListener('dragleave', () => this._restoreDragPresentation());
+        if (!this.#dragRegistered && typeof document.addEventListener === 'function') {
+            document.addEventListener('dragover', event => this.#handleAudioDragOver(event));
+            document.addEventListener('dragleave', () => this.#restoreDragPresentation());
             document.addEventListener('drop', event => {
-                void this._handleAudioDrop(event);
+                void this.#handleAudioDrop(event);
             });
             document.addEventListener('keydown', event => {
-                if (event.key === 'Escape') this._restoreDragPresentation();
+                if (event.key === 'Escape') this.#restoreDragPresentation();
             });
-            this._audioDragRegistered = true;
+            this.#dragRegistered = true;
         }
         if (this.authPrimaryAction) {
             this.authPrimaryAction.addEventListener('click', () => {
@@ -349,9 +344,9 @@ export class UI {
         });
 
         eventBus.on(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, (snapshot) => {
-            const previousState = this.selectedAudioSnapshot?.state;
-            this.selectedAudioSnapshot = snapshot;
-            this._renderSelectedAudio(snapshot, previousState);
+            const previousState = this.#selectedSnapshot?.state;
+            this.#selectedSnapshot = snapshot;
+            this.#renderSelectedAudio(snapshot, previousState);
             this.renderControls(this.currentState);
         });
 
@@ -399,7 +394,6 @@ export class UI {
                 this.visualizationController = null;
             }
             try {
-                const { VisualizationController } = await import('./visualization.js');
                 const { stream } = data;
                 const isDarkTheme = document.documentElement.classList.contains('dark-theme');
                 if (this.visualizer && stream) {
@@ -411,13 +405,7 @@ export class UI {
             }
         });
 
-        eventBus.on(APP_EVENTS.VISUALIZATION_STOP, () => {
-            if (this.visualizationController) {
-                this.visualizationController.stop();
-                this.visualizationController = null;
-            }
-            this.clearVisualization();
-        });
+        eventBus.on(APP_EVENTS.VISUALIZATION_STOP, () => this.stopVisualization());
 
         eventBus.on(APP_EVENTS.UI_TIMER_UPDATE, (data) => this.updateTimer(data.display));
         eventBus.on(APP_EVENTS.UI_TIMER_RESET, () => this.updateTimer('00:00'));
@@ -467,192 +455,131 @@ export class UI {
 
     // ───────────────────────── Selected Audio ─────────────────────────
 
-    _openAudioPicker(replaceSelectedAudio) {
-        this._restoreDragPresentation();
-        this._replaceSelectedAudioOnPick = Boolean(replaceSelectedAudio);
+    #openAudioPicker(replaceSelectedAudio) {
+        this.#restoreDragPresentation();
+        this.#replaceOnPick = Boolean(replaceSelectedAudio);
         this.audioFileInput?.click?.();
     }
 
-    async _handleAudioPickerChange() {
+    async #handleAudioPickerChange() {
         const files = Array.from(this.audioFileInput?.files || []);
         try {
             if (files.length !== 1) return;
-            if (this._replaceSelectedAudioOnPick) {
-                await this.selectedAudioController?.replace?.(files[0]);
-            } else if (this._canAcceptSelectedAudio(files)) {
-                await this.selectedAudioController?.select?.(files[0]);
+            if (this.#replaceOnPick) {
+                await this.#selectedController?.replace?.(files[0]);
+            } else if (this.#canSelectAudio(files)) {
+                await this.#selectedController?.select?.(files[0]);
             }
         } finally {
-            this._replaceSelectedAudioOnPick = false;
+            this.#replaceOnPick = false;
             if (this.audioFileInput) this.audioFileInput.value = '';
-            this._restoreDragPresentation();
+            this.#restoreDragPresentation();
         }
     }
 
-    _handleAudioDragOver(event) {
+    #handleAudioDragOver(event) {
         const files = Array.from(event.dataTransfer?.files || []);
         if (!event.dataTransfer) return;
         event.preventDefault();
-        if (!this._canAcceptSelectedAudio(files)) {
-            this._restoreDragPresentation();
+        if (!this.#canSelectAudio(files)) {
+            this.#restoreDragPresentation();
             return;
         }
         event.dataTransfer.dropEffect = 'copy';
         this.transcriptBody?.classList?.add('selected-audio-dragging');
-        if (this.transcriptEmptyTitle) this.transcriptEmptyTitle.textContent = 'Drop an audio file here';
-        if (this.transcriptEmptyHint) this.transcriptEmptyHint.textContent = '';
     }
 
-    async _handleAudioDrop(event) {
+    async #handleAudioDrop(event) {
         if (!event.dataTransfer) return;
         event.preventDefault();
         const files = Array.from(event.dataTransfer.files || []);
-        const accepted = this._canAcceptSelectedAudio(files);
-        this._restoreDragPresentation();
-        if (accepted) await this.selectedAudioController?.select?.(files[0]);
+        const accepted = this.#canSelectAudio(files);
+        this.#restoreDragPresentation();
+        if (accepted) await this.#selectedController?.select?.(files[0]);
     }
 
-    _canAcceptSelectedAudio(files) {
+    #canSelectAudio(files) {
         return files.length === 1
             && this.currentState === RECORDING_STATES.IDLE
             && this.ready
-            && this.selectedAudioSnapshot?.state === SELECTED_AUDIO_STATES.IDLE
-            && this.audioSourceCoordinator?.canSelectAudio?.() === true;
+            && this.#selectedSnapshot?.state === SELECTED_AUDIO_STATES.IDLE
+            && this.#selectedController?.canSelectAudio?.() === true;
     }
 
-    _restoreDragPresentation() {
+    #restoreDragPresentation() {
         this.transcriptBody?.classList?.remove('selected-audio-dragging');
-        if (this.transcriptEmptyTitle) this.transcriptEmptyTitle.textContent = 'Record or upload audio';
-        if (this.transcriptEmptyHint) this.transcriptEmptyHint.textContent = 'Drop an audio file here';
     }
 
-    async _handleSelectedAudioPrimary() {
-        const action = this.selectedAudioPrimary?.dataset?.selectedAction;
+    async #handleSelectedAudioAction(action) {
         if (action === 'transcribe' || action === 'retry') {
-            await this.selectedAudioController?.transcribe?.();
+            await this.#selectedController?.transcribe?.();
         } else if (action === 'choose') {
-            this._openAudioPicker(true);
+            this.#openAudioPicker(true);
+        } else if (action === 'remove') {
+            this.#selectedController?.remove?.();
         }
     }
 
-    _renderSelectedAudio(snapshot, previousState = SELECTED_AUDIO_STATES.IDLE) {
+    #renderSelectedAudio(snapshot, previousState = SELECTED_AUDIO_STATES.IDLE) {
         const state = snapshot?.state || SELECTED_AUDIO_STATES.IDLE;
         const isIdle = state === SELECTED_AUDIO_STATES.IDLE;
-        if (this.selectedAudioWorkspace) this.selectedAudioWorkspace.hidden = isIdle;
+        if (this.#selectedWorkspace) this.#selectedWorkspace.hidden = isIdle;
         if (this.transcriptElement) this.transcriptElement.hidden = !isIdle;
         if (this.transcriptEmpty) this.transcriptEmpty.hidden = !isIdle;
         if (this.transcriptActions) this.transcriptActions.hidden = !isIdle;
         this.transcriptArea?.classList?.toggle('selected-audio-active', !isIdle);
 
         if (isIdle) {
-            this._restoreDragPresentation();
+            this.#restoreDragPresentation();
             if (previousState !== SELECTED_AUDIO_STATES.TRANSCRIBING) {
                 this.uploadAction?.focus?.();
             }
             return;
         }
 
-        if (this.selectedAudioName) this.selectedAudioName.textContent = snapshot.name || 'Selected audio';
-        if (this.selectedAudioMetadata) {
-            this.selectedAudioMetadata.textContent = this._formatSelectedAudioMetadata(snapshot);
+        if (this.#selectedName) this.#selectedName.textContent = snapshot.name || 'Selected audio';
+        if (this.#selectedMetadata) {
+            this.#selectedMetadata.textContent = this.#formatSelectedAudioMetadata(snapshot);
         }
-        if (this.selectedAudioFile) {
-            this.selectedAudioFile.hidden = state === SELECTED_AUDIO_STATES.CHECKING;
+        if (this.#selectedFile) {
+            this.#selectedFile.hidden = state === SELECTED_AUDIO_STATES.CHECKING;
         }
-        if (this.selectedAudioProgress) {
-            this.selectedAudioProgress.hidden = ![
-                SELECTED_AUDIO_STATES.CHECKING,
-                SELECTED_AUDIO_STATES.TRANSCRIBING
-            ].includes(state);
-        }
-        if (this.selectedAudioVerdict) {
-            this.selectedAudioVerdict.textContent = '';
-            this.selectedAudioVerdict.classList.remove('selected-audio-verdict-error');
-            this.selectedAudioVerdict.setAttribute('role', 'status');
-        }
-        if (this.selectedAudioNote) this.selectedAudioNote.textContent = '';
-        if (this.selectedAudioProgressTitle) this.selectedAudioProgressTitle.textContent = '';
-
-        let primary = { hidden: true };
-        let remove = { hidden: true };
-        if (state === SELECTED_AUDIO_STATES.CHECKING) {
-            if (this.selectedAudioProgressTitle) {
-                this.selectedAudioProgressTitle.textContent = 'Checking format and file size…';
-            }
-            if (this.selectedAudioNote) this.selectedAudioNote.textContent = 'Nothing has been sent to Azure.';
-        } else if (state === SELECTED_AUDIO_STATES.READY) {
-            if (this.selectedAudioVerdict) {
-                this.selectedAudioVerdict.textContent = `Ready for ${snapshot.modelLabel}`;
-            }
-            primary = { label: 'Transcribe', action: 'transcribe' };
-            remove = { label: 'Remove' };
-        } else if (state === SELECTED_AUDIO_STATES.UNSUPPORTED) {
-            this._setSelectedAudioError('Unsupported audio file. Choose MP3, MP4, MPEG/MPGA, M4A, WAV, or WebM.');
-            primary = { label: 'Choose another', action: 'choose' };
-            remove = { label: 'Remove' };
-        } else if (state === SELECTED_AUDIO_STATES.TOO_LARGE) {
-            const size = this._formatSelectedAudioSize(snapshot.size);
-            const limit = snapshot.model === 'whisper' ? '25 MB maximum' : 'under 300 MB after conversion';
-            this._setSelectedAudioError(
-                `${size} is too large for ${snapshot.modelLabel} (${limit}).`
-            );
-            primary = { label: 'Choose another', action: 'choose' };
-            remove = { label: 'Remove' };
-        } else if (state === SELECTED_AUDIO_STATES.TRANSCRIBING) {
-            if (this.selectedAudioProgressTitle) {
-                this.selectedAudioProgressTitle.textContent = 'Sending and transcribing…';
-            }
-            if (this.selectedAudioNote) {
-                this.selectedAudioNote.textContent = 'Azure does not provide a reliable percentage; progress remains indeterminate.';
-            }
-        } else if (state === SELECTED_AUDIO_STATES.FAILED) {
-            this._setSelectedAudioError(snapshot.errorMessage || 'Azure request failed.');
+        const panelState = [SELECTED_AUDIO_STATES.READY, SELECTED_AUDIO_STATES.TOO_LARGE].includes(state)
+            ? `${state}-${snapshot.model}`
+            : state;
+        const panels = this.#selectedWorkspace?.querySelectorAll?.('[data-selected-state]') || [];
+        panels.forEach(panel => {
+            panel.hidden = panel.dataset.selectedState !== panelState;
+        });
+        const panel = this.#selectedWorkspace?.querySelector?.(`[data-selected-state="${panelState}"]`);
+        const verdict = panel?.querySelector?.('[data-selected-verdict]');
+        if (state === SELECTED_AUDIO_STATES.FAILED && verdict) {
+            verdict.textContent = snapshot.errorMessage || 'Azure request failed.';
             const authFailure = [
                 API_ERROR_CODES.AUTHENTICATION_REQUIRED,
                 API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED
             ].includes(snapshot.errorCode);
-            primary = authFailure
-                ? { hidden: true }
-                : { label: 'Retry', action: 'retry' };
-            remove = { label: 'Remove' };
+            const retry = panel.querySelector('[data-selected-action="retry"]');
+            if (retry) retry.hidden = authFailure;
         }
-
-        this._applyButton(this.selectedAudioPrimary, primary);
-        if (this.selectedAudioPrimary?.dataset) {
-            this.selectedAudioPrimary.dataset.selectedAction = primary.action || '';
-        }
-        this._applyButton(this.selectedAudioRemove, remove);
-        if (!primary.hidden) this.selectedAudioPrimary?.focus?.();
-        else if (!remove.hidden && state === SELECTED_AUDIO_STATES.FAILED) {
-            this.selectedAudioRemove?.focus?.();
-        }
+        panel?.querySelector?.('[data-selected-action]:not([hidden])')?.focus?.();
     }
 
-    _setSelectedAudioError(message) {
-        if (!this.selectedAudioVerdict) return;
-        this.selectedAudioVerdict.textContent = message;
-        this.selectedAudioVerdict.classList.add('selected-audio-verdict-error');
-        this.selectedAudioVerdict.setAttribute('role', 'alert');
-    }
-
-    _formatSelectedAudioMetadata(snapshot) {
+    #formatSelectedAudioMetadata(snapshot) {
         const duration = Number.isFinite(snapshot.duration)
-            ? this._formatSelectedAudioDuration(snapshot.duration)
+            ? this.#formatSelectedAudioDuration(snapshot.duration)
             : 'Duration unavailable';
-        return `${duration} · ${this._formatSelectedAudioSize(snapshot.size)} · ${snapshot.format || 'Unknown format'}`;
+        return `${duration} · ${this.#formatSelectedAudioSize(snapshot.size)} · ${snapshot.format || 'Unknown format'}`;
     }
 
-    _formatSelectedAudioDuration(durationSeconds) {
+    #formatSelectedAudioDuration(durationSeconds) {
         const totalSeconds = Math.max(0, Math.round(durationSeconds));
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return hours > 0
-            ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-            : `${minutes}:${String(seconds).padStart(2, '0')}`;
+        return new Date(totalSeconds * 1000).toISOString()
+            .slice(totalSeconds >= 3600 ? 11 : 14, 19)
+            .replace(/^0/u, '');
     }
 
-    _formatSelectedAudioSize(size) {
+    #formatSelectedAudioSize(size) {
         if (!Number.isFinite(size) || size < 0) return 'Size unavailable';
         if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
         if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
@@ -676,7 +603,7 @@ export class UI {
      * @returns {void}
      */
     renderControls(state) {
-        if (this.selectedAudioSnapshot?.state !== SELECTED_AUDIO_STATES.IDLE) {
+        if (this.#selectedSnapshot?.state !== SELECTED_AUDIO_STATES.IDLE) {
             if (this.controlCluster) this.controlCluster.hidden = true;
             return;
         }
@@ -1355,12 +1282,6 @@ export class UI {
         return true;
     }
 
-    enableMicrophoneAfterFix() {
-        if (this.checkRecordingPrerequisites()) {
-            logger.child('UI').info('Microphone re-enabled after fixing prerequisites');
-        }
-    }
-
     // ───────────────────────── Status + transcript ─────────────────────────
 
     setStatus(message) {
@@ -1569,12 +1490,6 @@ export class UI {
     }
 
     // ───────────────────────── Settings + visualisation helpers ─────────────────────────
-
-    openSettingsModal() {
-        if (this.settings) {
-            this.settings.openSettingsModal();
-        }
-    }
 
     clearVisualization() {
         if (this.visualizer) {

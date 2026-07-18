@@ -69,7 +69,10 @@
                 <!-- Onboarding empty-state: calmer than a bare placeholder. Hidden by
                      CSS once the textarea holds text (:placeholder-shown sibling). -->
                 <div class="transcript-empty" aria-hidden="true">
-                    <p class="transcript-empty-title">Record or upload audio</p>
+                    <p class="transcript-empty-title">
+                        <span class="transcript-idle-title">Record or upload audio</span>
+                        <span class="transcript-drop-title">Drop an audio file here</span>
+                    </p>
                     <p class="transcript-empty-hint">Drop an audio file here</p>
                 </div>
                 <section id="selected-audio-workspace" class="selected-audio-workspace"
@@ -82,23 +85,69 @@
                             <small id="selected-audio-metadata"></small>
                         </span>
                     </div>
-                    <div id="selected-audio-progress" class="selected-audio-progress" role="status" hidden>
-                        <span class="selected-audio-dots" aria-hidden="true">
-                            <span class="selected-audio-dot"></span>
-                            <span class="selected-audio-dot"></span>
-                            <span class="selected-audio-dot"></span>
-                        </span>
-                        <strong id="selected-audio-progress-title"></strong>
+                    <div class="selected-audio-state" data-selected-state="checking" hidden>
+                        <div class="selected-audio-progress" role="status">
+                            <span class="selected-audio-dots" aria-hidden="true">
+                                <span class="selected-audio-dot"></span>
+                                <span class="selected-audio-dot"></span>
+                                <span class="selected-audio-dot"></span>
+                            </span>
+                            <strong>Checking format and file size…</strong>
+                        </div>
+                        <p class="selected-audio-note">Nothing has been sent to Azure.</p>
                     </div>
-                    <div id="selected-audio-verdict" class="selected-audio-verdict" role="status"></div>
-                    <p id="selected-audio-note" class="selected-audio-note"></p>
-                    <div class="selected-audio-actions">
-                        <button id="selected-audio-primary" type="button" class="btn btn-primary" hidden>
-                            <span class="btn-label"></span>
-                        </button>
-                        <button id="selected-audio-remove" type="button" class="btn btn-secondary" hidden>
-                            <span class="btn-label">Remove</span>
-                        </button>
+                    <div class="selected-audio-state" data-selected-state="ready-whisper" hidden>
+                        <div class="selected-audio-verdict" role="status">Ready for Azure Whisper</div>
+                        <div class="selected-audio-actions">
+                            <button type="button" class="btn btn-primary" data-selected-action="transcribe"><span class="btn-label">Transcribe</span></button>
+                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
+                        </div>
+                    </div>
+                    <div class="selected-audio-state" data-selected-state="ready-mai-transcribe-1.5" hidden>
+                        <div class="selected-audio-verdict" role="status">Ready for Azure MAI-Transcribe 1.5</div>
+                        <div class="selected-audio-actions">
+                            <button type="button" class="btn btn-primary" data-selected-action="transcribe"><span class="btn-label">Transcribe</span></button>
+                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
+                        </div>
+                    </div>
+                    <div class="selected-audio-state" data-selected-state="unsupported" hidden>
+                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">Unsupported audio file. Choose MP3, MP4, MPEG/MPGA, M4A, WAV, or WebM.</div>
+                        <div class="selected-audio-actions">
+                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
+                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
+                        </div>
+                    </div>
+                    <div class="selected-audio-state" data-selected-state="tooLarge-whisper" hidden>
+                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">This file is too large for Azure Whisper (25 MB maximum).</div>
+                        <div class="selected-audio-actions">
+                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
+                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
+                        </div>
+                    </div>
+                    <div class="selected-audio-state" data-selected-state="tooLarge-mai-transcribe-1.5" hidden>
+                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">This file is too large for Azure MAI-Transcribe 1.5 (under 300 MB after conversion).</div>
+                        <div class="selected-audio-actions">
+                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
+                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
+                        </div>
+                    </div>
+                    <div class="selected-audio-state" data-selected-state="transcribing" hidden>
+                        <div class="selected-audio-progress" role="status">
+                            <span class="selected-audio-dots" aria-hidden="true">
+                                <span class="selected-audio-dot"></span>
+                                <span class="selected-audio-dot"></span>
+                                <span class="selected-audio-dot"></span>
+                            </span>
+                            <strong>Sending and transcribing…</strong>
+                        </div>
+                        <p class="selected-audio-note">Azure does not provide a reliable percentage; progress remains indeterminate.</p>
+                    </div>
+                    <div class="selected-audio-state" data-selected-state="failed" hidden>
+                        <div class="selected-audio-verdict selected-audio-verdict-error" data-selected-verdict role="alert"></div>
+                        <div class="selected-audio-actions">
+                            <button type="button" class="btn btn-primary" data-selected-action="retry"><span class="btn-label">Retry</span></button>
+                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
+                        </div>
                     </div>
                 </section>
             </div>

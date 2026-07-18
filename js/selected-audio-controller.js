@@ -10,7 +10,6 @@ import {
     AUTHENTICATION_STATES,
     MODEL_TYPES,
     SELECTED_AUDIO_STATES,
-    SUPPORTED_AUDIO_FORMATS_LABEL,
     WHISPER_MAX_UPLOAD_BYTES,
     MESSAGES,
     resolveSupportedAudioFormat
@@ -20,10 +19,6 @@ import { eventBus, APP_EVENTS } from './event-bus.js';
 const EMPTY_SNAPSHOT = Object.freeze({ state: SELECTED_AUDIO_STATES.IDLE });
 const DURATION_TIMEOUT_MS = 5_000;
 
-function unsupportedMessage() {
-    return `Choose a non-empty audio file in one of these formats: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`;
-}
-
 /**
  * Reads duration through a short-lived media object URL. Every outcome revokes
  * the URL, and unsupported metadata resolves to null rather than hanging.
@@ -32,60 +27,56 @@ function unsupportedMessage() {
  * @param {Object} [dependencies] Injectable browser primitives for tests.
  * @returns {Promise<number|null>}
  */
-export function readSelectedAudioDuration(file, {
-    createAudio = () => document.createElement('audio'),
-    createObjectURL = value => URL.createObjectURL(value),
-    revokeObjectURL = value => URL.revokeObjectURL(value),
-    signal,
-    timeoutMs = DURATION_TIMEOUT_MS
-} = {}) {
+export function readSelectedAudioDuration(file, { signal } = {}) {
     return new Promise((resolve) => {
         if (signal?.aborted) {
             resolve(null);
             return;
         }
 
-        let audio;
+        const audio = document.createElement('audio');
         let objectUrl;
         try {
-            audio = createAudio();
-            objectUrl = createObjectURL(file);
+            objectUrl = URL.createObjectURL(file);
         } catch {
             resolve(null);
             return;
         }
 
-        let settled = false;
         let timeoutId;
         const finish = (duration) => {
-            if (settled) return;
-            settled = true;
+            if (!objectUrl) return;
             clearTimeout(timeoutId);
-            audio.removeEventListener?.('loadedmetadata', onMetadata);
-            audio.removeEventListener?.('error', onUnavailable);
             signal?.removeEventListener('abort', onUnavailable);
+            audio.onloadedmetadata = null;
+            audio.onerror = null;
             try {
-                audio.removeAttribute?.('src');
-                audio.load?.();
+                audio.removeAttribute('src');
+                audio.load();
             } catch {
                 // Resource release continues even when media teardown is unavailable.
             }
             try {
-                revokeObjectURL(objectUrl);
+                URL.revokeObjectURL(objectUrl);
             } catch {
                 // The File reference is still released by the controller.
             }
+            objectUrl = '';
             resolve(Number.isFinite(duration) && duration >= 0 ? duration : null);
         };
         const onMetadata = () => finish(audio.duration);
         const onUnavailable = () => finish(null);
 
-        audio.addEventListener?.('loadedmetadata', onMetadata, { once: true });
-        audio.addEventListener?.('error', onUnavailable, { once: true });
+        audio.onloadedmetadata = onMetadata;
+        audio.onerror = onUnavailable;
         signal?.addEventListener('abort', onUnavailable, { once: true });
-        audio.preload = 'metadata';
-        audio.src = objectUrl;
-        timeoutId = setTimeout(onUnavailable, timeoutMs);
+        timeoutId = setTimeout(onUnavailable, DURATION_TIMEOUT_MS);
+        try {
+            audio.preload = 'metadata';
+            audio.src = objectUrl;
+        } catch {
+            onUnavailable();
+        }
     });
 }
 
@@ -97,6 +88,12 @@ export class SelectedAudioController {
     #generation = 0;
     #snapshot = EMPTY_SNAPSHOT;
     #durationAbortController = null;
+    #settings;
+    #auth;
+    #api;
+    #recording;
+    #readDuration;
+    #offModelChanged;
 
     constructor({
         settings,
@@ -105,12 +102,12 @@ export class SelectedAudioController {
         recordingSafety,
         durationReader = readSelectedAudioDuration
     }) {
-        this.settings = settings;
-        this.authenticationReadiness = authenticationReadiness;
-        this.apiClient = apiClient;
-        this.recordingSafety = recordingSafety;
-        this.durationReader = durationReader;
-        this._offModelChanged = eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, () => {
+        this.#settings = settings;
+        this.#auth = authenticationReadiness;
+        this.#api = apiClient;
+        this.#recording = recordingSafety;
+        this.#readDuration = durationReader;
+        this.#offModelChanged = eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, () => {
             if (this.#file && this.#snapshot.state !== SELECTED_AUDIO_STATES.TRANSCRIBING) {
                 void this.#validateCurrentFile();
             }
@@ -126,9 +123,27 @@ export class SelectedAudioController {
     }
 
     getAudioSafetyState() {
-        return this.hasSelectedAudio()
+        const recordingState = this.#recording?.getAudioSafetyState?.()
+            || AUDIO_SAFETY_STATES.SAFE;
+        return recordingState === AUDIO_SAFETY_STATES.SAFE && this.#file
             ? AUDIO_SAFETY_STATES.SELECTED
-            : AUDIO_SAFETY_STATES.SAFE;
+            : recordingState;
+    }
+
+    canSelectAudio() {
+        return this.getAudioSafetyState() === AUDIO_SAFETY_STATES.SAFE;
+    }
+
+    downloadUnsentRecording() {
+        return this.#recording?.downloadUnsentRecording?.() === true;
+    }
+
+    wasUnsentRecordingDownloadInitiated() {
+        return this.#recording?.wasUnsentRecordingDownloadInitiated?.() === true;
+    }
+
+    discardUnsentRecording() {
+        return this.#recording?.discardUnsentRecording?.() === true;
     }
 
     async select(file) {
@@ -144,8 +159,8 @@ export class SelectedAudioController {
             !this.#file ||
             !file ||
             this.#snapshot.state === SELECTED_AUDIO_STATES.TRANSCRIBING ||
-            this.authenticationReadiness?.getState?.() !== AUTHENTICATION_STATES.READY ||
-            this.recordingSafety?.getAudioSafetyState?.() !== AUDIO_SAFETY_STATES.SAFE
+            this.#auth?.getState?.() !== AUTHENTICATION_STATES.READY ||
+            this.#recording?.getAudioSafetyState?.() !== AUDIO_SAFETY_STATES.SAFE
         ) {
             return false;
         }
@@ -163,7 +178,7 @@ export class SelectedAudioController {
             return false;
         }
 
-        if (this.#snapshot.model !== this.settings.getCurrentModel()) {
+        if (this.#snapshot.model !== this.#settings.getCurrentModel()) {
             await this.#validateCurrentFile();
             return false;
         }
@@ -175,8 +190,8 @@ export class SelectedAudioController {
 
         let readinessState;
         try {
-            const scope = this.apiClient.getScopeForModel(model);
-            readinessState = await this.authenticationReadiness.ensureTokenReady(scope);
+            const scope = this.#api.getScopeForModel(model);
+            readinessState = await this.#auth.ensureTokenReady(scope);
         } catch {
             readinessState = AUTHENTICATION_STATES.AUTHENTICATION_ERROR;
         }
@@ -193,13 +208,13 @@ export class SelectedAudioController {
             return false;
         }
 
-        if (model !== this.settings.getCurrentModel()) {
+        if (model !== this.#settings.getCurrentModel()) {
             await this.#validateCurrentFile();
             return false;
         }
 
         try {
-            const text = await this.apiClient.transcribe(file, message => {
+            const text = await this.#api.transcribe(file, message => {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, { message, type: 'info' });
             });
             if (file !== this.#file || generation !== this.#generation) return false;
@@ -233,16 +248,13 @@ export class SelectedAudioController {
         const file = this.#file;
         if (!file) return false;
         const generation = this.#generation;
-        const model = this.settings.getCurrentModel();
+        const model = this.#settings.getCurrentModel();
         const base = {
-            name: typeof file.name === 'string' ? file.name : '',
+            name: file.name || '',
             size: file.size,
             duration: null,
             format: '',
-            model,
-            modelLabel: this.apiClient.getModelLabel?.(model) || model,
-            errorCode: null,
-            errorMessage: ''
+            model
         };
         this.#setSnapshot({ state: SELECTED_AUDIO_STATES.CHECKING, ...base });
 
@@ -251,8 +263,7 @@ export class SelectedAudioController {
             this.#setSnapshot({
                 state: SELECTED_AUDIO_STATES.UNSUPPORTED,
                 ...base,
-                errorCode: AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE,
-                errorMessage: unsupportedMessage()
+                errorCode: AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE
             });
             return false;
         }
@@ -262,8 +273,7 @@ export class SelectedAudioController {
                 state: SELECTED_AUDIO_STATES.TOO_LARGE,
                 ...base,
                 format: format.format,
-                errorCode: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
-                errorMessage: 'Azure Whisper accepts audio up to 25 MB.'
+                errorCode: AUDIO_UPLOAD_LIMIT_ERROR_CODE
             });
             return false;
         }
@@ -272,7 +282,7 @@ export class SelectedAudioController {
         const durationAbortController = new AbortController();
         this.#durationAbortController = durationAbortController;
         try {
-            const measuredDuration = await this.durationReader(file, {
+            const measuredDuration = await this.#readDuration(file, {
                 signal: durationAbortController.signal
             });
             duration = Number.isFinite(measuredDuration) && measuredDuration >= 0
@@ -306,17 +316,17 @@ export class SelectedAudioController {
     }
 
     destroy() {
-        this._offModelChanged?.();
-        this._offModelChanged = null;
+        this.#offModelChanged?.();
+        this.#offModelChanged = null;
         this.remove();
     }
 
     #canSelect(file) {
         if (!file || this.#file) return false;
-        if (this.authenticationReadiness?.getState?.() !== AUTHENTICATION_STATES.READY) {
+        if (this.#auth?.getState?.() !== AUTHENTICATION_STATES.READY) {
             return false;
         }
-        return this.recordingSafety?.getAudioSafetyState?.() === AUDIO_SAFETY_STATES.SAFE;
+        return this.canSelectAudio();
     }
 
     #abortDurationRead() {
