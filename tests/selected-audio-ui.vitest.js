@@ -168,6 +168,19 @@ describe('Selected Audio picker and transient drag/drop', () => {
             .toBe('Record or upload audio');
     });
 
+    it('highlights an OS file drag while files remain protected until drop', () => {
+        const { ui } = createHarness();
+        const dragover = fileDragEvent('dragover', []);
+        Object.defineProperty(dragover.dataTransfer, 'items', {
+            value: [{ kind: 'file', type: 'audio/wav' }]
+        });
+
+        document.dispatchEvent(dragover);
+
+        expect(dragover.defaultPrevented).toBe(true);
+        expect(ui.transcriptBody.classList.contains('selected-audio-dragging')).toBe(true);
+    });
+
     it('prevents drop navigation and selects without an automatic Azure action', async () => {
         const { selectedAudioController } = createHarness();
         const file = new File(['deterministic-placeholder'], 'drop.wav', { type: 'audio/wav' });

@@ -467,7 +467,7 @@ export class UI {
             if (files.length !== 1) return;
             if (this.#replaceOnPick) {
                 await this.#selectedController?.replace?.(files[0]);
-            } else if (this.#canSelectAudio(files)) {
+            } else if (this.#canSelectAudio(files.length === 1)) {
                 await this.#selectedController?.select?.(files[0]);
             }
         } finally {
@@ -478,14 +478,15 @@ export class UI {
     }
 
     #handleAudioDragOver(event) {
-        const files = Array.from(event.dataTransfer?.files || []);
-        if (!event.dataTransfer) return;
+        const transfer = event.dataTransfer;
+        if (!transfer) return;
         event.preventDefault();
-        if (!this.#canSelectAudio(files)) {
+        if (!this.#canSelectAudio(
+            transfer.items.length === 1 && transfer.items[0].kind === 'file'
+        )) {
             this.#restoreDragPresentation();
             return;
         }
-        event.dataTransfer.dropEffect = 'copy';
         this.transcriptBody?.classList?.add('selected-audio-dragging');
     }
 
@@ -493,13 +494,13 @@ export class UI {
         if (!event.dataTransfer) return;
         event.preventDefault();
         const files = Array.from(event.dataTransfer.files || []);
-        const accepted = this.#canSelectAudio(files);
+        const accepted = this.#canSelectAudio(files.length === 1);
         this.#restoreDragPresentation();
         if (accepted) await this.#selectedController?.select?.(files[0]);
     }
 
-    #canSelectAudio(files) {
-        return files.length === 1
+    #canSelectAudio(singleFile) {
+        return singleFile
             && this.currentState === RECORDING_STATES.IDLE
             && this.ready
             && this.#selectedSnapshot?.state === SELECTED_AUDIO_STATES.IDLE

@@ -118,10 +118,6 @@ export class SelectedAudioController {
         return this.#snapshot;
     }
 
-    hasSelectedAudio() {
-        return this.#file !== null;
-    }
-
     getAudioSafetyState() {
         const recordingState = this.#recording?.getAudioSafetyState?.()
             || AUDIO_SAFETY_STATES.SAFE;
@@ -335,9 +331,7 @@ export class SelectedAudioController {
     }
 
     #setSnapshot(snapshot) {
-        this.#snapshot = snapshot === EMPTY_SNAPSHOT
-            ? EMPTY_SNAPSHOT
-            : Object.freeze({ ...snapshot });
+        this.#snapshot = Object.freeze(snapshot);
         eventBus.emit(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, this.#snapshot);
     }
 }
