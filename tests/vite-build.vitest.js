@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const distDirectory = path.join(repoRoot, 'dist');
 const redirectSourcePath = path.join(repoRoot, 'auth/redirect.html');
+const packagePath = path.join(repoRoot, 'package.json');
 
 describe('Vite build contract', () => {
     it('emits separate application and redirect-bridge entries without application code in the bridge', () => {
@@ -22,5 +23,12 @@ describe('Vite build contract', () => {
         expect(readFileSync(indexPath, 'utf8')).toMatch(/assets\/.+\.js/);
         expect(readFileSync(redirectPath, 'utf8')).toContain('Completing sign-in');
         expect(redirectSource).not.toMatch(/js\/main|AudioHandler|AzureAPIClient|localStorage|microphone/);
+    });
+
+    it('builds before invoking the supported live-browser configuration', () => {
+        const { scripts } = JSON.parse(readFileSync(packagePath, 'utf8'));
+
+        expect(scripts['test:browser:live'])
+            .toBe('npm run build && playwright test --config playwright.live.config.js');
     });
 });
