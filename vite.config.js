@@ -7,13 +7,15 @@ const browserTestAuthenticationPath = resolve(
     projectRoot,
     'tests/browser/fakes/authentication-factory.js'
 );
+const liveContractAuthenticationPath = resolve(
+    projectRoot,
+    'tests/browser-live/oidc-authentication-factory.js'
+);
 
 export default defineConfig(({ mode }) => ({
     base: mode === 'pages' ? '/whisper-transcribe/' : '/',
     resolve: {
-        alias: mode === 'browser-test'
-            ? [{ find: /^\.\/authentication-service\.js$/, replacement: browserTestAuthenticationPath }]
-            : []
+        alias: authenticationAliasForMode(mode)
     },
     build: {
         rollupOptions: {
@@ -36,3 +38,14 @@ export default defineConfig(({ mode }) => ({
         }
     }
 }));
+
+function authenticationAliasForMode(mode) {
+    const replacement = mode === 'browser-test'
+        ? browserTestAuthenticationPath
+        : mode === 'live-contract'
+            ? liveContractAuthenticationPath
+            : null;
+    return replacement
+        ? [{ find: /^\.\/authentication-service\.js$/, replacement }]
+        : [];
+}

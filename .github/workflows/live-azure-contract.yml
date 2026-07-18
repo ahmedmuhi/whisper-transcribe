@@ -2,6 +2,18 @@ name: Live Azure contract test
 
 on:
   workflow_dispatch:
+    inputs:
+      stage:
+        description: Protected live evidence stage
+        required: true
+        type: choice
+        options:
+          - authorization-probe
+          - transcription-contract
+
+permissions:
+  contents: read
+  id-token: write
 
 concurrency:
   group: live-azure-contract
@@ -12,28 +24,95 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: live-azure
+    env:
+      AZURE_CORE_OUTPUT: none
+      AZURE_LOGIN_POST_CLEANUP: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Verify required protected configuration
+        shell: bash
+        env:
+          AZURE_OIDC_CLIENT_ID: ${{ secrets.AZURE_OIDC_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_WHISPER_TARGET_URI: ${{ secrets.AZURE_WHISPER_TARGET_URI }}
+          AZURE_MAI_TRANSCRIBE_TARGET_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_TARGET_URI }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in \
+            AZURE_OIDC_CLIENT_ID \
+            AZURE_TENANT_ID \
+            AZURE_WHISPER_TARGET_URI \
+            AZURE_MAI_TRANSCRIBE_TARGET_URI
+          do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required protected configuration: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      # actions/checkout@v4.3.1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      # actions/setup-node@v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: npm
+
       - name: Install dependencies
         run: npm ci
-      - name: Install Chromium
+
+      - name: Install Chromium for the transcription stage
+        if: inputs.stage == 'transcription-contract'
         run: npx playwright install --with-deps --no-shell chromium
-      - name: Verify required secrets
-        env:
-          AZURE_MAI_TRANSCRIBE_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_URI }}
-          AZURE_MAI_TRANSCRIBE_API_KEY: ${{ secrets.AZURE_MAI_TRANSCRIBE_API_KEY }}
+
+      - name: Authenticate the protected workload identity
+        # azure/login@v3.0.0, pinned to the release commit.
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43
+        with:
+          client-id: ${{ secrets.AZURE_OIDC_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Acquire and mask a Cognitive Services access token
+        shell: bash
         run: |
-          test -n "$AZURE_MAI_TRANSCRIBE_URI" || { echo "::error::Missing Azure endpoint secret"; exit 1; }
-          test -n "$AZURE_MAI_TRANSCRIBE_API_KEY" || { echo "::error::Missing Azure API-key secret"; exit 1; }
-      # One run can make up to six synchronous transcription attempts of
-      # this short clip. The API creates no server-side job requiring cleanup;
-      # Playwright disposes the browser context after the test.
-      - name: Live contract test
+          set -euo pipefail
+          access_token="$(
+            az account get-access-token \
+              --resource https://cognitiveservices.azure.com \
+              --query accessToken -o tsv
+          )"
+          if [[ -z "$access_token" ]]; then
+            echo "::error::Azure returned no Cognitive Services access token"
+            exit 1
+          fi
+          printf '::add-mask::%s\n' "$access_token"
+          printf 'AZURE_OIDC_ACCESS_TOKEN=%s\n' "$access_token" >> "$GITHUB_ENV"
+          unset access_token
+
+      - name: Run expected-denial authorization probes
+        if: inputs.stage == 'authorization-probe'
         env:
-          AZURE_MAI_TRANSCRIBE_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_URI }}
-          AZURE_MAI_TRANSCRIBE_API_KEY: ${{ secrets.AZURE_MAI_TRANSCRIBE_API_KEY }}
-        run: npm run test:browser:live
+          AZURE_WHISPER_TARGET_URI: ${{ secrets.AZURE_WHISPER_TARGET_URI }}
+          AZURE_MAI_TRANSCRIBE_TARGET_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_TARGET_URI }}
+        run: >-
+          npx playwright test --config playwright.live.config.js
+          tests/browser-live/authorization-probe.contract.spec.js
+
+      - name: Run the two-model transcription contract
+        if: inputs.stage == 'transcription-contract'
+        env:
+          AZURE_WHISPER_TARGET_URI: ${{ secrets.AZURE_WHISPER_TARGET_URI }}
+          AZURE_MAI_TRANSCRIBE_TARGET_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_TARGET_URI }}
+        run: >-
+          npm run test:browser:live --
+          tests/browser-live/live-azure.contract.spec.js
+
+      - name: Clear Azure CLI session state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          az logout >/dev/null
