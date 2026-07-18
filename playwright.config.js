@@ -26,7 +26,7 @@ export default defineConfig({
         video: 'off'
     },
     webServer: {
-        command: 'node tests/browser/static-server.mjs',
+        command: 'npm run build && node tests/browser/static-server.mjs',
         url: 'http://[::1]:4175/',
         reuseExistingServer: false,
         timeout: 15_000

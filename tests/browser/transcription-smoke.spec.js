@@ -56,7 +56,7 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
     await page.waitForTimeout(1_200);
 
     const workerPromise = page.waitForEvent('worker', {
-        predicate: worker => worker.url().endsWith('/js/audio-converter.worker.js')
+        predicate: worker => /\/assets\/audio-converter\.worker-[^/]+\.js$/.test(worker.url())
     });
     const postPromise = page.waitForRequest(request =>
         request.url() === endpoint && request.method() === 'POST'
@@ -64,10 +64,10 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
     await primary.click();
     const [worker, request] = await Promise.all([workerPromise, postPromise]);
 
-    expect(worker.url()).toMatch(/\/js\/audio-converter\.worker\.js$/);
+    expect(worker.url()).toMatch(/\/assets\/audio-converter\.worker-[^/]+\.js$/);
     expect(workerStates.get(worker)?.closed).toBe(false);
     expect(await worker.evaluate(() => self.location.pathname))
-        .toBe('/js/audio-converter.worker.js');
+        .toMatch(/\/assets\/audio-converter\.worker-[^/]+\.js$/);
 
     await expect(transcript).toHaveValue('Browser smoke transcript');
     await expect(primary).toContainText('Start recording');

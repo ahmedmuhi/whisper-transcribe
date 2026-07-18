@@ -1,7 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["js/main.js", "js/*.worker.js"],
-  "project": ["js/**/*.js"],
+  "entry": ["js/main.js", "js/*.worker.js", "auth/redirect.html"],
+  "project": ["js/**/*.js", "auth/redirect.html"],
+  "ignoreBinaries": ["vite"],
+  "ignoreDependencies": ["@azure/msal-browser"],
   "ignore": [
     "coverage/**",
     "docs/**",

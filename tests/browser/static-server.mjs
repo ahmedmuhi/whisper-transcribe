@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const distDirectory = path.join(repoRoot, 'dist');
 const artifactsDirectory = path.join(repoRoot, 'tests/browser/.artifacts');
 const keyPath = path.join(artifactsDirectory, 'localhost-key.pem');
 const certificatePath = path.join(artifactsDirectory, 'localhost-cert.pem');
@@ -58,8 +59,8 @@ const appServer = http.createServer((request, response) => {
 
     const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
     const decodedPath = decodeURIComponent(pathname);
-    const filePath = path.resolve(repoRoot, `.${decodedPath}`);
-    const relativePath = path.relative(repoRoot, filePath);
+    const filePath = path.resolve(distDirectory, `.${decodedPath}`);
+    const relativePath = path.relative(distDirectory, filePath);
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)
         || !existsSync(filePath) || !statSync(filePath).isFile()) {
         response.writeHead(404, { 'Cache-Control': 'no-store' });

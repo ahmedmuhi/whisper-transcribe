@@ -9,7 +9,12 @@ Playwright layers). Plan 019 promotes the remaining adapter-storage metadata
 finding via the `plan` workflow at commit `382e9ff`. Plans 020–030 were selected
 from a fresh whole-repository `deep` audit on 2026-07-12 at commit `559124e`
 (all nine playbook categories, current production/tests/tooling/docs and both
-browser layers). Execute in the order below unless dependencies say otherwise.
+browser layers). Plans 031–038 were generated on 2026-07-18 from the canonical
+Wayfinder specification in issue 112 at commit `e1f7083`; the User approved
+the complete dependency-ordered title batch and sanitized public issue
+publication. Their required executor is `gpt-5.6-terra` with high reasoning;
+if unavailable, stop and ask before substituting. Execute in the order below
+unless dependencies say otherwise.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
@@ -56,6 +61,14 @@ and update your row when done.
 | 028 | Provide one supported local-development command and runtime baseline | P2 | S/M | — | DONE (implemented as `07ee6c5`, independently approved after two review rounds, and merged via PR #100 as `9206b02`, 2026-07-13) |
 | 029 | Lint tests, Playwright scaffolding, and repository tooling | P2 | M | 028 | DONE (implemented as `e85b104`, independently approved, and merged via PR #101 as `8c38672`, 2026-07-13) |
 | 030 | Reconcile active model and state-machine documentation | P2 | S | 027 | DONE (implemented as `4f2974c`, independently approved after one revision round, and merged via PR #102 as `be235f0`, 2026-07-13) |
+| 031 | [Adopt Vite/MSAL packaging and deploy the built static artifact through GitHub Actions](https://github.com/ahmedmuhi/whisper-transcribe/issues/114) | P1 | L | — | DONE (local `a2eb0d1`, `f64c957`, `250075e`, `3a1f105`, `53614b4`; live-build, artifact-boundary, and Node/Vite compatibility contracts, build, lint, 32/407, Knip, high-audit, size, Chromium ×2, YAML and scope checks passed) |
+| 032 | [Replace every API-key path with centralized Microsoft Entra bearer authentication](https://github.com/ahmedmuhi/whisper-transcribe/issues/115) | P1 | L | 031 | TODO |
+| 033 | [Implement authentication-safe recording recovery and the unified User menu](https://github.com/ahmedmuhi/whisper-transcribe/issues/116) | P1 | L | 032 | TODO |
+| 034 | [Add Selected Audio upload, validation, review, and transcription](https://github.com/ahmedmuhi/whisper-transcribe/issues/117) | P1 | L | 033 | TODO |
+| 035 | [Migrate the live two-model Azure contract to a least-privilege GitHub OIDC identity](https://github.com/ahmedmuhi/whisper-transcribe/issues/118) | P1 | L | 032 | TODO |
+| 036 | [Reconcile keyless documentation and add the sanitized operator runbook](https://github.com/ahmedmuhi/whisper-transcribe/issues/119) | P1 | L | 031–035 | TODO |
+| 037 | [Qualify one immutable keyless release candidate across CI, Pages, and all 12 browser paths](https://github.com/ahmedmuhi/whisper-transcribe/issues/120) | P1 | L | 031–036 | TODO |
+| 038 | [Enforce Azure key rejection one resource at a time and retire every legacy key](https://github.com/ahmedmuhi/whisper-transcribe/issues/121) | P1 | L | 037 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -206,6 +219,32 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   its first commit.
 - **030 after 027.** Document the final exactly-once API event ownership rather
   than updating the FSM/API specs twice.
+- **031 first for the keyless migration.** It establishes the Vite/MSAL build,
+  callback bridge, and Actions-built Pages artifact without changing auth
+  behavior or touching Azure.
+- **032 atomically after 031.** Central bearer authentication, removal of every
+  product key path, legacy-key cleanup, and Whisper Translate removal land
+  together so no mixed credential architecture ships.
+- **033 after 032.** Authentication-safe redirects/recovery and the accepted
+  unified User menu build on the final sign-in/token lifecycle.
+- **034 after 033.** Selected Audio reuses the authenticated Audio Source gate
+  and navigation-safety contract; it remains a separate feature plan.
+- **035 after 032.** The OIDC contract is independent of the UI plans once the
+  two keyless model paths exist. Its external Entra/RBAC/workflow stages remain
+  separately human-approved.
+- **036 after 031–035.** Reconcile all public setup/build/security guidance and
+  create the sanitized operator runbook only after implementation contracts
+  stop moving.
+- **037 after 031–036.** Freeze one commit and qualify it; do not fix defects
+  inside the evidence plan. Real Safari is required and every live action is
+  separately approved.
+- **038 last and human-operated.** Only an accepted Plan 037 candidate may
+  proceed to staged resource enforcement, 24-hour stabilization, four-slot
+  rotation, and legacy-secret retirement. CI can never perform the cutover.
+
+> Plans 031–038 are the repository source of truth for their implementations.
+> Their public GitHub issue bodies must remain identical to these sanitized
+> files; execution discoveries update both before work continues.
 
 ## Test-suite necessity census (refreshed 2026-07-12, commit `86987bd`)
 
