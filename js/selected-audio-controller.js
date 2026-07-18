@@ -292,7 +292,11 @@ export class SelectedAudioController {
             }
         }
 
-        if (generation !== this.#generation || file !== this.#file) return false;
+        if (
+            generation !== this.#generation
+            || file !== this.#file
+            || model !== this.#snapshot.model
+        ) return false;
         this.#setSnapshot({
             state: SELECTED_AUDIO_STATES.READY,
             ...base,

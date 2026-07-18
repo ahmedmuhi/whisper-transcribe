@@ -421,6 +421,40 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
         expect(harness.apiClient.transcribe).not.toHaveBeenCalled();
     });
 
+    it('discards a stale validation result when the model changes during metadata loading', async () => {
+        let resolveFirstDuration;
+        const firstDuration = new Promise(resolve => {
+            resolveFirstDuration = resolve;
+        });
+        const durationReader = vi.fn()
+            .mockReturnValueOnce(firstDuration)
+            .mockResolvedValueOnce(18);
+        const harness = createHarness({ durationReader });
+
+        const firstValidation = harness.controller.select(createFile());
+        harness.setModel(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+            model: MODEL_TYPES.MAI_TRANSCRIBE_1_5
+        });
+
+        await vi.waitFor(() => {
+            expect(harness.controller.getSnapshot()).toMatchObject({
+                state: SELECTED_AUDIO_STATES.READY,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+                duration: 18
+            });
+        });
+
+        resolveFirstDuration(12.5);
+        await expect(firstValidation).resolves.toBe(false);
+        expect(harness.controller.getSnapshot()).toMatchObject({
+            state: SELECTED_AUDIO_STATES.READY,
+            model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            duration: 18
+        });
+        expect(harness.apiClient.transcribe).not.toHaveBeenCalled();
+    });
+
     it('does not send against a model that changes while readiness is being established', async () => {
         let resolveReadiness;
         const harness = createHarness();
