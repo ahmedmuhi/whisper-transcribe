@@ -31,7 +31,7 @@ export const whisperModelAdapter = Object.freeze({
             throw error;
         }
 
-        const filename = getWhisperFilename(audioBlob.type);
+        const filename = getWhisperFilename(audioBlob.type, audioBlob.name);
         const formData = new FormData();
         formData.append(API_PARAMS.FILE, audioBlob, filename);
         formData.append(API_PARAMS.LANGUAGE, DEFAULT_LANGUAGE);

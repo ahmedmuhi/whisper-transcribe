@@ -3,6 +3,7 @@
  */
 
 import {
+    AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     API_PARAMS,
     DEFAULT_WAV_FILENAME,
@@ -10,7 +11,9 @@ import {
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MESSAGES,
     MODEL_TYPES,
-    STORAGE_KEYS
+    STORAGE_KEYS,
+    SUPPORTED_AUDIO_FORMATS_LABEL,
+    resolveSupportedAudioFormat
 } from '../constants.js';
 import { COGNITIVE_SERVICES_SCOPE } from '../authentication-config.js';
 import { convertToWav } from '../audio-converter.js';
@@ -25,11 +28,28 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
         }),
         async buildRequest(audioBlob, _config, onProgress) {
+            const format = resolveSupportedAudioFormat(audioBlob.type, audioBlob.name);
+            if (!format) {
+                const error = new Error(
+                    `Unsupported audio format. Supported types: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`
+                );
+                error.code = AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE;
+                error.retryable = false;
+                throw error;
+            }
             if (onProgress) {
                 onProgress(MESSAGES.CONVERTING_AUDIO);
             }
 
-            const wavBlob = await convertToWav(audioBlob);
+            let wavBlob;
+            try {
+                wavBlob = await convertToWav(audioBlob);
+            } catch {
+                const error = new Error('The selected audio could not be decoded. Choose another file.');
+                error.code = AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE;
+                error.retryable = false;
+                throw error;
+            }
 
             if (wavBlob.size > MAI_TRANSCRIBE_MAX_UPLOAD_BYTES) {
                 const error = new Error(formatAudioUploadLimitMessage(

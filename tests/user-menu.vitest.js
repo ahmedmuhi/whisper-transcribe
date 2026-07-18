@@ -327,7 +327,8 @@ describe('unified User menu interactions', () => {
 
     it.each([
         AUDIO_SAFETY_STATES.ACTIVE,
-        AUDIO_SAFETY_STATES.UNSENT
+        AUDIO_SAFETY_STATES.UNSENT,
+        AUDIO_SAFETY_STATES.SELECTED
     ])('blocks logout and exposes recovery with zero navigation for %s', async (logoutState) => {
         const { authInteractionController } = createUserMenuHarness({ logoutState });
         click(document.getElementById('user-menu-launcher'));
@@ -340,9 +341,12 @@ describe('unified User menu interactions', () => {
             expect(document.querySelector('[data-menu-panel="logout"]').hidden).toBe(false);
             expect(document.getElementById('user-menu-download-recording').hidden).toBe(false);
             expect(document.getElementById('user-menu-discard-logout').hidden).toBe(false);
-        } else {
+        } else if (logoutState === AUDIO_SAFETY_STATES.ACTIVE) {
             expect(document.getElementById('user-menu-status').textContent)
                 .toContain('Finish or discard the recording');
+        } else {
+            expect(document.getElementById('user-menu-status').textContent)
+                .toBe('Remove Selected Audio before logging out.');
         }
         expect(authInteractionController.continueLogoutAfterDownload).not.toHaveBeenCalled();
         expect(authInteractionController.discardUnsentAndLogOut).not.toHaveBeenCalled();

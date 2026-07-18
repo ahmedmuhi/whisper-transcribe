@@ -194,6 +194,23 @@ describe('AudioHandler Integration', () => {
   };
 
   describe('Authentication readiness gate', () => {
+    it('blocks recording before auth or microphone access while Selected Audio exists', async () => {
+      const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
+      audioHandler.setAudioSourceCoordinator({
+        canStartRecording: vi.fn(() => false)
+      });
+
+      await audioHandler.startRecordingFlow();
+
+      expect(mockApiClient.validateConfig).not.toHaveBeenCalled();
+      expect(mockAuthenticationReadiness.ensureTokenReady).not.toHaveBeenCalled();
+      expect(microphoneSpy).not.toHaveBeenCalled();
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: MESSAGES.SELECTED_AUDIO_REQUIRES_REMOVAL })
+      );
+    });
+
     it.each([
       AUTHENTICATION_STATES.SIGNED_OUT,
       AUTHENTICATION_STATES.INTERACTION_REQUIRED,

@@ -223,6 +223,7 @@ export const eventBus = new EventBus();
  * @property {string} API_REQUEST_ERROR - Emitted when API request encounters error
  * @property {string} API_CONFIG_MISSING - Emitted when API configuration is missing
  * @property {string} AUTHENTICATION_STATE_CHANGED - Emitted with safe authentication state only
+ * @property {string} SELECTED_AUDIO_STATE_CHANGED - Emitted with safe display metadata only
  * 
  * @property {string} UI_STATUS_UPDATE - Emitted when UI status message should be updated
  * @property {string} UI_TRANSCRIPTION_READY - Emitted when transcription is ready for display
@@ -280,6 +281,9 @@ export const APP_EVENTS = {
 
     // Authentication events (safe state only; never tokens or MSAL results)
     AUTHENTICATION_STATE_CHANGED: 'authentication:stateChanged',
+
+    // Selected Audio events (metadata only; never File, Blob, URL, or audio bytes)
+    SELECTED_AUDIO_STATE_CHANGED: 'selectedAudio:stateChanged',
     
     // UI events
     UI_STATUS_UPDATE: 'ui:statusUpdate',

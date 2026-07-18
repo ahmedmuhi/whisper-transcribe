@@ -64,6 +64,7 @@ export class AudioHandler {
         this.pendingRetryDownloadInitiated = false;
         this.activeStream = null;
         this._activeRecordingSession = null;
+        this.audioSourceCoordinator = null;
 
         this.permissionManager = new PermissionManager();
         
@@ -82,6 +83,18 @@ export class AudioHandler {
             eventBus.on(APP_EVENTS.RETRY_BUTTON_CLICKED, () => this.retryPendingTranscription()),
             eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => this.settings.openSettingsModal()),
         ];
+    }
+
+    /**
+     * Adds the composed Audio Source availability boundary after construction.
+     * This setter resolves bootstrap ordering without coupling AudioHandler to
+     * the Selected Audio implementation.
+     *
+     * @param {{canStartRecording(): boolean}} coordinator
+     * @returns {void}
+     */
+    setAudioSourceCoordinator(coordinator) {
+        this.audioSourceCoordinator = coordinator;
     }
 
     /**
@@ -179,6 +192,14 @@ export class AudioHandler {
      */
     async startRecordingFlow() {
         try {
+            if (this.audioSourceCoordinator?.canStartRecording?.() === false) {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.SELECTED_AUDIO_REQUIRES_REMOVAL,
+                    type: 'error'
+                });
+                return;
+            }
+
             if (this.pendingRetryBlob
                 && this._requiresAuthenticationRecovery(this.pendingTranscriptionErrorCode)) {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
