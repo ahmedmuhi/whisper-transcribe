@@ -6,7 +6,7 @@
   "description": "A static browser app that turns speech into text with Azure Speech Services, wrapped in an interaction-led Dynamic Island UI.",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "start": "vite --host 127.0.0.1 --port 4173 --strictPort",
