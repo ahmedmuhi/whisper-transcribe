@@ -25,7 +25,6 @@ export class AuthInteractionController {
         this.audioSafety = audioSafety;
         this.getScope = getScope;
         this.confirmDiscard = confirmDiscard;
-        this.downloadInitiated = false;
     }
 
     async continueWithMicrosoft({ interactionRequired = false } = {}) {
@@ -38,26 +37,36 @@ export class AuthInteractionController {
     }
 
     getRecoveryState() {
-        if (this.downloadInitiated) {
+        const state = this.#getAudioSafetyState();
+        if (
+            state === AUDIO_SAFETY_STATES.UNSENT &&
+            this.#wasUnsentRecordingDownloadInitiated()
+        ) {
             return { state: AUTH_RECOVERY_STATES.DOWNLOADED };
         }
-        return { state: this.#getAudioSafetyState() };
+        return { state };
     }
 
     async downloadUnsentRecording() {
         const state = this.#getAudioSafetyState();
         if (state !== AUDIO_SAFETY_STATES.UNSENT) return { state };
 
-        if (!this.audioSafety.downloadUnsentRecording()) {
+        try {
+            if (!this.audioSafety.downloadUnsentRecording()) {
+                return { state: AUTH_RECOVERY_STATES.BLOCKED };
+            }
+        } catch {
             return { state: AUTH_RECOVERY_STATES.BLOCKED };
         }
-        this.downloadInitiated = true;
         return { state: AUTH_RECOVERY_STATES.DOWNLOADED };
     }
 
     async continueAfterDownload({ interactionRequired = false } = {}) {
         const state = this.#getAudioSafetyState();
-        if (!this.downloadInitiated || state !== AUDIO_SAFETY_STATES.UNSENT) {
+        if (
+            state !== AUDIO_SAFETY_STATES.UNSENT ||
+            !this.#wasUnsentRecordingDownloadInitiated()
+        ) {
             return { state };
         }
         return this.#redirect(interactionRequired);
@@ -67,13 +76,21 @@ export class AuthInteractionController {
         const state = this.#getAudioSafetyState();
         if (state !== AUDIO_SAFETY_STATES.UNSENT) return { state };
 
-        const confirmed = await this.confirmDiscard?.(UNSENT_DISCARD_CONFIRMATION);
+        let confirmed = false;
+        try {
+            confirmed = await this.confirmDiscard?.(UNSENT_DISCARD_CONFIRMATION);
+        } catch {
+            return { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
         if (!confirmed) return { state: AUTH_RECOVERY_STATES.CANCELLED };
-        if (!this.audioSafety.discardUnsentRecording()) {
+        try {
+            if (!this.audioSafety.discardUnsentRecording()) {
+                return { state: AUTH_RECOVERY_STATES.BLOCKED };
+            }
+        } catch {
             return { state: AUTH_RECOVERY_STATES.BLOCKED };
         }
 
-        this.downloadInitiated = false;
         const postDiscardState = this.#getAudioSafetyState();
         if (postDiscardState !== AUDIO_SAFETY_STATES.SAFE) {
             return { state: postDiscardState };
@@ -87,46 +104,75 @@ export class AuthInteractionController {
             return { state };
         }
 
-        await this.authenticationService.signOutRedirect();
-        return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+        return this.#logOutRedirect();
     }
 
     async continueLogoutAfterDownload() {
         const state = this.#getAudioSafetyState();
-        if (!this.downloadInitiated || state !== AUDIO_SAFETY_STATES.UNSENT) {
+        if (
+            state !== AUDIO_SAFETY_STATES.UNSENT ||
+            !this.#wasUnsentRecordingDownloadInitiated()
+        ) {
             return { state };
         }
-        await this.authenticationService.signOutRedirect();
-        return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+        return this.#logOutRedirect();
     }
 
     async discardUnsentAndLogOut() {
         const state = this.#getAudioSafetyState();
         if (state !== AUDIO_SAFETY_STATES.UNSENT) return { state };
 
-        const confirmed = await this.confirmDiscard?.(UNSENT_LOGOUT_CONFIRMATION);
+        let confirmed = false;
+        try {
+            confirmed = await this.confirmDiscard?.(UNSENT_LOGOUT_CONFIRMATION);
+        } catch {
+            return { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
         if (!confirmed) return { state: AUTH_RECOVERY_STATES.CANCELLED };
-        if (!this.audioSafety.discardUnsentRecording()) {
+        try {
+            if (!this.audioSafety.discardUnsentRecording()) {
+                return { state: AUTH_RECOVERY_STATES.BLOCKED };
+            }
+        } catch {
             return { state: AUTH_RECOVERY_STATES.BLOCKED };
         }
 
-        this.downloadInitiated = false;
         const postDiscardState = this.#getAudioSafetyState();
         if (postDiscardState !== AUDIO_SAFETY_STATES.SAFE) {
             return { state: postDiscardState };
         }
-        await this.authenticationService.signOutRedirect();
-        return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+        return this.#logOutRedirect();
     }
 
     async #redirect(interactionRequired) {
-        const scope = this.getScope();
-        if (interactionRequired) {
-            await this.authenticationService.acquireTokenRedirect(scope);
-        } else {
-            await this.authenticationService.signInRedirect(scope);
+        try {
+            const scope = this.getScope();
+            if (interactionRequired) {
+                await this.authenticationService.acquireTokenRedirect(scope);
+            } else {
+                await this.authenticationService.signInRedirect(scope);
+            }
+            return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+        } catch {
+            return { state: AUTH_RECOVERY_STATES.BLOCKED };
         }
-        return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+    }
+
+    async #logOutRedirect() {
+        try {
+            await this.authenticationService.signOutRedirect();
+            return { state: AUTH_RECOVERY_STATES.NAVIGATING };
+        } catch {
+            return { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+    }
+
+    #wasUnsentRecordingDownloadInitiated() {
+        try {
+            return this.audioSafety?.wasUnsentRecordingDownloadInitiated?.() === true;
+        } catch {
+            return false;
+        }
     }
 
     #getAudioSafetyState() {

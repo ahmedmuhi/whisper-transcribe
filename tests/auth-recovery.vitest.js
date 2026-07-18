@@ -21,6 +21,7 @@ function createHarness(
 ) {
     const callOrder = [];
     let currentAudioState = audioState;
+    let downloadInitiated = false;
     const authenticationService = {
         signInRedirect: vi.fn(async () => callOrder.push('sign-in')),
         acquireTokenRedirect: vi.fn(async () => callOrder.push('acquire-token')),
@@ -33,11 +34,16 @@ function createHarness(
         }),
         downloadUnsentRecording: vi.fn(() => {
             callOrder.push('download');
+            if (downloadResult) downloadInitiated = true;
             return downloadResult;
         }),
+        wasUnsentRecordingDownloadInitiated: vi.fn(() => (
+            currentAudioState === AUDIO_SAFETY_STATES.UNSENT && downloadInitiated
+        )),
         discardUnsentRecording: vi.fn(() => {
             callOrder.push('discard');
             currentAudioState = AUDIO_SAFETY_STATES.SAFE;
+            downloadInitiated = false;
             return true;
         })
     };
@@ -57,7 +63,11 @@ function createHarness(
         authenticationService,
         audioSafety,
         confirmDiscard,
-        callOrder
+        callOrder,
+        replaceUnsentRecording() {
+            currentAudioState = AUDIO_SAFETY_STATES.UNSENT;
+            downloadInitiated = false;
+        }
     };
 }
 
@@ -133,6 +143,22 @@ describe('authentication navigation safety', () => {
         expect(harness.authenticationService.signInRedirect).not.toHaveBeenCalled();
         expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
     });
+
+    it('contains redirect and logout failures as blocked outcomes', async () => {
+        const signInHarness = createHarness();
+        signInHarness.authenticationService.signInRedirect
+            .mockRejectedValueOnce(new Error('private redirect detail'));
+
+        await expect(signInHarness.controller.continueWithMicrosoft())
+            .resolves.toEqual({ state: AUTH_RECOVERY_STATES.BLOCKED });
+
+        const logoutHarness = createHarness();
+        logoutHarness.authenticationService.signOutRedirect
+            .mockRejectedValueOnce(new Error('private logout detail'));
+
+        await expect(logoutHarness.controller.logOut())
+            .resolves.toEqual({ state: AUTH_RECOVERY_STATES.BLOCKED });
+    });
 });
 
 describe('Unsent Recording authentication recovery', () => {
@@ -172,6 +198,19 @@ describe('Unsent Recording authentication recovery', () => {
         await expect(harness.controller.continueAfterDownload({ interactionRequired: true }))
             .resolves.toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
 
+        expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
+    });
+
+    it('does not reuse an earlier download for a replacement Unsent Recording', async () => {
+        const harness = createHarness(AUDIO_SAFETY_STATES.UNSENT);
+
+        await harness.controller.downloadUnsentRecording();
+        harness.replaceUnsentRecording();
+
+        expect(harness.controller.getRecoveryState())
+            .toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
+        await expect(harness.controller.continueAfterDownload({ interactionRequired: true }))
+            .resolves.toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
         expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
     });
 
@@ -381,6 +420,23 @@ describe('authentication island presentation', () => {
         expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.MIC_BUTTON_CLICKED);
     });
 
+    it('surfaces a safe error when authentication navigation is blocked', async () => {
+        const { ui, authInteractionController } = createIslandHarness();
+        authInteractionController.continueWithMicrosoft
+            .mockResolvedValueOnce({ state: AUTH_RECOVERY_STATES.BLOCKED });
+        ui.setupEventListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.SIGNED_OUT);
+
+        ui.authPrimaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => {
+            expect(ui.statusElement.textContent)
+                .toBe('The authentication action could not be completed. Try again.');
+        });
+
+        expect(ui.authPrimaryAction.textContent).toBe('Continue with Microsoft');
+        expect(ui.primaryAction.hidden).toBe(true);
+    });
+
     it('renders the two initial Unsent Recording choices for interaction recovery', () => {
         const { ui } = createIslandHarness({ recoveryState: AUDIO_SAFETY_STATES.UNSENT });
 
@@ -436,5 +492,26 @@ describe('authentication island presentation', () => {
 
         ui.discardConfirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await expect(confirmation).resolves.toBe(true);
+    });
+
+    it('restores focus to the control that opened an Unsent Recording confirmation', async () => {
+        const { ui } = createIslandHarness();
+        const logoutDiscard = document.createElement('button');
+        logoutDiscard.textContent = 'Discard recording and log out';
+        document.body.append(logoutDiscard);
+        logoutDiscard.focus();
+        ui.discardDialog.showModal = vi.fn();
+        ui.discardDialog.close = vi.fn();
+        ui.setupEventListeners();
+
+        const confirmation = ui.confirmUnsentDiscard({
+            title: 'Discard Unsent Recording?',
+            message: 'Discard the Unsent Recording and log out?',
+            confirmLabel: 'Discard recording and log out'
+        });
+        ui.discardKeepButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        await expect(confirmation).resolves.toBe(false);
+        expect(document.activeElement).toBe(logoutDiscard);
     });
 });

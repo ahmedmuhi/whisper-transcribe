@@ -8,6 +8,7 @@ import {
     AUTHENTICATION_STATES,
     AUTH_PRESENTATION_STATES,
     AUTH_RECOVERY_STATES,
+    AZURE_RBAC_HELP_URL,
     STORAGE_KEYS,
     COLORS,
     DEFAULT_RESET_STATUS,
@@ -69,7 +70,7 @@ export class UI {
         this.authSecondaryAction = document.getElementById(ID.AUTH_SECONDARY_ACTION);
         this.authInteractionController = authInteractionController;
         this.openHelp = openHelp || (() => window.open(
-            'https://learn.microsoft.com/azure/ai-services/openai/how-to/role-based-access-control',
+            AZURE_RBAC_HELP_URL,
             '_blank',
             'noopener,noreferrer'
         ));
@@ -102,6 +103,7 @@ export class UI {
         this.ready = false;
         this.canRetry = false;
         this._unsentDiscardResolve = null;
+        this._unsentDiscardInvoker = null;
         this._autosaveTimer = null;
         this._autosaveFailureNotified = false;
         this._pagehideRegistered = false;
@@ -787,29 +789,44 @@ export class UI {
     async _handleAuthenticationAction(action) {
         const interactionRequired = this.authenticationPresentation ===
             AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED;
-        switch (action) {
-            case 'continue':
-                await this.authInteractionController?.continueWithMicrosoft?.({ interactionRequired });
-                break;
-            case 'download':
-                await this.authInteractionController?.downloadUnsentRecording?.();
-                this.renderControls(this.currentState);
-                break;
-            case 'continue-after-download':
-                await this.authInteractionController?.continueAfterDownload?.({ interactionRequired: true });
-                break;
-            case 'discard':
-                await this.authInteractionController?.discardUnsentAndContinue?.({ interactionRequired: true });
-                this.renderControls(this.currentState);
-                break;
-            case 'open-settings':
-                this.settings?.openSettingsModal?.(this.authPrimaryAction);
-                break;
-            case 'help':
-                this.openHelp();
-                break;
-            default:
-                break;
+        let result;
+        try {
+            switch (action) {
+                case 'continue':
+                    result = await this.authInteractionController
+                        ?.continueWithMicrosoft?.({ interactionRequired });
+                    break;
+                case 'download':
+                    result = await this.authInteractionController?.downloadUnsentRecording?.();
+                    this.renderControls(this.currentState);
+                    break;
+                case 'continue-after-download':
+                    result = await this.authInteractionController
+                        ?.continueAfterDownload?.({ interactionRequired: true });
+                    break;
+                case 'discard':
+                    result = await this.authInteractionController
+                        ?.discardUnsentAndContinue?.({ interactionRequired: true });
+                    this.renderControls(this.currentState);
+                    break;
+                case 'open-settings':
+                    this.settings?.openSettingsModal?.(this.authPrimaryAction);
+                    break;
+                case 'help':
+                    this.openHelp();
+                    break;
+                default:
+                    break;
+            }
+        } catch {
+            result = { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+
+        if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
+            this.renderControls(this.currentState);
+            this.showError(action === 'download'
+                ? MESSAGES.RECORDING_DOWNLOAD_FAILED
+                : MESSAGES.AUTHENTICATION_ACTION_FAILED);
         }
     }
 
@@ -960,12 +977,16 @@ export class UI {
         this._setButtonLabel(this.discardConfirmButton, confirmLabel);
         this._setButtonLabel(this.discardKeepButton, 'Keep recording');
 
+        const activeElement = document.activeElement;
         try {
             if (!this.discardDialog.open) this.discardDialog.showModal();
         } catch {
             return Promise.resolve(false);
         }
 
+        this._unsentDiscardInvoker = activeElement && activeElement !== document.body
+            ? activeElement
+            : null;
         return new Promise((resolve) => {
             this._unsentDiscardResolve = resolve;
         });
@@ -973,7 +994,9 @@ export class UI {
 
     _resolveUnsentDiscard(confirmed) {
         const resolve = this._unsentDiscardResolve;
+        const invoker = this._unsentDiscardInvoker;
         this._unsentDiscardResolve = null;
+        this._unsentDiscardInvoker = null;
         if (
             this.discardDialog &&
             typeof this.discardDialog.close === 'function' &&
@@ -984,7 +1007,8 @@ export class UI {
         if (this.discardDialogTitle) this.discardDialogTitle.textContent = 'Discard recording?';
         this._setButtonLabel(this.discardConfirmButton, 'Discard');
         resolve?.(Boolean(confirmed));
-        this.authPrimaryAction?.focus?.();
+        const focusTarget = invoker?.isConnected === false ? null : invoker;
+        (focusTarget || this.authPrimaryAction)?.focus?.();
     }
 
     _setButtonLabel(button, label) {

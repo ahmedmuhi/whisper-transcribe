@@ -5,7 +5,9 @@
 import {
     AUDIO_SAFETY_STATES,
     AUTHENTICATION_STATES,
-    AUTH_RECOVERY_STATES
+    AUTH_RECOVERY_STATES,
+    AZURE_RBAC_HELP_URL,
+    MESSAGES
 } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 
@@ -64,8 +66,6 @@ const FOCUSABLE_SELECTOR = [
     '[tabindex]:not([tabindex="-1"])'
 ].join(',');
 
-const AZURE_SETUP_HELP_URL = 'https://learn.microsoft.com/azure/ai-services/openai/how-to/managed-identity';
-
 export class UserMenu {
     constructor({
         authenticationService,
@@ -78,7 +78,7 @@ export class UserMenu {
         this.authInteractionController = authInteractionController;
         this.settings = settings;
         this.openHelp = openHelp || (() => {
-            window.open(AZURE_SETUP_HELP_URL, '_blank', 'noopener,noreferrer');
+            window.open(AZURE_RBAC_HELP_URL, '_blank', 'noopener,noreferrer');
         });
         this.isNarrow = isNarrow;
 
@@ -126,10 +126,10 @@ export class UserMenu {
         this.logoutButton?.addEventListener('click', () => void this._logOut());
         this.downloadButton?.addEventListener('click', () => void this._downloadForLogout());
         this.continueLogoutButton?.addEventListener('click', () => {
-            void this.authInteractionController?.continueLogoutAfterDownload?.();
+            void this._continueLogoutAfterDownload();
         });
         this.discardLogoutButton?.addEventListener('click', () => {
-            void this.authInteractionController?.discardUnsentAndLogOut?.();
+            void this._discardUnsentAndLogOut();
         });
         document.addEventListener('click', this._outsideHandler);
         document.addEventListener('keydown', this._keydownHandler);
@@ -262,18 +262,34 @@ export class UserMenu {
     }
 
     async _logOut() {
-        const result = await this.authInteractionController?.logOut?.();
+        let result;
+        try {
+            result = await this.authInteractionController?.logOut?.();
+        } catch {
+            result = { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
         if (result?.state === AUDIO_SAFETY_STATES.UNSENT) {
             this.openDetail('logout', this.logoutButton);
             if (this.downloadButton) this.downloadButton.hidden = false;
             if (this.continueLogoutButton) this.continueLogoutButton.hidden = true;
         } else if (result?.state === AUDIO_SAFETY_STATES.ACTIVE) {
             this._setStatus('Finish or discard the recording before logging out.');
+        } else if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
+            this._setStatus(MESSAGES.LOGOUT_FAILED);
         }
     }
 
     async _downloadForLogout() {
-        const result = await this.authInteractionController?.downloadUnsentRecording?.();
+        let result;
+        try {
+            result = await this.authInteractionController?.downloadUnsentRecording?.();
+        } catch {
+            result = { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+        if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
+            this._setStatus(MESSAGES.RECORDING_DOWNLOAD_FAILED);
+            return;
+        }
         if (result?.state !== AUTH_RECOVERY_STATES.DOWNLOADED) return;
         if (this.downloadButton) this.downloadButton.hidden = true;
         if (this.continueLogoutButton) this.continueLogoutButton.hidden = false;
@@ -281,6 +297,30 @@ export class UserMenu {
             this.logoutStatus.textContent = 'The recording download was initiated. Continue only when you are ready to leave this page.';
         }
         this.continueLogoutButton?.focus?.();
+    }
+
+    async _continueLogoutAfterDownload() {
+        let result;
+        try {
+            result = await this.authInteractionController?.continueLogoutAfterDownload?.();
+        } catch {
+            result = { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+        if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
+            this._setStatus(MESSAGES.LOGOUT_FAILED);
+        }
+    }
+
+    async _discardUnsentAndLogOut() {
+        let result;
+        try {
+            result = await this.authInteractionController?.discardUnsentAndLogOut?.();
+        } catch {
+            result = { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+        if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
+            this._setStatus(MESSAGES.LOGOUT_FAILED);
+        }
     }
 
     _handleOutsideClick(event) {

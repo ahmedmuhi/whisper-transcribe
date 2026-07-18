@@ -336,6 +336,10 @@ export const DEFAULT_RESET_STATUS =
  * @property {string} SETTINGS_SAVED - Confirmation when settings are saved
  * @property {string} ERROR_PREFIX - Prefix for error messages
  */
+/** Official, identity-neutral Azure RBAC setup guidance. */
+export const AZURE_RBAC_HELP_URL =
+  'https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal';
+
 export const MESSAGES = {
   // Browser & Permissions
   BROWSER_NOT_SUPPORTED: 'Your browser does not support audio recording.',
@@ -374,6 +378,9 @@ export const MESSAGES = {
   TARGET_URI_REQUIRED_TITLE: 'Target URI required',
   TARGET_URI_REQUIRED_BODY: 'Add a valid HTTPS Target URI before recording.',
   OPEN_SETTINGS: 'Open settings',
+  AUTHENTICATION_ACTION_FAILED: 'The authentication action could not be completed. Try again.',
+  LOGOUT_FAILED: 'Log out could not be completed. Try again.',
+  RECORDING_DOWNLOAD_FAILED: 'The recording download could not be started. Try again.',
   
   // API Validation
   URI_REQUIRED: 'URI is required',

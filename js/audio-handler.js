@@ -61,6 +61,7 @@ export class AudioHandler {
         this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         this.pendingRetryBlob = null;
         this.pendingTranscriptionErrorCode = null;
+        this.pendingRetryDownloadInitiated = false;
         this.activeStream = null;
         this._activeRecordingSession = null;
 
@@ -111,11 +112,22 @@ export class AudioHandler {
             anchor.href = objectUrl;
             anchor.download = getWhisperFilename(recording.type);
             anchor.click();
+            this.pendingRetryDownloadInitiated = true;
             return true;
         } finally {
             anchor?.remove?.();
             setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
         }
+    }
+
+    /**
+     * Reports whether a download was initiated for the current Unsent Recording.
+     * The flag is owned beside the Blob so it cannot carry over to replacement audio.
+     *
+     * @returns {boolean}
+     */
+    wasUnsentRecordingDownloadInitiated() {
+        return Boolean(this.pendingRetryBlob && this.pendingRetryDownloadInitiated);
     }
 
     /**
@@ -127,6 +139,7 @@ export class AudioHandler {
         if (!this.pendingRetryBlob) return false;
         this.pendingRetryBlob = null;
         this.pendingTranscriptionErrorCode = null;
+        this.pendingRetryDownloadInitiated = false;
         return true;
     }
     
@@ -181,6 +194,7 @@ export class AudioHandler {
             }
             this.pendingRetryBlob = null;
             this.pendingTranscriptionErrorCode = null;
+            this.pendingRetryDownloadInitiated = false;
             
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
@@ -639,6 +653,7 @@ export class AudioHandler {
             type: recorderMimeType || chunkWithMimeType?.type || 'audio/webm'
         });
         this.pendingRetryBlob = audioBlob;
+        this.pendingRetryDownloadInitiated = false;
 
         const result = await this.sendToAzureAPI(audioBlob);
         this.stopStreamTracks(stream);
@@ -647,6 +662,7 @@ export class AudioHandler {
         if (result.success) {
             this.pendingRetryBlob = null;
             this.pendingTranscriptionErrorCode = null;
+            this.pendingRetryDownloadInitiated = false;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
         } else {
             this.pendingTranscriptionErrorCode = result.code ?? null;
@@ -672,6 +688,7 @@ export class AudioHandler {
         if (result.success) {
             this.pendingRetryBlob = null;
             this.pendingTranscriptionErrorCode = null;
+            this.pendingRetryDownloadInitiated = false;
             this.audioChunks.length = 0;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             return;

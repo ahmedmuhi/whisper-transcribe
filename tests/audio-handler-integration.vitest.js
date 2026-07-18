@@ -296,6 +296,7 @@ describe('AudioHandler Integration', () => {
       expect(anchor.remove).toHaveBeenCalledTimes(1);
       expect(revokeObjectURLSpy).not.toHaveBeenCalled();
       expect(audioHandler.pendingRetryBlob).toBe(pendingBlob);
+      expect(audioHandler.wasUnsentRecordingDownloadInitiated()).toBe(true);
 
       vi.runOnlyPendingTimers();
       expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:fixture');
@@ -318,6 +319,7 @@ describe('AudioHandler Integration', () => {
 
       expect(audioHandler.pendingRetryBlob).toBeNull();
       expect(audioHandler.pendingTranscriptionErrorCode).toBeNull();
+      expect(audioHandler.wasUnsentRecordingDownloadInitiated()).toBe(false);
       expect(audioHandler.audioChunks).toHaveLength(1);
     });
   });

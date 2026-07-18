@@ -142,7 +142,8 @@ function click(element) {
 function createUserMenuHarness({
     presentation = { name: 'Example Person', username: 'person@example.invalid' },
     logoutState = AUTH_RECOVERY_STATES.NAVIGATING,
-    narrow = false
+    narrow = false,
+    useDefaultHelp = false
 } = {}) {
     installUserMenuDom();
     const authenticationService = {
@@ -161,13 +162,14 @@ function createUserMenuHarness({
         populateDeviceList: vi.fn().mockResolvedValue(undefined)
     };
     const openHelp = vi.fn();
-    const menu = new UserMenu({
+    const menuOptions = {
         authenticationService,
         authInteractionController,
         settings,
-        openHelp,
         isNarrow: () => narrow
-    });
+    };
+    if (!useDefaultHelp) menuOptions.openHelp = openHelp;
+    const menu = new UserMenu(menuOptions);
     menu.init();
     menu.updateAuthenticationState(AUTHENTICATION_STATES.READY);
 
@@ -291,6 +293,20 @@ describe('unified User menu interactions', () => {
         expect(document.activeElement).toBe(first);
     });
 
+    it('opens delegated Azure RBAC guidance rather than managed-identity setup', () => {
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+        createUserMenuHarness({ useDefaultHelp: true });
+        click(document.getElementById('user-menu-launcher'));
+
+        click(document.getElementById('user-menu-help'));
+
+        expect(openSpy).toHaveBeenCalledWith(
+            'https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal',
+            '_blank',
+            'noopener,noreferrer'
+        );
+    });
+
     it('keeps Log out final and invokes one safe logout without clearing local content', async () => {
         const { authInteractionController } = createUserMenuHarness();
         localStorage.setItem('whisper_uri', 'https://target.invalid/transcribe');
@@ -330,5 +346,16 @@ describe('unified User menu interactions', () => {
         }
         expect(authInteractionController.continueLogoutAfterDownload).not.toHaveBeenCalled();
         expect(authInteractionController.discardUnsentAndLogOut).not.toHaveBeenCalled();
+    });
+
+    it('reports a blocked logout without exposing a raw failure', async () => {
+        createUserMenuHarness({ logoutState: AUTH_RECOVERY_STATES.BLOCKED });
+        click(document.getElementById('user-menu-launcher'));
+
+        click(document.getElementById('user-menu-logout'));
+        await Promise.resolve();
+
+        expect(document.getElementById('user-menu-status').textContent)
+            .toBe('Log out could not be completed. Try again.');
     });
 });
