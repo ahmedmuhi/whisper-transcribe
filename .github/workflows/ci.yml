@@ -24,14 +24,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build production artifact
+        run: npm run build
+
       - name: Lint
         run: npm run lint
 
       - name: Tests with coverage thresholds
         run: npm run test:coverage
 
-      - name: Production dependency check (knip)
-        run: npm run deps:check:prod
+      - name: Dependency checks (knip)
+        run: npm run deps:check && npm run deps:check:prod
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
 
       - name: Size budget
         run: npm run size
