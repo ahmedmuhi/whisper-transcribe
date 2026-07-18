@@ -34,6 +34,14 @@ function brotliBytes(assetNames) {
 }
 
 describe('Vite build contract', () => {
+    it('declares an inline favicon so production hosts never request a missing icon', () => {
+        execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
+
+        const indexBuild = readFileSync(path.join(distDirectory, 'index.html'), 'utf8');
+
+        expect(indexBuild).toContain('<link rel="icon" href="data:,">');
+    });
+
     it('emits separate application and redirect-bridge entries without application code in the bridge', () => {
         execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
 
