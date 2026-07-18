@@ -455,6 +455,47 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
         expect(harness.apiClient.transcribe).not.toHaveBeenCalled();
     });
 
+    it('discards stale validation when the model changes away and back during metadata loading', async () => {
+        let resolveFirstDuration;
+        let resolveSecondDuration;
+        const durationReader = vi.fn()
+            .mockReturnValueOnce(new Promise(resolve => {
+                resolveFirstDuration = resolve;
+            }))
+            .mockReturnValueOnce(new Promise(resolve => {
+                resolveSecondDuration = resolve;
+            }))
+            .mockResolvedValueOnce(24);
+        const harness = createHarness({ durationReader });
+
+        const firstValidation = harness.controller.select(createFile());
+        harness.setModel(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
+            model: MODEL_TYPES.MAI_TRANSCRIBE_1_5
+        });
+        harness.setModel(MODEL_TYPES.WHISPER);
+        eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, { model: MODEL_TYPES.WHISPER });
+
+        await vi.waitFor(() => {
+            expect(harness.controller.getSnapshot()).toMatchObject({
+                state: SELECTED_AUDIO_STATES.READY,
+                model: MODEL_TYPES.WHISPER,
+                duration: 24
+            });
+        });
+
+        resolveFirstDuration(12.5);
+        resolveSecondDuration(18);
+        await expect(firstValidation).resolves.toBe(false);
+        await Promise.resolve();
+        expect(harness.controller.getSnapshot()).toMatchObject({
+            state: SELECTED_AUDIO_STATES.READY,
+            model: MODEL_TYPES.WHISPER,
+            duration: 24
+        });
+        expect(harness.apiClient.transcribe).not.toHaveBeenCalled();
+    });
+
     it('does not send against a model that changes while readiness is being established', async () => {
         let resolveReadiness;
         const harness = createHarness();

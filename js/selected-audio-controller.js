@@ -145,7 +145,6 @@ export class SelectedAudioController {
     async select(file) {
         if (!this.#canSelect(file)) return false;
 
-        ++this.#generation;
         this.#file = file;
         return this.#validateCurrentFile();
     }
@@ -161,7 +160,6 @@ export class SelectedAudioController {
             return false;
         }
 
-        ++this.#generation;
         this.#file = file;
         return this.#validateCurrentFile();
     }
@@ -243,7 +241,7 @@ export class SelectedAudioController {
         this.#abortDurationRead();
         const file = this.#file;
         if (!file) return false;
-        const generation = this.#generation;
+        const generation = ++this.#generation;
         const model = this.#settings.getCurrentModel();
         const base = {
             name: file.name || '',
@@ -292,11 +290,7 @@ export class SelectedAudioController {
             }
         }
 
-        if (
-            generation !== this.#generation
-            || file !== this.#file
-            || model !== this.#snapshot.model
-        ) return false;
+        if (generation !== this.#generation || file !== this.#file) return false;
         this.#setSnapshot({
             state: SELECTED_AUDIO_STATES.READY,
             ...base,
