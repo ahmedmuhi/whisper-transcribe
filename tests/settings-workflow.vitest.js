@@ -147,7 +147,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
             await vi.waitFor(() => {
                 expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, expect.objectContaining({
-                    message: MESSAGES.CONFIGURE_AZURE,
+                    message: MESSAGES.TARGET_URI_NOT_CONFIGURED,
                     type: 'info'
                 }));
             }, { timeout: 600 });

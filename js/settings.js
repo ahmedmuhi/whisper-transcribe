@@ -361,7 +361,7 @@ export class Settings {
         const config = this.getModelConfig();
         if (!config.uri) {
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: MESSAGES.CONFIGURE_AZURE,
+                message: MESSAGES.TARGET_URI_NOT_CONFIGURED,
                 type: 'info'
             });
             return;

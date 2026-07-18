@@ -110,6 +110,9 @@ test('checking becomes signed out and Continue is the only route to ready', asyn
     await expect(page.locator('#auth-context-note')).toContainText('cannot grant Azure access');
     await expect(page.locator('#primary-action')).toBeHidden();
     await expect(page.locator('#auth-primary-action')).toHaveText('Continue with Microsoft');
+    await expect(page.locator('#auth-primary-action .microsoft-mark')).toBeVisible();
+    await expect(page.locator('#auth-primary-action .microsoft-mark'))
+        .toHaveAttribute('aria-hidden', 'true');
     expect(await page.evaluate(() => globalThis.__browserTestMicCalls)).toBe(0);
 
     await page.locator('#auth-primary-action').click();
@@ -136,6 +139,7 @@ test('interaction-required remains explicit and inert', async ({ page }) => {
 test('invalid Target URI opens Settings directly without recording', async ({ page }) => {
     const observations = await openScenario(page, { configured: false });
     await expect(page.locator('#auth-primary-action')).toHaveText('Open settings');
+    await expect(page.locator('#auth-primary-action .microsoft-mark')).toBeHidden();
     await page.locator('#auth-primary-action').click();
     await expect(page.locator('[data-menu-panel="settings"]')).toBeVisible();
     await expect(page.locator('#whisper-uri')).toBeFocused();

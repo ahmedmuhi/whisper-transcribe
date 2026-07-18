@@ -7,7 +7,8 @@ import {
     API_ERROR_CODES,
     AUDIO_SAFETY_STATES,
     AUTH_PRESENTATION_STATES,
-    AUTH_RECOVERY_STATES
+    AUTH_RECOVERY_STATES,
+    MESSAGES
 } from '../js/constants.js';
 import { AuthInteractionController } from '../js/auth-interaction-controller.js';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
@@ -314,7 +315,7 @@ function createIslandHarness({ recoveryState = AUDIO_SAFETY_STATES.SAFE } = {}) 
                 <strong id="auth-context-title"></strong>
                 <p id="auth-context-body"></p>
                 <p id="auth-context-note"></p>
-                <button id="auth-primary-action"><span class="btn-label"></span></button>
+                <button id="auth-primary-action"><svg class="microsoft-mark" aria-hidden="true"></svg><span class="btn-label"></span></button>
                 <button id="auth-secondary-action"><span class="btn-label"></span></button>
             </div>
             <div id="timer"></div>
@@ -387,6 +388,9 @@ describe('authentication island presentation', () => {
             'Use your Microsoft account to access Azure resources already assigned to you. Whisper Transcribe cannot grant Azure access.'
         );
         expect(ui.authPrimaryAction.textContent).toBe('Continue with Microsoft');
+        expect(ui.authPrimaryAction.dataset.authAction).toBe('continue');
+        expect(ui.authPrimaryAction.querySelector('.microsoft-mark').getAttribute('aria-hidden'))
+            .toBe('true');
         expect(ui.primaryAction.hidden).toBe(true);
         expect(ui.authContext.hidden).toBe(false);
     });
@@ -472,6 +476,12 @@ describe('authentication island presentation', () => {
 
         expect(ui.authContextTitle.textContent).toBe('Target URI required');
         expect(ui.authPrimaryAction.textContent).toBe('Open settings');
+        expect(ui.authPrimaryAction.dataset.authAction).toBe('open-settings');
+    });
+
+    it('uses keyless Target URI wording for missing model configuration', () => {
+        expect(MESSAGES.TARGET_URI_NOT_CONFIGURED).toMatch(/target uri/i);
+        expect(MESSAGES.TARGET_URI_NOT_CONFIGURED).not.toMatch(/api settings/i);
     });
 
     it('names Unsent Recording loss and resolves only from the confirmation dialog', async () => {

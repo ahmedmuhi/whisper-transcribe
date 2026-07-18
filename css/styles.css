@@ -486,6 +486,17 @@ body > header {
     line-height: 1;
 }
 
+.btn .microsoft-mark {
+    display: none;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+}
+
+#auth-primary-action:is([data-auth-action="continue"], [data-auth-action="continue-after-download"]) .microsoft-mark {
+    display: block;
+}
+
 /* Primary — the morphing Start / Done control. The one filled pill in the
    island; everything else is a ghost so the island reads as one surface. */
 .btn-primary {

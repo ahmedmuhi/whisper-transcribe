@@ -363,7 +363,7 @@ export const DEFAULT_RESET_STATUS =
  * @property {string} BROWSER_NOT_SUPPORTED - Error when browser lacks recording support
  * @property {string} PERMISSION_DENIED - Error when microphone permission is denied
  * @property {string} NO_MICROPHONE - Error when no microphone is detected
- * @property {string} API_NOT_CONFIGURED - Warning when API settings are missing
+ * @property {string} TARGET_URI_NOT_CONFIGURED - Warning when a Target URI is missing
  * @property {string} RECORDING_IN_PROGRESS - Status during active recording
  * @property {string} PROCESSING_AUDIO - Status during transcription processing
  * @property {string} TRANSCRIPTION_COMPLETE - Success message after transcription
@@ -384,9 +384,7 @@ export const MESSAGES = {
   MICROPHONE_ACCESS_GRANTED: 'Microphone access granted',
   
   // Configuration
-  API_NOT_CONFIGURED: '⚙️ Please configure API settings first',
-  CONFIGURE_SETTINGS_FIRST: 'Please configure settings first',
-  CONFIGURE_AZURE: 'Please configure Azure OpenAI settings',
+  TARGET_URI_NOT_CONFIGURED: '⚙️ Please configure an Azure Target URI first',
   FILL_REQUIRED_FIELDS: 'Please fill in all required fields',
   SETTINGS_SAVED: 'Settings saved',
   AUTHENTICATION_NOT_CONFIGURED: 'Microsoft Entra authentication is not configured.',

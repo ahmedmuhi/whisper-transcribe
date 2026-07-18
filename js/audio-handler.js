@@ -233,7 +233,7 @@ export class AudioHandler {
             const config = this.settings.getModelConfig();
             if (!config.uri) {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                    message: MESSAGES.API_NOT_CONFIGURED, type: 'error'
+                    message: MESSAGES.TARGET_URI_NOT_CONFIGURED, type: 'error'
                 });
                 eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);

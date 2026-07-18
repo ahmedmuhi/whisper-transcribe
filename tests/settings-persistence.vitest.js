@@ -327,7 +327,7 @@ describe('Settings adapter metadata and initial configuration', () => {
 
         expect(menu.openDetail).not.toHaveBeenCalled();
         expect(emit).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.CONFIGURE_AZURE,
+            message: MESSAGES.TARGET_URI_NOT_CONFIGURED,
             type: 'info'
         });
         expect(settings.getCurrentModel()).toBe(DEFAULT_MODEL_TYPE);
