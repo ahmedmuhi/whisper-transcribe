@@ -95,6 +95,8 @@ jobs:
       - name: Run expected-denial authorization probes
         if: inputs.stage == 'authorization-probe'
         env:
+          AZURE_OIDC_CLIENT_ID: ${{ secrets.AZURE_OIDC_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_WHISPER_TARGET_URI: ${{ secrets.AZURE_WHISPER_TARGET_URI }}
           AZURE_MAI_TRANSCRIBE_TARGET_URI: ${{ secrets.AZURE_MAI_TRANSCRIBE_TARGET_URI }}
         run: >-

@@ -261,9 +261,15 @@ token marker.
 Sequence the evidence stages:
 
 1. Configure federation with zero Azure roles.
-2. Run the `authorization-probe` stage. Its body-blind, no-audio POST must return
-   genuine HTTP 403 for both models. HTTP 400 means authorization was accepted;
-   HTTP 401 means token/audience/federation is wrong. Stop on either.
+2. Run the `authorization-probe` stage. Before either body-blind, no-audio POST,
+   it must validate without logging that the token audience, tenant, workload
+   client, and lifetime match the protected contract. Each endpoint must then
+   return genuine HTTP 401 or 403. Microsoft documents that a 401
+   `Principal does not have access to API/Operation` can represent successful
+   authentication without data-plane permission, so 401 is accepted only after
+   the token contract passes. HTTP 400 means authorization was accepted; every
+   other status stops the sequence. See [Microsoft Entra keyless authentication
+   troubleshooting](https://learn.microsoft.com/en-us/azure/ai-foundry/model-inference/how-to/configure-entra-id?pivots=ai-foundry-portal&tabs=rest).
 3. The human owner assigns `Cognitive Services OpenAI User` to the workload
    principal at the individual Whisper resource and `Cognitive Services Speech
    User` at the individual MAI resource.

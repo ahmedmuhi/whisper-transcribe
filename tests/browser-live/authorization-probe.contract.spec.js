@@ -3,10 +3,13 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { createAuthorizationDenialClassifier } from './authorization-probe-contract.js';
 
 const protectedTokenName = 'AZURE_OIDC_ACCESS_TOKEN';
 const requiredProtectedNames = Object.freeze([
     protectedTokenName,
+    'AZURE_OIDC_CLIENT_ID',
+    'AZURE_TENANT_ID',
     'AZURE_WHISPER_TARGET_URI',
     'AZURE_MAI_TRANSCRIBE_TARGET_URI'
 ]);
@@ -30,14 +33,19 @@ test.skip(
 );
 
 for (const probeCase of probeCases) {
-    test(`${probeCase.label} rejects the unassigned workload identity with HTTP 403`, async () => {
+    test(`${probeCase.label} rejects the validated unassigned workload identity`, async () => {
         const protectedConfiguration = readProtectedConfiguration(
             probeCase.targetName,
             probeCase.hostnameSuffix
         );
+        const classifyAuthorizationDenial = createAuthorizationDenialClassifier({
+            accessToken: protectedConfiguration.accessToken,
+            expectedClientId: process.env.AZURE_OIDC_CLIENT_ID,
+            expectedTenantId: process.env.AZURE_TENANT_ID
+        });
 
         const status = await sendAuthorizationProbe(protectedConfiguration);
-        expect(status).toBe(403);
+        expect(classifyAuthorizationDenial(status)).toBe(status);
     });
 }
 

@@ -20,6 +20,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const readRepoFile = relativePath => readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const paths = Object.freeze({
+    authorizationContract: 'tests/browser-live/authorization-probe-contract.js',
     authorizationProbe: 'tests/browser-live/authorization-probe.contract.spec.js',
     fixture: 'tests/browser-live/fixtures/spoken-phrase.wav',
     liveConfig: 'playwright.live.config.js',
@@ -101,7 +102,8 @@ describe('live OIDC browser harness hygiene', () => {
 });
 
 describe('authorization-only probe hygiene', () => {
-    it('defines one fail-closed, body-blind POST per supported model', () => {
+    it('defines one token-validated, fail-closed, body-blind POST per supported model', () => {
+        const contract = readRepoFile(paths.authorizationContract);
         const spec = readRepoFile(paths.authorizationProbe);
 
         expect(spec.match(/label:\s*'Azure Whisper'/gu)).toHaveLength(1);
@@ -109,6 +111,8 @@ describe('authorization-only probe hygiene', () => {
         expect(spec).toContain('AZURE_WHISPER_TARGET_URI');
         expect(spec).toContain('AZURE_MAI_TRANSCRIBE_TARGET_URI');
         expect(spec).toContain('AZURE_OIDC_ACCESS_TOKEN');
+        expect(spec).toContain('AZURE_OIDC_CLIENT_ID');
+        expect(spec).toContain('AZURE_TENANT_ID');
         expect(spec).toContain('requiredProtectedNames.every');
         expect(spec).toContain("hostnameSuffix: '.openai.azure.com'");
         expect(spec).toContain("hostnameSuffix: '.cognitiveservices.azure.com'");
@@ -116,12 +120,21 @@ describe('authorization-only probe hygiene', () => {
         expect(spec).toContain("method: 'POST'");
         expect(spec).toContain('response.status');
         expect(spec).toContain('response.body?.cancel()');
-        expect(spec).toContain('toBe(403)');
+        expect(spec).toContain('createAuthorizationDenialClassifier');
+        expect(contract).toContain("const expectedDenialStatuses = new Set([401, 403])");
+        expect(contract).toContain("const cognitiveServicesAudience = 'https://cognitiveservices.azure.com'");
+        expect(contract).toContain('claims.tid === expectedTenantId');
+        expect(contract).toContain('value === expectedClientId');
+        expect(contract).toContain('claims.exp > nowEpochSeconds');
+        expect(contract).not.toMatch(/console\.|\.text\(\)|\.json\(\)|response/iu);
         expect(spec).not.toMatch(/spoken-phrase|FormData|\.json\(\)|\.text\(\)|arrayBuffer|audio/iu);
 
         const guardIndex = spec.indexOf('test.skip(');
+        const classifierIndex = spec.indexOf('createAuthorizationDenialClassifier({');
         const fetchIndex = spec.indexOf('fetch(');
         expect(guardIndex).toBeGreaterThan(-1);
+        expect(classifierIndex).toBeGreaterThan(guardIndex);
+        expect(fetchIndex).toBeGreaterThan(classifierIndex);
         expect(fetchIndex).toBeGreaterThan(guardIndex);
     });
 });
