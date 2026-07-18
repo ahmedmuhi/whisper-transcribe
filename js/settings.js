@@ -334,6 +334,7 @@ export class Settings {
             : this.maiTranscribeUriInput;
         const otherUri = otherInput?.value?.trim() || '';
         if (otherUri) localStorage.setItem(this._getTargetUriStorageKey(otherModel), otherUri);
+        else localStorage.removeItem(this._getTargetUriStorageKey(otherModel));
     }
 
     getCurrentModel() {

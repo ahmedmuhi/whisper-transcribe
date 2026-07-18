@@ -127,6 +127,20 @@ describe('Settings draft and persistence workflow', () => {
         settings.destroy();
     });
 
+    it('removes a cleared inactive Target URI instead of retaining stale configuration', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, 'https://stale.invalid/transcribe');
+        const settings = new Settings();
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = 'https://whisper.invalid/transcribe';
+        settings.maiTranscribeUriInput.value = '';
+
+        expect(settings.saveSettings()).toBe(true);
+
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI)).toBeNull();
+        settings.destroy();
+    });
+
     it('commits a valid model draft exactly once and announces it after commit', () => {
         localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
         const settings = new Settings();
