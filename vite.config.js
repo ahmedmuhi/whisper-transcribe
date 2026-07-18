@@ -3,9 +3,18 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+const browserTestAuthenticationPath = resolve(
+    projectRoot,
+    'tests/browser/fakes/authentication-factory.js'
+);
 
 export default defineConfig(({ mode }) => ({
     base: mode === 'pages' ? '/whisper-transcribe/' : '/',
+    resolve: {
+        alias: mode === 'browser-test'
+            ? [{ find: /^\.\/authentication-service\.js$/, replacement: browserTestAuthenticationPath }]
+            : []
+    },
     build: {
         rollupOptions: {
             input: {

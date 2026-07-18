@@ -35,16 +35,13 @@ export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
  * 
  * @constant {Object} STORAGE_KEYS
  * @property {string} MODEL - Key for storing selected transcription model
- * @property {string} WHISPER_URI - Key for Whisper API endpoint URI
- * @property {string} WHISPER_API_KEY - Key for Whisper API authentication key
+ * @property {string} WHISPER_URI - Key for storing the Whisper Target URI
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
  */
 export const STORAGE_KEYS = {
   MODEL:                'transcription_model',
   WHISPER_URI:          'whisper_uri',
-  WHISPER_API_KEY:      'whisper_api_key',
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
-  MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
@@ -62,42 +59,27 @@ export const RECORDING_ENVIRONMENTS = {
 };
 
 /**
- * API parameter names for Azure Speech Services requests.
+ * Form parameter names for Azure Speech Services requests.
  * 
  * @constant {Object} API_PARAMS
  * @property {string} FILE - Form data field name for audio file upload
  * @property {string} LANGUAGE - Parameter name for transcription language
- * @property {string} API_KEY_HEADER - HTTP header name for API key authentication
  */
 export const API_PARAMS = {
   FILE:            'file',
   LANGUAGE:        'language',
-  API_KEY_HEADER:  'api-key',
-  MAI_API_KEY_HEADER: 'Ocp-Apim-Subscription-Key',
   MAI_AUDIO_FIELD:    'audio',
   MAI_DEFINITION_FIELD: 'definition'
 };
-
-/** API keys are sent as header values, so keep them to visible ASCII with no whitespace. */
-export const API_KEY_VALUE_PATTERN = /^[\x21-\x7E]+$/;
 
 /**
  * Supported transcription model types for Azure Speech Services.
  * Defines model identifiers used throughout the application for API routing and configuration.
  * 
  * @constant {Object} MODEL_TYPES
- * @property {string} WHISPER_TRANSLATE - Azure Whisper model with translation capability
  * @property {string} WHISPER - Standard Azure Whisper model for transcription
- *
- * @example
- * import { MODEL_TYPES } from './constants.js';
- *
- * if (config.model === MODEL_TYPES.WHISPER_TRANSLATE) {
- *   // Skip language parameter for translation model
- * }
  */
 export const MODEL_TYPES = {
-  WHISPER_TRANSLATE: 'whisper-translate',
   WHISPER:           'whisper',
   MAI_TRANSCRIBE_1_5: 'mai-transcribe-1.5',
   MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5'
@@ -135,6 +117,12 @@ export const AUTHENTICATION_STATES = Object.freeze({
   CONFIGURATION_ERROR: 'configuration-error',
   NETWORK_ERROR: 'network-error',
   AUTHENTICATION_ERROR: 'authentication-error'
+});
+
+/** Stable, presentation-safe categories for Azure request authorization failures. */
+export const API_ERROR_CODES = Object.freeze({
+  AUTHENTICATION_REQUIRED: 'authentication-required',
+  AZURE_AUTHORIZATION_DENIED: 'azure-authorization-denied'
 });
 
 /**
@@ -211,9 +199,7 @@ export const ID = Object.freeze({
   SETTINGS_MODEL_SELECT: 'settings-model-select',
   RECORDING_ENVIRONMENT: 'recording-environment',
   WHISPER_URI:      'whisper-uri',
-  WHISPER_KEY:      'whisper-key',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
-  MAI_TRANSCRIBE_KEY: 'mai-transcribe-key',
 
   // Side panel
   SIDE_PANEL:       'side-panel',
@@ -344,13 +330,16 @@ export const MESSAGES = {
   SETTINGS_SAVED: 'Settings saved',
   AUTHENTICATION_NOT_CONFIGURED: 'Microsoft Entra authentication is not configured.',
   AUTHENTICATION_TOKEN_UNAVAILABLE: 'Microsoft Entra authentication could not provide a token.',
+  AUTHENTICATION_SIGN_IN_REQUIRED: 'Sign in is required before recording.',
+  AUTHENTICATION_INTERACTION_REQUIRED: 'Authentication interaction is required before recording.',
+  AUTHENTICATION_READINESS_FAILED: 'Authentication readiness could not be established.',
+  AUTHENTICATION_REQUIRED: 'Authentication is required to transcribe this recording.',
+  AZURE_AUTHORIZATION_DENIED: 'The signed-in identity is not authorized for this Azure resource. Ask an administrator to review Azure RBAC.',
   
   // API Validation
-  API_KEY_REQUIRED: 'API key is required',
   URI_REQUIRED: 'URI is required',
   INVALID_URI_FORMAT: 'Invalid URI format',
   URI_MUST_BE_HTTPS: 'URI must use HTTPS',
-  INVALID_API_KEY_CHARACTERS: 'API key contains unsupported characters. Paste only the raw Speech resource key.',
   
   // Recording States
   RECORDING_IN_PROGRESS: 'Recording... Click to stop',

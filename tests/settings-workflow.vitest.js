@@ -5,7 +5,6 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { generateMockApiKey, generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
 import { STORAGE_KEYS, MESSAGES, ID, DEFAULT_RESET_STATUS } from '../js/constants.js';
 import { createStatefulMockElement, createLocalStorageMock } from './helpers/mock-settings-dom.js';
 
@@ -42,7 +41,7 @@ const mockElements = new Map();
 const requiredElementIds = [
     ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL,
     ID.SAVE_SETTINGS, ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS,
-    ID.MAI_TRANSCRIBE_SETTINGS, ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY,
+    ID.MAI_TRANSCRIBE_SETTINGS, ID.WHISPER_URI, ID.MAI_TRANSCRIBE_URI,
     ID.THEME_TOGGLE, ID.GRAB_TEXT_BUTTON, ID.TRANSCRIPT, ID.TIMER,
     ID.SPINNER_CONTAINER, ID.MOON_ICON, ID.SUN_ICON
 ];
@@ -159,13 +158,11 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
     describe('Complete workflow integration with fixes', () => {
         test('page reload → SETTINGS_LOADED → primary control enabled (real path)', () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://myresource.openai.azure.com/';
+            const whisperTargetUri = 'https://whisper.invalid/transcribe';
 
             localStorageMock.getItem.mockImplementation((key) => {
                 if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                if (key === STORAGE_KEYS.WHISPER_API_KEY) return whisperApiKey;
-                if (key === STORAGE_KEYS.WHISPER_URI) return whisperApiUri;
+                if (key === STORAGE_KEYS.WHISPER_URI) return whisperTargetUri;
                 return null;
             });
 
@@ -181,8 +178,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
 
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, {
                 model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
+                hasUri: true
             });
             // Real readiness, not a mocked side effect.
             expect(ui.ready).toBe(true);
@@ -193,18 +189,15 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
         });
 
         test('save settings → SETTINGS_SAVED → primary control enabled (real path)', async () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://myresource.openai.azure.com/';
+            const whisperTargetUri = 'https://whisper.invalid/transcribe';
 
             mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
             mockElements.get(ID.MODEL_SELECT).value = 'whisper'; // mirror the modal→main change-sync the direct .value set bypasses (default is now mai-transcribe-1.5)
-            mockElements.get(ID.WHISPER_KEY).value = whisperApiKey;
-            mockElements.get(ID.WHISPER_URI).value = whisperApiUri;
+            mockElements.get(ID.WHISPER_URI).value = whisperTargetUri;
 
             localStorageMock.getItem.mockImplementation((key) => {
                 if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                if (key === STORAGE_KEYS.WHISPER_API_KEY) return whisperApiKey;
-                if (key === STORAGE_KEYS.WHISPER_URI) return whisperApiUri;
+                if (key === STORAGE_KEYS.WHISPER_URI) return whisperTargetUri;
                 return null;
             });
 
@@ -219,8 +212,7 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
                 expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.any(Object));
             });
 
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_API_KEY, whisperApiKey);
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, whisperApiUri);
+            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, whisperTargetUri);
             expect(settingsModal.style.display).toBe('none');
 
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
@@ -231,13 +223,11 @@ describe('Settings Workflow Issues - Fixes Verification (Issue #34)', () => {
             });
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.objectContaining({
                 model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
+                hasUri: true
             }));
             expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, expect.objectContaining({
                 model: 'whisper',
-                hasUri: true,
-                hasApiKey: true
+                hasUri: true
             }));
 
             // Real readiness after the save flow.
@@ -280,20 +270,15 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
     });
 
     it('should test settings persistence across page reloads (Issue #4)', () => {
-        const persistenceTestKey = generateMockApiKey('PERSIST');
+        const persistedTargetUri = 'https://whisper.invalid/persist';
         mockElements.get(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-        mockElements.get(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper/persist';
-        mockElements.get(ID.WHISPER_KEY).value = persistenceTestKey;
+        mockElements.get(ID.WHISPER_URI).value = persistedTargetUri;
 
         settings.saveSettings();
 
         expect(localStorageMock.setItem).toHaveBeenCalledWith(
             STORAGE_KEYS.WHISPER_URI,
-            'https://test.openai.azure.com/whisper/persist'
-        );
-        expect(localStorageMock.setItem).toHaveBeenCalledWith(
-            STORAGE_KEYS.WHISPER_API_KEY,
-            persistenceTestKey
+            persistedTargetUri
         );
 
         localStorageMock.getItem.mockImplementation((key) => {
@@ -301,9 +286,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
                 case STORAGE_KEYS.MODEL:
                     return 'whisper';
                 case STORAGE_KEYS.WHISPER_URI:
-                    return 'https://test.openai.azure.com/whisper/persist';
-                case STORAGE_KEYS.WHISPER_API_KEY:
-                    return persistenceTestKey;
+                    return persistedTargetUri;
                 default:
                     return null;
             }
@@ -313,8 +296,7 @@ describe('Settings Save Workflow Issues - Issue #32', () => {
 
         const config = reloadedSettings.getModelConfig();
         expect(config.model).toBe('whisper');
-        expect(config.uri).toBe('https://test.openai.azure.com/whisper/persist');
-        expect(config.apiKey).toBe(persistenceTestKey);
+        expect(config.uri).toBe(persistedTargetUri);
 
         reloadedSettings.destroy();
     });
@@ -350,9 +332,7 @@ describe('Microphone Activation Issue Analysis', () => {
                     case STORAGE_KEYS.MODEL:
                         return 'whisper';
                     case STORAGE_KEYS.WHISPER_URI:
-                        return 'https://test.openai.azure.com/whisper';
-                    case STORAGE_KEYS.WHISPER_API_KEY:
-                        return generateMockApiKeyForValidation();
+                        return 'https://whisper.invalid/transcribe';
                     default:
                         return null;
                 }
@@ -373,8 +353,6 @@ describe('Microphone Activation Issue Analysis', () => {
                     case STORAGE_KEYS.MODEL:
                         return 'whisper';
                     case STORAGE_KEYS.WHISPER_URI:
-                        return 'https://test.openai.azure.com/whisper';
-                    case STORAGE_KEYS.WHISPER_API_KEY:
                         return null;
                     default:
                         return null;
@@ -396,9 +374,7 @@ describe('Microphone Activation Issue Analysis', () => {
                     case STORAGE_KEYS.MODEL:
                         return 'whisper';
                     case STORAGE_KEYS.WHISPER_URI:
-                        return 'https://test.openai.azure.com/whisper';
-                    case STORAGE_KEYS.WHISPER_API_KEY:
-                        return generateMockApiKeyForValidation();
+                        return 'https://whisper.invalid/transcribe';
                     default:
                         return null;
                 }

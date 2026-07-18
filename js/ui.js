@@ -700,7 +700,7 @@ export class UI {
         // While in ERROR the FSM owns the status line ("…Tap mic to retry"); don't
         // clobber it with a generic ready/config message on a prerequisite re-check.
         const inError = this.currentState === RECORDING_STATES.ERROR;
-        if (!config.apiKey || !config.uri) {
+        if (!config.uri) {
             if (!inError) this.setStatus(MESSAGES.API_NOT_CONFIGURED);
             this._setReady(false);
             eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });

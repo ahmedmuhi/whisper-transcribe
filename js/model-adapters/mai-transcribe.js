@@ -12,18 +12,19 @@ import {
     MODEL_TYPES,
     STORAGE_KEYS
 } from '../constants.js';
+import { COGNITIVE_SERVICES_SCOPE } from '../authentication-config.js';
 import { convertToWav } from '../audio-converter.js';
 import { parseMaiTranscribeResponse } from './response-parsers.js';
 
 function createMaiTranscribeModelAdapter(id, label, apiModel) {
-    return {
+    return Object.freeze({
         id,
         label,
-        storageKeys: {
-            apiKey: STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY,
+        scope: COGNITIVE_SERVICES_SCOPE,
+        storageKeys: Object.freeze({
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
-        },
-        async buildRequest(audioBlob, config, onProgress) {
+        }),
+        async buildRequest(audioBlob, _config, onProgress) {
             if (onProgress) {
                 onProgress(MESSAGES.CONVERTING_AUDIO);
             }
@@ -51,13 +52,12 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
             }));
 
             return {
-                headers: { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey },
                 body: formData,
                 statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
             };
         },
         parseResponse: parseMaiTranscribeResponse
-    };
+    });
 }
 
 export const maiTranscribe15ModelAdapter = createMaiTranscribeModelAdapter(

@@ -2,7 +2,7 @@
  * @fileoverview Settings management for API configuration and user preferences.
  */
 
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, DEFAULT_MODEL_TYPE, RECORDING_ENVIRONMENTS, API_KEY_VALUE_PATTERN } from './constants.js';
+import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, DEFAULT_MODEL_TYPE, RECORDING_ENVIRONMENTS } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
@@ -10,7 +10,7 @@ import { modelAdapterRegistry } from './model-adapters/index.js';
 
 /**
  * Settings manager for API configuration and user preferences.
- * Handles model selection, API credentials, validation, and persistence to localStorage.
+ * Handles model selection, Target URI validation, and preference persistence.
  * Provides configuration for Azure Whisper transcription models.
  * 
  * @class Settings
@@ -50,10 +50,8 @@ export class Settings {
     // Cache settings containers and form inputs
     this.whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
     this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
-    this.whisperKeyInput = document.getElementById(ID.WHISPER_KEY);
     this.maiTranscribeSettings = document.getElementById(ID.MAI_TRANSCRIBE_SETTINGS);
     this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
-    this.maiTranscribeKeyInput = document.getElementById(ID.MAI_TRANSCRIBE_KEY);
     this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
 
         // Side panel elements
@@ -110,13 +108,8 @@ export class Settings {
         const defaultModel = DEFAULT_MODEL_TYPE;
         let savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || defaultModel;
 
-        // Validate against the selectable dropdown options (the real UI set),
-        // not the adapter registry — the registry includes the hidden
-        // 'whisper-translate' adapter that is not a dropdown option, so
-        // validating against it could leave a stored 'whisper-translate'
-        // pointing at no visible selection. If the saved model is no longer
-        // selectable (e.g. the removed 'mai-transcribe'), reset to the default
-        // and persist the correction.
+        // Validate against the selectable dropdown options (the real UI set).
+        // If a saved model is no longer selectable, reset and persist the default.
         const selectable = this._getSelectableModels();
         if (selectable.length > 0 && !selectable.includes(savedModel)) {
             savedModel = defaultModel;
@@ -746,23 +739,16 @@ export class Settings {
     }
 
     /**
-     * Focuses an invalid active credential field, or the model selector when
+     * Focuses an invalid active Target URI field, or the model selector when
      * the active configuration is already valid.
      *
      * @private
      * @returns {void}
      */
     _focusSettingsModalEntry() {
-        const { apiKeyInput, uriInput } = this._getActiveInputs();
+        const { uriInput } = this._getActiveInputs();
         const firstError = this.getValidationErrors()[0];
-        const apiKeyErrors = [
-            MESSAGES.API_KEY_REQUIRED,
-            MESSAGES.INVALID_API_KEY_CHARACTERS,
-            'Invalid API key format'
-        ];
-        const focusTarget = firstError
-            ? (apiKeyErrors.includes(firstError) ? apiKeyInput : uriInput)
-            : this.settingsModelSelect;
+        const focusTarget = firstError ? uriInput : this.settingsModelSelect;
 
         if (focusTarget && typeof focusTarget.focus === 'function') {
             focusTarget.focus();
@@ -786,49 +772,38 @@ export class Settings {
     }
 
     /**
-     * Resolves the credential storage keys declared by a model adapter.
+     * Resolves the Target URI storage key declared by a model adapter.
      *
      * @private
      * @param {string} model Model identifier.
-     * @returns {{apiKey: string, uri: string}} Credential storage keys.
-     * @throws {Error} If the model has no complete credential storage metadata.
+     * @returns {string} Target URI storage key.
+     * @throws {Error} If the model has no Target URI storage metadata.
      */
-    _getCredentialStorageKeys(model) {
+    _getTargetUriStorageKey(model) {
         const adapter = this.adapterRegistry.get(model);
         const storageKeys = adapter?.storageKeys;
         if (
-            typeof storageKeys?.apiKey !== 'string' ||
-            storageKeys.apiKey.trim() === '' ||
             typeof storageKeys?.uri !== 'string' ||
             storageKeys.uri.trim() === ''
         ) {
-            throw new Error(`Credential storage metadata is missing for model "${model}"`);
+            throw new Error(`Target URI storage metadata is missing for model "${model}"`);
         }
 
-        return {
-            apiKey: storageKeys.apiKey,
-            uri: storageKeys.uri
-        };
+        return storageKeys.uri;
     }
 
     /**
-     * Loads one model's stored credentials into its cached form inputs.
+     * Loads one model's stored Target URI into its cached form input.
      *
      * @private
      * @param {string} model Model identifier.
      * @param {HTMLElement|null} uriInput URI form input.
-     * @param {HTMLElement|null} apiKeyInput API key form input.
      */
-    _loadStoredCredentials(model, uriInput, apiKeyInput) {
-        const { apiKey, uri } = this._getCredentialStorageKeys(model);
-        const storedUri = localStorage.getItem(uri);
-        const storedApiKey = localStorage.getItem(apiKey);
+    _loadStoredTargetUri(model, uriInput) {
+        const storedUri = localStorage.getItem(this._getTargetUriStorageKey(model));
 
         if (uriInput && storedUri) {
             uriInput.value = storedUri;
-        }
-        if (apiKeyInput && storedApiKey) {
-            apiKeyInput.value = storedApiKey;
         }
     }
     
@@ -845,15 +820,13 @@ export class Settings {
             this.settingsModelSelect.value = this.getCurrentModel();
         }
 
-        this._loadStoredCredentials(
+        this._loadStoredTargetUri(
             MODEL_TYPES.WHISPER,
-            this.whisperUriInput,
-            this.whisperKeyInput
+            this.whisperUriInput
         );
-        this._loadStoredCredentials(
+        this._loadStoredTargetUri(
             MODEL_TYPES.MAI_TRANSCRIBE_1_5,
-            this.maiTranscribeUriInput,
-            this.maiTranscribeKeyInput
+            this.maiTranscribeUriInput
         );
 
         const savedEnv = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT) || RECORDING_ENVIRONMENTS.QUIET;
@@ -863,27 +836,20 @@ export class Settings {
     }
 
     /**
-     * Resolves the active API key and URI input elements based on selected model.
-      * Uses model-specific cached DOM references for Whisper or MAI-Transcribe.
+     * Resolves the active Target URI input based on the selected model.
      *
      * @private
-     * @returns {{ apiKeyInput: HTMLElement|null, uriInput: HTMLElement|null }}
+     * @returns {{uriInput: HTMLElement|null}}
      */
     _getActiveInputs() {
         const isMai = this._isMaiModel(this.getCurrentModelFromSettings());
         return {
-            apiKeyInput: isMai ? this.maiTranscribeKeyInput : this.whisperKeyInput,
             uriInput: isMai ? this.maiTranscribeUriInput : this.whisperUriInput
         };
     }
 
     sanitizeInputs() {
-        const { apiKeyInput, uriInput } = this._getActiveInputs();
-
-        if (apiKeyInput && typeof apiKeyInput.value === 'string') {
-            // Remove whitespace and common invisible paste artifacts.
-            apiKeyInput.value = apiKeyInput.value.replace(/[\s\u200B-\u200D\uFEFF]+/g, '');
-        }
+        const { uriInput } = this._getActiveInputs();
 
         if (uriInput && typeof uriInput.value === 'string') {
             uriInput.value = uriInput.value.replace(/\s+/g, '');
@@ -899,20 +865,9 @@ export class Settings {
      */
     getValidationErrors() {
         this.sanitizeInputs();
-        const { apiKeyInput, uriInput } = this._getActiveInputs();
+        const { uriInput } = this._getActiveInputs();
 
         const errors = [];
-
-        const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
-        const isMai = this._isMaiModel(this.getCurrentModelFromSettings());
-        if (!apiKey) {
-            errors.push(MESSAGES.API_KEY_REQUIRED);
-        } else if (!API_KEY_VALUE_PATTERN.test(apiKey)) {
-            errors.push(MESSAGES.INVALID_API_KEY_CHARACTERS);
-        } else if (!isMai && !/^[A-F0-9]{32}$/i.test(apiKey)) {
-            // Whisper keys are 32-char hex; Speech keys are longer alphanumeric
-            errors.push('Invalid API key format');
-        }
 
         const uri = uriInput ? uriInput.value.trim() : '';
         if (!uri) {
@@ -953,15 +908,13 @@ export class Settings {
             return;
         }
 
-        const { apiKeyInput: keyInput, uriInput } = this._getActiveInputs();
+        const { uriInput } = this._getActiveInputs();
         const targetUri = uriInput ? uriInput.value.trim() : '';
-        const apiKey = keyInput ? keyInput.value.trim() : '';
-        const { apiKey: apiKeyStorageKey, uri: uriStorageKey } = this._getCredentialStorageKeys(currentModel);
+        const uriStorageKey = this._getTargetUriStorageKey(currentModel);
 
         const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
         localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
         localStorage.setItem(uriStorageKey, targetUri);
-        localStorage.setItem(apiKeyStorageKey, apiKey);
         
         if (this.recordingEnvironmentSelect) {
             localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, this.recordingEnvironmentSelect.value);
@@ -989,15 +942,13 @@ export class Settings {
         // Emit settings saved event
         eventBus.emit(APP_EVENTS.SETTINGS_SAVED, {
             model: currentModel,
-            hasUri: !!targetUri,
-            hasApiKey: !!apiKey
+            hasUri: !!targetUri
         });
 
         // Emit SETTINGS_LOADED to mirror initial load behavior
         eventBus.emit(APP_EVENTS.SETTINGS_LOADED, {
             model: currentModel,
-            hasUri: !!targetUri,
-            hasApiKey: !!apiKey
+            hasUri: !!targetUri
         });
 
         eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
@@ -1028,18 +979,16 @@ export class Settings {
     }
     
     /**
-     * Gets the complete API configuration for the selected model.
+     * Gets the complete Target URI configuration for the selected model.
      * 
      * @method getModelConfig
-     * @returns {{model: string, apiKey: string, uri: string}} Model configuration object
+     * @returns {{model: string, uri: string|null}} Model configuration object
      */
     getModelConfig() {
         const model = this.getCurrentModel();
-        const { apiKey, uri } = this._getCredentialStorageKeys(model);
         return {
             model,
-            apiKey: localStorage.getItem(apiKey),
-            uri: localStorage.getItem(uri)
+            uri: localStorage.getItem(this._getTargetUriStorageKey(model))
         };
     }
 
@@ -1050,7 +999,7 @@ export class Settings {
     checkInitialSettings() {
         const config = this.getModelConfig();
 
-        if (!config.apiKey || !config.uri) {
+        if (!config.uri) {
             this._initTimerId = setTimeout(() => {
                 this._initTimerId = null;
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
@@ -1063,8 +1012,7 @@ export class Settings {
             // Settings are complete - emit SETTINGS_LOADED event to notify UI
             eventBus.emit(APP_EVENTS.SETTINGS_LOADED, {
                 model: config.model,
-                hasUri: !!config.uri,
-                hasApiKey: !!config.apiKey
+                hasUri: !!config.uri
             });
         }
     }

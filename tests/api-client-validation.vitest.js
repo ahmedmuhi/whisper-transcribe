@@ -1,5 +1,5 @@
 /**
- * @fileoverview Tests for AzureAPIClient configuration validation.
+ * @fileoverview Tests for AzureAPIClient Target URI configuration validation.
  */
 
 import { vi } from 'vitest';
@@ -31,14 +31,14 @@ beforeAll(async () => {
     ({ AzureAPIClient } = await import('../js/api-client.js'));
 });
 
-describe('AzureAPIClient Configuration Validation', () => {
+describe('AzureAPIClient configuration validation', () => {
     let apiClient;
     let eventBusEmitSpy;
 
     beforeEach(() => {
         vi.clearAllMocks();
         applyDomSpies();
-        apiClient = new AzureAPIClient(mockSettings);
+        apiClient = new AzureAPIClient(mockSettings, { getToken: vi.fn() });
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
     });
 
@@ -47,16 +47,14 @@ describe('AzureAPIClient Configuration Validation', () => {
             label: 'Whisper',
             config: {
                 model: 'whisper',
-                apiKey: 'whisper-api-key',
-                uri: 'https://whisper.azure.com'
+                uri: 'https://whisper.invalid/transcribe'
             }
         },
         {
             label: 'MAI-Transcribe',
             config: {
                 model: 'mai-transcribe-1.5',
-                apiKey: 'mai-transcribe-api-key',
-                uri: 'https://mai-transcribe.azure.com'
+                uri: 'https://mai-transcribe.invalid/transcribe'
             }
         }
     ])('accepts and returns the complete normalized $label configuration', ({ config }) => {
@@ -71,38 +69,20 @@ describe('AzureAPIClient Configuration Validation', () => {
 
     it.each([
         {
-            label: 'empty API key',
-            config: { model: 'whisper', apiKey: '', uri: 'https://test-api.azure.com' },
-            message: MESSAGES.API_KEY_REQUIRED,
-            missing: 'apiKey'
-        },
-        {
-            label: 'null API key',
-            config: { model: 'whisper', apiKey: null, uri: 'https://test-api.azure.com' },
-            message: MESSAGES.API_KEY_REQUIRED,
-            missing: 'apiKey'
-        },
-        {
-            label: 'unsafe API-key character',
-            config: { model: 'mai-transcribe-1.5', apiKey: 'speech\u2014key', uri: 'https://test-api.azure.com' },
-            message: MESSAGES.INVALID_API_KEY_CHARACTERS,
-            missing: 'validApiKey'
-        },
-        {
             label: 'empty URI',
-            config: { model: 'whisper', apiKey: 'test-api-key', uri: '' },
+            config: { model: 'whisper', uri: '' },
             message: MESSAGES.URI_REQUIRED,
             missing: 'uri'
         },
         {
             label: 'URI without protocol',
-            config: { model: 'whisper', apiKey: 'test-api-key', uri: 'azure.com' },
+            config: { model: 'whisper', uri: 'target.invalid' },
             message: MESSAGES.INVALID_URI_FORMAT,
             missing: 'validUri'
         },
         {
             label: 'HTTP URI',
-            config: { model: 'whisper', apiKey: 'test-api-key', uri: 'http://insecure.azure.com' },
+            config: { model: 'whisper', uri: 'http://target.invalid/transcribe' },
             message: MESSAGES.URI_MUST_BE_HTTPS,
             missing: 'httpsUri'
         }
@@ -116,17 +96,16 @@ describe('AzureAPIClient Configuration Validation', () => {
         });
     });
 
-    it('sanitizes whitespace and invisible artifacts in the API key and URI', () => {
+    it('removes whitespace artifacts from the Target URI and returns no extra settings', () => {
         mockSettings.getModelConfig.mockReturnValue({
             model: 'whisper',
-            apiKey: ' test\u200B-api\uFEFF-key \n',
-            uri: ' https://test-api.azure.com /transcribe\n'
+            uri: ' https://target.invalid /transcribe\n',
+            unrelated: 'must-not-cross'
         });
 
         expect(apiClient.validateConfig()).toEqual({
             model: 'whisper',
-            apiKey: 'test-api-key',
-            uri: 'https://test-api.azure.com/transcribe'
+            uri: 'https://target.invalid/transcribe'
         });
         expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
             APP_EVENTS.API_CONFIG_MISSING,

@@ -235,7 +235,7 @@
     <dialog id="settings-modal" class="modal" aria-labelledby="modal-title">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="modal-title">API Settings</h3>
+                <h3 class="modal-title" id="modal-title">Transcription Settings</h3>
                 <button id="close-modal" class="close-button" aria-label="Close settings dialog">&times;</button>
             </div>
 
@@ -256,10 +256,6 @@
                     <input type="text" id="whisper-uri" placeholder="https://your-resource.openai.azure.com/openai/deployments/whisper/audio/transcriptions?api-version=2024-06-01">
                     <small>Copy the full URL from Azure Portal</small>
                 </div>
-                <div class="form-group">
-                    <label for="whisper-key">API Key</label>
-                    <input type="password" id="whisper-key" placeholder="Enter Whisper API key">
-                </div>
             </div>
 
             <div id="mai-transcribe-settings" style="display: none;">
@@ -268,10 +264,6 @@
                     <label for="mai-transcribe-uri">Target URI</label>
                     <input type="text" id="mai-transcribe-uri" placeholder="https://your-resource.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15">
                     <small>Copy the endpoint from Azure Foundry Portal</small>
-                </div>
-                <div class="form-group">
-                    <label for="mai-transcribe-key">API Key</label>
-                    <input type="password" id="mai-transcribe-key" placeholder="Enter Speech resource key">
                 </div>
             </div>
 

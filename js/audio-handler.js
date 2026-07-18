@@ -3,7 +3,9 @@
  */
 
 import {
+    API_ERROR_CODES,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+    AUTHENTICATION_STATES,
     RECORDING_STATES,
     MESSAGES,
     TIMER_CONFIG,
@@ -33,10 +35,12 @@ export class AudioHandler {
      * 
      * @param {AzureAPIClient} apiClient - API client for transcription
      * @param {Settings} settings - Settings manager
+     * @param {{ensureTokenReady(scope: string): Promise<string>}} authenticationReadiness - Safe readiness boundary
      */
-    constructor(apiClient, settings) {
+    constructor(apiClient, settings, authenticationReadiness) {
         this.apiClient = apiClient;
         this.settings = settings;
+        this.authenticationReadiness = authenticationReadiness;
 
         this.mediaRecorder = null;
         this.audioChunks = [];
@@ -121,7 +125,7 @@ export class AudioHandler {
                 return;
             }
             const config = this.settings.getModelConfig();
-            if (!config.apiKey || !config.uri) {
+            if (!config.uri) {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
                     message: MESSAGES.API_NOT_CONFIGURED, type: 'error'
                 });
@@ -131,7 +135,12 @@ export class AudioHandler {
             }
             
             // Validate configuration before starting
-            this.apiClient.validateConfig();
+            const validatedConfig = this.apiClient.validateConfig();
+
+            if (!await this._establishAuthenticationReadiness(validatedConfig.model)) {
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+                return;
+            }
             
             // Request microphone access through PermissionManager
             const stream = await this.permissionManager.requestMicrophoneAccess();
@@ -156,6 +165,44 @@ export class AudioHandler {
             // Config errors are handled by validateConfig() which emits
             // API_CONFIG_MISSING before throwing — the event listener opens settings
         }
+    }
+
+    async _establishAuthenticationReadiness(model) {
+        let state = AUTHENTICATION_STATES.CONFIGURATION_ERROR;
+        if (typeof this.authenticationReadiness?.ensureTokenReady === 'function') {
+            const scope = this.apiClient.getScopeForModel(model);
+            state = await this.authenticationReadiness.ensureTokenReady(scope);
+        }
+
+        if (state === AUTHENTICATION_STATES.READY) {
+            return true;
+        }
+
+        const message = this._getAuthenticationReadinessMessage(state);
+        eventBus.emit(APP_EVENTS.AUTHENTICATION_STATE_CHANGED, { state });
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message,
+            type: 'error'
+        });
+        eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, {
+            ready: false,
+            reason: 'authentication',
+            state
+        });
+        return false;
+    }
+
+    _getAuthenticationReadinessMessage(state) {
+        if (state === AUTHENTICATION_STATES.SIGNED_OUT) {
+            return MESSAGES.AUTHENTICATION_SIGN_IN_REQUIRED;
+        }
+        if (state === AUTHENTICATION_STATES.INTERACTION_REQUIRED) {
+            return MESSAGES.AUTHENTICATION_INTERACTION_REQUIRED;
+        }
+        if (state === AUTHENTICATION_STATES.CONFIGURATION_ERROR) {
+            return MESSAGES.AUTHENTICATION_NOT_CONFIGURED;
+        }
+        return MESSAGES.AUTHENTICATION_READINESS_FAILED;
     }
     
     /**
@@ -533,7 +580,7 @@ export class AudioHandler {
         } else {
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
                 error: result.error,
-                canRetry: result.code !== AUDIO_UPLOAD_LIMIT_ERROR_CODE && Boolean(this.pendingRetryBlob)
+                canRetry: this._canRetryTranscription(result.code)
             });
         }
     }
@@ -559,8 +606,15 @@ export class AudioHandler {
 
         await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
             error: result.error,
-            canRetry: result.code !== AUDIO_UPLOAD_LIMIT_ERROR_CODE && Boolean(this.pendingRetryBlob)
+            canRetry: this._canRetryTranscription(result.code)
         });
+    }
+
+    _canRetryTranscription(errorCode) {
+        const requiresExternalRecovery = errorCode === AUDIO_UPLOAD_LIMIT_ERROR_CODE
+            || errorCode === API_ERROR_CODES.AUTHENTICATION_REQUIRED
+            || errorCode === API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED;
+        return !requiresExternalRecovery && Boolean(this.pendingRetryBlob);
     }
     
     async sendToAzureAPI(audioBlob) {

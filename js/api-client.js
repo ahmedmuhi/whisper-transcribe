@@ -2,7 +2,7 @@
  * @fileoverview Azure Speech Services API client for audio transcription.
  */
 
-import { API_KEY_VALUE_PATTERN, MESSAGES, HTTP_METHODS, CONTENT_TYPES, TRANSCRIPTION_TIMEOUT_MS, TRANSCRIPTION_MAX_TOTAL_MS } from './constants.js';
+import { API_ERROR_CODES, MESSAGES, HTTP_METHODS, CONTENT_TYPES, TRANSCRIPTION_TIMEOUT_MS, TRANSCRIPTION_MAX_TOTAL_MS } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
@@ -27,10 +27,12 @@ export class AzureAPIClient {
      * Creates a new AzureAPIClient instance.
      * 
      * @param {Settings} settings - Settings manager instance for API configuration
+     * @param {{getToken(scope: string): Promise<string>}} tokenProvider - Narrow request-time token provider
      * @param {Map<string, Object>} [adapterRegistry=modelAdapterRegistry] - Model adapter registry
      */
-    constructor(settings, adapterRegistry = modelAdapterRegistry) {
+    constructor(settings, tokenProvider, adapterRegistry = modelAdapterRegistry) {
         this.settings = settings;
+        this.tokenProvider = tokenProvider;
         this.adapterRegistry = adapterRegistry;
     }
     
@@ -51,7 +53,7 @@ export class AzureAPIClient {
         const adapter = this._getModelAdapter(config.model);
 
         try {
-            const { headers, body, statusMessage } = await adapter.buildRequest(audioBlob, config, onProgress);
+            const { body, statusMessage } = await adapter.buildRequest(audioBlob, config, onProgress);
             if (onProgress) {
                 onProgress(statusMessage);
             }
@@ -61,13 +63,18 @@ export class AzureAPIClient {
                 message: statusMessage
             });
 
-            const data = await this._fetchWithRetry(config.uri, {
+            // Keep the access token request-local and acquire it as late as possible.
+            // The same local request options are reused only by this bounded retry loop.
+            const accessToken = await this.tokenProvider.getToken(adapter.scope);
+            const requestOptions = {
                 method: HTTP_METHODS.POST,
-                headers,
+                headers: { Authorization: `Bearer ${accessToken}` },
                 body
-            }, onProgress, async (response) => {
+            };
+
+            const data = await this._fetchWithRetry(config.uri, requestOptions, onProgress, async (response) => {
                 if (!response.ok) {
-                    throw await this._createApiError(response);
+                    throw await this._createApiError(response, config.model);
                 }
                 return this._readResponseData(response);
             });
@@ -109,6 +116,12 @@ export class AzureAPIClient {
         }
         if (context.details !== undefined) {
             errorPayload.details = context.details;
+        }
+        if (context.code !== undefined) {
+            errorPayload.code = context.code;
+        }
+        if (context.model !== undefined) {
+            errorPayload.model = context.model;
         }
         
         eventBus.emit(APP_EVENTS.API_REQUEST_ERROR, errorPayload);
@@ -289,7 +302,26 @@ export class AzureAPIClient {
         return error;
     }
 
-    async _createApiError(response) {
+    async _createApiError(response, model) {
+        if (response.status === 401 || response.status === 403) {
+            const isAuthenticationFailure = response.status === 401;
+            const code = isAuthenticationFailure
+                ? API_ERROR_CODES.AUTHENTICATION_REQUIRED
+                : API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED;
+            const message = isAuthenticationFailure
+                ? MESSAGES.AUTHENTICATION_REQUIRED
+                : MESSAGES.AZURE_AUTHORIZATION_DENIED;
+            const error = new Error(message);
+            error.code = code;
+            error.status = response.status;
+            error.apiContext = {
+                status: response.status,
+                code,
+                model
+            };
+            return error;
+        }
+
         const errorText = await response.text();
         const retryAfterSeconds = this._parseRetryAfterSeconds(response.headers?.get?.('Retry-After'));
         logger.child('AzureAPIClient').error('API Error Details:', errorText);
@@ -374,6 +406,16 @@ export class AzureAPIClient {
     }
 
     /**
+     * Returns the immutable delegated scope declared by a registered model.
+     *
+     * @param {string} model Transcription Model identifier.
+     * @returns {string} Resource scope required by that model.
+     */
+    getScopeForModel(model) {
+        return this._getModelAdapter(model).scope;
+    }
+
+    /**
      * Parses API response data from text or JSON format.
      *
      * @method parseResponse
@@ -395,35 +437,20 @@ export class AzureAPIClient {
     }
     
     /**
-     * Validates the API client configuration for required keys, URI, and model settings.
+     * Validates the API client configuration for required URI and model settings.
      * 
      * @method validateConfig
-     * @returns {{ apiKey: string, uri: string, model: string }} Validated configuration object
-     * @throws {Error} When API key or URI is missing or invalid
+     * @returns {{uri: string, model: string}} Validated configuration object
+     * @throws {Error} When Target URI is missing or invalid
      */
     validateConfig() {
         const config = this.settings.getModelConfig();
         const normalizedConfig = {
-            ...config,
-            apiKey: typeof config.apiKey === 'string'
-                ? config.apiKey.replace(/[\s\u200B-\u200D\uFEFF]+/g, '')
-                : config.apiKey,
+            model: config.model,
             uri: typeof config.uri === 'string'
                 ? config.uri.replace(/\s+/g, '')
                 : config.uri
         };
-        
-        if (!normalizedConfig.apiKey) {
-            const error = new Error(`${normalizedConfig.model} ${MESSAGES.API_KEY_REQUIRED}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey', model: normalizedConfig.model });
-            throw error;
-        }
-
-        if (!API_KEY_VALUE_PATTERN.test(normalizedConfig.apiKey)) {
-            const error = new Error(MESSAGES.INVALID_API_KEY_CHARACTERS);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validApiKey', model: normalizedConfig.model });
-            throw error;
-        }
         
         if (!normalizedConfig.uri) {
             const error = new Error(`${normalizedConfig.model} ${MESSAGES.URI_REQUIRED}`);
