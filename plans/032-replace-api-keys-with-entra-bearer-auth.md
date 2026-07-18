@@ -258,6 +258,11 @@ These commands assume Plan 031's scripts exist.
 - Final sign-in/recovery visual design and unified User menu (Plan 033).
 - Local file selection/drag-and-drop (Plan 034).
 - GitHub workload identity or live OIDC calls (Plan 035).
+- The existing manually triggered live Azure contract test and workflow. They
+  remain a known, non-product API-key caller until Plan 035 migrates them to
+  GitHub OIDC, and are excluded from this plan's product/browser-smoke scans.
+  This exception does not permit any API-key path or fallback in application
+  code, ordinary tests, or the deterministic browser smoke test.
 - README/spec/runbook reconciliation (Plan 036), except removing active key
   examples from `.env.example` now so no implementation path retains them.
 - Entra registration, delegated permission, consent, RBAC, resource, GitHub
@@ -439,11 +444,13 @@ may return or emit them.
 
 ```bash
 if rg -n "whisper_api_key|mai_transcribe_api_key" js index.html tests \
+  --glob '!tests/browser-live/**' \
   | rg -v "legacy-credential-cleanup|legacy credential cleanup"; then
   echo "Unexpected legacy credential reference found" >&2
   exit 1
 fi
-! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|WHISPER_TRANSLATE|whisper-translate|hasApiKey|API_KEY_VALUE_PATTERN" js index.html tests
+! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|WHISPER_TRANSLATE|whisper-translate|hasApiKey|API_KEY_VALUE_PATTERN" js index.html tests \
+  --glob '!tests/browser-live/**'
 ```
 
 Expected: the first scan has no matches outside the cleanup module/tests; the
@@ -551,7 +558,8 @@ Expected: all pass; only in-scope files changed. Then run targeted scans:
 
 ```bash
 ! rg -n "loginPopup|acquireTokenPopup|localStorage.*token|setItem\(.*token|console\..*(token|auth)|logger\..*(token|auth)" js index.html
-! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|whisper-translate" js index.html tests
+! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|whisper-translate" js index.html tests \
+  --glob '!tests/browser-live/**'
 ```
 
 Expected: no forbidden pattern. Review false positives manually; do not weaken
@@ -586,7 +594,7 @@ the scan merely to pass.
 - [ ] New-tab silent SSO is one best-effort attempt with explicit fallback.
 - [ ] Only AzureAPIClient constructs a bearer header; adapters declare scope and never see a token.
 - [ ] Exactly two adapters remain: Whisper and MAI-Transcribe 1.5.
-- [ ] No key input, key header, key validator, key event field, or API-key fallback remains.
+- [ ] No key input, key header, key validator, key event field, or API-key fallback remains in the product, ordinary tests, or deterministic browser smoke; the separately inventoried live contract remains isolated for Plan 035.
 - [ ] 401 and 403 are categorized, non-retryable, and response/token-safe; 429/5xx bounded retry behavior remains.
 - [ ] Recording cannot activate the microphone until silent token readiness succeeds.
 - [ ] Tokens/authentication results never enter Settings, ordinary localStorage, adapters, events, logs, or application caches.
