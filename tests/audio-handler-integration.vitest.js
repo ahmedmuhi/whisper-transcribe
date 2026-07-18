@@ -531,6 +531,23 @@ describe('AudioHandler Integration', () => {
           error: 'Safe authentication recovery message'
         })
       );
+
+      const unsentRecording = audioHandler.pendingRetryBlob;
+      const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
+
+      await audioHandler.startRecordingFlow();
+
+      expect(audioHandler.pendingRetryBlob).toBe(unsentRecording);
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+      expect(mockAuthenticationReadiness.ensureTokenReady).not.toHaveBeenCalled();
+      expect(microphoneSpy).not.toHaveBeenCalled();
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        {
+          message: MESSAGES.UNSENT_RECORDING_REQUIRES_RECOVERY,
+          type: 'error'
+        }
+      );
     });
 
     it('preserves failed audio and retries the same blob', async () => {

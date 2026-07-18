@@ -335,6 +335,7 @@ export const MESSAGES = {
   AUTHENTICATION_READINESS_FAILED: 'Authentication readiness could not be established.',
   AUTHENTICATION_REQUIRED: 'Authentication is required to transcribe this recording.',
   AZURE_AUTHORIZATION_DENIED: 'The signed-in identity is not authorized for this Azure resource. Ask an administrator to review Azure RBAC.',
+  UNSENT_RECORDING_REQUIRES_RECOVERY: 'Recover or discard the Unsent Recording before starting another recording.',
   
   // API Validation
   URI_REQUIRED: 'URI is required',

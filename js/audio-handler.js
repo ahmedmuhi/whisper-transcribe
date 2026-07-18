@@ -48,6 +48,7 @@ export class AudioHandler {
         this.timerInterval = null;
         this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         this.pendingRetryBlob = null;
+        this.pendingTranscriptionErrorCode = null;
         this.activeStream = null;
         this._activeRecordingSession = null;
 
@@ -106,11 +107,21 @@ export class AudioHandler {
      */
     async startRecordingFlow() {
         try {
+            if (this.pendingRetryBlob
+                && this._requiresAuthenticationRecovery(this.pendingTranscriptionErrorCode)) {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.UNSENT_RECORDING_REQUIRES_RECOVERY,
+                    type: 'error'
+                });
+                return;
+            }
+
             // If in error state, first transition to idle
             if (this.stateMachine.getState() === RECORDING_STATES.ERROR) {
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             }
             this.pendingRetryBlob = null;
+            this.pendingTranscriptionErrorCode = null;
             
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
@@ -576,8 +587,10 @@ export class AudioHandler {
 
         if (result.success) {
             this.pendingRetryBlob = null;
+            this.pendingTranscriptionErrorCode = null;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
         } else {
+            this.pendingTranscriptionErrorCode = result.code ?? null;
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
                 error: result.error,
                 canRetry: this._canRetryTranscription(result.code)
@@ -599,11 +612,13 @@ export class AudioHandler {
         const result = await this.sendToAzureAPI(retryBlob);
         if (result.success) {
             this.pendingRetryBlob = null;
+            this.pendingTranscriptionErrorCode = null;
             this.audioChunks.length = 0;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             return;
         }
 
+        this.pendingTranscriptionErrorCode = result.code ?? null;
         await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
             error: result.error,
             canRetry: this._canRetryTranscription(result.code)
@@ -612,9 +627,13 @@ export class AudioHandler {
 
     _canRetryTranscription(errorCode) {
         const requiresExternalRecovery = errorCode === AUDIO_UPLOAD_LIMIT_ERROR_CODE
-            || errorCode === API_ERROR_CODES.AUTHENTICATION_REQUIRED
-            || errorCode === API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED;
+            || this._requiresAuthenticationRecovery(errorCode);
         return !requiresExternalRecovery && Boolean(this.pendingRetryBlob);
+    }
+
+    _requiresAuthenticationRecovery(errorCode) {
+        return errorCode === API_ERROR_CODES.AUTHENTICATION_REQUIRED
+            || errorCode === API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED;
     }
     
     async sendToAzureAPI(audioBlob) {
