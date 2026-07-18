@@ -20,6 +20,12 @@ function accountSortKey(account) {
     return account?.homeAccountId || account?.username || '';
 }
 
+function normalizePresentationText(value) {
+    return typeof value === 'string'
+        ? value.trim().replace(/\s+/gu, ' ')
+        : '';
+}
+
 export class AuthenticationService {
     #configuration;
     #client;
@@ -43,11 +49,12 @@ export class AuthenticationService {
     }
 
     getAccountPresentation() {
+        if (this.#state !== AUTHENTICATION_STATES.READY) return null;
         const account = this.#client?.getActiveAccount() || null;
         if (!account) return null;
         return Object.freeze({
-            name: typeof account.name === 'string' ? account.name : '',
-            username: typeof account.username === 'string' ? account.username : ''
+            name: normalizePresentationText(account.name),
+            username: normalizePresentationText(account.username)
         });
     }
 

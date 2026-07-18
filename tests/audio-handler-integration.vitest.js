@@ -4,7 +4,11 @@
  */
 
 import { vi } from 'vitest';
-import { API_ERROR_CODES, AUTHENTICATION_STATES } from '../js/constants.js';
+import {
+  API_ERROR_CODES,
+  AUDIO_SAFETY_STATES,
+  AUTHENTICATION_STATES
+} from '../js/constants.js';
 import { COGNITIVE_SERVICES_SCOPE } from '../js/authentication-config.js';
 import { applyDomSpies, resetEventBus } from './helpers/test-dom-vitest.js';
 
@@ -232,8 +236,96 @@ describe('AudioHandler Integration', () => {
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
     });
   });
+
+  describe('Authentication navigation audio safety', () => {
+    it('reports active audio throughout the recording lifecycle', () => {
+      const stateSpy = vi.spyOn(audioHandler.stateMachine, 'getState');
+      const activeStates = [
+        RECORDING_STATES.INITIALIZING,
+        RECORDING_STATES.RECORDING,
+        RECORDING_STATES.PAUSED,
+        RECORDING_STATES.CONFIRMING_DISCARD,
+        RECORDING_STATES.STOPPING,
+        RECORDING_STATES.PROCESSING,
+        RECORDING_STATES.CANCELLING
+      ];
+
+      activeStates.forEach((recordingState) => {
+        stateSpy.mockReturnValue(recordingState);
+        expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.ACTIVE);
+      });
+    });
+
+    it('reports an Unsent Recording without exposing its Blob', () => {
+      audioHandler.pendingRetryBlob = new Blob([new Uint8Array([0])], { type: 'audio/webm' });
+      vi.spyOn(audioHandler.stateMachine, 'getState').mockReturnValue(RECORDING_STATES.ERROR);
+
+      const safetyState = audioHandler.getAudioSafetyState();
+
+      expect(safetyState).toBe(AUDIO_SAFETY_STATES.UNSENT);
+      expect(safetyState).not.toBeInstanceOf(Blob);
+    });
+
+    it('reports safe only when no active lifecycle or Unsent Recording exists', () => {
+      vi.spyOn(audioHandler.stateMachine, 'getState').mockReturnValue(RECORDING_STATES.IDLE);
+
+      expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+    });
+
+    it('downloads the Unsent Recording with a container-matching filename and delayed URL revocation', () => {
+      vi.useFakeTimers();
+      const pendingBlob = new Blob([new Uint8Array([0])], { type: 'audio/mp4' });
+      audioHandler.pendingRetryBlob = pendingBlob;
+      const anchor = {
+        href: '',
+        download: '',
+        click: vi.fn(),
+        remove: vi.fn()
+      };
+      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+      const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture');
+      const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+      expect(audioHandler.downloadUnsentRecording()).toBe(true);
+
+      expect(createElementSpy).toHaveBeenCalledWith('a');
+      expect(createObjectURLSpy).toHaveBeenCalledWith(pendingBlob);
+      expect(anchor.href).toBe('blob:fixture');
+      expect(anchor.download).toBe('recording.mp4');
+      expect(anchor.click).toHaveBeenCalledTimes(1);
+      expect(anchor.remove).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+      expect(audioHandler.pendingRetryBlob).toBe(pendingBlob);
+      expect(audioHandler.wasUnsentRecordingDownloadInitiated()).toBe(true);
+
+      vi.runOnlyPendingTimers();
+      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:fixture');
+      vi.useRealTimers();
+    });
+
+    it('does not create a download when no Unsent Recording exists', () => {
+      const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL');
+
+      expect(audioHandler.downloadUnsentRecording()).toBe(false);
+      expect(createObjectURLSpy).not.toHaveBeenCalled();
+    });
+
+    it('clears only the Unsent Recording when discard is explicitly authorized', () => {
+      audioHandler.pendingRetryBlob = new Blob([new Uint8Array([0])], { type: 'audio/webm' });
+      audioHandler.pendingTranscriptionErrorCode = API_ERROR_CODES.AUTHENTICATION_REQUIRED;
+      audioHandler.audioChunks = [createAudioChunk()];
+
+      expect(audioHandler.discardUnsentRecording()).toBe(true);
+
+      expect(audioHandler.pendingRetryBlob).toBeNull();
+      expect(audioHandler.pendingTranscriptionErrorCode).toBeNull();
+      expect(audioHandler.wasUnsentRecordingDownloadInitiated()).toBe(false);
+      expect(audioHandler.audioChunks).toHaveLength(1);
+    });
+  });
   
   afterEach(() => {
+    vi.useRealTimers();
     // Restore original mediaDevices API
     Object.defineProperty(global.navigator, 'mediaDevices', {
       value: _originalMediaDevices,
@@ -909,15 +1001,21 @@ describe('AudioHandler Integration', () => {
     });
   });
 
+  describe('Target URI recovery', () => {
+    it('opens Settings when runtime validation reports a missing Target URI', () => {
+      eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri' });
+
+      expect(mockSettings.openSettingsModal).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Lifecycle — destroy()', () => {
     it('should unsubscribe all event bus listeners', () => {
-      // 4 original listeners (CANCEL_BUTTON_CLICKED retired) + 3 discard-flow listeners
       expect(audioHandler._unsubscribers.length).toBe(7);
 
       audioHandler.destroy();
 
       expect(audioHandler._unsubscribers).toEqual([]);
-      // Verify the API_CONFIG_MISSING listener was removed
       expect(eventBus.events.has(APP_EVENTS.API_CONFIG_MISSING)).toBe(false);
     });
 

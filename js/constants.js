@@ -45,7 +45,6 @@ export const STORAGE_KEYS = {
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
-  SIDEBAR_PINNED:        'sidebar_pinned',
   TRANSCRIPT_RECORD:     'transcript_record'
 };
 
@@ -119,6 +118,32 @@ export const AUTHENTICATION_STATES = Object.freeze({
   AUTHENTICATION_ERROR: 'authentication-error'
 });
 
+/** Token-free authentication states consumed by the UI presentation layer. */
+export const AUTH_PRESENTATION_STATES = Object.freeze({
+  CHECKING: 'checking',
+  SIGNED_OUT: 'signedOut',
+  READY: 'ready',
+  INTERACTION_REQUIRED: 'interactionRequired',
+  AUTHENTICATION_FAILED: 'authenticationFailed',
+  AUTHORIZATION_DENIED: 'authorizationDenied',
+  CONFIGURATION_REQUIRED: 'configurationRequired'
+});
+
+/** Token-free audio safety states used before authentication navigation. */
+export const AUDIO_SAFETY_STATES = Object.freeze({
+  SAFE: 'safe',
+  ACTIVE: 'active-recording',
+  UNSENT: 'unsent-recording'
+});
+
+/** Token-free outcomes from the authentication interaction controller. */
+export const AUTH_RECOVERY_STATES = Object.freeze({
+  BLOCKED: 'blocked',
+  CANCELLED: 'cancelled',
+  DOWNLOADED: 'downloaded',
+  NAVIGATING: 'navigating'
+});
+
 /** Stable, presentation-safe categories for Azure request authorization failures. */
 export const API_ERROR_CODES = Object.freeze({
   AUTHENTICATION_REQUIRED: 'authentication-required',
@@ -153,20 +178,17 @@ export const CONTENT_TYPES = {
  * 
  * @constant {Object} ID
  * @readonly
- * @property {string} SETTINGS_BUTTON - Open settings modal button
  * @property {string} GRAB_TEXT_BUTTON - Copy transcription text button
  * @property {string} SAVE_SETTINGS - Save settings button
  * @property {string} THEME_TOGGLE - Theme switching toggle button
  * @property {string} STATUS - Status message display element
  * @property {string} TRANSCRIPT - Transcription text display area
  * @property {string} TIMER - Recording timer display element
- * @property {string} SETTINGS_MODAL - Settings configuration modal
  * @property {string} VISUALIZER - Audio visualization canvas element
  * @property {string} SPINNER_CONTAINER - Loading spinner container
  */
 export const ID = Object.freeze({
   // Buttons
-  SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
   RESTORE_BUTTON:   'restore-button',
   SAVE_SETTINGS:    'save-settings',
@@ -179,18 +201,23 @@ export const ID = Object.freeze({
   DISCARD_ACTION:      'discard-action',
   RETRY_ACTION:        'retry-action',
   DISCARD_DIALOG:      'discard-dialog',
+  DISCARD_DIALOG_TITLE: 'discard-dialog-title',
   DISCARD_DIALOG_BODY: 'discard-dialog-body',
   DISCARD_KEEP:        'discard-keep',
   DISCARD_CONFIRM:     'discard-confirm',
+  AUTH_CONTEXT:        'auth-context',
+  AUTH_CONTEXT_TITLE:  'auth-context-title',
+  AUTH_CONTEXT_BODY:   'auth-context-body',
+  AUTH_CONTEXT_NOTE:   'auth-context-note',
+  AUTH_PRIMARY_ACTION: 'auth-primary-action',
+  AUTH_SECONDARY_ACTION: 'auth-secondary-action',
 
   // Status & text areas
   STATUS:           'status',
   TRANSCRIPT:       'transcript',
   TIMER:            'timer',
 
-  // Modals & panes
-  SETTINGS_MODAL:   'settings-modal',
-  CLOSE_MODAL:      'close-modal',
+  // User-menu settings panes
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
 
@@ -201,11 +228,6 @@ export const ID = Object.freeze({
   WHISPER_URI:      'whisper-uri',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
 
-  // Side panel
-  SIDE_PANEL:       'side-panel',
-  PANEL_TOGGLE:     'panel-toggle',
-  PANEL_CLOSE:      'panel-close',
-  PANEL_BACKDROP:   'panel-backdrop',
   NOISE_TOGGLE:     'noise-toggle',
   INPUT_DEVICE:     'input-device',
 
@@ -314,6 +336,10 @@ export const DEFAULT_RESET_STATUS =
  * @property {string} SETTINGS_SAVED - Confirmation when settings are saved
  * @property {string} ERROR_PREFIX - Prefix for error messages
  */
+/** Official, identity-neutral Azure RBAC setup guidance. */
+export const AZURE_RBAC_HELP_URL =
+  'https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal';
+
 export const MESSAGES = {
   // Browser & Permissions
   BROWSER_NOT_SUPPORTED: 'Your browser does not support audio recording.',
@@ -336,6 +362,25 @@ export const MESSAGES = {
   AUTHENTICATION_REQUIRED: 'Authentication is required to transcribe this recording.',
   AZURE_AUTHORIZATION_DENIED: 'The signed-in identity is not authorized for this Azure resource. Ask an administrator to review Azure RBAC.',
   UNSENT_RECORDING_REQUIRES_RECOVERY: 'Recover or discard the Unsent Recording before starting another recording.',
+  AUTH_CHECKING: 'Checking sign-in…',
+  AUTH_SIGN_IN_TITLE: 'Microsoft sign in required',
+  AUTH_SIGN_IN_BODY: 'Sign in before recording.',
+  AUTH_SIGN_IN_NOTE: 'Use your Microsoft account to access Azure resources already assigned to you. Whisper Transcribe cannot grant Azure access.',
+  AUTH_CONTINUE: 'Continue with Microsoft',
+  AUTH_DOWNLOAD_RECORDING: 'Download recording',
+  AUTH_DISCARD_AND_SIGN_IN: 'Discard recording and sign in',
+  AUTH_UNSENT_BODY: 'Download the Unsent Recording before continuing, or discard it and sign in.',
+  AUTH_FAILED_TITLE: 'Microsoft sign in unavailable',
+  AUTH_FAILED_BODY: 'Sign-in could not be established. Try again when you are ready.',
+  AUTHORIZATION_DENIED_TITLE: 'Azure access is missing',
+  AUTHORIZATION_DENIED_BODY: 'Your Microsoft account does not have access to this Azure resource. Whisper Transcribe cannot change Azure access.',
+  VIEW_AZURE_SETUP: 'View Azure setup',
+  TARGET_URI_REQUIRED_TITLE: 'Target URI required',
+  TARGET_URI_REQUIRED_BODY: 'Add a valid HTTPS Target URI before recording.',
+  OPEN_SETTINGS: 'Open settings',
+  AUTHENTICATION_ACTION_FAILED: 'The authentication action could not be completed. Try again.',
+  LOGOUT_FAILED: 'Log out could not be completed. Try again.',
+  RECORDING_DOWNLOAD_FAILED: 'The recording download could not be started. Try again.',
   
   // API Validation
   URI_REQUIRED: 'URI is required',

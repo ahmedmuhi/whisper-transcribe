@@ -2,7 +2,22 @@
  * @fileoverview User interface controller for the whisper-transcribe application.
  */
 
-import { STORAGE_KEYS, COLORS, DEFAULT_RESET_STATUS, MESSAGES, ID, TRANSCRIPT_SEGMENT_DIVIDER, RECORDING_STATES, STATUS_TYPE_CLASSES } from './constants.js';
+import {
+    API_ERROR_CODES,
+    AUDIO_SAFETY_STATES,
+    AUTHENTICATION_STATES,
+    AUTH_PRESENTATION_STATES,
+    AUTH_RECOVERY_STATES,
+    AZURE_RBAC_HELP_URL,
+    STORAGE_KEYS,
+    COLORS,
+    DEFAULT_RESET_STATUS,
+    MESSAGES,
+    ID,
+    TRANSCRIPT_SEGMENT_DIVIDER,
+    RECORDING_STATES,
+    STATUS_TYPE_CLASSES
+} from './constants.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -24,7 +39,11 @@ export class UI {
     /**
      * Creates a new UI controller instance and resolves DOM references.
      */
-    constructor() {
+    constructor({
+        authenticationState = AUTH_PRESENTATION_STATES.READY,
+        authInteractionController = null,
+        openHelp = null
+    } = {}) {
         // Transcript + status + visualiser
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
@@ -42,8 +61,23 @@ export class UI {
         this.discardAction = document.getElementById(ID.DISCARD_ACTION);
         this.retryAction = document.getElementById(ID.RETRY_ACTION);
 
+        // Token-free authentication presentation inside the Dynamic Island.
+        this.authContext = document.getElementById(ID.AUTH_CONTEXT);
+        this.authContextTitle = document.getElementById(ID.AUTH_CONTEXT_TITLE);
+        this.authContextBody = document.getElementById(ID.AUTH_CONTEXT_BODY);
+        this.authContextNote = document.getElementById(ID.AUTH_CONTEXT_NOTE);
+        this.authPrimaryAction = document.getElementById(ID.AUTH_PRIMARY_ACTION);
+        this.authSecondaryAction = document.getElementById(ID.AUTH_SECONDARY_ACTION);
+        this.authInteractionController = authInteractionController;
+        this.openHelp = openHelp || (() => window.open(
+            AZURE_RBAC_HELP_URL,
+            '_blank',
+            'noopener,noreferrer'
+        ));
+
         // Proportional-discard confirm dialog
         this.discardDialog = document.getElementById(ID.DISCARD_DIALOG);
+        this.discardDialogTitle = document.getElementById(ID.DISCARD_DIALOG_TITLE);
         this.discardDialogBody = document.getElementById(ID.DISCARD_DIALOG_BODY);
         this.discardKeepButton = document.getElementById(ID.DISCARD_KEEP);
         this.discardConfirmButton = document.getElementById(ID.DISCARD_CONFIRM);
@@ -60,8 +94,16 @@ export class UI {
         // retryable. renderControls() derives the cluster from these — they persist
         // so a bare re-render (e.g. from _setReady) preserves Retry/escape controls.
         this.currentState = RECORDING_STATES.IDLE;
+        this.authenticationPresentation = Object.values(AUTH_PRESENTATION_STATES)
+            .includes(authenticationState)
+            ? authenticationState
+            : this._presentationStateFor(authenticationState);
+        this.prerequisitesReady = false;
+        this.prerequisiteReason = null;
         this.ready = false;
         this.canRetry = false;
+        this._unsentDiscardResolve = null;
+        this._unsentDiscardInvoker = null;
         this._autosaveTimer = null;
         this._autosaveFailureNotified = false;
         this._pagehideRegistered = false;
@@ -139,19 +181,45 @@ export class UI {
         if (this.retryAction) {
             this.retryAction.addEventListener('click', () => eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED));
         }
+        if (this.authPrimaryAction) {
+            this.authPrimaryAction.addEventListener('click', () => {
+                void this._handleAuthenticationAction(this.authPrimaryAction.dataset.authAction);
+            });
+        }
+        if (this.authSecondaryAction) {
+            this.authSecondaryAction.addEventListener('click', () => {
+                void this._handleAuthenticationAction(this.authSecondaryAction.dataset.authAction);
+            });
+        }
 
         // Discard confirm dialog — Keep resumes, Discard tears down, Escape = Keep.
         if (this.discardKeepButton) {
-            this.discardKeepButton.addEventListener('click', () => this.closeDiscardDialog(APP_EVENTS.DISCARD_KEPT));
+            this.discardKeepButton.addEventListener('click', () => {
+                if (this._unsentDiscardResolve) {
+                    this._resolveUnsentDiscard(false);
+                } else {
+                    this.closeDiscardDialog(APP_EVENTS.DISCARD_KEPT);
+                }
+            });
         }
         if (this.discardConfirmButton) {
-            this.discardConfirmButton.addEventListener('click', () => this.closeDiscardDialog(APP_EVENTS.DISCARD_CONFIRMED));
+            this.discardConfirmButton.addEventListener('click', () => {
+                if (this._unsentDiscardResolve) {
+                    this._resolveUnsentDiscard(true);
+                } else {
+                    this.closeDiscardDialog(APP_EVENTS.DISCARD_CONFIRMED);
+                }
+            });
         }
         if (this.discardDialog) {
             // Native <dialog> fires 'cancel' on Escape — treat it as Keep (safe default).
             this.discardDialog.addEventListener('cancel', (event) => {
                 event.preventDefault();
-                this.closeDiscardDialog(APP_EVENTS.DISCARD_KEPT);
+                if (this._unsentDiscardResolve) {
+                    this._resolveUnsentDiscard(false);
+                } else {
+                    this.closeDiscardDialog(APP_EVENTS.DISCARD_KEPT);
+                }
             });
         }
 
@@ -221,7 +289,21 @@ export class UI {
             this.hideSpinner();
         });
 
-        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, () => this.hideSpinner());
+        eventBus.on(APP_EVENTS.API_REQUEST_ERROR, (data) => {
+            this.hideSpinner();
+            if (data?.code === API_ERROR_CODES.AUTHENTICATION_REQUIRED) {
+                this.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED);
+            } else if (data?.code === API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED) {
+                this.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.AUTHORIZATION_DENIED);
+            }
+        });
+        eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => {
+            this.prerequisiteReason = 'config';
+            this._setReady(false, 'config');
+        });
+        eventBus.on(APP_EVENTS.AUTHENTICATION_STATE_CHANGED, ({ state }) => {
+            this.setAuthenticationPresentation(this._presentationStateFor(state));
+        });
         eventBus.on(APP_EVENTS.ERROR_OCCURRED, ({ message }) => this.showError(message || MESSAGES.ERROR_OCCURRED));
 
         eventBus.on(APP_EVENTS.PERMISSION_GRANTED, () => this.checkRecordingPrerequisites());
@@ -334,10 +416,26 @@ export class UI {
      * @returns {void}
      */
     renderControls(state) {
+        const authenticationConfig = this._authenticationControlConfig(state);
         const cfg = this._controlConfig(state);
 
         // FLIP: measure → mutate → measure → animate the cluster's size between.
         this._morphIsland(() => {
+            if (authenticationConfig) {
+                this._renderAuthenticationContext(authenticationConfig);
+                this._applyButton(this.primaryAction, { hidden: true });
+                this._applyButton(this.secondaryAction, { hidden: true });
+                this._applyButton(this.discardAction, { hidden: true });
+                this._applyButton(this.retryAction, { hidden: true });
+                if (this.timerElement) this.timerElement.hidden = true;
+                this._setIslandState('island-auth');
+                this.controlCluster?.classList?.toggle('island-has-indicator', false);
+                this.hideSpinner();
+                return;
+            }
+
+            this._hideAuthenticationContext();
+            if (this.timerElement) this.timerElement.hidden = false;
             this._applyButton(this.primaryAction, cfg.primary);
             this._applyButton(this.secondaryAction, cfg.secondary);
             this._applyButton(this.discardAction, cfg.discard);
@@ -392,7 +490,12 @@ export class UI {
      */
     _setIslandState(islandClass) {
         if (!this.controlCluster || !this.controlCluster.classList) return;
-        this.controlCluster.classList.remove('island-idle', 'island-recording', 'island-processing');
+        this.controlCluster.classList.remove(
+            'island-idle',
+            'island-recording',
+            'island-processing',
+            'island-auth'
+        );
         this.controlCluster.classList.add(islandClass);
     }
 
@@ -525,6 +628,215 @@ export class UI {
         );
     }
 
+    setAuthenticationPresentation(state) {
+        this.authenticationPresentation = Object.values(AUTH_PRESENTATION_STATES).includes(state)
+            ? state
+            : AUTH_PRESENTATION_STATES.AUTHENTICATION_FAILED;
+        this._recomputeReady();
+        this.renderControls(this.currentState);
+    }
+
+    _presentationStateFor(authenticationState) {
+        switch (authenticationState) {
+            case AUTHENTICATION_STATES.UNINITIALIZED:
+            case AUTHENTICATION_STATES.INITIALIZING:
+                return AUTH_PRESENTATION_STATES.CHECKING;
+            case AUTHENTICATION_STATES.SIGNED_OUT:
+                return AUTH_PRESENTATION_STATES.SIGNED_OUT;
+            case AUTHENTICATION_STATES.READY:
+                return AUTH_PRESENTATION_STATES.READY;
+            case AUTHENTICATION_STATES.INTERACTION_REQUIRED:
+                return AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED;
+            case AUTHENTICATION_STATES.CONFIGURATION_ERROR:
+            case AUTHENTICATION_STATES.NETWORK_ERROR:
+            case AUTHENTICATION_STATES.AUTHENTICATION_ERROR:
+            default:
+                return AUTH_PRESENTATION_STATES.AUTHENTICATION_FAILED;
+        }
+    }
+
+    _effectiveAuthenticationPresentation() {
+        if (
+            this.authenticationPresentation === AUTH_PRESENTATION_STATES.READY &&
+            this.prerequisiteReason === 'config'
+        ) {
+            return AUTH_PRESENTATION_STATES.CONFIGURATION_REQUIRED;
+        }
+        return this.authenticationPresentation;
+    }
+
+    _authenticationControlConfig(recordingState) {
+        if (![RECORDING_STATES.IDLE, RECORDING_STATES.ERROR].includes(recordingState)) {
+            return null;
+        }
+
+        const presentation = this._effectiveAuthenticationPresentation();
+        if (presentation === AUTH_PRESENTATION_STATES.READY) return null;
+
+        const hidden = { hidden: true };
+        switch (presentation) {
+            case AUTH_PRESENTATION_STATES.CHECKING:
+                return {
+                    title: MESSAGES.AUTH_CHECKING,
+                    body: '',
+                    note: '',
+                    primary: hidden,
+                    secondary: hidden
+                };
+            case AUTH_PRESENTATION_STATES.SIGNED_OUT:
+                return {
+                    title: MESSAGES.AUTH_SIGN_IN_TITLE,
+                    body: MESSAGES.AUTH_SIGN_IN_BODY,
+                    note: MESSAGES.AUTH_SIGN_IN_NOTE,
+                    primary: { label: MESSAGES.AUTH_CONTINUE, action: 'continue' },
+                    secondary: hidden
+                };
+            case AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED:
+                return this._interactionRequiredControlConfig();
+            case AUTH_PRESENTATION_STATES.AUTHORIZATION_DENIED:
+                return {
+                    title: MESSAGES.AUTHORIZATION_DENIED_TITLE,
+                    body: MESSAGES.AUTHORIZATION_DENIED_BODY,
+                    note: '',
+                    primary: { label: MESSAGES.VIEW_AZURE_SETUP, action: 'help' },
+                    secondary: hidden
+                };
+            case AUTH_PRESENTATION_STATES.CONFIGURATION_REQUIRED:
+                return {
+                    title: MESSAGES.TARGET_URI_REQUIRED_TITLE,
+                    body: MESSAGES.TARGET_URI_REQUIRED_BODY,
+                    note: '',
+                    primary: { label: MESSAGES.OPEN_SETTINGS, action: 'open-settings' },
+                    secondary: hidden
+                };
+            case AUTH_PRESENTATION_STATES.AUTHENTICATION_FAILED:
+            default:
+                return {
+                    title: MESSAGES.AUTH_FAILED_TITLE,
+                    body: MESSAGES.AUTH_FAILED_BODY,
+                    note: '',
+                    primary: { label: MESSAGES.AUTH_CONTINUE, action: 'continue' },
+                    secondary: hidden
+                };
+        }
+    }
+
+    _interactionRequiredControlConfig() {
+        const recoveryState = this.authInteractionController?.getRecoveryState?.().state;
+        if (recoveryState === AUDIO_SAFETY_STATES.UNSENT) {
+            return {
+                title: 'Authentication required',
+                body: MESSAGES.AUTH_UNSENT_BODY,
+                note: '',
+                primary: { label: MESSAGES.AUTH_DOWNLOAD_RECORDING, action: 'download' },
+                secondary: { label: MESSAGES.AUTH_DISCARD_AND_SIGN_IN, action: 'discard' }
+            };
+        }
+        if (recoveryState === AUTH_RECOVERY_STATES.DOWNLOADED) {
+            return {
+                title: 'Authentication required',
+                body: 'The recording download was initiated. Continue only when you are ready to leave this page.',
+                note: '',
+                primary: { label: MESSAGES.AUTH_CONTINUE, action: 'continue-after-download' },
+                secondary: { label: MESSAGES.AUTH_DISCARD_AND_SIGN_IN, action: 'discard' }
+            };
+        }
+        if (recoveryState === AUDIO_SAFETY_STATES.ACTIVE) {
+            return {
+                title: 'Finish the recording first',
+                body: 'Microsoft sign in cannot continue while recording audio.',
+                note: '',
+                primary: { hidden: true },
+                secondary: { hidden: true }
+            };
+        }
+        return {
+            title: MESSAGES.AUTH_SIGN_IN_TITLE,
+            body: 'Continue with Microsoft to restore authentication.',
+            note: '',
+            primary: { label: MESSAGES.AUTH_CONTINUE, action: 'continue' },
+            secondary: { hidden: true }
+        };
+    }
+
+    _renderAuthenticationContext(config) {
+        if (!this.authContext) return;
+        this.authContext.hidden = false;
+        if (this.authContextTitle) this.authContextTitle.textContent = config.title;
+        if (this.authContextBody) {
+            this.authContextBody.textContent = config.body;
+            this.authContextBody.hidden = !config.body;
+        }
+        if (this.authContextNote) {
+            this.authContextNote.textContent = config.note;
+            this.authContextNote.hidden = !config.note;
+        }
+        this._applyAuthenticationButton(this.authPrimaryAction, config.primary);
+        this._applyAuthenticationButton(this.authSecondaryAction, config.secondary);
+    }
+
+    _hideAuthenticationContext() {
+        if (this.authContext) this.authContext.hidden = true;
+        if (this.authPrimaryAction?.dataset) this.authPrimaryAction.dataset.authAction = '';
+        if (this.authSecondaryAction?.dataset) this.authSecondaryAction.dataset.authAction = '';
+    }
+
+    _applyAuthenticationButton(button, config) {
+        this._applyButton(button, config);
+        if (button?.dataset) button.dataset.authAction = config.action || '';
+    }
+
+    async _handleAuthenticationAction(action) {
+        const interactionRequired = this.authenticationPresentation ===
+            AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED;
+        let result;
+        try {
+            switch (action) {
+                case 'continue':
+                    result = await this.authInteractionController
+                        ?.continueWithMicrosoft?.({ interactionRequired });
+                    break;
+                case 'download':
+                    result = await this.authInteractionController?.downloadUnsentRecording?.();
+                    this.renderControls(this.currentState);
+                    break;
+                case 'continue-after-download':
+                    result = await this.authInteractionController
+                        ?.continueAfterDownload?.({ interactionRequired: true });
+                    break;
+                case 'discard':
+                    result = await this.authInteractionController
+                        ?.discardUnsentAndContinue?.({ interactionRequired: true });
+                    this.renderControls(this.currentState);
+                    break;
+                case 'open-settings':
+                    this.settings?.openSettingsModal?.(this.authPrimaryAction);
+                    break;
+                case 'help':
+                    this.openHelp();
+                    break;
+                default:
+                    break;
+            }
+        } catch {
+            result = { state: AUTH_RECOVERY_STATES.BLOCKED };
+        }
+
+        if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
+            this.renderControls(this.currentState);
+            this.showError(action === 'download'
+                ? MESSAGES.RECORDING_DOWNLOAD_FAILED
+                : MESSAGES.AUTHENTICATION_ACTION_FAILED);
+        }
+    }
+
+    _recomputeReady() {
+        this.ready = Boolean(
+            this.prerequisitesReady &&
+            this._effectiveAuthenticationPresentation() === AUTH_PRESENTATION_STATES.READY
+        );
+    }
+
     /**
      * Computes the control-cluster configuration for a state. Pure (depends only
      * on the state, the canRetry flag, and this.ready) — easy to test.
@@ -617,10 +929,13 @@ export class UI {
      * @method _setReady
      * @private
      * @param {boolean} ready
+     * @param {string|null} [reason]
      * @returns {void}
      */
-    _setReady(ready) {
-        this.ready = ready;
+    _setReady(ready, reason = null) {
+        this.prerequisitesReady = Boolean(ready);
+        this.prerequisiteReason = ready ? null : reason;
+        this._recomputeReady();
         this.renderControls(this.currentState);
     }
 
@@ -651,6 +966,57 @@ export class UI {
         } catch {
             eventBus.emit(APP_EVENTS.DISCARD_KEPT);
         }
+    }
+
+    confirmUnsentDiscard({ title, message, confirmLabel }) {
+        if (!this.discardDialog || typeof this.discardDialog.showModal !== 'function') {
+            return Promise.resolve(false);
+        }
+        if (this.discardDialogTitle) this.discardDialogTitle.textContent = title;
+        if (this.discardDialogBody) this.discardDialogBody.textContent = message;
+        this._setButtonLabel(this.discardConfirmButton, confirmLabel);
+        this._setButtonLabel(this.discardKeepButton, 'Keep recording');
+
+        const activeElement = document.activeElement;
+        try {
+            if (!this.discardDialog.open) this.discardDialog.showModal();
+        } catch {
+            return Promise.resolve(false);
+        }
+
+        this._unsentDiscardInvoker = activeElement && activeElement !== document.body
+            ? activeElement
+            : null;
+        return new Promise((resolve) => {
+            this._unsentDiscardResolve = resolve;
+        });
+    }
+
+    _resolveUnsentDiscard(confirmed) {
+        const resolve = this._unsentDiscardResolve;
+        const invoker = this._unsentDiscardInvoker;
+        this._unsentDiscardResolve = null;
+        this._unsentDiscardInvoker = null;
+        if (
+            this.discardDialog &&
+            typeof this.discardDialog.close === 'function' &&
+            this.discardDialog.open
+        ) {
+            this.discardDialog.close();
+        }
+        if (this.discardDialogTitle) this.discardDialogTitle.textContent = 'Discard recording?';
+        this._setButtonLabel(this.discardConfirmButton, 'Discard');
+        resolve?.(Boolean(confirmed));
+        const focusTarget = invoker?.isConnected === false ? null : invoker;
+        (focusTarget || this.authPrimaryAction)?.focus?.();
+    }
+
+    _setButtonLabel(button, label) {
+        if (!button) return;
+        const labelElement = button.querySelector?.('.btn-label');
+        if (labelElement) labelElement.textContent = label;
+        else button.textContent = label;
+        button.setAttribute?.('aria-label', label);
     }
 
     /**
@@ -691,7 +1057,7 @@ export class UI {
      */
     checkRecordingPrerequisites() {
         if (!this.checkBrowserSupport()) {
-            this._setReady(false);
+            this._setReady(false, 'browser');
             eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'browser' });
             return false;
         }
@@ -702,7 +1068,7 @@ export class UI {
         const inError = this.currentState === RECORDING_STATES.ERROR;
         if (!config.uri) {
             if (!inError) this.setStatus(MESSAGES.API_NOT_CONFIGURED);
-            this._setReady(false);
+            this._setReady(false, 'config');
             eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });
             return false;
         }
