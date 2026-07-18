@@ -1,0 +1,26 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const distDirectory = path.join(repoRoot, 'dist');
+const redirectSourcePath = path.join(repoRoot, 'auth/redirect.html');
+
+describe('Vite build contract', () => {
+    it('emits separate application and redirect-bridge entries without application code in the bridge', () => {
+        execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
+
+        const indexPath = path.join(distDirectory, 'index.html');
+        const redirectPath = path.join(distDirectory, 'auth/redirect.html');
+        const redirectSource = readFileSync(redirectSourcePath, 'utf8');
+
+        expect(existsSync(indexPath)).toBe(true);
+        expect(existsSync(redirectPath)).toBe(true);
+        expect(existsSync(path.join(distDirectory, 'js/main.js'))).toBe(false);
+        expect(readFileSync(indexPath, 'utf8')).toMatch(/assets\/.+\.js/);
+        expect(readFileSync(redirectPath, 'utf8')).toContain('Completing sign-in');
+        expect(redirectSource).not.toMatch(/js\/main|AudioHandler|AzureAPIClient|localStorage|microphone/);
+    });
+});

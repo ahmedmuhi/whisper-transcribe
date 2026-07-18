@@ -19,7 +19,10 @@ node_modules/
 
 # Generated documentation and coverage files
 coverage/
-docs/
+dist/
+docs/*
+!docs/adr/
+!docs/adr/**
 playwright-report/
 test-results/
 tests/browser/.artifacts/
