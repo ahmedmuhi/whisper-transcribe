@@ -107,7 +107,9 @@ test('picker review stays local until explicit Transcribe and converges on the t
         .toHaveText('Ready for Azure MAI-Transcribe 1.5');
     await expect(page.locator('#selected-audio-name')).toHaveText('generated-selected.wav');
     await expect(page.locator('#selected-audio-metadata')).toContainText('WAV');
-    const transcribe = page.locator('[data-selected-action="transcribe"]');
+    const transcribe = page.locator(
+        '[data-selected-state]:not([hidden]) [data-selected-action="transcribe"]'
+    );
     await expect(transcribe).toHaveText('Transcribe');
     await expect(transcribe).toBeFocused();
     await expect(page.locator('#control-cluster')).toBeHidden();
@@ -232,7 +234,9 @@ test('failed Azure request retains the same file for one explicit Retry', async 
     await expect(page.locator('[data-selected-state="ready-mai-transcribe-1.5"] .selected-audio-verdict'))
         .toHaveText('Ready for Azure MAI-Transcribe 1.5');
 
-    await page.locator('[data-selected-action="transcribe"]').click();
+    await page.locator(
+        '[data-selected-state]:not([hidden]) [data-selected-action="transcribe"]'
+    ).click();
 
     const retry = page.locator('[data-selected-action="retry"]');
     await expect(retry).toHaveText('Retry');
