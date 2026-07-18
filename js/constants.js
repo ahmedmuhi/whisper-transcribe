@@ -119,6 +119,32 @@ export const AUTHENTICATION_STATES = Object.freeze({
   AUTHENTICATION_ERROR: 'authentication-error'
 });
 
+/** Token-free authentication states consumed by the UI presentation layer. */
+export const AUTH_PRESENTATION_STATES = Object.freeze({
+  CHECKING: 'checking',
+  SIGNED_OUT: 'signedOut',
+  READY: 'ready',
+  INTERACTION_REQUIRED: 'interactionRequired',
+  AUTHENTICATION_FAILED: 'authenticationFailed',
+  AUTHORIZATION_DENIED: 'authorizationDenied',
+  CONFIGURATION_REQUIRED: 'configurationRequired'
+});
+
+/** Token-free audio safety states used before authentication navigation. */
+export const AUDIO_SAFETY_STATES = Object.freeze({
+  SAFE: 'safe',
+  ACTIVE: 'active-recording',
+  UNSENT: 'unsent-recording'
+});
+
+/** Token-free outcomes from the authentication interaction controller. */
+export const AUTH_RECOVERY_STATES = Object.freeze({
+  BLOCKED: 'blocked',
+  CANCELLED: 'cancelled',
+  DOWNLOADED: 'downloaded',
+  NAVIGATING: 'navigating'
+});
+
 /** Stable, presentation-safe categories for Azure request authorization failures. */
 export const API_ERROR_CODES = Object.freeze({
   AUTHENTICATION_REQUIRED: 'authentication-required',
@@ -179,9 +205,16 @@ export const ID = Object.freeze({
   DISCARD_ACTION:      'discard-action',
   RETRY_ACTION:        'retry-action',
   DISCARD_DIALOG:      'discard-dialog',
+  DISCARD_DIALOG_TITLE: 'discard-dialog-title',
   DISCARD_DIALOG_BODY: 'discard-dialog-body',
   DISCARD_KEEP:        'discard-keep',
   DISCARD_CONFIRM:     'discard-confirm',
+  AUTH_CONTEXT:        'auth-context',
+  AUTH_CONTEXT_TITLE:  'auth-context-title',
+  AUTH_CONTEXT_BODY:   'auth-context-body',
+  AUTH_CONTEXT_NOTE:   'auth-context-note',
+  AUTH_PRIMARY_ACTION: 'auth-primary-action',
+  AUTH_SECONDARY_ACTION: 'auth-secondary-action',
 
   // Status & text areas
   STATUS:           'status',
@@ -336,6 +369,22 @@ export const MESSAGES = {
   AUTHENTICATION_REQUIRED: 'Authentication is required to transcribe this recording.',
   AZURE_AUTHORIZATION_DENIED: 'The signed-in identity is not authorized for this Azure resource. Ask an administrator to review Azure RBAC.',
   UNSENT_RECORDING_REQUIRES_RECOVERY: 'Recover or discard the Unsent Recording before starting another recording.',
+  AUTH_CHECKING: 'Checking sign-in…',
+  AUTH_SIGN_IN_TITLE: 'Microsoft sign in required',
+  AUTH_SIGN_IN_BODY: 'Sign in before recording.',
+  AUTH_SIGN_IN_NOTE: 'Use your Microsoft account to access Azure resources already assigned to you. Whisper Transcribe cannot grant Azure access.',
+  AUTH_CONTINUE: 'Continue with Microsoft',
+  AUTH_DOWNLOAD_RECORDING: 'Download recording',
+  AUTH_DISCARD_AND_SIGN_IN: 'Discard recording and sign in',
+  AUTH_UNSENT_BODY: 'Download the Unsent Recording before continuing, or discard it and sign in.',
+  AUTH_FAILED_TITLE: 'Microsoft sign in unavailable',
+  AUTH_FAILED_BODY: 'Sign-in could not be established. Try again when you are ready.',
+  AUTHORIZATION_DENIED_TITLE: 'Azure access is missing',
+  AUTHORIZATION_DENIED_BODY: 'Your Microsoft account does not have access to this Azure resource. Whisper Transcribe cannot change Azure access.',
+  VIEW_AZURE_SETUP: 'View Azure setup',
+  TARGET_URI_REQUIRED_TITLE: 'Target URI required',
+  TARGET_URI_REQUIRED_BODY: 'Add a valid HTTPS Target URI before recording.',
+  OPEN_SETTINGS: 'Open settings',
   
   // API Validation
   URI_REQUIRED: 'URI is required',

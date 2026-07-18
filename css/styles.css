@@ -601,6 +601,51 @@ header {
     gap: 0;
 }
 
+.control-cluster.island-auth {
+    width: min(560px, 100%);
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+}
+
+.auth-context {
+    width: 100%;
+    display: grid;
+    gap: 0.55rem;
+    text-align: left;
+}
+
+.auth-context[hidden] {
+    display: none;
+}
+
+.auth-context-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-style: italic;
+    font-weight: 400;
+}
+
+.auth-context-body,
+.auth-context-note {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.55;
+}
+
+.auth-context-note {
+    color: var(--status-text);
+    font-size: 0.68rem;
+}
+
+.auth-context-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.15rem;
+}
+
 /* Recording / paused — the island is lifted and expanded; contents spread. */
 .control-cluster.island-recording {
     background: var(--bg-surface);

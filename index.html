@@ -182,10 +182,24 @@
             <!-- Dynamic Island: a single pill that reshapes by FSM state, with its
                  contents cross-fading between compact and expanded forms. -->
             <div id="control-cluster" class="control-cluster island-idle" role="group" aria-label="Recording controls">
-                <!-- The timer folds into the island while recording/paused. -->
-                <div id="timer" class="timer island-timer">00:00</div>
+                <section id="auth-context" class="auth-context" aria-live="polite">
+                    <strong id="auth-context-title" class="auth-context-title">Checking sign-in…</strong>
+                    <p id="auth-context-body" class="auth-context-body" hidden></p>
+                    <p id="auth-context-note" class="auth-context-note" hidden></p>
+                    <div class="auth-context-actions">
+                        <button id="auth-primary-action" type="button" class="btn btn-primary" hidden>
+                            <span class="btn-label"></span>
+                        </button>
+                        <button id="auth-secondary-action" type="button" class="btn btn-discard" hidden>
+                            <span class="btn-label"></span>
+                        </button>
+                    </div>
+                </section>
 
-                <button id="primary-action" class="btn btn-primary">
+                <!-- The timer folds into the island while recording/paused. -->
+                <div id="timer" class="timer island-timer" hidden>00:00</div>
+
+                <button id="primary-action" class="btn btn-primary" hidden disabled>
                     <svg class="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
