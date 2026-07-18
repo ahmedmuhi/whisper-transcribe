@@ -386,6 +386,28 @@ Expected tests cover initialization, redirect return, restored account,
 single-attempt new-tab SSO, silent success, interaction-required categorization,
 redirect-only interaction, sign-out, missing config, and safe event payloads.
 
+The first real application import of MSAL adds the already-approved security
+runtime to the shipped artifact. Keep Plan 031's existing 20 kB application
+ceiling unchanged. Use a deterministic Vite chunk boundary to isolate the
+AuthenticationService and MSAL runtime, then add a separate size-limit entry
+covering every generated authentication/MSAL JavaScript chunk. Set that entry
+to the smallest 5 kB ceiling above the observed Brotli total, with no additional
+headroom. Extend the generated-artifact test so every shipped JavaScript chunk
+is covered by exactly one application, authentication, or redirect budget; an
+unmeasured lazy/dynamic chunk is a failure, not an optimization.
+
+**Verify**:
+
+```bash
+npm run build
+npm run size
+npx vitest run tests/vite-build.vitest.js
+```
+
+Expected: the original application and redirect ceilings remain unchanged,
+the authentication runtime passes its explicit bounded budget, and no generated
+JavaScript asset is omitted from measurement.
+
 ### Step 4: Introduce a narrow token provider and central bearer ownership
 
 Create a token-provider interface/object that exposes only “get a current token
@@ -599,6 +621,7 @@ the scan merely to pass.
 - [ ] Recording cannot activate the microphone until silent token readiness succeeds.
 - [ ] Tokens/authentication results never enter Settings, ordinary localStorage, adapters, events, logs, or application caches.
 - [ ] Production bundle contains no deterministic auth double or fake token.
+- [ ] The original 20 kB application and 5 kB redirect ceilings remain unchanged; every shipped authentication/MSAL JavaScript chunk is isolated and measured under its own smallest-next-5-kB ceiling.
 - [ ] All build, lint, coverage, dependency, audit, size, and browser gates pass.
 - [ ] No live Entra/Azure/GitHub configuration or call was made.
 - [ ] Only in-scope files changed and `plans/README.md` was updated as instructed.
@@ -616,6 +639,9 @@ Stop and report instead of improvising if:
 - A token must cross the stated provider → AzureAPIClient local-variable boundary.
 - A test can pass only by adding a production test hook, storing a token/key, or
   weakening existing retry/coverage/size/security gates.
+- The approved authentication runtime cannot be isolated into an honestly
+  measured bounded chunk without raising the existing application/redirect
+  ceilings or leaving any generated JavaScript unmeasured.
 - Removing keys and enabling bearer requests cannot be made atomic.
 - Any real tenant/client/subscription/resource/principal identifier, Target URI,
   token, key, authentication response, or audio would enter a file/log/issue/artifact.
