@@ -1,6 +1,6 @@
 # Plan 032: Replace every API-key path with centralized Microsoft Entra bearer authentication
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -242,6 +242,9 @@ These commands assume Plan 031's scripts exist.
 - `tests/api-client-errors.vitest.js`
 - `tests/model-adapters.vitest.js`
 - `tests/audio-handler-integration.vitest.js`
+- `tests/recording-integration.vitest.js` (test-fixture migration only)
+- `tests/discard-flow.vitest.js` (test-fixture migration only)
+- `tests/audio-handler-stop.vitest.js` (test-fixture migration only)
 - `tests/settings-persistence.vitest.js`
 - `tests/settings-unit.vitest.js`
 - `tests/settings-workflow.vitest.js`
