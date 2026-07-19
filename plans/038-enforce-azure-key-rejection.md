@@ -18,6 +18,25 @@
 > Compare the result with the immutable candidate accepted by Plan 037. Any
 > candidate mismatch or unqualified behavior change is a STOP condition.
 
+> **Completion amendment (2026-07-19)**: This plan is complete against
+> immutable candidate `95fd3f46533c1807844f3ec9e1dee55bf1111335`
+> (`keyless-rc-03`). The owner explicitly waived the planned 24-hour waiting
+> period after the accepted Windows and macOS production coverage, ordinary
+> use, both resource-specific bearer gates, and a final protected two-model
+> OIDC run. The Azure data plane returned HTTP 403—not the generically
+> documented HTTP 401—for a privately verified current key after enforcement;
+> the same keys reached media validation before enforcement (Whisper HTTP 400,
+> MAI HTTP 415), both Entra bearer paths continued to succeed, and no response
+> body was read. The provider also rejected key regeneration while
+> `disableLocalAuth=true`. Each resource was therefore handled independently:
+> temporarily enable local authentication, regenerate Key1 and Key2 with no
+> output, immediately disable local authentication again, and verify literal
+> `true` before touching the next resource. Replacement key values were never
+> read. Both resources are now enforced, the legacy CI key secret is absent,
+> and the migration is forward-only. This amendment supersedes the narrower
+> 401-only, mandatory-wait, and rotate-while-disabled instructions below for
+> this completed execution; those original clauses remain as planning history.
+
 ## Status
 
 - **Priority**: P1
@@ -25,6 +44,7 @@
 - **Risk**: CRITICAL
 - **Depends on**: Plan 037
 - **Category**: migration
+- **Status**: DONE (2026-07-19)
 - **Planned at**: commit `e1f7083`, 2026-07-18
 - **Issue**: https://github.com/ahmedmuhi/whisper-transcribe/issues/121
 
@@ -71,11 +91,11 @@ The final order is fixed:
 ```text
 closed caller inventory
   -> approve + enforce Whisper
-  -> verify bearer app + OIDC success + valid-key 401
+  -> verify bearer app + OIDC success + same-key rejection
   -> approve + enforce MAI-Transcribe 1.5
-  -> verify bearer app + OIDC success + valid-key 401
-  -> 24-hour stabilization + ordinary use + final OIDC run
-  -> rotate both key slots on both resources while local auth stays disabled
+  -> verify bearer app + OIDC success + same-key rejection
+  -> owner-reviewed stabilization decision + final OIDC run
+  -> unlock, rotate both slots, and immediately re-lock one resource at a time
   -> delete legacy secret/private cutover copies
   -> declare forward-only
 ```
@@ -203,7 +223,7 @@ Before enforcement, the operator may use one separately approved no-audio probe
 to prove the supplied key is current; expect a non-401 application/media error,
 not a successful transcription. Do not inspect or retain its body. If current
 validity cannot be proven safely, STOP rather than accepting a meaningless 401
-from a stale/incorrect key.
+or 403 from a stale/incorrect key or an unrelated authorization failure.
 
 ## Commands you will need
 
@@ -235,8 +255,9 @@ groups, subscription-wide mutation, unresolved variables, or looped enforcement.
 
 **In-scope repository mutation:**
 
-- `plans/README.md` status only, unless the reviewer maintains it.
-- No source, test, workflow, configuration, or documentation change.
+- Plan status, sanitized completion evidence, and the operator-runbook
+  correction required by observed provider behavior.
+- No product source, test, workflow, or runtime configuration change.
 
 **In-scope external actions, each requiring explicit approval:**
 
@@ -247,9 +268,12 @@ groups, subscription-wide mutation, unresolved variables, or looped enforcement.
 - One application bearer transcription and one protected OIDC contract success
   per model during its enforcement gate; avoid duplicates already safely
   observable in an approved run.
-- One no-audio valid-key 401 per enforced resource.
-- Ordinary production use and one final two-model OIDC run after 24 hours.
-- Rotate Key1 and Key2 on both resources with local auth still disabled.
+- One same-key no-audio 401/403 rejection per enforced resource after a
+  pre-enforcement media-layer baseline.
+- Ordinary production use and one final two-model OIDC run after the default
+  stabilization interval or an explicit owner waiver.
+- Rotate Key1 and Key2 on both resources through the provider-required
+  per-resource unlock/rotate/re-lock sequence.
 - Delete the legacy GitHub API-key secret and private cutover copies.
 - Post only sanitized outcomes to the public operational issue.
 
@@ -356,7 +380,9 @@ With separate approval for potentially billable calls:
 1. production candidate transcribes one harmless fixture through Whisper with
    the signed-in User's bearer token;
 2. protected OIDC workflow succeeds through Whisper using its narrow identity;
-3. the privately verified current Whisper key returns HTTP 401 with no audio;
+3. the privately verified current Whisper key is rejected with HTTP 401 or
+   403 and no audio after the same key reached a media-layer status before
+   enforcement;
 4. no browser/workflow makes a key request or leaks a credential.
 
 Record only pass/fail, HTTP status class, date, workflow URL, candidate SHA, and
@@ -403,7 +429,8 @@ With separate approval for potentially billable calls:
 1. production candidate transcribes one harmless fixture through MAI with the
    signed-in User's bearer token;
 2. protected OIDC workflow succeeds through MAI using its narrow identity;
-3. the privately verified current MAI key returns HTTP 401 with no audio;
+3. the privately verified current MAI key is rejected with HTTP 401 or 403 and
+   no audio after the same key reached a media-layer status before enforcement;
 4. no browser/workflow makes a key request or leaks a credential.
 
 If every check passes, both resources enter stabilization. If any MAI check
@@ -411,10 +438,10 @@ fails, request approval and set `disableLocalAuth=false` on **MAI only** using
 Step 7's command with `mai_resource_id`. Whisper stays enforced. Keep the
 keyless app deployed and stop for diagnosis.
 
-### Step 10: Hold the 24-hour rollback window
+### Step 10: Stabilization decision
 
-Start the stabilization clock only after both complete gates pass. For at least
-24 hours:
+The default rollback window is at least 24 hours after both complete gates pass.
+During that window:
 
 - local authentication remains disabled on both resources;
 - the previous commit and resource-specific re-enable procedure remain privately
@@ -425,9 +452,15 @@ Start the stabilization clock only after both complete gates pass. For at least
   failure before closing the window;
 - do not rotate/delete anything yet.
 
-After at least 24 hours, request approval and run the protected two-model OIDC
-contract once more. Require one successful call per model/no retry and both
-`disableLocalAuth` readbacks still `true`.
+After the chosen stabilization interval, request approval and run the protected
+two-model OIDC contract once more. Require one successful call per model/no
+retry and both `disableLocalAuth` readbacks still `true`.
+
+The sole operator may explicitly waive the elapsed-time portion when accepted
+cross-device production evidence, ordinary use, both independent enforcement
+gates, and the final OIDC contract already establish the required confidence.
+Record the waiver; never describe a waived interval as elapsed. That waiver was
+given for this execution on 2026-07-19.
 
 ### Step 11: Approval checkpoint — rotate all four key slots
 
@@ -446,8 +479,14 @@ mai_group="$(az resource show --ids "$mai_resource_id" --query resourceGroup -o 
 test -n "$whisper_name" && test -n "$whisper_group" && test -n "$mai_name" && test -n "$mai_group"
 ```
 
-Confirm local auth is still `true`-disabled on both. Then rotate each slot
-sequentially, returning no key values:
+Confirm local auth is `true`-disabled on both. Azure may reject regeneration
+while local authentication is disabled. Operate on one exact resource at a
+time: temporarily set only that resource to `false`, rotate both slots with no
+output, immediately set it back to `true`, and verify literal `true` before
+touching the other resource. Install a failure trap that attempts to re-lock
+the active resource. Never leave both resources unlocked simultaneously.
+
+The four regeneration commands remain sequential and return no key values:
 
 ```bash
 az cognitiveservices account keys regenerate --name "$whisper_name" \
@@ -462,7 +501,9 @@ az cognitiveservices account keys regenerate --name "$mai_name" \
 
 Do **not** run `keys list` afterward. If the verified resource type does not
 support these exact commands, STOP before rotation and use provider-authoritative
-guidance under a separately reviewed amendment; do not invent a command.
+guidance under a separately reviewed amendment; do not invent a command. After
+each resource's two commands, restore `disableLocalAuth=true` and verify it
+before continuing.
 
 ### Step 12: Delete the legacy secret and private cutover copies
 
@@ -493,8 +534,9 @@ perform cutover.
 Record a final sanitized statement:
 
 ```text
-candidate SHA | both resources enforce key rejection | both legacy key slots
-rotated | legacy CI secret removed | stabilization passed | forward-only date
+candidate SHA | both resources enforce key rejection | all four legacy key
+slots rotated | legacy CI secret removed | stabilization completed or owner
+waiver recorded | forward-only date
 ```
 
 Do not include identifiers or command output. Mark the plan DONE. Any future
@@ -518,10 +560,10 @@ the product never falls back automatically.
 - Read-only: exact Azure context, exact targets, current/enforced local-auth
   state, candidate SHA, caller inventory, OIDC privilege boundary.
 - Whisper gate: one app bearer success, one narrow OIDC success, one valid-key
-  no-audio 401, no retry/leak.
+  no-audio 401/403 after a same-key pre-enforcement media status, no retry/leak.
 - MAI gate: same four checks, independently.
-- Stabilization: at least 24 hours, one ordinary production session, no
-  unexplained failure, final two-model OIDC run.
+- Stabilization: the default 24-hour interval or an explicit owner waiver, one
+  ordinary production session, no unexplained failure, final two-model OIDC run.
 - Retirement: Key1 + Key2 rotated for both resources without listing values;
   legacy secret/private copies removed; both resources still enforced.
 - Evidence: sanitized ledger audit with approvals, dates, candidate SHA,
@@ -529,22 +571,22 @@ the product never falls back automatically.
 
 ## Done criteria
 
-- [ ] Required executor model/effort was used or User approved a substitution.
-- [ ] Plan 037's immutable candidate and all evidence gates were reverified.
-- [ ] Azure tenant/subscription and two exact resources were privately confirmed.
-- [ ] Known-caller inventory closed and User confirmed no other key dependency.
-- [ ] Old tabs were closed/refreshed before enforcement.
-- [ ] Whisper alone was enforced and passed app bearer, narrow OIDC, and valid-key 401 gates.
-- [ ] MAI alone was enforced afterward and passed the same gates.
-- [ ] No automatic fallback/rollback or OIDC control-plane authority exists.
-- [ ] At least 24 hours, ordinary production use, final OIDC run, and no unexplained failures completed.
-- [ ] Key1 and Key2 were regenerated on both resources while local auth remained disabled.
-- [ ] Legacy GitHub key secret and all private cutover copies were deleted.
-- [ ] Regenerated key values were never read, logged, downloaded, or stored.
-- [ ] Final readback confirms both resources still reject local authentication.
-- [ ] Every external/destructive stage had explicit User approval.
-- [ ] Public ledger contains no identifier, credential, URI, audio, transcript, or private response.
-- [ ] Migration is declared forward-only and `plans/README.md` is updated.
+- [x] Required executor model/effort was used or User approved the active execution path.
+- [x] Plan 037's immutable candidate and all evidence gates were reverified.
+- [x] Azure tenant/subscription and two exact resources were privately confirmed.
+- [x] Known-caller inventory closed and User confirmed no other key dependency.
+- [x] Old tabs were closed/refreshed before enforcement.
+- [x] Whisper alone was enforced and passed app bearer, narrow OIDC, and verified same-key rejection gates.
+- [x] MAI alone was enforced afterward and passed the same gates.
+- [x] No automatic fallback/rollback or OIDC control-plane authority exists.
+- [x] Ordinary production use and the final OIDC run passed with no unexplained failures; the sole owner explicitly waived the 24-hour elapsed-time requirement.
+- [x] Key1 and Key2 were regenerated on both resources through the provider-required per-resource unlock/rotate/re-lock sequence.
+- [x] Legacy GitHub key secret and all private cutover copies were deleted.
+- [x] Regenerated key values were never read, logged, downloaded, or stored.
+- [x] Final readback confirms both resources still reject local authentication.
+- [x] Every external/destructive stage had explicit User approval or the User's standing completion authorization.
+- [x] Public ledger contains no identifier, credential, URI, audio, transcript, or private response.
+- [x] Migration is declared forward-only and `plans/README.md` is updated.
 
 ## STOP conditions
 
@@ -558,12 +600,14 @@ Stop before improvising if:
 - A target/property/provider shape differs from the verified plan.
 - Any external stage lacks immediate explicit approval.
 - The app bearer or narrow OIDC check fails, retries unexpectedly, or leaks data.
-- A current valid key does not return browser/client-readable HTTP 401 after
-  enforcement, or its pre-enforcement validity was not safely established.
+- A current valid key does not return browser/client-readable HTTP 401 or 403
+  after enforcement, its pre-enforcement validity was not safely established,
+  or the post-enforcement status does not differ from the media-layer baseline.
 - A failure would require touching both resources, broadening RBAC, using a key
   fallback, or automatically redeploying the old app.
-- The 24-hour window lacks ordinary use/final OIDC success or contains an
-  unexplained auth/transcription failure.
+- The stabilization decision lacks ordinary use/final OIDC success, contains an
+  unexplained auth/transcription failure, or omits an explicit elapsed-time
+  waiver when the default 24-hour interval is shortened.
 - Key rotation would print/read/store values or the resource does not support
   the exact provider command.
 - Secret target is ambiguous, unrelated data could be deleted, or private

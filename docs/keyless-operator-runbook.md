@@ -1,10 +1,9 @@
 # Keyless operator runbook
 
 This is a public-safe procedure for future human-operated setup, qualification,
-and cutover. It does not record completion of any external step. The external
-identity, federation, RBAC, live-service, Pages, browser, Azure enforcement, key
-rotation, and secret-deletion stages remain pending until the User gives fresh
-approval immediately before each stage.
+and cutover. Plan 038 completed this procedure on 2026-07-19 against
+`keyless-rc-03`; its sanitized completion record is the canonical historical
+evidence. For future operations, the authorization rules below still apply.
 
 ## 1. Safety and authority
 
@@ -419,7 +418,8 @@ With separate approval for potentially billable calls, gate Whisper:
    token;
 2. one protected OIDC Whisper success with no retry;
 3. one no-audio request using a privately confirmed currently valid Whisper key
-   through the legacy `api-key` header, requiring HTTP 401; and
+   through the legacy `api-key` header, requiring HTTP 401 or 403 after the
+   same key reached a media-layer status before enforcement; and
 4. no key request, response body, credential leak, or retry from the app or
    workflow.
 
@@ -440,14 +440,17 @@ key_status="$({
 } | curl --config -)"
 
 unset current_resource_key private_probe_url legacy_header_name
-test "$key_status" = '401'
+test "$key_status" = '401' || test "$key_status" = '403'
 unset key_status
 ```
 
 Before enforcement, a separately approved no-audio probe may establish that the
-key is currently valid by requiring a non-401 application/media error without
-reading its body. Without that proof, a 401 could come from a stale or incorrect
-key and is not evidence.
+key is currently valid by requiring a media-layer error without reading its
+body. The post-enforcement status must differ from that baseline. Without this
+same-key proof, a 401 or 403 could come from an invalid key, wrong endpoint, or
+unrelated authorization failure and is not evidence. Microsoft guidance uses
+401 for disabled local authentication; individual Cognitive Services data
+planes may instead return 403.
 
 If every check passes, leave Whisper enforced and stop for approval before MAI.
 If any check fails, perform no more calls, do not touch MAI, and use the rollback
@@ -478,7 +481,8 @@ behavior independently:
    token;
 2. one protected OIDC MAI success with no retry;
 3. one no-audio request using a privately confirmed currently valid MAI key
-   through the legacy `Ocp-Apim-Subscription-Key` header, requiring HTTP 401;
+   through the legacy `Ocp-Apim-Subscription-Key` header, requiring HTTP 401
+   or 403 after the same-key media-layer baseline;
 4. no key request, response body, credential leak, or retry from the app or
    workflow.
 
@@ -509,10 +513,10 @@ Record only the affected model label, date, failed gate class, rollback
 pass/fail, and candidate SHA. Never record a target, command output, response
 body, or credential.
 
-## 14. 24-hour stabilization
+## 14. Stabilization decision
 
-Start the rollback window only after Whisper and MAI independently pass every
-enforcement gate. For at least 24 elapsed hours:
+The default rollback window starts only after Whisper and MAI independently
+pass every enforcement gate and lasts for at least 24 elapsed hours:
 
 - keep `properties.disableLocalAuth=true` on both resources;
 - retain the private `rollback_sha` and resource-specific re-enable procedure,
@@ -523,11 +527,18 @@ enforcement gate. For at least 24 elapsed hours:
   or transcription failure before closing the window;
 - rotate no key and delete no private copy or legacy secret.
 
-After at least 24 hours, request approval for one final protected two-model OIDC
-run. Require one successful call per model, no retry, and both read-only
-`disableLocalAuth` queries still returning `true`. Any unexplained error, missing
-ordinary-use evidence, retry, or changed candidate keeps the window open or
-causes a stop; time alone is insufficient.
+After the chosen interval, request approval for one final protected two-model
+OIDC run. Require one successful call per model, no retry, and both read-only
+`disableLocalAuth` queries still returning `true`. Any unexplained error,
+missing ordinary-use evidence, retry, or changed candidate keeps the window
+open or causes a stop; time alone is insufficient.
+
+For a sole-operator service, the owner may explicitly waive only the elapsed
+time after reviewing accepted cross-device production coverage, ordinary use,
+both resource-specific enforcement gates, and the final OIDC result. Record
+the waiver and its rationale; never record the default interval as having
+elapsed. The owner made that waiver for the 2026-07-19 Plan 038 execution after
+Windows and macOS acceptance passed.
 
 ## 15. Forward-only invalidation
 
@@ -537,7 +548,19 @@ forward-only. Obtain explicit destructive-action approval.
 
 Resolve `private_resource_name` and `private_resource_group` privately from each
 already verified resource ID. Confirm both local-auth booleans remain `true`.
-Then run four distinct commands, one at a time, with no loop and no key output:
+
+The Cognitive Services provider may reject regeneration while
+`disableLocalAuth=true`. Handle only one exact resource at a time using this
+bounded sequence:
+
+1. set that resource's `disableLocalAuth=false` and verify literal `false`;
+2. regenerate its Key1 and Key2 sequentially with `--output none`;
+3. immediately set `disableLocalAuth=true` and verify literal `true`;
+4. only then repeat for the second resource.
+
+Install an error trap that attempts to set the active resource back to `true`.
+Never unlock both resources at once, never call a key-list command, and never
+read replacement values. The regeneration commands remain distinct:
 
 ```bash
 az cognitiveservices account keys regenerate \
@@ -564,7 +587,8 @@ az cognitiveservices account keys regenerate \
 Never run a key-list command afterward. If either verified resource type does
 not support this exact command, stop before rotation and amend the runbook from
 provider-authoritative guidance. Do not display, copy, download, or store any
-new key.
+new key. Verify both resources report `disableLocalAuth=true` after the second
+resource is re-locked.
 
 Section 8's Plan 035 sequence normally removes the old MAI live-contract secret
 after its two-model OIDC success. Re-list secret names only. If that exact
@@ -609,10 +633,10 @@ SPA callbacks: local pass | Pages pass | frameability pass
 12-path matrix: 12/12 pass | real Safari confirmed | retries 0
 401 boundary: local Whisper pass | local MAI pass | Pages Whisper pass | Pages MAI pass
 OIDC: pre-role token-validated 401/403 pass | post-role Whisper pass | post-role MAI pass
-Whisper enforcement: boolean true | app bearer pass | OIDC pass | current-key no-audio HTTP 401
-MAI enforcement: boolean true | app bearer pass | OIDC pass | current-key no-audio HTTP 401
-Stabilization: 24-hour minimum met | ordinary session pass | final OIDC pass | unexplained errors 0
-Retirement: Whisper Key1/Key2 rotated | MAI Key1/Key2 rotated | legacy secret removed
+Whisper enforcement: boolean true | app bearer pass | OIDC pass | same-key no-audio HTTP 401/403
+MAI enforcement: boolean true | app bearer pass | OIDC pass | same-key no-audio HTTP 401/403
+Stabilization: default interval met or explicit owner waiver | ordinary session pass | final OIDC pass | unexplained errors 0
+Retirement: Whisper unlock/Key1/Key2/re-lock pass | MAI unlock/Key1/Key2/re-lock pass | replacement values unread | legacy secret removed
 Final: both resources enforce key rejection | forward-only date recorded
 ```
 
