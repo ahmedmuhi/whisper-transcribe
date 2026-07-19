@@ -154,7 +154,7 @@ export class Settings {
         }
 
         devices
-            .filter((device) => device.kind === 'audioinput' && device.deviceId !== 'default')
+            .filter((device) => device.deviceId !== 'default')
             .forEach((device) => {
                 const option = document.createElement('option');
                 option.value = device.deviceId;

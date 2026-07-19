@@ -91,6 +91,9 @@ test('desktop User menu renders dynamic identity and adjacent nested details', a
 
     await page.locator('#user-menu-microphone').click();
     await expect(page.locator('#input-device')).toBeVisible();
+    const enumeratedMicrophone = page.locator('#input-device option:not([value=""])').first();
+    await expect(enumeratedMicrophone).toBeAttached();
+    await expect(enumeratedMicrophone).not.toHaveText('');
     await expect(page.locator('#noise-toggle')).toBeVisible();
 
     await page.locator('body > header').click();

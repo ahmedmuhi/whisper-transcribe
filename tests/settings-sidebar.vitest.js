@@ -10,6 +10,7 @@ import {
     RECORDING_ENVIRONMENTS,
     STORAGE_KEYS
 } from '../js/constants.js';
+import { PermissionManager } from '../js/permission-manager.js';
 
 function installSettingsMenuDom() {
     document.body.innerHTML = `
@@ -95,5 +96,21 @@ describe('Settings behavior owned by the User menu', () => {
             .toBe(RECORDING_ENVIRONMENTS.NOISY);
         expect(emit).toHaveBeenCalledWith(APP_EVENTS.DEVICE_CHANGED, { deviceId: '' });
         expect(Object.values(STORAGE_KEYS)).not.toContain('sidebar_pinned');
+    });
+
+    it('lists enumerated microphones returned by PermissionManager', async () => {
+        vi.spyOn(PermissionManager, 'getAvailableDevices').mockResolvedValue([
+            { deviceId: 'default', label: 'Default microphone' },
+            { deviceId: 'headset-mic', label: 'Headset microphone' }
+        ]);
+
+        await settings.populateDeviceList();
+
+        const options = [...document.getElementById(ID.INPUT_DEVICE).options]
+            .map(({ value, textContent }) => ({ value, textContent }));
+        expect(options).toEqual([
+            { value: '', textContent: 'System Default' },
+            { value: 'headset-mic', textContent: 'Headset microphone' }
+        ]);
     });
 });
