@@ -1,4 +1,4 @@
-# Plan 037: Qualify one immutable keyless release candidate across CI, Pages, and all 12 browser paths
+# Plan 037: Qualify one immutable keyless release candidate across CI, Pages, and the accepted browser matrix
 
 > **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
@@ -18,6 +18,15 @@
 > Plans 031–036 must be implemented and reconciled. This expected broad diff is
 > the candidate under test; any further unreviewed change after freezing is a
 > STOP/invalidation condition.
+>
+> **Completion amendment (2026-07-19)**: The operator accepted Safari as a
+> GitHub Pages production target and local development in Edge and Chrome on
+> Windows/WSL. Safari-local was therefore not applicable. The resulting five
+> authentication sessions and ten model/origin/browser transcription cells all
+> passed against immutable candidate `keyless-rc-03`; the exact-SHA CI, Pages,
+> protected OIDC contract, no-audio 401 boundaries, and final sanitized audit
+> also passed. PR #123 merged the unchanged candidate tree into `main`. The
+> canonical reconciled evidence and call counts remain on issue #120.
 
 ## Status
 
