@@ -14,7 +14,9 @@ Wayfinder specification in issue 112 at commit `e1f7083`; the User approved
 the complete dependency-ordered title batch and sanitized public issue
 publication. Their required executor is `gpt-5.6-sol` with extra-high (`xhigh`) reasoning;
 if unavailable, stop and ask before substituting. Execute in the order below
-unless dependencies say otherwise.
+unless dependencies say otherwise. Plan 039 was generated through the focused
+Improve `plan` workflow on 2026-07-19 at commit `f9c90f7` after production use
+exposed repeated new-tab authentication interaction.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
@@ -69,6 +71,7 @@ and update your row when done.
 | 036 | [Reconcile keyless documentation and add the sanitized operator runbook](https://github.com/ahmedmuhi/whisper-transcribe/issues/119) | P1 | L | 031–035 | DONE (documentation-only implementation independently reconciled against the final source and primary references; the agreed `CONTEXT.md` glossary was preserved byte-for-byte, active README/executor/design/API/FSM/ADR guidance was corrected, and the public-safe 16-stage operator runbook was added. Clean install/build, lint, 41 files / 523 tests with 93.25/82.99/93.95/93.25 coverage, both Knip gates, high-severity audit, exact 20 kB/54.88 kB/129-B size budgets, 11 deterministic Chromium cases, Markdown links, stale-term classification, sanitization, scope, and diff checks passed. The sole known low-severity development-server `esbuild` advisory remains. No live test or external configuration/resource/browser mutation occurred.) |
 | 037 | [Qualify one immutable keyless release candidate across CI, Pages, and the accepted browser matrix](https://github.com/ahmedmuhi/whisper-transcribe/issues/120) | P1 | L | 031–036 | DONE (`keyless-rc-03` at `95fd3f4`; exact-SHA CI, reproducible build, Pages deployment, five accepted real-auth sessions, 10/10 accepted browser/origin/model transcription cells, four corrected browser-readable no-audio 401 boundaries, protected two-model OIDC, final five-axis review, sanitized ledger audit, merge via PR #123, and post-merge `main` CI/Pages deployment passed. Safari-local was explicitly not applicable; resource enforcement completed in Plan 038.) |
 | 038 | [Enforce Azure key rejection one resource at a time and retire every legacy key](https://github.com/ahmedmuhi/whisper-transcribe/issues/121) | P1 | L | 037 | DONE (`keyless-rc-03`; both resources finished with `disableLocalAuth=true`; same-key baselines reached media validation before post-enforcement HTTP 403; signed-in User and protected OIDC bearer paths passed; the sole owner explicitly waived the planned 24-hour wait after accepted Windows/macOS use; provider-required per-resource unlock/Key1+Key2 rotation/re-lock completed without reading replacement values; legacy CI key secret absent; migration forward-only.) |
+| 039 | Share the MSAL sign-in session across same-browser tabs | P1 | S/M | — | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
