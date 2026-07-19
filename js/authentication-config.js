@@ -58,7 +58,7 @@ export function createAuthenticationConfig({
             redirectUri: deriveRedirectUri(origin, basePath)
         }),
         cache: Object.freeze({
-            cacheLocation: 'sessionStorage'
+            cacheLocation: 'localStorage'
         })
     });
 }

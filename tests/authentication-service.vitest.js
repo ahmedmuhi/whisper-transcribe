@@ -70,7 +70,7 @@ function createService(client) {
 }
 
 describe('authentication configuration', () => {
-    it('creates an immutable single-tenant session-cache configuration', () => {
+    it('creates an immutable single-tenant shared MSAL cache configuration', () => {
         const config = createAuthenticationConfig(validInput());
 
         expect(config).toEqual({
@@ -80,9 +80,10 @@ describe('authentication configuration', () => {
                 redirectUri: 'https://app.invalid/auth/redirect.html'
             },
             cache: {
-                cacheLocation: 'sessionStorage'
+                cacheLocation: 'localStorage'
             }
         });
+        expect(Object.hasOwn(config.cache, 'temporaryCacheLocation')).toBe(false);
         expect(Object.isFrozen(config)).toBe(true);
         expect(Object.isFrozen(config.auth)).toBe(true);
         expect(Object.isFrozen(config.cache)).toBe(true);
@@ -184,7 +185,7 @@ describe('AuthenticationService initialization', () => {
         expect(client.ssoSilent).not.toHaveBeenCalled();
     });
 
-    it('selects the cached account deterministically when no account is active', async () => {
+    it('starts a new tab ready from the shared cached account without another login', async () => {
         const accountB = fakeAccount({ homeAccountId: 'fake-account-b', username: 'b@example.invalid' });
         const accountA = fakeAccount({ homeAccountId: 'fake-account-a', username: 'a@example.invalid' });
         const client = createFakeClient({
@@ -192,10 +193,12 @@ describe('AuthenticationService initialization', () => {
         });
         const service = createService(client);
 
-        await service.initialize();
+        await expect(service.initialize()).resolves.toBe(AUTHENTICATION_STATES.READY);
 
         expect(client.setActiveAccount).toHaveBeenCalledWith(accountA);
         expect(client.ssoSilent).not.toHaveBeenCalled();
+        expect(client.loginRedirect).not.toHaveBeenCalled();
+        expect(service.getState()).toBe(AUTHENTICATION_STATES.READY);
     });
 
     it('makes only one best-effort new-tab SSO attempt across repeated initialization', async () => {
