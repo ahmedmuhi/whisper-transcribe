@@ -1,6 +1,6 @@
 # Plan 036: Reconcile keyless documentation and add the sanitized operator runbook
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -513,7 +513,7 @@ Expected: all pass. Do not run live OIDC/Azure/browser matrix calls here.
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Any implementation plan is incomplete or final code contradicts Wayfinder.
 - `CONTEXT.md` remains untracked/ambiguous and inclusion would overwrite User work.
 - A documented setup requires a real identifier, Target URI, credential, auth

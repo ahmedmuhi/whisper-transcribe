@@ -87,7 +87,7 @@ const appServer = http.createServer((request, response) => {
 
 function corsHeaders() {
     return {
-        'Access-Control-Allow-Headers': 'Ocp-Apim-Subscription-Key',
+        'Access-Control-Allow-Headers': 'Authorization',
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Allow-Origin': allowedOrigin
     };

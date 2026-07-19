@@ -35,20 +35,16 @@ export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
  * 
  * @constant {Object} STORAGE_KEYS
  * @property {string} MODEL - Key for storing selected transcription model
- * @property {string} WHISPER_URI - Key for Whisper API endpoint URI
- * @property {string} WHISPER_API_KEY - Key for Whisper API authentication key
+ * @property {string} WHISPER_URI - Key for storing the Whisper Target URI
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
  */
 export const STORAGE_KEYS = {
   MODEL:                'transcription_model',
   WHISPER_URI:          'whisper_uri',
-  WHISPER_API_KEY:      'whisper_api_key',
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
-  MAI_TRANSCRIBE_API_KEY: 'mai_transcribe_api_key',
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
-  SIDEBAR_PINNED:        'sidebar_pinned',
   TRANSCRIPT_RECORD:     'transcript_record'
 };
 
@@ -62,42 +58,27 @@ export const RECORDING_ENVIRONMENTS = {
 };
 
 /**
- * API parameter names for Azure Speech Services requests.
+ * Form parameter names for Azure Speech Services requests.
  * 
  * @constant {Object} API_PARAMS
  * @property {string} FILE - Form data field name for audio file upload
  * @property {string} LANGUAGE - Parameter name for transcription language
- * @property {string} API_KEY_HEADER - HTTP header name for API key authentication
  */
 export const API_PARAMS = {
   FILE:            'file',
   LANGUAGE:        'language',
-  API_KEY_HEADER:  'api-key',
-  MAI_API_KEY_HEADER: 'Ocp-Apim-Subscription-Key',
   MAI_AUDIO_FIELD:    'audio',
   MAI_DEFINITION_FIELD: 'definition'
 };
-
-/** API keys are sent as header values, so keep them to visible ASCII with no whitespace. */
-export const API_KEY_VALUE_PATTERN = /^[\x21-\x7E]+$/;
 
 /**
  * Supported transcription model types for Azure Speech Services.
  * Defines model identifiers used throughout the application for API routing and configuration.
  * 
  * @constant {Object} MODEL_TYPES
- * @property {string} WHISPER_TRANSLATE - Azure Whisper model with translation capability
  * @property {string} WHISPER - Standard Azure Whisper model for transcription
- *
- * @example
- * import { MODEL_TYPES } from './constants.js';
- *
- * if (config.model === MODEL_TYPES.WHISPER_TRANSLATE) {
- *   // Skip language parameter for translation model
- * }
  */
 export const MODEL_TYPES = {
-  WHISPER_TRANSLATE: 'whisper-translate',
   WHISPER:           'whisper',
   MAI_TRANSCRIBE_1_5: 'mai-transcribe-1.5',
   MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5'
@@ -115,6 +96,9 @@ export const MAI_TRANSCRIBE_MAX_UPLOAD_BYTES = (300 * 1024 * 1024) - 1;
 /** Stable input-validation code for model upload-size failures. */
 export const AUDIO_UPLOAD_LIMIT_ERROR_CODE = 'audio-upload-limit-exceeded';
 
+/** Stable input-validation code for unsupported or undecodable local audio. */
+export const AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE = 'audio-format-unsupported';
+
 /**
  * The model selected out of the box when the user has no saved preference.
  * Single source of truth for the default — referenced by the Settings
@@ -124,6 +108,62 @@ export const AUDIO_UPLOAD_LIMIT_ERROR_CODE = 'audio-upload-limit-exceeded';
  * @constant {string} DEFAULT_MODEL_TYPE
  */
 export const DEFAULT_MODEL_TYPE = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+
+/** Safe authentication states exposed across module boundaries. */
+export const AUTHENTICATION_STATES = Object.freeze({
+  UNINITIALIZED: 'uninitialized',
+  INITIALIZING: 'initializing',
+  READY: 'ready',
+  SIGNED_OUT: 'signed-out',
+  INTERACTION_REQUIRED: 'interaction-required',
+  CONFIGURATION_ERROR: 'configuration-error',
+  NETWORK_ERROR: 'network-error',
+  AUTHENTICATION_ERROR: 'authentication-error'
+});
+
+/** Token-free authentication states consumed by the UI presentation layer. */
+export const AUTH_PRESENTATION_STATES = Object.freeze({
+  CHECKING: 'checking',
+  SIGNED_OUT: 'signedOut',
+  READY: 'ready',
+  INTERACTION_REQUIRED: 'interactionRequired',
+  AUTHENTICATION_FAILED: 'authenticationFailed',
+  AUTHORIZATION_DENIED: 'authorizationDenied',
+  CONFIGURATION_REQUIRED: 'configurationRequired'
+});
+
+/** Token-free audio safety states used before authentication navigation. */
+export const AUDIO_SAFETY_STATES = Object.freeze({
+  SAFE: 'safe',
+  ACTIVE: 'active-recording',
+  UNSENT: 'unsent-recording',
+  SELECTED: 'selected-audio'
+});
+
+/** Memory-only Selected Audio lifecycle, independent of RecordingStateMachine. */
+export const SELECTED_AUDIO_STATES = Object.freeze({
+  IDLE: 'idle',
+  CHECKING: 'checking',
+  READY: 'ready',
+  UNSUPPORTED: 'unsupported',
+  TOO_LARGE: 'tooLarge',
+  TRANSCRIBING: 'transcribing',
+  FAILED: 'failed'
+});
+
+/** Token-free outcomes from the authentication interaction controller. */
+export const AUTH_RECOVERY_STATES = Object.freeze({
+  BLOCKED: 'blocked',
+  CANCELLED: 'cancelled',
+  DOWNLOADED: 'downloaded',
+  NAVIGATING: 'navigating'
+});
+
+/** Stable, presentation-safe categories for Azure request authorization failures. */
+export const API_ERROR_CODES = Object.freeze({
+  AUTHENTICATION_REQUIRED: 'authentication-required',
+  AZURE_AUTHORIZATION_DENIED: 'azure-authorization-denied'
+});
 
 /**
  * HTTP method constants for API requests.
@@ -153,72 +193,57 @@ export const CONTENT_TYPES = {
  * 
  * @constant {Object} ID
  * @readonly
- * @property {string} SETTINGS_BUTTON - Open settings modal button
  * @property {string} GRAB_TEXT_BUTTON - Copy transcription text button
  * @property {string} SAVE_SETTINGS - Save settings button
  * @property {string} THEME_TOGGLE - Theme switching toggle button
  * @property {string} STATUS - Status message display element
  * @property {string} TRANSCRIPT - Transcription text display area
  * @property {string} TIMER - Recording timer display element
- * @property {string} SETTINGS_MODAL - Settings configuration modal
  * @property {string} VISUALIZER - Audio visualization canvas element
  * @property {string} SPINNER_CONTAINER - Loading spinner container
  */
 export const ID = Object.freeze({
-  // Buttons
-  SETTINGS_BUTTON:  'settings-button',
   GRAB_TEXT_BUTTON: 'grab-text-button',
-  RESTORE_BUTTON:   'restore-button',
-  SAVE_SETTINGS:    'save-settings',
-  THEME_TOGGLE:     'theme-toggle',
-
-  // Guided-morph control cluster + discard dialog
-  CONTROL_CLUSTER:     'control-cluster',
-  PRIMARY_ACTION:      'primary-action',
-  SECONDARY_ACTION:    'secondary-action',
-  DISCARD_ACTION:      'discard-action',
-  RETRY_ACTION:        'retry-action',
-  DISCARD_DIALOG:      'discard-dialog',
+  RESTORE_BUTTON: 'restore-button',
+  SAVE_SETTINGS: 'save-settings',
+  THEME_TOGGLE: 'theme-toggle',
+  CONTROL_CLUSTER: 'control-cluster',
+  PRIMARY_ACTION: 'primary-action',
+  SECONDARY_ACTION: 'secondary-action',
+  DISCARD_ACTION: 'discard-action',
+  RETRY_ACTION: 'retry-action',
+  UPLOAD_ACTION: 'upload-action',
+  AUDIO_FILE_INPUT: 'audio-file-input',
+  DISCARD_DIALOG: 'discard-dialog',
+  DISCARD_DIALOG_TITLE: 'discard-dialog-title',
   DISCARD_DIALOG_BODY: 'discard-dialog-body',
-  DISCARD_KEEP:        'discard-keep',
-  DISCARD_CONFIRM:     'discard-confirm',
-
-  // Status & text areas
-  STATUS:           'status',
-  TRANSCRIPT:       'transcript',
-  TIMER:            'timer',
-
-  // Modals & panes
-  SETTINGS_MODAL:   'settings-modal',
-  CLOSE_MODAL:      'close-modal',
+  DISCARD_KEEP: 'discard-keep',
+  DISCARD_CONFIRM: 'discard-confirm',
+  AUTH_CONTEXT: 'auth-context',
+  AUTH_CONTEXT_TITLE: 'auth-context-title',
+  AUTH_CONTEXT_BODY: 'auth-context-body',
+  AUTH_CONTEXT_NOTE: 'auth-context-note',
+  AUTH_PRIMARY_ACTION: 'auth-primary-action',
+  AUTH_SECONDARY_ACTION: 'auth-secondary-action',
+  SELECTED_AUDIO_WORKSPACE: 'selected-audio-workspace',
+  SELECTED_AUDIO_FILE: 'selected-audio-file',
+  SELECTED_AUDIO_NAME: 'selected-audio-name',
+  SELECTED_AUDIO_METADATA: 'selected-audio-metadata',
+  STATUS: 'status',
+  TRANSCRIPT: 'transcript',
+  TIMER: 'timer',
   WHISPER_SETTINGS: 'whisper-settings',
   MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
-
-  // Selectors / inputs
-  MODEL_SELECT:     'model-select',
+  MODEL_SELECT: 'model-select',
   SETTINGS_MODEL_SELECT: 'settings-model-select',
   RECORDING_ENVIRONMENT: 'recording-environment',
-  WHISPER_URI:      'whisper-uri',
-  WHISPER_KEY:      'whisper-key',
+  WHISPER_URI: 'whisper-uri',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
-  MAI_TRANSCRIBE_KEY: 'mai-transcribe-key',
-
-  // Side panel
-  SIDE_PANEL:       'side-panel',
-  PANEL_TOGGLE:     'panel-toggle',
-  PANEL_CLOSE:      'panel-close',
-  PANEL_BACKDROP:   'panel-backdrop',
-  NOISE_TOGGLE:     'noise-toggle',
-  INPUT_DEVICE:     'input-device',
-
-  // Canvas / visualiser
-  VISUALIZER:       'visualizer',
-
-  // Icons
-  MOON_ICON:        'moon-icon',
-  SUN_ICON:         'sun-icon',
-
-  // Misc
+  NOISE_TOGGLE: 'noise-toggle',
+  INPUT_DEVICE: 'input-device',
+  VISUALIZER: 'visualizer',
+  MOON_ICON: 'moon-icon',
+  SUN_ICON: 'sun-icon',
   SPINNER_CONTAINER: 'spinner-container'
 });
 
@@ -239,18 +264,44 @@ export const DEFAULT_LANGUAGE  = 'en';
 export const DEFAULT_FILENAME      = 'recording.webm';
 export const DEFAULT_WAV_FILENAME  = 'recording.wav';
 
-const WHISPER_FILENAMES_BY_MIME_TYPE = Object.freeze({
-  'audio/webm': DEFAULT_FILENAME,
-  'audio/mp3': 'recording.mp3',
-  'audio/mpeg': 'recording.mpeg',
-  'audio/mpga': 'recording.mpga',
-  'audio/mp4': 'recording.mp4',
-  'audio/m4a': 'recording.m4a',
-  'audio/x-m4a': 'recording.m4a',
-  'audio/wav': DEFAULT_WAV_FILENAME,
-  'audio/wave': DEFAULT_WAV_FILENAME,
-  'audio/x-wav': DEFAULT_WAV_FILENAME
-});
+const AUDIO_FORMATS_BY_MIME_TYPE = {
+  'audio/mp3': ['MP3', 'mp3'],
+  'audio/mpeg': ['MPEG', 'mpeg'],
+  'audio/mpga': ['MPGA', 'mpga'],
+  'audio/mp4': ['MP4', 'mp4'],
+  'audio/m4a': ['M4A', 'm4a'],
+  'audio/x-m4a': ['M4A', 'm4a'],
+  'audio/wav': ['WAV', 'wav'],
+  'audio/wave': ['WAV', 'wav'],
+  'audio/x-wav': ['WAV', 'wav'],
+  'audio/webm': ['WebM', 'webm']
+};
+
+/** Copy-safe list matching the retained adapters' local-file allowlist. */
+export const SUPPORTED_AUDIO_FORMATS_LABEL = 'MP3, MP4, MPEG/MPGA, M4A, WAV, and WebM';
+
+/**
+ * Resolves a supported local audio format. A present MIME type is authoritative;
+ * extension fallback is used only when the browser supplied no MIME type.
+ *
+ * @param {string} mimeType Browser-supplied MIME type, optionally with parameters.
+ * @param {string} sourceName Local display name used only for empty-MIME fallback.
+ * @returns {{format: string, extension: string}|null}
+ */
+export function resolveSupportedAudioFormat(mimeType, sourceName = '') {
+  const normalizedMimeType = typeof mimeType === 'string'
+    ? mimeType.split(';', 1)[0].trim().toLowerCase()
+    : '';
+  const extensionMatch = typeof sourceName === 'string'
+    ? sourceName.trim().match(/\.([a-z0-9]+)$/iu)
+    : null;
+  const extension = extensionMatch?.[1].toLowerCase() || '';
+  const key = normalizedMimeType || (/^(?:mp3|mp4|mpeg|mpga|m4a|wav|webm)$/u.test(extension)
+    ? `audio/${extension}`
+    : '');
+  const format = AUDIO_FORMATS_BY_MIME_TYPE[key];
+  return format ? { format: format[0], extension: format[1] } : null;
+}
 
 /**
  * Returns an Azure Whisper-compatible filename for an audio MIME type.
@@ -262,22 +313,26 @@ const WHISPER_FILENAMES_BY_MIME_TYPE = Object.freeze({
  * @returns {string} ASCII upload filename with a matching container extension
  * @throws {Error} When the MIME type is unsupported by Azure Whisper
  */
-export function getWhisperFilename(mimeType) {
+export function getWhisperFilename(mimeType, sourceName = '') {
   const normalizedMimeType = typeof mimeType === 'string'
     ? mimeType.split(';', 1)[0].trim().toLowerCase()
     : '';
 
-  if (!normalizedMimeType) {
+  if (!normalizedMimeType && !sourceName) {
     return DEFAULT_FILENAME;
   }
 
-  const filename = WHISPER_FILENAMES_BY_MIME_TYPE[normalizedMimeType];
+  const format = resolveSupportedAudioFormat(normalizedMimeType, sourceName);
+  const filename = format && `recording.${format.extension}`;
 
   if (!filename) {
-    throw new Error(
+    const error = new Error(
       `Unsupported audio MIME type for Whisper upload: ${mimeType || '(empty)'}. `
-      + 'Supported types: MP3, MP4, MPEG, MPGA, M4A, WAV, and WebM.'
+      + `Supported types: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`
     );
+    error.code = AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE;
+    error.retryable = false;
+    throw error;
   }
 
   return filename;
@@ -308,7 +363,7 @@ export const DEFAULT_RESET_STATUS =
  * @property {string} BROWSER_NOT_SUPPORTED - Error when browser lacks recording support
  * @property {string} PERMISSION_DENIED - Error when microphone permission is denied
  * @property {string} NO_MICROPHONE - Error when no microphone is detected
- * @property {string} API_NOT_CONFIGURED - Warning when API settings are missing
+ * @property {string} TARGET_URI_NOT_CONFIGURED - Warning when a Target URI is missing
  * @property {string} RECORDING_IN_PROGRESS - Status during active recording
  * @property {string} PROCESSING_AUDIO - Status during transcription processing
  * @property {string} TRANSCRIPTION_COMPLETE - Success message after transcription
@@ -316,6 +371,10 @@ export const DEFAULT_RESET_STATUS =
  * @property {string} SETTINGS_SAVED - Confirmation when settings are saved
  * @property {string} ERROR_PREFIX - Prefix for error messages
  */
+/** Official, identity-neutral Azure RBAC setup guidance. */
+export const AZURE_RBAC_HELP_URL =
+  'https://learn.microsoft.com/azure/role-based-access-control/role-assignments-portal';
+
 export const MESSAGES = {
   // Browser & Permissions
   BROWSER_NOT_SUPPORTED: 'Your browser does not support audio recording.',
@@ -325,18 +384,42 @@ export const MESSAGES = {
   MICROPHONE_ACCESS_GRANTED: 'Microphone access granted',
   
   // Configuration
-  API_NOT_CONFIGURED: '⚙️ Please configure API settings first',
-  CONFIGURE_SETTINGS_FIRST: 'Please configure settings first',
-  CONFIGURE_AZURE: 'Please configure Azure OpenAI settings',
+  TARGET_URI_NOT_CONFIGURED: '⚙️ Please configure an Azure Target URI first',
   FILL_REQUIRED_FIELDS: 'Please fill in all required fields',
   SETTINGS_SAVED: 'Settings saved',
+  AUTHENTICATION_NOT_CONFIGURED: 'Microsoft Entra authentication is not configured.',
+  AUTHENTICATION_TOKEN_UNAVAILABLE: 'Microsoft Entra authentication could not provide a token.',
+  AUTHENTICATION_SIGN_IN_REQUIRED: 'Sign in is required before recording.',
+  AUTHENTICATION_INTERACTION_REQUIRED: 'Authentication interaction is required before recording.',
+  AUTHENTICATION_READINESS_FAILED: 'Authentication readiness could not be established.',
+  AUTHENTICATION_REQUIRED: 'Authentication is required to transcribe this recording.',
+  AZURE_AUTHORIZATION_DENIED: 'The signed-in identity is not authorized for this Azure resource. Ask an administrator to review Azure RBAC.',
+  UNSENT_RECORDING_REQUIRES_RECOVERY: 'Recover or discard the Unsent Recording before starting another recording.',
+  SELECTED_AUDIO_REQUIRES_REMOVAL: 'Remove Selected Audio before starting a recording.',
+  AUTH_CHECKING: 'Checking sign-in…',
+  AUTH_SIGN_IN_TITLE: 'Microsoft sign in required',
+  AUTH_SIGN_IN_BODY: 'Sign in before recording.',
+  AUTH_SIGN_IN_NOTE: 'Use your Microsoft account to access Azure resources already assigned to you. Whisper Transcribe cannot grant Azure access.',
+  AUTH_CONTINUE: 'Continue with Microsoft',
+  AUTH_DOWNLOAD_RECORDING: 'Download recording',
+  AUTH_DISCARD_AND_SIGN_IN: 'Discard recording and sign in',
+  AUTH_UNSENT_BODY: 'Download the Unsent Recording before continuing, or discard it and sign in.',
+  AUTH_FAILED_TITLE: 'Microsoft sign in unavailable',
+  AUTH_FAILED_BODY: 'Sign-in could not be established. Try again when you are ready.',
+  AUTHORIZATION_DENIED_TITLE: 'Azure access is missing',
+  AUTHORIZATION_DENIED_BODY: 'Your Microsoft account does not have access to this Azure resource. Whisper Transcribe cannot change Azure access.',
+  VIEW_AZURE_SETUP: 'View Azure setup',
+  TARGET_URI_REQUIRED_TITLE: 'Target URI required',
+  TARGET_URI_REQUIRED_BODY: 'Add a valid HTTPS Target URI before recording.',
+  OPEN_SETTINGS: 'Open settings',
+  AUTHENTICATION_ACTION_FAILED: 'The authentication action could not be completed. Try again.',
+  LOGOUT_FAILED: 'Log out could not be completed. Try again.',
+  RECORDING_DOWNLOAD_FAILED: 'The recording download could not be started. Try again.',
   
   // API Validation
-  API_KEY_REQUIRED: 'API key is required',
   URI_REQUIRED: 'URI is required',
   INVALID_URI_FORMAT: 'Invalid URI format',
   URI_MUST_BE_HTTPS: 'URI must use HTTPS',
-  INVALID_API_KEY_CHARACTERS: 'API key contains unsupported characters. Paste only the raw Speech resource key.',
   
   // Recording States
   RECORDING_IN_PROGRESS: 'Recording... Click to stop',

@@ -1,6 +1,6 @@
 # Plan 037: Qualify one immutable keyless release candidate across CI, Pages, and all 12 browser paths
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -80,9 +80,10 @@ A documentation-only correction may reuse live/billable results only when:
 3. normal CI/docs gates rerun on the new SHA;
 4. the exception and both SHAs are recorded in the sanitized ledger.
 
-Never remove a User's Azure role merely to recreate 403. The workload identity's
-pre-role 403 from Plan 035 may carry forward only under the exact artifact-identical
-documentation exception above; otherwise stop and agree a safe evidence strategy.
+Never remove a User's Azure role merely to recreate a denial. The workload
+identity's token-validated pre-role HTTP 401/403 from Plan 035 may carry forward
+only under the exact artifact-identical documentation exception above; otherwise
+stop and agree a safe evidence strategy.
 
 ### Live success matrix
 
@@ -132,8 +133,8 @@ UI error variants and microphone/Selected Audio behavior details.
   Continue with Microsoft, never popup/backend.
 - Four invalid-placeholder, no-audio bearer probes: both models from local and
   Pages origins. Require browser-readable HTTP 401; do not read/log body.
-- Plan 035: genuine pre-role OIDC 403 for both endpoints and post-role successful
-  two-model OIDC contract.
+- Plan 035: token-validated pre-role OIDC denial (HTTP 401/403) for both endpoints
+  and post-role successful two-model OIDC contract.
 
 ### Sanitized evidence ledger
 
@@ -363,8 +364,8 @@ Any CORS-masked error or non-401 invalidates the boundary and requires diagnosis
 
 Require Plan 035's protected workflow to reference the candidate SHA and:
 
-- preserve the genuine pre-role 403 evidence (exact candidate or the strict
-  artifact-identical docs exception);
+- preserve the token-validated pre-role HTTP 401/403 evidence (exact candidate
+  or the strict artifact-identical docs exception);
 - succeed for both models after narrow roles;
 - make one clean POST per model/no retry;
 - expose no key/secret/artifact;
@@ -408,7 +409,7 @@ Only then mark Plan 037 DONE and authorize Plan 038 to begin.
   same-tab silent renewal.
 - Live success: exactly 12 model/origin/browser cells with harmless fixture.
 - Live failure boundary: four invalid-placeholder/no-audio browser-readable 401s;
-  Plan 035's genuine OIDC 403 before roles.
+  Plan 035's token-validated OIDC 401/403 denial before roles.
 - Evidence: sanitized ledger audit and approved call-count reconciliation.
 
 ## Done criteria
@@ -416,13 +417,15 @@ Only then mark Plan 037 DONE and authorize Plan 038 to begin.
 - [ ] One 40-character immutable candidate SHA anchors every non-exempt result.
 - [ ] Two clean builds are artifact-identical and no test/source-map leakage is served.
 - [ ] Every automated quality/security gate passes without weakening thresholds.
-- [ ] CI, Pages, and OIDC workflow head SHAs match candidate (or documented artifact-identical docs exception for pre-role 403 only).
+- [ ] CI, Pages, and OIDC workflow head SHAs match candidate (or documented
+  artifact-identical docs exception for pre-role token-validated 401/403 only).
 - [ ] Pages serves main app and frameable callback from the built `dist/` artifact.
 - [ ] Six real auth sessions pass across Edge/Chrome/Safari × local/Pages.
 - [ ] All 12 successful model/origin/browser cells pass with no planned retry.
 - [ ] New-tab and silent-renewal behavior degrade correctly when interaction is required.
 - [ ] Four no-audio invalid-bearer probes return browser-readable 401.
-- [ ] Genuine pre-role OIDC 403 and post-role two-model successes are recorded safely.
+- [ ] Token-validated pre-role OIDC 401/403 denials and post-role two-model
+  successes are recorded safely.
 - [ ] Ledger contains only allowed fields and approved call counts reconcile.
 - [ ] Candidate worktree remains clean; no source/config changed during qualification.
 - [ ] Explicit approvals were obtained for every external/live stage.
@@ -432,14 +435,15 @@ Only then mark Plan 037 DONE and authorize Plan 038 to begin.
 
 Stop and invalidate/report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Any prerequisite plan is incomplete or docs/code disagree.
 - Worktree is dirty, build is nondeterministic, or workflow head SHA differs.
 - Any automated gate fails, is skipped, focused, weakened, or requires source change.
 - Pages does not serve the exact callback/artifact or sends incompatible headers.
 - A browser requires popup/backend/key fallback, or Safari is replaced by WebKit simulation.
 - Any matrix call fails/retries and additional calls lack approval.
-- 401 is CORS-masked/non-401, or OIDC evidence lacks genuine 403/narrow-role success.
+- A browser invalid-bearer probe is CORS-masked/non-401, or OIDC evidence lacks
+  token-validated pre-role 401/403 denial or narrow-role success.
 - Candidate code/build/deploy/auth/request changes after evidence starts.
 - Any real identifier, Target URI, token, key, auth response, audio, transcript,
   HAR, trace, or identity-bearing screenshot would enter public evidence.

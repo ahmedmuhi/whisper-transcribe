@@ -23,6 +23,7 @@ dist/
 docs/*
 !docs/adr/
 !docs/adr/**
+!docs/keyless-operator-runbook.md
 playwright-report/
 test-results/
 tests/browser/.artifacts/

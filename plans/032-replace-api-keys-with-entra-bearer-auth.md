@@ -1,6 +1,6 @@
 # Plan 032: Replace every API-key path with centralized Microsoft Entra bearer authentication
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -242,6 +242,9 @@ These commands assume Plan 031's scripts exist.
 - `tests/api-client-errors.vitest.js`
 - `tests/model-adapters.vitest.js`
 - `tests/audio-handler-integration.vitest.js`
+- `tests/recording-integration.vitest.js` (test-fixture migration only)
+- `tests/discard-flow.vitest.js` (test-fixture migration only)
+- `tests/audio-handler-stop.vitest.js` (test-fixture migration only)
 - `tests/settings-persistence.vitest.js`
 - `tests/settings-unit.vitest.js`
 - `tests/settings-workflow.vitest.js`
@@ -258,6 +261,11 @@ These commands assume Plan 031's scripts exist.
 - Final sign-in/recovery visual design and unified User menu (Plan 033).
 - Local file selection/drag-and-drop (Plan 034).
 - GitHub workload identity or live OIDC calls (Plan 035).
+- The existing manually triggered live Azure contract test and workflow. They
+  remain a known, non-product API-key caller until Plan 035 migrates them to
+  GitHub OIDC, and are excluded from this plan's product/browser-smoke scans.
+  This exception does not permit any API-key path or fallback in application
+  code, ordinary tests, or the deterministic browser smoke test.
 - README/spec/runbook reconciliation (Plan 036), except removing active key
   examples from `.env.example` now so no implementation path retains them.
 - Entra registration, delegated permission, consent, RBAC, resource, GitHub
@@ -381,6 +389,28 @@ Expected tests cover initialization, redirect return, restored account,
 single-attempt new-tab SSO, silent success, interaction-required categorization,
 redirect-only interaction, sign-out, missing config, and safe event payloads.
 
+The first real application import of MSAL adds the already-approved security
+runtime to the shipped artifact. Keep Plan 031's existing 20 kB application
+ceiling unchanged. Use a deterministic Vite chunk boundary to isolate the
+AuthenticationService and MSAL runtime, then add a separate size-limit entry
+covering every generated authentication/MSAL JavaScript chunk. Set that entry
+to the smallest 5 kB ceiling above the observed Brotli total, with no additional
+headroom. Extend the generated-artifact test so every shipped JavaScript chunk
+is covered by exactly one application, authentication, or redirect budget; an
+unmeasured lazy/dynamic chunk is a failure, not an optimization.
+
+**Verify**:
+
+```bash
+npm run build
+npm run size
+npx vitest run tests/vite-build.vitest.js
+```
+
+Expected: the original application and redirect ceilings remain unchanged,
+the authentication runtime passes its explicit bounded budget, and no generated
+JavaScript asset is omitted from measurement.
+
 ### Step 4: Introduce a narrow token provider and central bearer ownership
 
 Create a token-provider interface/object that exposes only “get a current token
@@ -439,11 +469,13 @@ may return or emit them.
 
 ```bash
 if rg -n "whisper_api_key|mai_transcribe_api_key" js index.html tests \
+  --glob '!tests/browser-live/**' \
   | rg -v "legacy-credential-cleanup|legacy credential cleanup"; then
   echo "Unexpected legacy credential reference found" >&2
   exit 1
 fi
-! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|WHISPER_TRANSLATE|whisper-translate|hasApiKey|API_KEY_VALUE_PATTERN" js index.html tests
+! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|WHISPER_TRANSLATE|whisper-translate|hasApiKey|API_KEY_VALUE_PATTERN" js index.html tests \
+  --glob '!tests/browser-live/**'
 ```
 
 Expected: the first scan has no matches outside the cleanup module/tests; the
@@ -551,7 +583,8 @@ Expected: all pass; only in-scope files changed. Then run targeted scans:
 
 ```bash
 ! rg -n "loginPopup|acquireTokenPopup|localStorage.*token|setItem\(.*token|console\..*(token|auth)|logger\..*(token|auth)" js index.html
-! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|whisper-translate" js index.html tests
+! rg -n "Ocp-Apim-Subscription-Key|['\"]api-key['\"]|whisper-translate" js index.html tests \
+  --glob '!tests/browser-live/**'
 ```
 
 Expected: no forbidden pattern. Review false positives manually; do not weaken
@@ -586,11 +619,12 @@ the scan merely to pass.
 - [ ] New-tab silent SSO is one best-effort attempt with explicit fallback.
 - [ ] Only AzureAPIClient constructs a bearer header; adapters declare scope and never see a token.
 - [ ] Exactly two adapters remain: Whisper and MAI-Transcribe 1.5.
-- [ ] No key input, key header, key validator, key event field, or API-key fallback remains.
+- [ ] No key input, key header, key validator, key event field, or API-key fallback remains in the product, ordinary tests, or deterministic browser smoke; the separately inventoried live contract remains isolated for Plan 035.
 - [ ] 401 and 403 are categorized, non-retryable, and response/token-safe; 429/5xx bounded retry behavior remains.
 - [ ] Recording cannot activate the microphone until silent token readiness succeeds.
 - [ ] Tokens/authentication results never enter Settings, ordinary localStorage, adapters, events, logs, or application caches.
 - [ ] Production bundle contains no deterministic auth double or fake token.
+- [ ] The original 20 kB application and 5 kB redirect ceilings remain unchanged; every shipped authentication/MSAL JavaScript chunk is isolated and measured under its own smallest-next-5-kB ceiling.
 - [ ] All build, lint, coverage, dependency, audit, size, and browser gates pass.
 - [ ] No live Entra/Azure/GitHub configuration or call was made.
 - [ ] Only in-scope files changed and `plans/README.md` was updated as instructed.
@@ -599,7 +633,7 @@ the scan merely to pass.
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plan 031 is not complete or its callback/build contract differs materially.
 - The retained app registration does not expose the delegated Cognitive
   Services permission needed for `https://cognitiveservices.azure.com/.default`.
@@ -608,6 +642,9 @@ Stop and report instead of improvising if:
 - A token must cross the stated provider → AzureAPIClient local-variable boundary.
 - A test can pass only by adding a production test hook, storing a token/key, or
   weakening existing retry/coverage/size/security gates.
+- The approved authentication runtime cannot be isolated into an honestly
+  measured bounded chunk without raising the existing application/redirect
+  ceilings or leaving any generated JavaScript unmeasured.
 - Removing keys and enabling bearer requests cannot be made atomic.
 - Any real tenant/client/subscription/resource/principal identifier, Target URI,
   token, key, authentication response, or audio would enter a file/log/issue/artifact.

@@ -16,7 +16,8 @@ vi.mock('../js/logger.js', () => ({
 vi.mock('../js/status-helper.js', () => ({ showTemporaryStatus: vi.fn() }));
 
 const { eventBus, APP_EVENTS } = await import('../js/event-bus.js');
-const { RECORDING_STATES } = await import('../js/constants.js');
+const { AUTHENTICATION_STATES, RECORDING_STATES } = await import('../js/constants.js');
+const { COGNITIVE_SERVICES_SCOPE } = await import('../js/authentication-config.js');
 const { AudioHandler } = await import('../js/audio-handler.js');
 const { RecordingStateMachine } = await import('../js/recording-state-machine.js');
 
@@ -25,12 +26,23 @@ describe('Proportional discard flow', () => {
 
     beforeEach(() => {
         applyDomSpies();
-        const mockApiClient = { transcribe: vi.fn(), validateConfig: vi.fn() };
+        const config = {
+            model: 'whisper',
+            uri: 'https://speech.example.invalid/transcribe'
+        };
+        const mockApiClient = {
+            transcribe: vi.fn(),
+            validateConfig: vi.fn(() => config),
+            getScopeForModel: vi.fn(() => COGNITIVE_SERVICES_SCOPE)
+        };
         const mockSettings = {
-            getModelConfig: vi.fn(() => ({ apiKey: 'k', uri: 'u' })),
+            getModelConfig: vi.fn(() => config),
             openSettingsModal: vi.fn()
         };
-        audioHandler = new AudioHandler(mockApiClient, mockSettings);
+        const authenticationReadiness = {
+            ensureTokenReady: vi.fn().mockResolvedValue(AUTHENTICATION_STATES.READY)
+        };
+        audioHandler = new AudioHandler(mockApiClient, mockSettings, authenticationReadiness);
     });
 
     afterEach(() => {

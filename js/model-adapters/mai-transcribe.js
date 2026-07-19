@@ -3,6 +3,7 @@
  */
 
 import {
+    AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     API_PARAMS,
     DEFAULT_WAV_FILENAME,
@@ -10,25 +11,45 @@ import {
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MESSAGES,
     MODEL_TYPES,
-    STORAGE_KEYS
+    STORAGE_KEYS,
+    SUPPORTED_AUDIO_FORMATS_LABEL,
+    resolveSupportedAudioFormat
 } from '../constants.js';
+import { COGNITIVE_SERVICES_SCOPE } from '../authentication-config.js';
 import { convertToWav } from '../audio-converter.js';
 import { parseMaiTranscribeResponse } from './response-parsers.js';
 
 function createMaiTranscribeModelAdapter(id, label, apiModel) {
-    return {
+    return Object.freeze({
         id,
         label,
-        storageKeys: {
-            apiKey: STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY,
+        scope: COGNITIVE_SERVICES_SCOPE,
+        storageKeys: Object.freeze({
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
-        },
-        async buildRequest(audioBlob, config, onProgress) {
+        }),
+        async buildRequest(audioBlob, _config, onProgress) {
+            const format = resolveSupportedAudioFormat(audioBlob.type, audioBlob.name);
+            if (!format) {
+                const error = new Error(
+                    `Unsupported audio format. Supported types: ${SUPPORTED_AUDIO_FORMATS_LABEL}.`
+                );
+                error.code = AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE;
+                error.retryable = false;
+                throw error;
+            }
             if (onProgress) {
                 onProgress(MESSAGES.CONVERTING_AUDIO);
             }
 
-            const wavBlob = await convertToWav(audioBlob);
+            let wavBlob;
+            try {
+                wavBlob = await convertToWav(audioBlob);
+            } catch {
+                const error = new Error('The selected audio could not be decoded. Choose another file.');
+                error.code = AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE;
+                error.retryable = false;
+                throw error;
+            }
 
             if (wavBlob.size > MAI_TRANSCRIBE_MAX_UPLOAD_BYTES) {
                 const error = new Error(formatAudioUploadLimitMessage(
@@ -51,13 +72,12 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
             }));
 
             return {
-                headers: { [API_PARAMS.MAI_API_KEY_HEADER]: config.apiKey },
                 body: formData,
                 statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
             };
         },
         parseResponse: parseMaiTranscribeResponse
-    };
+    });
 }
 
 export const maiTranscribe15ModelAdapter = createMaiTranscribeModelAdapter(

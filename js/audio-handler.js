@@ -3,17 +3,31 @@
  */
 
 import {
+    API_ERROR_CODES,
+    AUDIO_SAFETY_STATES,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+    AUTHENTICATION_STATES,
     RECORDING_STATES,
     MESSAGES,
     TIMER_CONFIG,
-    DISCARD_CONFIRM_MIN_MS
+    DISCARD_CONFIRM_MIN_MS,
+    getWhisperFilename
 } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
 import { errorHandler } from './error-handler.js';
+
+const ACTIVE_AUDIO_SAFETY_STATES = new Set([
+    RECORDING_STATES.INITIALIZING,
+    RECORDING_STATES.RECORDING,
+    RECORDING_STATES.PAUSED,
+    RECORDING_STATES.CONFIRMING_DISCARD,
+    RECORDING_STATES.STOPPING,
+    RECORDING_STATES.PROCESSING,
+    RECORDING_STATES.CANCELLING
+]);
 
 /**
  * Audio recording and processing manager for speech transcription.
@@ -28,15 +42,19 @@ import { errorHandler } from './error-handler.js';
  * @fires APP_EVENTS.UI_TRANSCRIPTION_READY
  */
 export class AudioHandler {
+    #sourceCoordinator = null;
+
     /**
      * Creates a new AudioHandler instance.
      * 
      * @param {AzureAPIClient} apiClient - API client for transcription
      * @param {Settings} settings - Settings manager
+     * @param {{ensureTokenReady(scope: string): Promise<string>}} authenticationReadiness - Safe readiness boundary
      */
-    constructor(apiClient, settings) {
+    constructor(apiClient, settings, authenticationReadiness) {
         this.apiClient = apiClient;
         this.settings = settings;
+        this.authenticationReadiness = authenticationReadiness;
 
         this.mediaRecorder = null;
         this.audioChunks = [];
@@ -44,6 +62,8 @@ export class AudioHandler {
         this.timerInterval = null;
         this.currentTimerDisplay = TIMER_CONFIG.DEFAULT_DISPLAY;
         this.pendingRetryBlob = null;
+        this.pendingTranscriptionErrorCode = null;
+        this.pendingRetryDownloadInitiated = false;
         this.activeStream = null;
         this._activeRecordingSession = null;
 
@@ -56,14 +76,85 @@ export class AudioHandler {
 
     setupEventBusListeners() {
         this._unsubscribers = [
-            eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => this.settings.openSettingsModal()),
             eventBus.on(APP_EVENTS.MIC_BUTTON_CLICKED, () => this.toggleRecording()),
             eventBus.on(APP_EVENTS.PAUSE_BUTTON_CLICKED, () => this.togglePause()),
             eventBus.on(APP_EVENTS.DISCARD_BUTTON_CLICKED, () => this.requestDiscard()),
             eventBus.on(APP_EVENTS.DISCARD_CONFIRMED, () => this.confirmDiscard()),
             eventBus.on(APP_EVENTS.DISCARD_KEPT, () => this.keepRecording()),
             eventBus.on(APP_EVENTS.RETRY_BUTTON_CLICKED, () => this.retryPendingTranscription()),
+            eventBus.on(APP_EVENTS.API_CONFIG_MISSING, () => this.settings.openSettingsModal()),
         ];
+    }
+
+    /**
+     * Adds the composed Audio Source availability boundary after construction.
+     * This setter resolves bootstrap ordering without coupling AudioHandler to
+     * the Selected Audio implementation.
+     *
+     * @param {{getAudioSafetyState(): string}} coordinator
+     * @returns {void}
+     */
+    setAudioSourceCoordinator(coordinator) {
+        this.#sourceCoordinator = coordinator;
+    }
+
+    /**
+     * Returns a token-free navigation safety state without exposing captured audio.
+     *
+     * @returns {string}
+     */
+    getAudioSafetyState() {
+        if (this.pendingRetryBlob) return AUDIO_SAFETY_STATES.UNSENT;
+        return ACTIVE_AUDIO_SAFETY_STATES.has(this.stateMachine.getState())
+            ? AUDIO_SAFETY_STATES.ACTIVE
+            : AUDIO_SAFETY_STATES.SAFE;
+    }
+
+    /**
+     * Initiates a local download while retaining the Unsent Recording for retry.
+     *
+     * @returns {boolean} Whether the browser download lifecycle was initiated.
+     */
+    downloadUnsentRecording() {
+        const recording = this.pendingRetryBlob;
+        if (!recording) return false;
+
+        const objectUrl = URL.createObjectURL(recording);
+        let anchor = null;
+        try {
+            anchor = document.createElement('a');
+            anchor.href = objectUrl;
+            anchor.download = getWhisperFilename(recording.type);
+            anchor.click();
+            this.pendingRetryDownloadInitiated = true;
+            return true;
+        } finally {
+            anchor?.remove?.();
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+        }
+    }
+
+    /**
+     * Reports whether a download was initiated for the current Unsent Recording.
+     * The flag is owned beside the Blob so it cannot carry over to replacement audio.
+     *
+     * @returns {boolean}
+     */
+    wasUnsentRecordingDownloadInitiated() {
+        return Boolean(this.pendingRetryBlob && this.pendingRetryDownloadInitiated);
+    }
+
+    /**
+     * Clears an Unsent Recording after an external confirmation boundary.
+     *
+     * @returns {boolean} Whether an Unsent Recording was discarded.
+     */
+    discardUnsentRecording() {
+        if (!this.pendingRetryBlob) return false;
+        this.pendingRetryBlob = null;
+        this.pendingTranscriptionErrorCode = null;
+        this.pendingRetryDownloadInitiated = false;
+        return true;
     }
     
     /**
@@ -102,11 +193,30 @@ export class AudioHandler {
      */
     async startRecordingFlow() {
         try {
+            if (this.#sourceCoordinator?.getAudioSafetyState?.() === AUDIO_SAFETY_STATES.SELECTED) {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.SELECTED_AUDIO_REQUIRES_REMOVAL,
+                    type: 'error'
+                });
+                return;
+            }
+
+            if (this.pendingRetryBlob
+                && this._requiresAuthenticationRecovery(this.pendingTranscriptionErrorCode)) {
+                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+                    message: MESSAGES.UNSENT_RECORDING_REQUIRES_RECOVERY,
+                    type: 'error'
+                });
+                return;
+            }
+
             // If in error state, first transition to idle
             if (this.stateMachine.getState() === RECORDING_STATES.ERROR) {
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             }
             this.pendingRetryBlob = null;
+            this.pendingTranscriptionErrorCode = null;
+            this.pendingRetryDownloadInitiated = false;
             
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
@@ -121,9 +231,9 @@ export class AudioHandler {
                 return;
             }
             const config = this.settings.getModelConfig();
-            if (!config.apiKey || !config.uri) {
+            if (!config.uri) {
                 eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                    message: MESSAGES.API_NOT_CONFIGURED, type: 'error'
+                    message: MESSAGES.TARGET_URI_NOT_CONFIGURED, type: 'error'
                 });
                 eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, { ready: false, reason: 'config' });
                 await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
@@ -131,7 +241,12 @@ export class AudioHandler {
             }
             
             // Validate configuration before starting
-            this.apiClient.validateConfig();
+            const validatedConfig = this.apiClient.validateConfig();
+
+            if (!await this._establishAuthenticationReadiness(validatedConfig.model)) {
+                await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
+                return;
+            }
             
             // Request microphone access through PermissionManager
             const stream = await this.permissionManager.requestMicrophoneAccess();
@@ -156,6 +271,44 @@ export class AudioHandler {
             // Config errors are handled by validateConfig() which emits
             // API_CONFIG_MISSING before throwing — the event listener opens settings
         }
+    }
+
+    async _establishAuthenticationReadiness(model) {
+        let state = AUTHENTICATION_STATES.CONFIGURATION_ERROR;
+        if (typeof this.authenticationReadiness?.ensureTokenReady === 'function') {
+            const scope = this.apiClient.getScopeForModel(model);
+            state = await this.authenticationReadiness.ensureTokenReady(scope);
+        }
+
+        if (state === AUTHENTICATION_STATES.READY) {
+            return true;
+        }
+
+        const message = this._getAuthenticationReadinessMessage(state);
+        eventBus.emit(APP_EVENTS.AUTHENTICATION_STATE_CHANGED, { state });
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message,
+            type: 'error'
+        });
+        eventBus.emit(APP_EVENTS.APP_PREREQUISITES_CHECKED, {
+            ready: false,
+            reason: 'authentication',
+            state
+        });
+        return false;
+    }
+
+    _getAuthenticationReadinessMessage(state) {
+        if (state === AUTHENTICATION_STATES.SIGNED_OUT) {
+            return MESSAGES.AUTHENTICATION_SIGN_IN_REQUIRED;
+        }
+        if (state === AUTHENTICATION_STATES.INTERACTION_REQUIRED) {
+            return MESSAGES.AUTHENTICATION_INTERACTION_REQUIRED;
+        }
+        if (state === AUTHENTICATION_STATES.CONFIGURATION_ERROR) {
+            return MESSAGES.AUTHENTICATION_NOT_CONFIGURED;
+        }
+        return MESSAGES.AUTHENTICATION_READINESS_FAILED;
     }
     
     /**
@@ -522,6 +675,7 @@ export class AudioHandler {
             type: recorderMimeType || chunkWithMimeType?.type || 'audio/webm'
         });
         this.pendingRetryBlob = audioBlob;
+        this.pendingRetryDownloadInitiated = false;
 
         const result = await this.sendToAzureAPI(audioBlob);
         this.stopStreamTracks(stream);
@@ -529,11 +683,14 @@ export class AudioHandler {
 
         if (result.success) {
             this.pendingRetryBlob = null;
+            this.pendingTranscriptionErrorCode = null;
+            this.pendingRetryDownloadInitiated = false;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
         } else {
+            this.pendingTranscriptionErrorCode = result.code ?? null;
             await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
                 error: result.error,
-                canRetry: result.code !== AUDIO_UPLOAD_LIMIT_ERROR_CODE && Boolean(this.pendingRetryBlob)
+                canRetry: this._canRetryTranscription(result.code)
             });
         }
     }
@@ -552,15 +709,29 @@ export class AudioHandler {
         const result = await this.sendToAzureAPI(retryBlob);
         if (result.success) {
             this.pendingRetryBlob = null;
+            this.pendingTranscriptionErrorCode = null;
+            this.pendingRetryDownloadInitiated = false;
             this.audioChunks.length = 0;
             await this.stateMachine.transitionTo(RECORDING_STATES.IDLE);
             return;
         }
 
+        this.pendingTranscriptionErrorCode = result.code ?? null;
         await this.stateMachine.transitionTo(RECORDING_STATES.ERROR, {
             error: result.error,
-            canRetry: result.code !== AUDIO_UPLOAD_LIMIT_ERROR_CODE && Boolean(this.pendingRetryBlob)
+            canRetry: this._canRetryTranscription(result.code)
         });
+    }
+
+    _canRetryTranscription(errorCode) {
+        const requiresExternalRecovery = errorCode === AUDIO_UPLOAD_LIMIT_ERROR_CODE
+            || this._requiresAuthenticationRecovery(errorCode);
+        return !requiresExternalRecovery && Boolean(this.pendingRetryBlob);
+    }
+
+    _requiresAuthenticationRecovery(errorCode) {
+        return errorCode === API_ERROR_CODES.AUTHENTICATION_REQUIRED
+            || errorCode === API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED;
     }
     
     async sendToAzureAPI(audioBlob) {

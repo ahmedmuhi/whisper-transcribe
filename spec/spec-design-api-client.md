@@ -1,294 +1,239 @@
 ---
 title: Azure API Client Design Specification
-version: 1.4
+version: 2.0
 date_created: 2025-07-07
-last_updated: 2026-07-13
+last_updated: 2026-07-18
 owner: Speech-to-Text Transcription App Team
-tags: [design, api-client, azure, transcription, architecture, app]
+tags: [design, api-client, azure, transcription, authentication, architecture, app]
 ---
 
 # Introduction
 
-This specification outlines the design and implementation requirements for the `AzureAPIClient` component. This client is responsible for all interactions with the Azure Speech Services API, including request formation, configuration validation, error handling, and response parsing for audio transcription.
+This specification defines the implemented bearer-only contract for
+`AzureAPIClient` and the two registered Transcription Model adapters. The client
+is the application's single Azure request boundary: it validates manual Target
+URI configuration, acquires a request-local token through an injected provider,
+constructs bearer authorization, executes bounded requests, classifies errors,
+and parses the selected model's response.
 
-## 1. Purpose & Scope
+## 1. Purpose and scope
 
-The purpose of the `AzureAPIClient` is to abstract all details of communicating with the Azure Speech Services API into a single, dedicated module. It provides a clean interface for other components, like the `AudioHandler`, to request transcriptions without needing to know the underlying details of the API protocol, authentication, or error handling.
+`AzureAPIClient` lets `AudioHandler` and `SelectedAudioController` submit an
+Audio Source without knowing MSAL, Azure authentication headers, endpoint request
+shapes, or response shapes. It does not own sign-in, browser token caching,
+Settings persistence, legacy cleanup, audio-source state, transcript persistence,
+or Azure RBAC.
 
-**Intended Audience**: Software developers, system architects, and QA engineers.
+The implementation uses the browser `fetch`, `FormData`, `Blob`, `URL`, and
+`AbortController` APIs. It has no backend proxy.
 
-**Assumptions**:
-- The application uses the `fetch` API for HTTP requests.
-- API configuration is managed and provided by a separate `Settings` module.
-- All inter-module communication for status updates and errors occurs through a central `EventBus`.
+## 2. Domain definitions
 
-## 2. Definitions
+- **User**: a person using Whisper Transcribe.
+- **Bring-your-own Azure**: each User authorizes an Azure transcription resource
+  available to them; its owner retains access, quota, and billing responsibility.
+- **Transcription Model**: the selected Azure speech model. Selection determines
+  which Target URI is used.
+- **Target URI**: the manual HTTPS endpoint address. It identifies the
+  destination but does not authorize access.
+- **Model Adapter**: an immutable registry entry that owns one model's scope,
+  Target URI metadata, request body construction, and response parsing.
+- **Token provider**: the injected `{ getToken(scope) }` interface that hides the
+  `AuthenticationService` and MSAL implementation.
 
-- **API Client**: A module that encapsulates the logic for making requests to a remote API.
-- **Azure Speech Services**: Microsoft's cloud-based service for speech-to-text and other speech-related functionalities.
-- **Whisper**: A speech recognition model provided by OpenAI and accessible through Azure.
-- **Whisper-Translate**: A variant of the Whisper model that includes translation capabilities.
-- **MAI-Transcribe 1.5**: A Microsoft Azure AI transcription model (`mai-transcribe-1.5`) that requires WAV audio input and uses a definition-based configuration payload.
-- **Model Adapter**: A registry entry that owns model-specific request construction and response parsing behind the shared API client.
-- **Audio Converter**: A utility module that converts WebM/Opus audio blobs to 16kHz mono WAV format, required by MAI-Transcribe.
-- **API Key**: A secret token used to authenticate requests to the Azure API.
-- **Endpoint URI**: The specific URL where the Azure Speech Service is hosted.
-- **CORS**: Cross-Origin Resource Sharing, a mechanism that allows resources to be requested from another domain.
+## 3. Ownership boundaries
 
-## 3. Requirements, Constraints & Guidelines
+| Concern | Owner | Constraint |
+|---|---|---|
+| MSAL initialization, account, redirects, silent acquisition, session cache | `AuthenticationService` | No request formation or Target URI access |
+| Narrow token handoff | `createTokenProvider()` | Exposes only `getToken(scope)` and retains nothing |
+| Model and manual Target URI persistence | `Settings` | Returns only `{ model, uri }` to the API client |
+| Bearer header, HTTPS validation, timeout, retry, error category | `AzureAPIClient` | Sole application owner of `Authorization: Bearer ...` |
+| Model scope, URI storage metadata, `FormData`, response parsing | Registered adapter | Credential-blind; never receives a token |
+| Historical credential removal | `cleanupLegacyCredentials()` at bootstrap | Separate remove-only migration; never an API-client responsibility |
+| User/resource authorization | Azure RBAC outside the app | The app diagnoses 403 but never assigns a role |
 
-### Core Requirements
+Application bootstrap MUST perform the targeted remove-only migration before
+Settings/authentication initialization. That migration removes exactly the two
+historical credential entries without reading, copying, rewriting, logging, or
+emitting their values. It MUST NOT become configuration fallback.
 
-- **REQ-001**: The client SHALL send audio data to the configured Azure Speech Services endpoint for transcription.
-- **REQ-002**: The client SHALL support registered adapters for `whisper`, `whisper-translate`, and `mai-transcribe-1.5`.
-- **REQ-003**: The client SHALL retrieve API configuration (API Key, URI, model) from the `Settings` module.
-- **REQ-004**: The client SHALL validate the presence and format of the API Key and URI before making a request.
-- **REQ-005**: The client SHALL construct a `FormData` object to send the audio blob and relevant parameters. For Whisper models, the form includes a `file` field and `language` (except for whisper-translate). For MAI-Transcribe, the form includes an `audio` field (WAV-converted blob) and a JSON `definition` field.
-- **REQ-006**: The client SHALL set the appropriate authentication header: `api-key` for Whisper models, or `Ocp-Apim-Subscription-Key` for MAI-Transcribe.
-- **REQ-007**: The client SHALL parse the API response using structural detection, handling plain text, JSON with a string `text` field, and JSON with a `combinedPhrases` array. A present string `text` field is valid even when empty; an absent or non-string `text` field remains an unknown response unless another supported structure applies.
-- **REQ-008**: `AzureAPIClient` alone SHALL own structured API-request lifecycle events. Once `adapter.buildRequest` succeeds, it SHALL emit one structured `API_REQUEST_START`; a later successful operation SHALL emit one `API_REQUEST_SUCCESS`. Any failure caught within `transcribe`, including request-construction failures before `API_REQUEST_START` and failures after it, SHALL emit one `API_REQUEST_ERROR`. Internal HTTP retries SHALL NOT create additional lifecycle events; a user-initiated retry starts a new operation and lifecycle.
-- **REQ-008a**: The client SHALL convert audio to WAV format before sending to the MAI-Transcribe model, using the `audio-converter` module.
+## 4. Supported adapters
 
-### Error Handling Requirements
+The registry contains exactly two adapters. Its insertion order remains MAI
+first, then Whisper, because the public cross-shape `parseResponse()` helper
+tries parsers in registry order.
 
-- **REQ-009**: The client SHALL handle network errors (e.g., timeouts, connection failures) gracefully.
-- **REQ-010**: The client SHALL handle API error responses, including standard HTTP status codes (400, 401, 403, 429, 500).
-- **REQ-011**: The client SHALL throw an error if the configuration is invalid during a transcription attempt.
-- **REQ-012**: The client SHALL emit an `API_CONFIG_MISSING` event when `validateConfig` is called with invalid settings.
-- **REQ-013**: The client SHALL emit an `API_REQUEST_ERROR` event with detailed error information upon failure.
-- **REQ-014**: The client SHALL use the centralized `ErrorHandler` module for standardized error logging.
+| Model identifier | Label | Scope | Target URI metadata | Request body |
+|---|---|---|---|---|
+| `mai-transcribe-1.5` | Azure MAI-Transcribe 1.5 | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.MAI_TRANSCRIBE_URI` | WAV `audio` plus JSON `definition` with enhanced `transcribe` mode |
+| `whisper` | Azure Whisper | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.WHISPER_URI` | Original audio in `file` plus the default `language` field |
 
-### Constraints
+The Whisper adapter rejects files larger than 25 MiB before submission and
+preserves a supported source filename/container. The MAI adapter accepts the
+supported source formats, converts to WAV through the existing worker/fallback,
+and rejects a converted payload at or above 300 MiB. Model adapters MUST NOT
+contain a credential field, authentication storage key, or header constructor.
 
-- **CON-001**: The client MUST NOT interact directly with the DOM.
-- **CON-002**: The client MUST be instantiated with a reference to the `Settings` module.
-- **CON-003**: The client MUST NOT store API credentials locally; it must retrieve them from the `Settings` module for each request.
+## 5. Configuration and request lifecycle
 
-### Guidelines
+### 5.1 Configuration validation
 
-- **GUD-001**: Use the `fetch` API for all HTTP requests.
-- **GUD-002**: Provide clear, user-friendly status messages via the optional `onProgress` callback.
-- **GUD-003**: Log detailed error information for debugging purposes without exposing sensitive data.
+`validateConfig()` MUST:
 
-### Patterns
+1. read `{ model, uri }` from `Settings.getModelConfig()`;
+2. remove whitespace from the URI string;
+3. require a non-empty Target URI;
+4. parse it with `URL`;
+5. require the `https:` protocol; and
+6. return only `{ model, uri }`.
 
-- **PAT-001**: **Facade Pattern**: The `AzureAPIClient` acts as a facade, simplifying the complex process of interacting with the Azure API.
-- **PAT-002**: **Dependency Injection**: The `Settings` module is injected into the client's constructor, decoupling the client from the direct management of settings.
+A missing, malformed, or insecure Target URI emits `API_CONFIG_MISSING` with a
+safe reason and model identifier, then fails before token acquisition or fetch.
+Endpoint-family and deployment discovery remain outside the application; the
+User supplies the Target URI manually.
 
-## 4. Interfaces & Data Contracts
+### 5.2 Transcription sequence
 
-### AzureAPIClient Class Interface
+For one `transcribe(audioBlob, onProgress)` call, the order is fixed:
+
+```text
+validate Settings configuration
+  -> resolve selected adapter
+  -> adapter builds browser FormData
+  -> emit safe API_REQUEST_START metadata
+  -> tokenProvider.getToken(adapter.scope)
+  -> AzureAPIClient creates Authorization: Bearer <request-local-token>
+  -> fetch Target URI with bounded timeout/retry
+  -> selected adapter parses response
+  -> emit safe API_REQUEST_SUCCESS metadata
+```
+
+The adapter builds `FormData`; browser code MUST NOT set `Content-Type` manually,
+because the browser owns the multipart boundary. Token acquisition occurs after
+body construction and immediately before the request options are created.
+
+The client acquires one token per transcription call. The same local request
+options may be reused only within that call's bounded retry loop. The token MUST
+NOT be copied to a client property, adapter, Settings, storage, event payload,
+log, error object, URL, response detail, screenshot, trace, or artifact. Once
+the call settles, the application retains no reference. MSAL's opaque token cache
+is separately owned by `AuthenticationService` in `sessionStorage`; application
+code does not inspect it.
+
+### 5.3 Successful response
+
+The client reads JSON when the response `content-type` contains
+`application/json`; otherwise it reads text. `transcribe()` uses only the active
+adapter's parser. A successful result emits:
+
+```javascript
+{
+    model: '<safe-model-id>',
+    transcriptionLength: 0
+}
+```
+
+The event contains length metadata, not transcript content. The caller then
+emits `UI_TRANSCRIPTION_READY`; transcript persistence remains outside this
+client.
+
+## 6. Error and retry contract
+
+| Condition | Client behavior | Retry behavior | Recovery owner |
+|---|---|---|---|
+| HTTP 401 | Create `AUTHENTICATION_REQUIRED`; do not read the body | Never | Authentication UI while retaining Unsent Recording/Selected Audio |
+| HTTP 403 | Create `AZURE_AUTHORIZATION_DENIED`; do not read the body | Never | External resource-scoped RBAC guidance |
+| HTTP 429 | Respect a valid `Retry-After` up to 60 seconds, otherwise exponential backoff | Bounded | Caller remains in processing/failure flow |
+| HTTP 500/502/503/504 | Consume the body to release the connection, then back off | Bounded | Caller remains in processing/failure flow |
+| Per-attempt `AbortError` | Retry under the same overall deadline; surface a friendly timeout at the limit | Bounded | Caller retains recoverable audio |
+| Other fetch/runtime error | Propagate safe error handling | Never in client | Caller |
+| Other non-success HTTP | Parse a service detail when possible and emit the standard error event | Never | Caller |
+
+The implementation permits at most five retries after the initial attempt, uses
+the 2/4/8/16/32-second schedule when no `Retry-After` applies, caps provider
+delay at 60 seconds, guards each attempt with `TRANSCRIPTION_TIMEOUT_MS`
+(120 seconds), and stops scheduling work at `TRANSCRIPTION_MAX_TOTAL_MS`
+(180 seconds). A single already-started attempt retains its per-attempt timeout.
+
+`_handleApiError()` emits one `API_REQUEST_ERROR`. Authentication and
+authorization events contain only safe message, HTTP status, stable code, and
+model. They never contain a response body or token.
+
+## 7. Public interface
 
 ```javascript
 class AzureAPIClient {
-    /**
-     * @param {Settings} settings - The settings manager instance.
-     */
-    constructor(settings)
-
-    /**
-     * Transcribes an audio blob.
-     * @param {Blob} audioBlob - The audio data to transcribe.
-     * @param {Function} [onProgress] - Optional callback for progress updates.
-     * @returns {Promise<string>} The transcription text.
-     */
-    async transcribe(audioBlob, onProgress)
-
-    /**
-     * Validates the current API configuration.
-     * @returns {{ apiKey: string, uri: string, model: string }} The validated configuration.
-     * @throws {Error} If configuration is invalid.
-     */
-    validateConfig()
-
-    /**
-     * Parses the raw API response using structural detection.
-     * @param {string|Object} data - The raw response data.
-     * @returns {string} The parsed transcription text.
-     * @throws {Error} When response format is unrecognized.
-     */
-    parseResponse(data)
-
-    /**
-     * Handles API errors by logging and emitting standardized events.
-     * @private
-     * @param {Error} error - The error object to handle.
-     * @param {Object} [context={}] - Additional error context (status, details).
-     */
-    _handleApiError(error, context)
-
-    /**
-     * Extracts a human-readable error message from an API error response body.
-     * @private
-     * @param {string} errorText - Raw error response body.
-     * @returns {string|null} Extracted message or null if unparseable.
-     */
-    _extractErrorDetail(errorText)
+    constructor(settings, tokenProvider, adapterRegistry = modelAdapterRegistry)
+    transcribe(audioBlob, onProgress?): Promise<string>
+    validateConfig(): { model: string, uri: string }
+    getScopeForModel(model): string
+    parseResponse(data): string
 }
 ```
 
-### Model-Specific Parameters
+`getScopeForModel()` returns the registered immutable adapter scope and is used
+by authentication readiness before an Audio Source is activated.
 
-| Model | FormData Fields | Auth Header | Filename |
-|---|---|---|---|
-| `whisper` | `file` (audio blob), `language` | `api-key` | `recording.webm` |
-| `whisper-translate` | `file` (audio blob) | `api-key` | `recording.webm` |
-| `mai-transcribe-1.5` | `audio` (WAV blob), `definition` (JSON) | `Ocp-Apim-Subscription-Key` | `recording.wav` |
+`parseResponse()` is a compatibility helper that tries registered parsers in
+order. Production `transcribe()` remains strict to the selected adapter.
 
-**Note**: For MAI-Transcribe 1.5, the `definition` field contains a JSON payload with `enhancedMode` configuration specifying model `mai-transcribe-1.5` and task `transcribe`. Audio must be converted from WebM to 16kHz mono WAV before submission.
+## 8. Event contract
 
-### Model Adapter Contract
+| Event | Safe payload |
+|---|---|
+| `API_CONFIG_MISSING` | missing reason and model identifier |
+| `API_REQUEST_START` | model and display status message |
+| `API_REQUEST_SUCCESS` | model and transcription length |
+| `API_REQUEST_ERROR` | safe message plus optional status/code/model or non-auth service detail |
 
-Each registered model adapter MUST provide `id`, `label`, `storageKeys.apiKey`,
-`storageKeys.uri`, `buildRequest`, and `parseResponse`. `Settings` consumes
-`storageKeys` to associate a model with its credential namespace. `STORAGE_KEYS`
-owns the literal persisted key values; adapter metadata owns the model-to-key
-association.
+No event may contain an Audio Source, Target URI, bearer token, authentication
+response, request headers, or transcript body. Event history MUST remain safe
+when explicitly enabled for deterministic tests.
 
-### Event Emission Contracts
+## 9. Acceptance criteria
 
-| Event Name | Data Payload | Description |
-|---|---|---|
-| `API_REQUEST_START` | `{ model: string, message: string }` | Emitted once by `AzureAPIClient` only after adapter request construction succeeds. |
-| `API_REQUEST_SUCCESS` | `{ model: string, transcriptionLength: number }` | Emitted once by `AzureAPIClient` when an operation that emitted `API_REQUEST_START` completes successfully. |
-| `API_REQUEST_ERROR` | `{ error: string, status?: number, details?: string }` | Emitted once by `AzureAPIClient` for any failure caught in `transcribe`, including request-construction failures before `API_REQUEST_START`. |
-| `API_CONFIG_MISSING`| `{ missing: string, model: string }` | Fired by `validateConfig` if settings are invalid. |
+- **AC-001**: Given either registered model and a valid HTTPS Target URI, the
+  client asks the adapter to build the request before acquiring exactly one
+  token for the adapter's Cognitive Services scope.
+- **AC-002**: The one outbound authentication field is
+  `Authorization: Bearer <token>`, added by `AzureAPIClient` immediately before
+  fetch; adapters remain credential-blind.
+- **AC-003**: No manual multipart `Content-Type` is set.
+- **AC-004**: Missing, malformed, and HTTP Target URIs fail before token or
+  network access and emit safe configuration metadata.
+- **AC-005**: The registry contains exactly Whisper and MAI-Transcribe 1.5 and
+  preserves parser precedence.
+- **AC-006**: HTTP 401 and 403 neither read a response body nor retry and map to
+  distinct stable codes.
+- **AC-007**: HTTP 429 and 500/502/503/504 retries remain bounded by attempt,
+  delay, per-attempt timeout, and total deadline.
+- **AC-008**: A token is never visible through serialized client/provider state,
+  adapter arguments, events, logs, storage, errors, or production artifacts.
+- **AC-009**: The remove-only startup migration runs before the first bootstrap
+  storage read and preserves all unrelated settings/transcript data.
+- **AC-010**: Both microphone and Selected Audio submissions use this one client
+  and converge on the same safe transcription-ready event path.
 
-## 5. Acceptance Criteria
+## 10. Verification
 
-- **AC-001**: **Given** a valid audio blob, complete configuration, and successful adapter request construction, **When** `transcribe` is called, **Then** it returns the transcribed text as a string and `AzureAPIClient` emits one structured `API_REQUEST_START` followed by one `API_REQUEST_SUCCESS`.
-- **AC-002**: **Given** a missing API key, **When** `validateConfig` is called, **Then** it throws an error and emits `API_CONFIG_MISSING`.
-- **AC-003**: **Given** an invalid URI format, **When** `validateConfig` is called, **Then** it throws an error and emits `API_CONFIG_MISSING`.
-- **AC-004**: **Given** a failure is caught during adapter request construction or after `API_REQUEST_START`, **When** `transcribe` is called, **Then** it throws the error and `AzureAPIClient` emits exactly one `API_REQUEST_ERROR`; a construction failure has no preceding `API_REQUEST_START`.
-- **AC-005**: **Given** the API responds with a 401 status code, **When** `transcribe` is called, **Then** it throws an error and emits `API_REQUEST_ERROR` with status 401 and details.
-- **AC-006**: **Given** the API responds with a JSON object containing `combinedPhrases` for a MAI-Transcribe request, **When** `parseResponse` is called, **Then** it correctly extracts and joins the text from each phrase in `combinedPhrases`.
-- **AC-007**: **Given** the API responds with plain text, **When** `parseResponse(data)` is called, **Then** it returns the trimmed text.
-- **AC-008**: **Given** a whisper-translate model request, **When** `transcribe` is called, **Then** the language parameter is NOT included in the FormData.
-- **AC-009**: **Given** a MAI-Transcribe model request, **When** `transcribe` is called, **Then** the audio blob is converted to WAV format, submitted under the `audio` field with filename `recording.wav`, and a JSON `definition` field is included with `enhancedMode` configuration.
-- **AC-010**: **Given** the API responds with JSON `{ "text": "" }`, **When** `parseResponse(data)` is called, **Then** it returns `''` without an API error.
+The primary deterministic coverage is:
 
-## 6. Test Automation Strategy
+- `tests/token-boundary.vitest.js` — narrow provider, call order, one bearer
+  owner, no leakage, and retry-local reuse;
+- `tests/api-client-validation.vitest.js` — model/URI validation and adapter
+  selection;
+- `tests/api-client-errors.vitest.js` — HTTPS, 401/403 body blindness, retry,
+  timeout, and safe event behavior;
+- `tests/model-adapters.vitest.js` and `tests/response-parsers.vitest.js` — exact
+  two-model request/response contracts;
+- `tests/legacy-credential-cleanup.vitest.js` — remove-only ordering and storage
+  preservation;
+- `tests/browser/transcription-smoke.spec.js` and
+  `tests/browser/selected-audio.spec.js` — built-browser bearer/FormData paths
+  with no private storage/event leakage;
+- `tests/live-contract-hygiene.vitest.js` — guarded OIDC test seam and production
+  bundle exclusion without making a live request.
 
-- **Unit Tests**: Focus on `validateConfig`, `parseResponse`, `_handleApiError`, and `_extractErrorDetail` methods with various inputs. Test `parseResponse` with plain text, JSON with a non-empty or empty string `text` field, JSON with `combinedPhrases`, and unrecognized formats. Mock the `Settings` module and `fetch` API.
-- **Integration Tests**: Test the `transcribe` method by mocking `fetch` responses to simulate successful calls, network errors, and different HTTP error codes (401, 403, 500). Mock `convertToWav` from `audio-converter.js` for MAI-Transcribe test paths. Verify that correct events are emitted on the `EventBus`.
-- **Frameworks**: Use **Vitest** for testing and **`vi.fn()`** for mocking dependencies like `Settings` and the global `fetch` function.
-
-## 7. Rationale & Context
-
-A dedicated `AzureAPIClient` isolates shared external-API concerns such as validation, retries, timeouts, and lifecycle events. It is the sole owner of structured API-request lifecycle events: the recording state machine and audio handler do not emit `API_REQUEST_START`, `API_REQUEST_SUCCESS`, or `API_REQUEST_ERROR`. Model-specific request and response behavior lives in adapters registered in `js/model-adapters/index.js`. Adding another Azure-hosted transcription model therefore means implementing and registering an adapter; a separate client is only appropriate when a provider cannot use the shared Azure transport conventions.
-
-## 8. Dependencies & External Integrations
-
-### Module Dependencies
-- **DEP-001**: `Settings` module: To get API configuration.
-- **DEP-002**: `EventBus` module: To emit lifecycle events.
-- **DEP-003**: `Constants` module: For API parameters and messages.
-- **DEP-004**: `ErrorHandler` module: For centralized error logging.
-- **DEP-005**: `audio-converter` module (`convertToWav`): To convert WebM audio to WAV format for MAI-Transcribe.
-- **DEP-006**: `Logger` module: For structured, context-aware debug logging.
-
-### Browser API Dependencies
-- **API-001**: `fetch`: For making HTTP POST requests.
-- **API-002**: `FormData`: For building the request body.
-- **API-003**: `Blob`: For handling audio data.
-
-### External Service Dependencies
-- **SVC-001**: **Azure Speech Services API**: The remote service that performs the transcription.
-
-## 9. Examples & Edge Cases
-
-### Successful Transcription Call
-
-```javascript
-// Assumes apiClient is an instance of AzureAPIClient
-try {
-    const audioBlob = new Blob([...]);
-    const transcription = await apiClient.transcribe(audioBlob, (progress) => {
-        console.log(progress); // e.g., "Sending to Azure Whisper API..."
-    });
-    console.log('Success:', transcription); // transcription is a string
-} catch (error) {
-    console.error('Transcription failed:', error.message);
-}
-```
-
-### Handling Configuration Error
-
-```javascript
-// In AudioHandler, before starting a recording flow
-try {
-    apiClient.validateConfig();
-} catch (error) {
-    // The API_CONFIG_MISSING event will trigger the settings modal
-    console.error('Configuration is invalid:', error.message);
-}
-```
-
-### Edge Case: API returns an unexpected JSON structure
-
-The `parseResponse` method should be robust enough to handle unexpected response formats without crashing.
-
-```javascript
-// Malformed JSON response
-const malformedData = { some_unexpected_key: "some_value" };
-
-// parseResponse should throw an error with a clear message for unrecognized formats
-try {
-    const text = apiClient.parseResponse(malformedData);
-} catch (error) {
-    expect(error.message).toBe('Unknown API response format. Please check your API configuration.');
-}
-```
-
-### Model-Specific Request Examples
-
-```javascript
-// Whisper model - includes language parameter
-const whisperFormData = new FormData();
-whisperFormData.append('file', audioBlob, 'recording.webm');
-whisperFormData.append('language', 'en');
-
-// Whisper-translate model - no language parameter
-const translateFormData = new FormData();
-translateFormData.append('file', audioBlob, 'recording.webm');
-// Note: language parameter is intentionally omitted
-
-// MAI-Transcribe 1.5 model - WAV audio with JSON definition
-const wavBlob = await convertToWav(audioBlob);
-const maiFormData = new FormData();
-maiFormData.append('audio', wavBlob, 'recording.wav');
-maiFormData.append('definition', JSON.stringify({
-    enhancedMode: {
-        enabled: true,
-        model: 'mai-transcribe-1.5',
-        task: 'transcribe'
-    }
-}));
-```
-
-### Edge Case: MAI-Transcribe combinedPhrases response
-
-```javascript
-// MAI-Transcribe JSON response with combinedPhrases
-const maiResponse = {
-    combinedPhrases: [
-        { text: "Hello world." },
-        { text: "How are you?" }
-    ]
-};
-const text = apiClient.parseResponse(maiResponse);
-// Returns: "Hello world. How are you?"
-```
-
-## 10. Validation Criteria
-
-- The implementation must pass all unit and integration tests defined in the test strategy.
-- The client must successfully transcribe audio using the registered Whisper, Whisper-Translate, and MAI-Transcribe 1.5 adapters with valid credentials.
-- All error conditions (network, API, configuration) must be handled gracefully and result in the correct event emissions.
-- Code coverage for `api-client.js` must meet or exceed the project's threshold of 85%.
-
-## 11. Related Specifications / Further Reading
-
-- **Recording State Machine Design Specification**: For context on how the API client is used during the `PROCESSING` state.
-- **Settings Management Specification**: For details on how API configurations are stored and retrieved.
-- **Azure Speech Services REST API Documentation**: For official details on endpoints, parameters, and error codes.
+Run the canonical coverage, lint, dependency, audit, size, and deterministic
+browser gates after any authentication, adapter, request, or error change.

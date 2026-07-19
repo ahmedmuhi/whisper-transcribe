@@ -1,984 +1,336 @@
 /**
- * @fileoverview Tests for Settings module persistence, save workflow, and configuration management.
- * Verifies localStorage persistence, validation, modal save behavior, and event bus communication.
+ * @fileoverview Settings persistence, validation, and User-menu save workflow.
  */
 
-import { expect, vi } from 'vitest';
-import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { generateMockApiKeyForValidation } from './helpers/mock-api-keys.js';
-import { STORAGE_KEYS, MESSAGES, ID, MODEL_TYPES, RECORDING_ENVIRONMENTS } from '../js/constants.js';
-import { createLocalStorageMock } from './helpers/mock-settings-dom.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { APP_EVENTS, eventBus } from '../js/event-bus.js';
+import {
+    DEFAULT_MODEL_TYPE,
+    ID,
+    MESSAGES,
+    MODEL_TYPES,
+    RECORDING_ENVIRONMENTS,
+    STORAGE_KEYS
+} from '../js/constants.js';
+import { modelAdapterRegistry } from '../js/model-adapters/index.js';
 
-// Mock dependencies
-vi.mock('../js/logger.js', () => ({
-    logger: {
-        info: vi.fn(),
-        debug: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        child: vi.fn(() => ({
-            info: vi.fn(),
-            debug: vi.fn(),
-            warn: vi.fn(),
-            error: vi.fn(),
-        })),
-    },
-}));
-vi.mock('../js/status-helper.js', () => ({
-    showTemporaryStatus: vi.fn(),
-}));
-
-const localStorageMock = createLocalStorageMock();
-
-function getEventListener(element, eventName) {
-    const listener = element.addEventListener.mock.calls
-        .find(([registeredEventName]) => registeredEventName === eventName)?.[1];
-
-    expect(listener).toBeTypeOf('function');
-    return listener;
+function installSettingsDom() {
+    document.body.innerHTML = `
+        <div id="${ID.STATUS}"></div>
+        <select id="${ID.MODEL_SELECT}">
+            <option value="${MODEL_TYPES.WHISPER}">Azure Whisper</option>
+            <option value="${MODEL_TYPES.MAI_TRANSCRIBE_1_5}">MAI-Transcribe 1.5</option>
+        </select>
+        <select id="${ID.SETTINGS_MODEL_SELECT}">
+            <option value="${MODEL_TYPES.WHISPER}">Azure Whisper</option>
+            <option value="${MODEL_TYPES.MAI_TRANSCRIBE_1_5}">MAI-Transcribe 1.5</option>
+        </select>
+        <div id="${ID.WHISPER_SETTINGS}"><input id="${ID.WHISPER_URI}"></div>
+        <div id="${ID.MAI_TRANSCRIBE_SETTINGS}"><input id="${ID.MAI_TRANSCRIBE_URI}"></div>
+        <input id="${ID.RECORDING_ENVIRONMENT}" type="hidden">
+        <select id="${ID.INPUT_DEVICE}">
+            <option value="">System Default</option>
+            <option value="fixture-device">Fixture device</option>
+        </select>
+        <input id="${ID.NOISE_TOGGLE}" type="checkbox">
+        <button id="${ID.SAVE_SETTINGS}">Save changes</button>
+        <input type="radio" name="theme-mode" value="auto">
+        <input type="radio" name="theme-mode" value="light">
+        <input type="radio" name="theme-mode" value="dark">
+    `;
+    document.getElementById = (id) => document.querySelector(`#${id}`);
 }
 
-function configureNativeDialog(settings) {
-    const modal = settings.settingsModal;
-    modal.open = false;
-    modal.showModal = vi.fn(function showModal() {
-        this.open = true;
-    });
-    modal.close = vi.fn(function close() {
-        this.open = false;
-    });
-    modal.removeAttribute = vi.fn();
-
-    return modal;
+function createMenuDouble() {
+    return {
+        openDetail: vi.fn(),
+        closeDetail: vi.fn()
+    };
 }
 
-Object.defineProperty(window, 'localStorage', {
-    value: localStorageMock,
-    writable: true
-});
-global.localStorage = localStorageMock;
-
-// Dynamically import Settings after mocks are set up
 let Settings;
-beforeAll(async () => {
-    Settings = (await import('../js/settings.js')).Settings;
+
+beforeEach(async () => {
+    vi.restoreAllMocks();
+    eventBus.clear();
+    localStorage.clear();
+    installSettingsDom();
+    ({ Settings } = await import('../js/settings.js'));
 });
 
-describe('Settings Persistence & Save Workflow', () => {
-    let settings;
-    let eventBusEmitSpy;
+afterEach(() => {
+    eventBus.clear();
+});
 
-    beforeEach(() => {
-        vi.clearAllMocks();
+describe('Settings draft and persistence workflow', () => {
+    it('loads both saved Target URIs and the recording environment into a draft', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, 'https://whisper.invalid/transcribe');
+        localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, 'https://mai.invalid/transcribe');
+        localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, RECORDING_ENVIRONMENTS.NOISY);
+        const settings = new Settings();
 
-        localStorageMock.getItem.mockReturnValue(null);
+        settings.prepareSettingsDraft();
 
-        // Ensure all required elements exist and reset their values
-        const requiredIds = [
-            ID.MODEL_SELECT, ID.SETTINGS_MODEL_SELECT, ID.SETTINGS_MODAL, ID.CLOSE_MODAL, ID.SAVE_SETTINGS,
-            ID.SETTINGS_BUTTON, ID.STATUS, ID.WHISPER_SETTINGS, ID.MAI_TRANSCRIBE_SETTINGS,
-            ID.WHISPER_URI, ID.WHISPER_KEY, ID.MAI_TRANSCRIBE_URI, ID.MAI_TRANSCRIBE_KEY, ID.RECORDING_ENVIRONMENT
-        ];
-
-        requiredIds.forEach(id => {
-            const element = document.getElementById(id);
-            element.value = '';
-            element.style.display = '';
-
-            if (id === ID.MODEL_SELECT || id === ID.SETTINGS_MODEL_SELECT) {
-                element.value = 'whisper';
-            }
-        });
-
-        const modal = document.getElementById(ID.SETTINGS_MODAL);
-        delete modal.showModal;
-        delete modal.close;
-        delete modal.open;
-        delete modal.removeAttribute;
-        delete document.getElementById(ID.SETTINGS_BUTTON).isConnected;
-
-        eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
-
-        localStorageMock.getItem.mockImplementation((key) => {
-            if (key === STORAGE_KEYS.MODEL) return 'whisper';
-            return null;
-        });
-
-        settings = new Settings();
-
-        vi.spyOn(settings, 'checkInitialSettings').mockImplementation(() => {});
-        vi.spyOn(settings, 'updateSettingsVisibility').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
+        expect(settings.whisperUriInput.value).toBe('https://whisper.invalid/transcribe');
+        expect(settings.maiTranscribeUriInput.value).toBe('https://mai.invalid/transcribe');
+        expect(settings.recordingEnvironmentSelect.value).toBe(RECORDING_ENVIRONMENTS.NOISY);
         settings.destroy();
-        eventBus.clear();
     });
 
-    // ─── LocalStorage Persistence ────────────────────────────────────────────
+    it('opens Settings through UserMenu and emits the existing semantic event', () => {
+        const settings = new Settings();
+        const menu = createMenuDouble();
+        const invoker = document.createElement('button');
+        const emit = vi.spyOn(eventBus, 'emit');
+        settings.setUserMenu(menu);
 
-    describe('LocalStorage Persistence', () => {
-        test('should save Whisper settings to localStorage', () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://myresource.openai.azure.com/';
+        settings.openSettingsModal(invoker);
 
-            settings.modelSelect.value = 'whisper';
-            document.getElementById(ID.WHISPER_KEY).value = whisperApiKey;
-            document.getElementById(ID.WHISPER_URI).value = whisperApiUri;
-
-            settings.saveSettings();
-
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_API_KEY, whisperApiKey);
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, whisperApiUri);
-        });
-
-        test('should load saved settings into the form on modal open', () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://myresource.openai.azure.com/';
-
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                if (key === STORAGE_KEYS.WHISPER_API_KEY) return whisperApiKey;
-                if (key === STORAGE_KEYS.WHISPER_URI) return whisperApiUri;
-                return null;
-            });
-
-            settings.openSettingsModal();
-
-            expect(document.getElementById(ID.WHISPER_KEY).value).toBe(whisperApiKey);
-            expect(document.getElementById(ID.WHISPER_URI).value).toBe(whisperApiUri);
-        });
-
-        test('should use injected adapter storage metadata for save and config retrieval', () => {
-            const fakeModel = 'fake-settings-model';
-            const fakeApiKeyStorage = 'custom_model_api_key';
-            const fakeUriStorage = 'custom_model_uri';
-            const fakeRegistry = new Map([[
-                fakeModel,
-                {
-                    id: fakeModel,
-                    storageKeys: {
-                        apiKey: fakeApiKeyStorage,
-                        uri: fakeUriStorage
-                    }
-                }
-            ]]);
-            const fakeApiKey = generateMockApiKeyForValidation();
-            const fakeUri = 'https://custom-model.example.test/transcribe';
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return fakeModel;
-                return null;
-            });
-            const fakeSettings = new Settings(fakeRegistry);
-
-            try {
-                fakeSettings.modelSelect.value = fakeModel;
-                fakeSettings.settingsModelSelect.value = fakeModel;
-                fakeSettings.whisperKeyInput.value = fakeApiKey;
-                fakeSettings.whisperUriInput.value = fakeUri;
-                localStorageMock.setItem.mockClear();
-
-                fakeSettings.saveSettings();
-
-                expect(localStorageMock.setItem).toHaveBeenCalledWith(fakeApiKeyStorage, fakeApiKey);
-                expect(localStorageMock.setItem).toHaveBeenCalledWith(fakeUriStorage, fakeUri);
-                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
-                    STORAGE_KEYS.WHISPER_API_KEY,
-                    expect.anything()
-                );
-                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
-                    STORAGE_KEYS.WHISPER_URI,
-                    expect.anything()
-                );
-                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
-                    STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY,
-                    expect.anything()
-                );
-                expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
-                    STORAGE_KEYS.MAI_TRANSCRIBE_URI,
-                    expect.anything()
-                );
-
-                localStorageMock.getItem.mockImplementation((key) => {
-                    if (key === STORAGE_KEYS.MODEL) return fakeModel;
-                    if (key === fakeApiKeyStorage) return fakeApiKey;
-                    if (key === fakeUriStorage) return fakeUri;
-                    return null;
-                });
-
-                expect(fakeSettings.getModelConfig()).toEqual({
-                    model: fakeModel,
-                    apiKey: fakeApiKey,
-                    uri: fakeUri
-                });
-                expect(localStorageMock.getItem).toHaveBeenCalledWith(fakeApiKeyStorage);
-                expect(localStorageMock.getItem).toHaveBeenCalledWith(fakeUriStorage);
-            } finally {
-                fakeSettings.destroy();
-            }
-        });
-
-        test('should fail closed when an adapter lacks credential storage metadata', () => {
-            const brokenModel = 'broken-settings-model';
-            const brokenRegistry = new Map([
-                [MODEL_TYPES.WHISPER, {
-                    id: MODEL_TYPES.WHISPER,
-                    storageKeys: {
-                        apiKey: STORAGE_KEYS.WHISPER_API_KEY,
-                        uri: STORAGE_KEYS.WHISPER_URI
-                    }
-                }],
-                [brokenModel, { id: brokenModel, storageKeys: { apiKey: '' } }]
-            ]);
-            const brokenSettings = new Settings(brokenRegistry);
-
-            try {
-                brokenSettings.modelSelect.value = brokenModel;
-                brokenSettings.settingsModelSelect.value = brokenModel;
-
-                expect(() => brokenSettings._getCredentialStorageKeys(brokenModel)).toThrow(
-                    new RegExp(`credential storage metadata is missing.*${brokenModel}`, 'i')
-                );
-            } finally {
-                brokenSettings.destroy();
-            }
-        });
-
-        test('should persist recording environment across settings reload', () => {
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                if (key === STORAGE_KEYS.RECORDING_ENVIRONMENT) return RECORDING_ENVIRONMENTS.NOISY;
-                return null;
-            });
-
-            const freshSettings = new Settings();
-            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
-            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
-
-            freshSettings.openSettingsModal();
-
-            expect(document.getElementById(ID.RECORDING_ENVIRONMENT).value).toBe(RECORDING_ENVIRONMENTS.NOISY);
-
-            freshSettings.destroy();
-        });
+        expect(menu.openDetail).toHaveBeenCalledWith('settings', invoker);
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_OPENED);
+        settings.destroy();
     });
 
-    // ─── Modal Management ────────────────────────────────────────────────────
+    it('discards model and Target URI drafts without changing committed settings', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, 'https://saved.invalid/transcribe');
+        const settings = new Settings();
+        settings.prepareSettingsDraft();
+        settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        settings.whisperUriInput.value = 'https://draft.invalid/transcribe';
 
-    describe('Modal Management', () => {
-        test('should open the settings modal and emit event', () => {
-            settings.openSettingsModal();
+        settings.discardSettingsDraft();
 
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_OPENED);
-        });
-
-        test('uses native dialog semantics and focuses the first invalid active credential field', () => {
-            const modal = configureNativeDialog(settings);
-            settings.settingsButton.isConnected = true;
-            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
-            settings.whisperKeyInput.value = '';
-
-            settings.openSettingsModal(settings.settingsButton);
-
-            expect(modal.showModal).toHaveBeenCalledOnce();
-            expect(settings.whisperKeyInput.focus).toHaveBeenCalledOnce();
-        });
-
-        test('focuses the modal model selector when active credentials are valid', () => {
-            configureNativeDialog(settings);
-            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
-            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
-
-            settings.openSettingsModal(settings.settingsButton);
-
-            expect(settings.settingsModelSelect.focus).toHaveBeenCalledOnce();
-        });
-
-        test('falls back to display behavior when native dialogs are unavailable without stranding focus', () => {
-            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
-            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
-            settings.settingsButton.isConnected = true;
-
-            settings.openSettingsModal(settings.settingsButton);
-            settings.closeSettingsModal();
-
-            expect(settings.settingsModal.style.display).toBe('none');
-            expect(settings.settingsModelSelect.focus).toHaveBeenCalledOnce();
-            expect(settings.settingsButton.focus).toHaveBeenCalledOnce();
-        });
-
-        test('makes the no-showModal fallback visually and accessibly modal while inerting background interaction', () => {
-            const background = document.createElement('main');
-            document.body.appendChild(background);
-            background.inert = false;
-            settings.settingsModal.removeAttribute = vi.fn();
-
-            try {
-                settings.openSettingsModal(settings.settingsButton);
-
-                expect(settings.settingsModal.classList.add).toHaveBeenCalledWith('modal--fallback-open');
-                expect(settings.settingsModal.setAttribute).toHaveBeenCalledWith('role', 'dialog');
-                expect(settings.settingsModal.setAttribute).toHaveBeenCalledWith('aria-modal', 'true');
-                expect(background.inert).toBe(true);
-                expect(background.getAttribute('aria-hidden')).toBe('true');
-
-                settings.closeSettingsModal();
-
-                expect(settings.settingsModal.classList.remove).toHaveBeenCalledWith('modal--fallback-open');
-                expect(settings.settingsModal.removeAttribute).toHaveBeenCalledWith('role');
-                expect(settings.settingsModal.removeAttribute).toHaveBeenCalledWith('aria-modal');
-                expect(background.inert).toBe(false);
-                expect(background.hasAttribute('aria-hidden')).toBe(false);
-            } finally {
-                background.remove();
-            }
-        });
-
-        test('cycles fallback Tab navigation within the modal without adding a native-dialog trap', () => {
-            const firstFocusable = settings.closeModalButton;
-            const lastFocusable = settings.saveSettingsButton;
-            settings.settingsModal.querySelectorAll.mockReturnValue([firstFocusable, lastFocusable]);
-            const forwardTab = { key: 'Tab', shiftKey: false, target: lastFocusable, preventDefault: vi.fn() };
-            const backwardTab = { key: 'Tab', shiftKey: true, target: firstFocusable, preventDefault: vi.fn() };
-
-            settings.openSettingsModal(settings.settingsButton);
-            settings._fallbackModalKeydownHandler(forwardTab);
-            settings._fallbackModalKeydownHandler(backwardTab);
-
-            expect(firstFocusable.focus).toHaveBeenCalledOnce();
-            expect(lastFocusable.focus).toHaveBeenCalledOnce();
-            expect(forwardTab.preventDefault).toHaveBeenCalledOnce();
-            expect(backwardTab.preventDefault).toHaveBeenCalledOnce();
-
-            settings.closeSettingsModal();
-            const modal = configureNativeDialog(settings);
-            settings.openSettingsModal(settings.settingsButton);
-            settings._fallbackModalKeydownHandler(forwardTab);
-
-            expect(modal.showModal).toHaveBeenCalledOnce();
-            expect(firstFocusable.focus).toHaveBeenCalledOnce();
-        });
-
-        test('does not restore focus after startup opens settings without a meaningful invoker', () => {
-            configureNativeDialog(settings);
-            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
-            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
-
-            settings.openSettingsModal();
-            settings.closeSettingsModal();
-
-            expect(settings.settingsButton.focus).not.toHaveBeenCalled();
-        });
-
-        test('does not return focus to an invoker removed before close', () => {
-            configureNativeDialog(settings);
-            settings.settingsButton.isConnected = true;
-
-            settings.openSettingsModal(settings.settingsButton);
-            settings.settingsButton.isConnected = false;
-            settings.closeSettingsModal();
-
-            expect(settings.settingsButton.focus).not.toHaveBeenCalled();
-        });
-
-        test('uses the settings button as the invoker for settings-button clicks', () => {
-            configureNativeDialog(settings);
-            settings.settingsButton.isConnected = true;
-            const settingsButtonListener = getEventListener(settings.settingsButton, 'click');
-
-            settingsButtonListener();
-            settings.closeSettingsModal();
-
-            expect(settings.settingsButton.focus).toHaveBeenCalledOnce();
-        });
-
-        test('should discard an unsaved model draft when closed with the close button', () => {
-            const modalModelSelect = settings.settingsModelSelect;
-            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'change')[1];
-            const closeButtonListener = settings.closeModalButton.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'click')[1];
-
-            settings.modelSelect.value = MODEL_TYPES.WHISPER;
-            settings.openSettingsModal();
-            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            modalChangeListener({ target: modalModelSelect });
-            closeButtonListener();
-
-            expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
-            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
-        });
-
-        test('should discard an unsaved model draft when closed with the backdrop', () => {
-            const modalModelSelect = settings.settingsModelSelect;
-            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'change')[1];
-            const backdropListener = settings.settingsModal.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'click')[1];
-
-            settings.modelSelect.value = MODEL_TYPES.WHISPER;
-            settings.openSettingsModal();
-            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            modalChangeListener({ target: modalModelSelect });
-            backdropListener({ target: settings.settingsModal });
-
-            expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
-            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
-        });
-
-        test('routes close button, backdrop, and cancel through one discard and return-focus cleanup', () => {
-            const modal = configureNativeDialog(settings);
-            settings.settingsButton.isConnected = true;
-            const modalModelSelect = settings.settingsModelSelect;
-            const modalChangeListener = getEventListener(modalModelSelect, 'change');
-            const closeButtonListener = getEventListener(settings.closeModalButton, 'click');
-            const backdropListener = getEventListener(modal, 'click');
-            const cancelListener = getEventListener(modal, 'cancel');
-            const cancelEvent = { preventDefault: vi.fn() };
-
-            [
-                () => closeButtonListener(),
-                () => backdropListener({ target: modal }),
-                () => cancelListener(cancelEvent)
-            ].forEach(close => {
-                settings.modelSelect.value = MODEL_TYPES.WHISPER;
-                settings.openSettingsModal(settings.settingsButton);
-                modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-                modalChangeListener({ target: modalModelSelect });
-
-                close();
-
-                expect(settings.modelSelect.value).toBe(MODEL_TYPES.WHISPER);
-                expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
-            });
-
-            expect(modal.close).toHaveBeenCalledTimes(3);
-            expect(settings.settingsButton.focus).toHaveBeenCalledTimes(3);
-            expect(cancelEvent.preventDefault).toHaveBeenCalledOnce();
-        });
-
-        test('keeps Escape owned by the open dialog rather than also unpinning the sidebar', () => {
-            const modal = configureNativeDialog(settings);
-            settings.sidePanel = {
-                classList: { contains: vi.fn(() => true) }
-            };
-            const unpinSidebarSpy = vi.spyOn(settings, 'unpinSidebar');
-            const cancelListener = getEventListener(modal, 'cancel');
-
-            settings.openSettingsModal(settings.settingsButton);
-            settings._panelEscHandler({ key: 'Escape' });
-            cancelListener({ preventDefault: vi.fn() });
-
-            expect(unpinSidebarSpy).not.toHaveBeenCalled();
-            expect(modal.close).toHaveBeenCalledOnce();
-        });
-
-        test('does not add modal handlers during repeated open and close cycles', () => {
-            const modal = configureNativeDialog(settings);
-            const initialHandlerCount = modal.addEventListener.mock.calls.length;
-
-            settings.openSettingsModal(settings.settingsButton);
-            settings.closeSettingsModal();
-            settings.openSettingsModal(settings.settingsButton);
-            settings.closeSettingsModal();
-
-            expect(modal.showModal).toHaveBeenCalledTimes(2);
-            expect(modal.addEventListener.mock.calls).toHaveLength(initialHandlerCount);
-        });
-
-        test('uses the shared close cleanup after a successful save', () => {
-            const modal = configureNativeDialog(settings);
-            settings.settingsButton.isConnected = true;
-            settings.whisperUriInput.value = 'https://whisper.openai.azure.com/transcribe';
-            settings.whisperKeyInput.value = generateMockApiKeyForValidation();
-
-            settings.openSettingsModal(settings.settingsButton);
-            settings.saveSettings();
-
-            expect(modal.close).toHaveBeenCalledOnce();
-            expect(settings.settingsButton.focus).toHaveBeenCalledOnce();
-        });
-
-        test('should restore the active model as the draft when reopened', () => {
-            const modalModelSelect = settings.settingsModelSelect;
-            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'change')[1];
-
-            settings.modelSelect.value = MODEL_TYPES.WHISPER;
-            settings.openSettingsModal();
-            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            modalChangeListener({ target: modalModelSelect });
-            settings.closeSettingsModal();
-            settings.openSettingsModal();
-
-            expect(modalModelSelect.value).toBe(MODEL_TYPES.WHISPER);
-        });
-
-        test('should close the settings modal and emit event', () => {
-            settings.closeSettingsModal();
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('none');
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_SETTINGS_CLOSED);
-        });
+        expect(settings.settingsModelSelect.value).toBe(MODEL_TYPES.WHISPER);
+        expect(settings.whisperUriInput.value).toBe('https://saved.invalid/transcribe');
+        expect(settings.getCurrentModel()).toBe(MODEL_TYPES.WHISPER);
+        settings.destroy();
     });
 
-    // ─── Event Bus Communication ─────────────────────────────────────────────
+    it('saves both valid Target URIs and closes the Settings detail', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        const menu = createMenuDouble();
+        settings.setUserMenu(menu);
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = '  https://whisper.invalid/transcribe  ';
+        settings.maiTranscribeUriInput.value = 'https://mai.invalid/transcribe';
 
-    describe('Event Bus Communication', () => {
-        test('should emit SETTINGS_SAVED and SETTINGS_UPDATED on successful save', () => {
-            settings.modelSelect.value = 'whisper';
-            document.getElementById(ID.WHISPER_KEY).value = generateMockApiKeyForValidation();
-            document.getElementById(ID.WHISPER_URI).value = 'https://myresource.openai.azure.com/';
+        expect(settings.saveSettings()).toBe(true);
 
-            settings.saveSettings();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, expect.any(Object));
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
-        });
-
-        test('should emit UI_MODEL_SWITCHED when the main UI model is changed (no persistence)', () => {
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                return null;
-            });
-
-            const freshSettings = new Settings();
-
-            const modelSelect = document.getElementById(ID.MODEL_SELECT);
-            expect(modelSelect.addEventListener).toHaveBeenCalled();
-
-            const changeCall = modelSelect.addEventListener.mock.calls.find(call => call[0] === 'change');
-            expect(changeCall).toBeDefined();
-            const changeListener = changeCall[1];
-
-            const event = { target: { value: 'mai-transcribe-1.5' } };
-
-            changeListener(event);
-
-            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.MODEL, 'mai-transcribe-1.5');
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.UI_MODEL_SWITCHED, {
-                model: 'mai-transcribe-1.5',
-                savedModel: 'whisper'
-            });
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(APP_EVENTS.SETTINGS_MODEL_CHANGED, expect.any(Object));
-
-            freshSettings.destroy();
-        });
-
-        test('should emit SETTINGS_VALIDATION_ERROR if required fields are empty', () => {
-            settings.modelSelect.value = 'whisper';
-            document.getElementById(ID.WHISPER_KEY).value = '';
-            document.getElementById(ID.WHISPER_URI).value = '';
-
-            settings.saveSettings();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_VALIDATION_ERROR, expect.any(Object));
-            expect(localStorageMock.setItem).not.toHaveBeenCalled();
-        });
-
-        test('should emit SETTINGS_VALIDATION_ERROR for HTTP URI (insecure)', () => {
-            settings.modelSelect.value = 'whisper';
-            document.getElementById(ID.WHISPER_KEY).value = generateMockApiKeyForValidation();
-            document.getElementById(ID.WHISPER_URI).value = 'http://insecure.openai.azure.com/';
-
-            settings.saveSettings();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_VALIDATION_ERROR, expect.any(Object));
-            expect(localStorageMock.setItem).not.toHaveBeenCalled();
-        });
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI))
+            .toBe('https://whisper.invalid/transcribe');
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI))
+            .toBe('https://mai.invalid/transcribe');
+        expect(menu.closeDetail).toHaveBeenCalledOnce();
+        settings.destroy();
     });
 
-    // ─── Configuration Retrieval ─────────────────────────────────────────────
+    it('removes a cleared inactive Target URI instead of retaining stale configuration', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, 'https://stale.invalid/transcribe');
+        const settings = new Settings();
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = 'https://whisper.invalid/transcribe';
+        settings.maiTranscribeUriInput.value = '';
 
-    describe('Configuration Retrieval', () => {
-        test('should return the correct config for the Whisper model', () => {
-            const whisperApiKey = generateMockApiKeyForValidation();
-            const whisperApiUri = 'https://retrieval-whisper.openai.azure.com/';
+        expect(settings.saveSettings()).toBe(true);
 
-            document.getElementById(ID.MODEL_SELECT).value = 'whisper';
-
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return 'whisper';
-                if (key === STORAGE_KEYS.WHISPER_API_KEY) return whisperApiKey;
-                if (key === STORAGE_KEYS.WHISPER_URI) return whisperApiUri;
-                return null;
-            });
-
-            const freshSettings = new Settings();
-            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
-            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
-
-            const config = freshSettings.getModelConfig();
-
-            expect(config).toEqual({
-                model: 'whisper',
-                apiKey: whisperApiKey,
-                uri: whisperApiUri,
-            });
-        });
-
-        test('should return MAI shared credentials for the MAI 1.5 model', () => {
-            const maiApiKey = 'speech-resource-key-for-mai-15';
-            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
-
-            document.getElementById(ID.MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-
-            localStorageMock.getItem.mockImplementation((key) => {
-                if (key === STORAGE_KEYS.MODEL) return MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-                if (key === STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY) return maiApiKey;
-                if (key === STORAGE_KEYS.MAI_TRANSCRIBE_URI) return maiApiUri;
-                return null;
-            });
-
-            const freshSettings = new Settings();
-            vi.spyOn(freshSettings, 'checkInitialSettings').mockImplementation(() => {});
-            vi.spyOn(freshSettings, 'updateSettingsVisibility').mockImplementation(() => {});
-
-            const config = freshSettings.getModelConfig();
-
-            expect(config).toEqual({
-                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
-                apiKey: maiApiKey,
-                uri: maiApiUri,
-            });
-
-            freshSettings.destroy();
-        });
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI)).toBeNull();
+        settings.destroy();
     });
 
-    // ─── Save with Valid Configuration (from settings-save-modal) ────────────
-
-    describe('Save with Valid Configuration', () => {
-        test('should save valid Whisper configuration and close modal', () => {
-            const mockKey = generateMockApiKeyForValidation();
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-            document.getElementById(ID.WHISPER_KEY).value = mockKey;
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
-
-            settings.saveSettings();
-
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.WHISPER_URI,
-                'https://test.openai.azure.com/whisper'
-            );
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.WHISPER_API_KEY,
-                mockKey
-            );
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('none');
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.UI_STATUS_UPDATE,
-                expect.objectContaining({
-                    message: MESSAGES.SETTINGS_SAVED,
-                    type: 'success',
-                    temporary: true
-                })
-            );
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_SAVED,
-                expect.objectContaining({
-                    model: 'whisper',
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_LOADED,
-                expect.objectContaining({
-                    model: 'whisper',
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
+    it('commits a valid model draft exactly once and announces it after commit', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        settings.maiTranscribeUriInput.value = 'https://mai.invalid/transcribe';
+        const setItem = vi.spyOn(localStorage, 'setItem');
+        const observed = [];
+        const off = eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, () => {
+            observed.push(settings.getCurrentModel());
         });
 
-        test('should save MAI 1.5 model with shared MAI credentials', () => {
-            const maiApiKey = 'speech-resource-key-for-mai-15';
-            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = maiApiUri;
-            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = maiApiKey;
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
+        settings.saveSettings();
+        off();
 
-            settings.saveSettings();
-
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MAI_TRANSCRIBE_URI, maiApiUri);
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY, maiApiKey);
-            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_URI, maiApiUri);
-            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(STORAGE_KEYS.WHISPER_API_KEY, maiApiKey);
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('none');
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_SAVED,
-                expect.objectContaining({
-                    model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
-        });
-
-        test('should commit a valid modal model draft to active and persisted state exactly once', () => {
-            const maiApiKey = 'speech-resource-key-for-mai-15';
-            const maiApiUri = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
-            const modalModelSelect = settings.settingsModelSelect;
-            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'change')[1];
-
-            settings.modelSelect.value = MODEL_TYPES.WHISPER;
-            settings.openSettingsModal();
-            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            modalChangeListener({ target: modalModelSelect });
-            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = maiApiUri;
-            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = maiApiKey;
-            localStorageMock.setItem.mockClear();
-            const observedModels = [];
-            const unsubscribe = eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, () => {
-                observedModels.push(settings.getCurrentModel());
-            });
-
-            settings.saveSettings();
-
-            unsubscribe();
-
-            expect(settings.getCurrentModel()).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-            expect(observedModels).toEqual([MODEL_TYPES.MAI_TRANSCRIBE_1_5]);
-            expect(localStorageMock.setItem.mock.calls.filter(
-                ([key]) => key === STORAGE_KEYS.MODEL
-            )).toEqual([[STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5]]);
-        });
+        expect(setItem.mock.calls.filter(([key]) => key === STORAGE_KEYS.MODEL))
+            .toEqual([[STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5]]);
+        expect(observed).toEqual([MODEL_TYPES.MAI_TRANSCRIBE_1_5]);
+        settings.destroy();
     });
 
-    // ─── Save with Invalid Configuration (from settings-save-modal) ──────────
+    it('persists the recording environment on save', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = 'https://target.invalid/transcribe';
+        settings.recordingEnvironmentSelect.value = RECORDING_ENVIRONMENTS.NOISY;
 
-    describe('Save with Invalid Configuration', () => {
-        test('should not close modal when API key is missing', () => {
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-            document.getElementById(ID.WHISPER_KEY).value = '';
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
+        settings.saveSettings();
 
-            settings.saveSettings();
+        expect(localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT))
+            .toBe(RECORDING_ENVIRONMENTS.NOISY);
+        settings.destroy();
+    });
+});
 
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
-            expect(localStorageMock.setItem).not.toHaveBeenCalled();
+describe('Settings validation and events', () => {
+    it.each([
+        ['', MESSAGES.URI_REQUIRED],
+        ['http://target.invalid/transcribe', MESSAGES.URI_MUST_BE_HTTPS],
+        ['not-a-target-uri', MESSAGES.INVALID_URI_FORMAT]
+    ])('keeps the detail open and emits validation for %j', (uri, expectedError) => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        const menu = createMenuDouble();
+        const emit = vi.spyOn(eventBus, 'emit');
+        settings.setUserMenu(menu);
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = uri;
 
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.UI_STATUS_UPDATE,
-                expect.objectContaining({
-                    type: 'error',
-                    temporary: true
-                })
-            );
+        expect(settings.saveSettings()).toBe(false);
 
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_SAVED,
-                expect.anything()
-            );
-
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_LOADED,
-                expect.anything()
-            );
-        });
-
-        test('should keep the active model unchanged when saving an invalid modal draft', () => {
-            const modalModelSelect = settings.settingsModelSelect;
-            const modalChangeListener = modalModelSelect.addEventListener.mock.calls
-                .find(([eventName]) => eventName === 'change')[1];
-
-            settings.modelSelect.value = MODEL_TYPES.WHISPER;
-            settings.openSettingsModal();
-            modalModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            modalChangeListener({ target: modalModelSelect });
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
-
-            settings.saveSettings();
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
-            expect(settings.getCurrentModel()).toBe(MODEL_TYPES.WHISPER);
-            expect(settings.getModelConfig().model).toBe(MODEL_TYPES.WHISPER);
-            expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
-                STORAGE_KEYS.MODEL,
-                MODEL_TYPES.MAI_TRANSCRIBE_1_5
-            );
-        });
-
-        test('should not close modal when URI is invalid', () => {
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = 'http://insecure.com';
-            document.getElementById(ID.WHISPER_KEY).value = generateMockApiKeyForValidation();
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
-
-            settings.saveSettings();
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
-            expect(localStorageMock.setItem).not.toHaveBeenCalled();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.UI_STATUS_UPDATE,
-                expect.objectContaining({
-                    type: 'error',
-                    temporary: true
-                })
-            );
-
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_LOADED,
-                expect.anything()
-            );
-        });
-
-        test('should not close modal when API key format is invalid', () => {
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-            document.getElementById(ID.WHISPER_KEY).value = 'invalid-key-format';
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
-
-            settings.saveSettings();
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
-            expect(localStorageMock.setItem).not.toHaveBeenCalled();
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.UI_STATUS_UPDATE,
-                expect.objectContaining({
-                    type: 'error',
-                    temporary: true
-                })
-            );
-
-            expect(eventBusEmitSpy).not.toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_LOADED,
-                expect.anything()
-            );
-        });
-
-        test('should not save MAI API key with unsupported header characters', () => {
-            const unsupportedCharacter = '\u2014';
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-            document.getElementById(ID.MAI_TRANSCRIBE_URI).value = 'https://mai-transcribe.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
-            document.getElementById(ID.MAI_TRANSCRIBE_KEY).value = `speech${unsupportedCharacter}key`;
-            document.getElementById(ID.SETTINGS_MODAL).style.display = 'block';
-
-            settings.saveSettings();
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('block');
-            expect(localStorageMock.setItem).not.toHaveBeenCalled();
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_VALIDATION_ERROR,
-                expect.objectContaining({
-                    errors: expect.arrayContaining([MESSAGES.INVALID_API_KEY_CHARACTERS])
-                })
-            );
-        });
+        expect(menu.closeDetail).not.toHaveBeenCalled();
+        expect(emit).toHaveBeenCalledWith(
+            APP_EVENTS.SETTINGS_VALIDATION_ERROR,
+            { errors: expect.arrayContaining([expectedError]) }
+        );
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
+        settings.destroy();
     });
 
-    // ─── Input Sanitization During Save (from settings-save-modal) ───────────
+    it('validates a non-empty inactive Target URI because both fields are editable', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = 'https://whisper.invalid/transcribe';
+        settings.maiTranscribeUriInput.value = 'malformed-target-uri';
 
-    describe('Input Sanitization During Save', () => {
-        test('should trim whitespace from inputs before saving', () => {
-            const mockKey = generateMockApiKeyForValidation();
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = '  https://test.openai.azure.com/whisper  ';
-            document.getElementById(ID.WHISPER_KEY).value = `  ${mockKey}  `;
-
-            settings.saveSettings();
-
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.WHISPER_URI,
-                'https://test.openai.azure.com/whisper'
-            );
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.WHISPER_API_KEY,
-                mockKey
-            );
-
-            expect(document.getElementById(ID.SETTINGS_MODAL).style.display).toBe('none');
-        });
-
-        test('should remove newlines and tabs from API key', () => {
-            const cleanMockKey = generateMockApiKeyForValidation();
-            const dirtyMockKey = cleanMockKey.substring(0, 20) + '\n' + cleanMockKey.substring(20, 40) + '\t' + cleanMockKey.substring(40);
-
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-            document.getElementById(ID.WHISPER_KEY).value = dirtyMockKey;
-
-            settings.saveSettings();
-
-            expect(localStorageMock.setItem).toHaveBeenCalledWith(
-                STORAGE_KEYS.WHISPER_API_KEY,
-                cleanMockKey
-            );
-        });
+        expect(settings.saveSettings()).toBe(false);
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
+        settings.destroy();
     });
 
-    // ─── Event Emission During Save Process (from settings-save-modal) ───────
+    it('keeps the active model unchanged when a draft is invalid', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        settings.settingsModelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        settings.maiTranscribeUriInput.value = '';
 
-    describe('Event Emission During Save Process', () => {
-        test('should emit validation error event for invalid configuration', () => {
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = '';
-            document.getElementById(ID.WHISPER_KEY).value = '';
+        settings.saveSettings();
 
-            settings.saveSettings();
+        expect(settings.getCurrentModel()).toBe(MODEL_TYPES.WHISPER);
+        expect(localStorage.getItem(STORAGE_KEYS.MODEL)).toBe(MODEL_TYPES.WHISPER);
+        settings.destroy();
+    });
 
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_VALIDATION_ERROR,
-                expect.objectContaining({
-                    errors: expect.arrayContaining([
-                        expect.stringContaining('API key'),
-                        expect.stringContaining('URI')
-                    ])
-                })
-            );
+    it('emits the complete successful-save event contract', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        const emit = vi.spyOn(eventBus, 'emit');
+        settings.settingsModelSelect.value = MODEL_TYPES.WHISPER;
+        settings.whisperUriInput.value = 'https://target.invalid/transcribe';
+
+        settings.saveSettings();
+
+        const presentation = { model: MODEL_TYPES.WHISPER, hasUri: true };
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_SAVED, presentation);
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_LOADED, presentation);
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.SETTINGS_SAVED,
+            type: 'success',
+            temporary: true,
+            duration: 3000
         });
+        settings.destroy();
+    });
 
-        test('should emit all required events for successful save', () => {
-            document.getElementById(ID.SETTINGS_MODEL_SELECT).value = 'whisper';
-            document.getElementById(ID.WHISPER_URI).value = 'https://test.openai.azure.com/whisper';
-            document.getElementById(ID.WHISPER_KEY).value = generateMockApiKeyForValidation();
+    it('switches the session model without persisting it before Save changes', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.WHISPER);
+        const settings = new Settings();
+        const emit = vi.spyOn(eventBus, 'emit');
+        settings.modelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
 
-            settings.saveSettings();
+        settings.modelSelect.dispatchEvent(new Event('change'));
 
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.UI_STATUS_UPDATE,
-                expect.objectContaining({
-                    message: MESSAGES.SETTINGS_SAVED,
-                    type: 'success',
-                    temporary: true
-                })
-            );
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_SAVED,
-                expect.objectContaining({
-                    model: 'whisper',
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_UPDATED
-            );
-
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.SETTINGS_LOADED,
-                expect.objectContaining({
-                    model: 'whisper',
-                    hasUri: true,
-                    hasApiKey: true
-                })
-            );
+        expect(localStorage.getItem(STORAGE_KEYS.MODEL)).toBe(MODEL_TYPES.WHISPER);
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.UI_MODEL_SWITCHED, {
+            model: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            savedModel: MODEL_TYPES.WHISPER
         });
+        settings.destroy();
+    });
+});
+
+describe('Settings adapter metadata and initial configuration', () => {
+    it('uses injected adapter Target URI metadata', () => {
+        const customModel = 'fixture-model';
+        const customUriKey = 'fixture_model_uri';
+        const registry = new Map(modelAdapterRegistry);
+        registry.set(customModel, { id: customModel, storageKeys: { uri: customUriKey } });
+        const settings = new Settings(registry);
+        const modelOption = document.createElement('option');
+        modelOption.value = customModel;
+        modelOption.textContent = 'Fixture model';
+        const settingsOption = modelOption.cloneNode(true);
+        settings.modelSelect.append(modelOption);
+        settings.settingsModelSelect.append(settingsOption);
+        settings.modelSelect.value = customModel;
+        settings.settingsModelSelect.value = customModel;
+        settings.whisperUriInput.value = 'https://custom.invalid/transcribe';
+
+        settings.saveSettings();
+
+        expect(localStorage.getItem(customUriKey)).toBe('https://custom.invalid/transcribe');
+        expect(settings.getModelConfig()).toEqual({
+            model: customModel,
+            uri: 'https://custom.invalid/transcribe'
+        });
+        settings.destroy();
+    });
+
+    it('fails closed when adapter Target URI metadata is missing', () => {
+        const registry = new Map(modelAdapterRegistry);
+        registry.set('broken-model', { id: 'broken-model', storageKeys: {} });
+        const settings = new Settings(registry);
+        expect(() => settings._getTargetUriStorageKey('broken-model'))
+            .toThrow(/Target URI storage metadata is missing/);
+        settings.destroy();
+    });
+
+    it.each([
+        [MODEL_TYPES.WHISPER, STORAGE_KEYS.WHISPER_URI],
+        [MODEL_TYPES.MAI_TRANSCRIBE_1_5, STORAGE_KEYS.MAI_TRANSCRIBE_URI]
+    ])('retrieves the committed configuration for %s', (model, uriKey) => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, model);
+        localStorage.setItem(uriKey, 'https://target.invalid/transcribe');
+        const settings = new Settings();
+
+        expect(settings.getModelConfig()).toEqual({
+            model,
+            uri: 'https://target.invalid/transcribe'
+        });
+        settings.destroy();
+    });
+
+    it('reports incomplete configuration without opening navigation automatically', () => {
+        const settings = new Settings();
+        const menu = createMenuDouble();
+        const emit = vi.spyOn(eventBus, 'emit');
+        settings.setUserMenu(menu);
+        emit.mockClear();
+
+        settings.checkInitialSettings();
+
+        expect(menu.openDetail).not.toHaveBeenCalled();
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.TARGET_URI_NOT_CONFIGURED,
+            type: 'info'
+        });
+        expect(settings.getCurrentModel()).toBe(DEFAULT_MODEL_TYPE);
+        settings.destroy();
     });
 });

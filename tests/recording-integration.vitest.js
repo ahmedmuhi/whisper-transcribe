@@ -221,11 +221,21 @@ document.body.innerHTML = `
 `;
 
 // Import modules after setting up mocks
-let AudioHandler, RecordingStateMachine, PermissionManager, eventBus, APP_EVENTS, RECORDING_STATES;
+let AudioHandler, RecordingStateMachine, PermissionManager, eventBus, APP_EVENTS;
+let RECORDING_STATES, AUTHENTICATION_STATES, API_ERROR_CODES, MESSAGES;
+let COGNITIVE_SERVICES_SCOPE;
+
+const TEST_TARGET_URI = 'https://speech.example.invalid/transcribe';
 
 beforeAll(async () => {
   ({ eventBus, APP_EVENTS } = await import('../js/event-bus.js'));
-  ({ RECORDING_STATES } = await import('../js/constants.js'));
+  ({
+    RECORDING_STATES,
+    AUTHENTICATION_STATES,
+    API_ERROR_CODES,
+    MESSAGES
+  } = await import('../js/constants.js'));
+  ({ COGNITIVE_SERVICES_SCOPE } = await import('../js/authentication-config.js'));
   ({ RecordingStateMachine } = await import('../js/recording-state-machine.js'));
   ({ PermissionManager } = await import('../js/permission-manager.js'));
   ({ AudioHandler } = await import('../js/audio-handler.js'));
@@ -235,6 +245,7 @@ describe('Recording Integration', () => {
   let audioHandler;
   let mockSettings;
   let mockApiClient;
+  let mockAuthenticationReadiness;
   let eventBusEmitSpy;
   let recordingPausedSpy;
   let recordingResumedSpy;
@@ -262,19 +273,23 @@ describe('Recording Integration', () => {
       getCurrentModel: vi.fn().mockReturnValue('whisper'),
       openSettingsModal: vi.fn(),
       getModelConfig: vi.fn().mockReturnValue({
-        apiKey: 'test-api-key',
-        uri: 'https://test-uri.com'
+        model: 'whisper',
+        uri: TEST_TARGET_URI
       })
     };
     
     // Create mock API client
     mockApiClient = {
-      validateConfig: vi.fn(),
+      validateConfig: vi.fn().mockReturnValue({ model: 'whisper', uri: TEST_TARGET_URI }),
+      getScopeForModel: vi.fn().mockReturnValue(COGNITIVE_SERVICES_SCOPE),
       transcribe: vi.fn().mockResolvedValue('Test transcription result')
+    };
+    mockAuthenticationReadiness = {
+      ensureTokenReady: vi.fn().mockResolvedValue(AUTHENTICATION_STATES.READY)
     };
     
     // Create AudioHandler instance
-    audioHandler = new AudioHandler(mockApiClient, mockSettings);
+    audioHandler = new AudioHandler(mockApiClient, mockSettings, mockAuthenticationReadiness);
     
     // Set up a single spy on event bus emissions
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
@@ -446,10 +461,10 @@ describe('Recording Integration', () => {
     });
 
     it('should handle API validation errors', async () => {
-      // Make validateConfig throw an error with 'configure' in the message to trigger API_CONFIG_MISSING
+      // Make validateConfig emit the same missing-URI signal as the production boundary.
       mockApiClient.validateConfig.mockImplementation(() => {
-        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey' });
-        throw new Error('Failed to configure API key');
+        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri' });
+        throw new Error('Failed to configure Target URI');
       });
       
       // Try to start recording
@@ -477,7 +492,7 @@ describe('Recording Integration', () => {
     
     it('should handle microphone access errors', async () => {
       // Make prerequisites check fail by returning empty config
-      mockSettings.getModelConfig.mockReturnValueOnce({ apiKey: '', uri: '' });
+      mockSettings.getModelConfig.mockReturnValueOnce({ model: 'whisper', uri: '' });
       
       // Try to start recording
       await audioHandler.startRecordingFlow();
@@ -710,6 +725,7 @@ describe('Error Recovery Scenarios', () => {
   let audioHandler;
   let mockSettings;
   let mockApiClient;
+  let mockAuthenticationReadiness;
   let permissionManager;
   let eventBusEmitSpy;
 
@@ -722,20 +738,24 @@ describe('Error Recovery Scenarios', () => {
       getCurrentModel: vi.fn().mockReturnValue('whisper'),
       openSettingsModal: vi.fn(),
       getModelConfig: vi.fn().mockReturnValue({
-        apiKey: 'test-api-key',
-        uri: 'https://test-uri.com'
+        model: 'whisper',
+        uri: TEST_TARGET_URI
       }),
       saveSettings: vi.fn()
     };
 
     mockApiClient = {
-      validateConfig: vi.fn(),
+      validateConfig: vi.fn().mockReturnValue({ model: 'whisper', uri: TEST_TARGET_URI }),
+      getScopeForModel: vi.fn().mockReturnValue(COGNITIVE_SERVICES_SCOPE),
       transcribe: vi.fn().mockResolvedValue('Test transcription result')
+    };
+    mockAuthenticationReadiness = {
+      ensureTokenReady: vi.fn().mockResolvedValue(AUTHENTICATION_STATES.READY)
     };
 
     permissionManager = new PermissionManager();
 
-    audioHandler = new AudioHandler(mockApiClient, mockSettings);
+    audioHandler = new AudioHandler(mockApiClient, mockSettings, mockAuthenticationReadiness);
     audioHandler.permissionManager = permissionManager;
 
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
@@ -865,7 +885,7 @@ describe('Error Recovery Scenarios', () => {
       );
     });
 
-    it('should recover from API authentication errors', async () => {
+    it('should report safe authentication errors', async () => {
       navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
 
       const mockMediaRecorder = {
@@ -883,7 +903,9 @@ describe('Error Recovery Scenarios', () => {
       };
       global.MediaRecorder = vi.fn(() => mockMediaRecorder);
 
-      mockApiClient.transcribe.mockRejectedValueOnce(new Error('Invalid API key'));
+      const authenticationError = new Error(MESSAGES.AUTHENTICATION_REQUIRED);
+      authenticationError.code = API_ERROR_CODES.AUTHENTICATION_REQUIRED;
+      mockApiClient.transcribe.mockRejectedValueOnce(authenticationError);
 
       await audioHandler.startRecordingFlow();
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
@@ -895,7 +917,10 @@ describe('Error Recovery Scenarios', () => {
 
       expect(eventBusEmitSpy).toHaveBeenCalledWith(
         APP_EVENTS.UI_STATUS_UPDATE,
-        expect.objectContaining({ message: expect.stringContaining('Invalid API key'), type: 'error' })
+        expect.objectContaining({
+          message: expect.stringContaining(MESSAGES.AUTHENTICATION_REQUIRED),
+          type: 'error'
+        })
       );
 
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
@@ -959,15 +984,15 @@ describe('Error Recovery Scenarios', () => {
 
     it('should automatically open settings modal when API configuration is missing', async () => {
       mockApiClient.validateConfig.mockImplementationOnce(() => {
-        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'apiKey' });
-        throw new Error('API key is required');
+        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri' });
+        throw new Error(MESSAGES.URI_REQUIRED);
       });
 
       await audioHandler.startRecordingFlow();
 
       expect(eventBusEmitSpy).toHaveBeenCalledWith(
         APP_EVENTS.API_CONFIG_MISSING,
-        expect.objectContaining({ missing: 'apiKey' })
+        expect.objectContaining({ missing: 'uri' })
       );
 
       expect(mockSettings.openSettingsModal).toHaveBeenCalled();
@@ -982,7 +1007,7 @@ describe('Error Recovery Scenarios', () => {
 
     it('should recover after fixing configuration', async () => {
       mockApiClient.validateConfig.mockImplementationOnce(() => {
-        throw new Error('API key is required');
+        throw new Error(MESSAGES.URI_REQUIRED);
       });
 
       await audioHandler.startRecordingFlow();
@@ -990,7 +1015,10 @@ describe('Error Recovery Scenarios', () => {
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
 
       // Fix configuration — next attempt should succeed
-      mockApiClient.validateConfig.mockImplementationOnce(() => true);
+      mockApiClient.validateConfig.mockImplementationOnce(() => ({
+        model: 'whisper',
+        uri: TEST_TARGET_URI
+      }));
 
       navigator.mediaDevices.getUserMedia.mockResolvedValueOnce(mockStream);
 
@@ -1041,7 +1069,10 @@ describe('Error Recovery Scenarios', () => {
       };
       global.MediaRecorder = vi.fn(() => mockMediaRecorder);
 
-      mockApiClient.validateConfig.mockImplementationOnce(() => true);
+      mockApiClient.validateConfig.mockImplementationOnce(() => ({
+        model: 'whisper',
+        uri: TEST_TARGET_URI
+      }));
       await audioHandler.startRecordingFlow();
 
       expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);

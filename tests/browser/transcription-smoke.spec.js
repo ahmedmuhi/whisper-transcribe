@@ -7,14 +7,32 @@ import { expect, test } from '@playwright/test';
 const appOrigin = 'http://127.0.0.1:4173';
 const endpoint = 'https://127.0.0.1:4174/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
 const observationsUrl = `${appOrigin}/__browser-test__/api-observations`;
+const fakeToken = 'deterministic-test-token';
 
 test('records, converts, transcribes, and restores a transcript', async ({ page }) => {
-    await page.addInitScript(({ transcriptionEndpoint }) => {
+    await page.addInitScript(({ transcriptionEndpoint, tokenMarker }) => {
+        const legacyNames = [
+            ['whisper', 'api', 'key'].join('_'),
+            ['mai', 'transcribe', 'api', 'key'].join('_')
+        ];
+        const legacyReads = [];
+        const legacyRemovals = [];
+        const originalGetItem = Storage.prototype.getItem;
+        const originalRemoveItem = Storage.prototype.removeItem;
+        Storage.prototype.getItem = function getItem(name) {
+            if (legacyNames.includes(name)) legacyReads.push(name);
+            return originalGetItem.call(this, name);
+        };
+        Storage.prototype.removeItem = function removeItem(name) {
+            if (legacyNames.includes(name)) legacyRemovals.push(name);
+            return originalRemoveItem.call(this, name);
+        };
+        globalThis.__browserTestSecurity = { legacyNames, legacyReads, legacyRemovals, tokenMarker };
+        for (const name of legacyNames) localStorage.setItem(name, 'fake-legacy-value');
         localStorage.setItem('transcription_model', 'mai-transcribe-1.5');
         localStorage.setItem('mai_transcribe_uri', transcriptionEndpoint);
-        localStorage.setItem('mai_transcribe_api_key', 'e2e-test-key');
         localStorage.setItem('recording_environment', 'quiet');
-    }, { transcriptionEndpoint: endpoint });
+    }, { transcriptionEndpoint: endpoint, tokenMarker: fakeToken });
 
     const resetResponse = await fetch(`${appOrigin}/__browser-test__/reset`, { method: 'POST' });
     expect(resetResponse.ok).toBe(true);
@@ -75,7 +93,8 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
 
     expect(request.method()).toBe('POST');
     expect(request.url()).toBe(endpoint);
-    expect(request.headers()['ocp-apim-subscription-key']).toBe('e2e-test-key');
+    expect(request.headers().authorization).toBe(`Bearer ${fakeToken}`);
+    expect(Object.keys(request.headers()).filter(name => /subscription|api.?key/i.test(name))).toEqual([]);
     expect(request.headers()['content-type']).toMatch(/^multipart\/form-data;\s*boundary=/);
 
     const observations = await fetchObservations();
@@ -84,8 +103,9 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
     expect(observations.postCount).toBe(1);
     expect(observations.preflightHeaders['access-control-request-method']).toBe('POST');
     expect(observations.preflightHeaders['access-control-request-headers'])
-        .toContain('ocp-apim-subscription-key');
-    expect(observations.postHeaders['ocp-apim-subscription-key']).toBe('e2e-test-key');
+        .toContain('authorization');
+    expect(observations.postHeaders.authorization).toBe(`Bearer ${fakeToken}`);
+    expect(Object.keys(observations.postHeaders).filter(name => /subscription|api.?key/i.test(name))).toEqual([]);
     expect(observations.postHeaders['content-type']).toMatch(/^multipart\/form-data;\s*boundary=/);
     expect(observations.postBodyBase64).not.toBe('');
 
@@ -124,6 +144,26 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
     ));
     expect(storedTranscript.text).toBe('Browser smoke transcript');
     expect(storedTranscript.savedAt).toEqual(expect.any(Number));
+
+    const securityObservations = await page.evaluate(() => {
+        const storageEntries = Object.entries(localStorage);
+        return {
+            legacyNames: globalThis.__browserTestSecurity.legacyNames,
+            legacyReads: globalThis.__browserTestSecurity.legacyReads,
+            legacyRemovals: globalThis.__browserTestSecurity.legacyRemovals,
+            retainedLegacyValues: globalThis.__browserTestSecurity.legacyNames
+                .filter(name => Object.prototype.hasOwnProperty.call(localStorage, name)),
+            cachedAuthEntries: storageEntries.filter(([name, value]) =>
+                name.startsWith('msal.') || value.includes(globalThis.__browserTestSecurity.tokenMarker)
+            )
+        };
+    });
+    expect(securityObservations.legacyReads).toEqual([]);
+    expect(securityObservations.legacyRemovals.sort()).toEqual(
+        [...securityObservations.legacyNames].sort()
+    );
+    expect(securityObservations.retainedLegacyValues).toEqual([]);
+    expect(securityObservations.cachedAuthEntries).toEqual([]);
 
     await page.reload();
     await expect(primary).toBeEnabled();

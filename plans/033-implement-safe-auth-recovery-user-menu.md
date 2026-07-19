@@ -1,6 +1,6 @@
 # Plan 033: Implement authentication-safe recording recovery and the unified User menu
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -491,7 +491,7 @@ named unit-test fixtures, never production/browser-test output.
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plans 031/032 are incomplete or expose a materially different auth/readiness interface.
 - Safe recovery requires AudioHandler to receive a token or User-menu code to import MSAL.
 - Browser download completion would have to be guessed to trigger an automatic redirect.

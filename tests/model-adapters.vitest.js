@@ -1,9 +1,10 @@
 /**
- * @fileoverview Tests for AzureAPIClient model adapter delegation and real adapter behavior.
+ * @fileoverview Tests for keyless model adapter delegation and request behavior.
  */
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     API_PARAMS,
     DEFAULT_FILENAME,
@@ -16,10 +17,13 @@ import {
     STORAGE_KEYS,
     WHISPER_MAX_UPLOAD_BYTES
 } from '../js/constants.js';
+import { COGNITIVE_SERVICES_SCOPE } from '../js/authentication-config.js';
 import { convertToWav } from '../js/audio-converter.js';
 import { APP_EVENTS, eventBus } from '../js/event-bus.js';
 import { modelAdapterRegistry } from '../js/model-adapters/index.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
+
+const FAKE_TOKEN = 'fake-adapter-bearer-token';
 
 vi.mock('../js/audio-converter.js', () => ({
     convertToWav: vi.fn(async (blob) => new Blob([blob], { type: 'audio/wav' }))
@@ -58,11 +62,20 @@ function createSettings(model, overrides = {}) {
     return {
         getModelConfig: vi.fn(() => ({
             model,
-            apiKey: 'test-api-key',
-            uri: 'https://test-api.azure.com',
+            uri: 'https://target.invalid/transcribe',
             ...overrides
         }))
     };
+}
+
+function createTokenProvider() {
+    return Object.freeze({
+        getToken: vi.fn().mockResolvedValue(FAKE_TOKEN)
+    });
+}
+
+function createApiClient(settings, registry = modelAdapterRegistry) {
+    return new AzureAPIClient(settings, createTokenProvider(), registry);
 }
 
 function mockJsonResponse(data) {
@@ -87,8 +100,8 @@ function getFetchOptions() {
     return globalThis.fetch.mock.calls[0][1];
 }
 
-function getFormEntry(key) {
-    return getFetchOptions().body.appended.find(entry => entry.key === key);
+function getFormEntry(name) {
+    return getFetchOptions().body.appended.find(entry => entry.key === name);
 }
 
 function createBlobWithStubbedSize(size, type = 'audio/webm') {
@@ -113,92 +126,81 @@ describe('AzureAPIClient model adapter registry', () => {
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
     });
 
-    it('requires complete credential storage metadata for every registered adapter', () => {
+    it('registers exactly two immutable, credential-blind model adapters', () => {
+        expect([...modelAdapterRegistry.keys()]).toEqual([
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            MODEL_TYPES.WHISPER
+        ]);
+
         for (const [model, adapter] of modelAdapterRegistry) {
+            expect(Object.isFrozen(adapter)).toBe(true);
             expect(adapter.id).toBe(model);
-            expect(adapter.storageKeys).toEqual(expect.objectContaining({
-                apiKey: expect.any(String),
-                uri: expect.any(String)
-            }));
-            expect(adapter.storageKeys.apiKey).not.toBe('');
-            expect(adapter.storageKeys.uri).not.toBe('');
+            expect(adapter.scope).toBe(COGNITIVE_SERVICES_SCOPE);
+            expect(Object.isFrozen(adapter.storageKeys)).toBe(true);
+            expect(Object.keys(adapter.storageKeys)).toEqual(['uri']);
         }
 
         expect(modelAdapterRegistry.get(MODEL_TYPES.WHISPER).storageKeys).toEqual({
-            apiKey: STORAGE_KEYS.WHISPER_API_KEY,
-            uri: STORAGE_KEYS.WHISPER_URI
-        });
-        expect(modelAdapterRegistry.get(MODEL_TYPES.WHISPER_TRANSLATE).storageKeys).toEqual({
-            apiKey: STORAGE_KEYS.WHISPER_API_KEY,
             uri: STORAGE_KEYS.WHISPER_URI
         });
         expect(modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5).storageKeys).toEqual({
-            apiKey: STORAGE_KEYS.MAI_TRANSCRIBE_API_KEY,
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
         });
     });
 
-    it('looks up the active model and routes request-building and parsing through the adapter', async () => {
+    it('routes request building and parsing through the active adapter', async () => {
         const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
         const onProgress = vi.fn();
-        const fakeAdapter = {
+        const fakeAdapter = Object.freeze({
             id: 'fake-model',
             label: 'Fake Model',
-            storageKeys: {
-                apiKey: 'fake_api_key',
-                uri: 'fake_uri'
-            },
+            scope: COGNITIVE_SERVICES_SCOPE,
+            storageKeys: Object.freeze({ uri: 'fake_uri' }),
             buildRequest: vi.fn(async () => ({
-                headers: { 'fake-header': 'fake-api-key' },
                 body: 'fake-body',
                 statusMessage: 'Sending to fake model...'
             })),
             parseResponse: vi.fn(() => 'fake transcript')
-        };
+        });
         const fakeRegistry = new Map([[fakeAdapter.id, fakeAdapter]]);
         vi.spyOn(fakeRegistry, 'get');
-        const settings = createSettings('fake-model', { apiKey: 'fake-api-key' });
-        const apiClient = new AzureAPIClient(settings, fakeRegistry);
+        const settings = createSettings('fake-model');
+        const apiClient = createApiClient(settings, fakeRegistry);
         mockJsonResponse({ fake: 'response' });
 
-        const result = await apiClient.transcribe(audioBlob, onProgress);
+        await expect(apiClient.transcribe(audioBlob, onProgress)).resolves.toBe('fake transcript');
 
-        expect(result).toBe('fake transcript');
         expect(fakeRegistry.get).toHaveBeenCalledWith('fake-model');
         expect(fakeAdapter.buildRequest).toHaveBeenCalledWith(
             audioBlob,
-            expect.objectContaining({
+            {
                 model: 'fake-model',
-                apiKey: 'fake-api-key',
-                uri: 'https://test-api.azure.com'
-            }),
+                uri: 'https://target.invalid/transcribe'
+            },
             onProgress
         );
         expect(globalThis.fetch).toHaveBeenCalledWith(
-            'https://test-api.azure.com',
+            'https://target.invalid/transcribe',
             expect.objectContaining({
-                headers: { 'fake-header': 'fake-api-key' },
+                headers: { Authorization: `Bearer ${FAKE_TOKEN}` },
                 body: 'fake-body'
             })
         );
         expect(fakeAdapter.parseResponse).toHaveBeenCalledWith({ fake: 'response' });
 
-        const parsed = apiClient.parseResponse({ direct: 'response' });
-        expect(parsed).toBe('fake transcript');
+        expect(apiClient.parseResponse({ direct: 'response' })).toBe('fake transcript');
         expect(fakeAdapter.parseResponse).toHaveBeenCalledWith({ direct: 'response' });
     });
 
     it('keeps the existing Whisper request and parsed text behavior', async () => {
-        const settings = createSettings(MODEL_TYPES.WHISPER);
-        const apiClient = new AzureAPIClient(settings);
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
         const onProgress = vi.fn();
         const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
         mockTextResponse(' Whisper text ');
 
-        const result = await apiClient.transcribe(audioBlob, onProgress);
+        await expect(apiClient.transcribe(audioBlob, onProgress)).resolves.toBe('Whisper text');
 
-        expect(result).toBe('Whisper text');
-        expect(getFetchOptions().headers).toEqual({ [API_PARAMS.API_KEY_HEADER]: 'test-api-key' });
+        expect(getFetchOptions().headers).toEqual({ Authorization: `Bearer ${FAKE_TOKEN}` });
         expect(getFormEntry(API_PARAMS.FILE)).toEqual({
             key: API_PARAMS.FILE,
             value: audioBlob,
@@ -223,8 +225,7 @@ describe('AzureAPIClient model adapter registry', () => {
     });
 
     it('keeps public parseResponse shape-sniffing regardless of active model', () => {
-        const settings = createSettings(MODEL_TYPES.WHISPER);
-        const apiClient = new AzureAPIClient(settings);
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
 
         expect(apiClient.parseResponse({
             combinedPhrases: [{ text: 'From combinedPhrases' }],
@@ -233,23 +234,25 @@ describe('AzureAPIClient model adapter registry', () => {
     });
 
     it('emits API_REQUEST_ERROR when delegated response parsing fails', async () => {
-        const settings = createSettings(MODEL_TYPES.WHISPER);
-        const apiClient = new AzureAPIClient(settings);
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
         mockJsonResponse({ unexpected: 'format' });
 
-        await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/webm' }))).rejects.toThrow(MESSAGES.UNKNOWN_API_RESPONSE);
+        await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/webm' })))
+            .rejects.toThrow(MESSAGES.UNKNOWN_API_RESPONSE);
 
-        const errorEvents = eventBusEmitSpy.mock.calls.filter(
+        expect(eventBusEmitSpy.mock.calls.filter(
             ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
-        );
-        expect(errorEvents).toEqual([[APP_EVENTS.API_REQUEST_ERROR, {
+        )).toEqual([[APP_EVENTS.API_REQUEST_ERROR, {
             error: MESSAGES.UNKNOWN_API_RESPONSE
         }]]);
     });
 
-    it('emits one structured lifecycle when a retryable request succeeds', async () => {
-        const settings = createSettings(MODEL_TYPES.WHISPER);
-        const apiClient = new AzureAPIClient(settings);
+    it('emits one lifecycle and reuses one token when a retryable request succeeds', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(
+            createSettings(MODEL_TYPES.WHISPER),
+            tokenProvider
+        );
         const onProgress = vi.fn();
         apiClient._sleep = vi.fn().mockResolvedValue();
         globalThis.fetch
@@ -257,7 +260,7 @@ describe('AzureAPIClient model adapter registry', () => {
                 ok: false,
                 status: 429,
                 headers: { get: vi.fn().mockReturnValue(null) },
-                text: vi.fn().mockResolvedValue('Too many requests')
+                text: vi.fn().mockResolvedValue('fake throttled response')
             })
             .mockResolvedValueOnce({
                 ok: true,
@@ -269,6 +272,7 @@ describe('AzureAPIClient model adapter registry', () => {
         await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/webm' }), onProgress))
             .resolves.toBe('Retried transcription');
 
+        expect(tokenProvider.getToken).toHaveBeenCalledTimes(1);
         expect(eventBusEmitSpy.mock.calls.filter(
             ([event]) => event === APP_EVENTS.API_REQUEST_START
         )).toEqual([[APP_EVENTS.API_REQUEST_START, {
@@ -277,49 +281,15 @@ describe('AzureAPIClient model adapter registry', () => {
         }]]);
         expect(eventBusEmitSpy.mock.calls.filter(
             ([event]) => event === APP_EVENTS.API_REQUEST_SUCCESS
-        )).toEqual([[APP_EVENTS.API_REQUEST_SUCCESS, {
-            model: MODEL_TYPES.WHISPER,
-            transcriptionLength: 'Retried transcription'.length
-        }]]);
+        )).toHaveLength(1);
         expect(eventBusEmitSpy.mock.calls.filter(
             ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
         )).toEqual([]);
     });
 
-    it('keeps the existing Whisper Translate request and parsed text behavior', async () => {
-        const settings = createSettings(MODEL_TYPES.WHISPER_TRANSLATE);
-        const apiClient = new AzureAPIClient(settings);
-        const onProgress = vi.fn();
-        const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
-        mockJsonResponse({ text: 'Translated text' });
-
-        const result = await apiClient.transcribe(audioBlob, onProgress);
-
-        expect(result).toBe('Translated text');
-        expect(getFetchOptions().headers).toEqual({ [API_PARAMS.API_KEY_HEADER]: 'test-api-key' });
-        expect(getFormEntry(API_PARAMS.FILE)).toEqual({
-            key: API_PARAMS.FILE,
-            value: audioBlob,
-            filename: DEFAULT_FILENAME
-        });
-        expect(getFormEntry(API_PARAMS.LANGUAGE)).toBeUndefined();
-        expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_WHISPER);
-        expect(convertToWav).not.toHaveBeenCalled();
-        expect(apiClient.parseResponse(' Translated plain text ')).toBe('Translated plain text');
-    });
-
-    it.each([
-        [MODEL_TYPES.WHISPER, 'Azure Whisper'],
-        [MODEL_TYPES.WHISPER_TRANSLATE, 'Azure Whisper Translate']
-    ])('accepts %s audio below and at the 25 MB upload limit', async (model) => {
-        const settings = createSettings(model);
-        const apiClient = new AzureAPIClient(settings);
-
-        if (model === MODEL_TYPES.WHISPER) {
-            mockTextResponse('Whisper text');
-        } else {
-            mockJsonResponse({ text: 'Translated text' });
-        }
+    it('accepts Whisper audio below and at the 25 MB upload limit', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
+        mockTextResponse('Whisper text');
 
         await apiClient.transcribe(createBlobWithStubbedSize(WHISPER_MAX_UPLOAD_BYTES - 1));
         await apiClient.transcribe(createBlobWithStubbedSize(WHISPER_MAX_UPLOAD_BYTES));
@@ -328,42 +298,31 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(globalThis.FormData).toHaveBeenCalledTimes(2);
     });
 
-    it.each([
-        [MODEL_TYPES.WHISPER, 'Azure Whisper'],
-        [MODEL_TYPES.WHISPER_TRANSLATE, 'Azure Whisper Translate']
-    ])('rejects %s audio one byte above the 25 MB upload limit before request construction', async (model, label) => {
-        const settings = createSettings(model);
-        const apiClient = new AzureAPIClient(settings);
+    it('rejects Whisper audio one byte above the 25 MB limit before token acquisition', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(createSettings(MODEL_TYPES.WHISPER), tokenProvider);
 
         await expect(apiClient.transcribe(
             createBlobWithStubbedSize(WHISPER_MAX_UPLOAD_BYTES + 1)
         )).rejects.toMatchObject({
             code: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
             retryable: false,
-            message: formatAudioUploadLimitMessage(label, 'up to 25 MB')
+            message: formatAudioUploadLimitMessage('Azure Whisper', 'up to 25 MB')
         });
 
         expect(globalThis.FormData).not.toHaveBeenCalled();
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
         expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
     it.each([
-        [MODEL_TYPES.WHISPER, 'audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
-        [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
-        [MODEL_TYPES.WHISPER, 'audio/x-m4a', 'recording.m4a'],
-        [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/x-m4a', 'recording.m4a'],
-        [MODEL_TYPES.WHISPER, 'audio/wav', 'recording.wav'],
-        [MODEL_TYPES.WHISPER_TRANSLATE, 'audio/wav', 'recording.wav']
-    ])('uploads %s audio with a filename matching %s', async (model, mimeType, filename) => {
-        const settings = createSettings(model);
-        const apiClient = new AzureAPIClient(settings);
+        ['audio/mp4; codecs=mp4a.40.2', 'recording.mp4'],
+        ['audio/x-m4a', 'recording.m4a'],
+        ['audio/wav', 'recording.wav']
+    ])('uploads Whisper %s audio with filename %s', async (mimeType, filename) => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
         const audioBlob = new Blob(['audio'], { type: mimeType });
-
-        if (model === MODEL_TYPES.WHISPER) {
-            mockTextResponse('Whisper text');
-        } else {
-            mockJsonResponse({ text: 'Translated text' });
-        }
+        mockTextResponse('Whisper text');
 
         await apiClient.transcribe(audioBlob);
 
@@ -372,50 +331,63 @@ describe('AzureAPIClient model adapter registry', () => {
             value: audioBlob,
             filename
         });
-        expect(getFormEntry(API_PARAMS.FILE).value.type).toBe(mimeType);
     });
 
-    it.each([MODEL_TYPES.WHISPER, MODEL_TYPES.WHISPER_TRANSLATE])(
-        'uses the WebM fallback filename only when %s audio has no MIME type',
-        async (model) => {
-            const settings = createSettings(model);
-            const apiClient = new AzureAPIClient(settings);
-            const audioBlob = new Blob(['audio']);
+    it('uses the WebM fallback filename when Whisper audio has no MIME type', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
+        const audioBlob = new Blob(['audio']);
+        mockTextResponse('Whisper text');
 
-            if (model === MODEL_TYPES.WHISPER) {
-                mockTextResponse('Whisper text');
-            } else {
-                mockJsonResponse({ text: 'Translated text' });
-            }
+        await apiClient.transcribe(audioBlob);
 
-            await apiClient.transcribe(audioBlob);
+        expect(getFormEntry(API_PARAMS.FILE)).toEqual({
+            key: API_PARAMS.FILE,
+            value: audioBlob,
+            filename: DEFAULT_FILENAME
+        });
+    });
 
-            expect(getFormEntry(API_PARAMS.FILE)).toEqual({
-                key: API_PARAMS.FILE,
-                value: audioBlob,
-                filename: DEFAULT_FILENAME
-            });
-        }
-    );
+    it('uses extension fallback for an empty-MIME local File without sending its local name', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
+        const audioFile = new File(['deterministic-placeholder'], 'local-choice.mp3');
+        mockTextResponse('Whisper text');
 
-    it.each([MODEL_TYPES.WHISPER, MODEL_TYPES.WHISPER_TRANSLATE])(
-        'rejects unsupported %s audio before fetch',
-        async (model) => {
-            const settings = createSettings(model);
-            const apiClient = new AzureAPIClient(settings);
-            const audioBlob = new Blob(['audio'], { type: 'audio/ogg' });
+        await apiClient.transcribe(audioFile);
 
-            await expect(apiClient.transcribe(audioBlob)).rejects.toThrow(
-                'Unsupported audio MIME type for Whisper upload: audio/ogg.'
-            );
+        expect(getFormEntry(API_PARAMS.FILE)).toEqual({
+            key: API_PARAMS.FILE,
+            value: audioFile,
+            filename: 'recording.mp3'
+        });
+    });
 
-            expect(globalThis.fetch).not.toHaveBeenCalled();
-        }
-    );
+    it('rejects unsupported Whisper audio before token acquisition and fetch', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(createSettings(MODEL_TYPES.WHISPER), tokenProvider);
+
+        await expect(apiClient.transcribe(new Blob(['audio'], { type: 'audio/ogg' })))
+            .rejects.toThrow('Unsupported audio MIME type for Whisper upload: audio/ogg.');
+
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('rejects a present unsupported MIME even when the local extension is supported', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(createSettings(MODEL_TYPES.WHISPER), tokenProvider);
+        const audioFile = new File(['deterministic-placeholder'], 'conflict.wav', {
+            type: 'audio/ogg'
+        });
+
+        await expect(apiClient.transcribe(audioFile)).rejects.toMatchObject({
+            code: AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE
+        });
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
 
     it('keeps the existing MAI-Transcribe request and parsed text behavior', async () => {
-        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-        const apiClient = new AzureAPIClient(settings);
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5));
         const onProgress = vi.fn();
         const audioBlob = new Blob(['captured audio'], { type: 'audio/mp4' });
         mockJsonResponse({
@@ -426,10 +398,10 @@ describe('AzureAPIClient model adapter registry', () => {
             phrases: []
         });
 
-        const result = await apiClient.transcribe(audioBlob, onProgress);
+        await expect(apiClient.transcribe(audioBlob, onProgress))
+            .resolves.toBe('First segment. Second segment.');
 
-        expect(result).toBe('First segment. Second segment.');
-        expect(getFetchOptions().headers).toEqual({ [API_PARAMS.MAI_API_KEY_HEADER]: 'test-api-key' });
+        expect(getFetchOptions().headers).toEqual({ Authorization: `Bearer ${FAKE_TOKEN}` });
         expect(getFormEntry(API_PARAMS.MAI_AUDIO_FIELD)).toEqual({
             key: API_PARAMS.MAI_AUDIO_FIELD,
             value: expect.objectContaining({ type: 'audio/wav' }),
@@ -444,7 +416,6 @@ describe('AzureAPIClient model adapter registry', () => {
         });
         expect(getFormEntry(API_PARAMS.FILE)).toBeUndefined();
         expect(getFormEntry(API_PARAMS.LANGUAGE)).toBeUndefined();
-        expect(audioBlob.type).toBe('audio/mp4');
         expect(convertToWav).toHaveBeenCalledWith(audioBlob);
         expect(onProgress).toHaveBeenCalledWith(MESSAGES.CONVERTING_AUDIO);
         expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
@@ -454,9 +425,26 @@ describe('AzureAPIClient model adapter registry', () => {
         })).toBe('Combined output.');
     });
 
+    it('rejects unsupported local audio before MAI conversion or fetch', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(
+            createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5),
+            tokenProvider
+        );
+        const audioFile = new File(['deterministic-placeholder'], 'unsupported.ogg', {
+            type: 'audio/ogg'
+        });
+
+        await expect(apiClient.transcribe(audioFile)).rejects.toMatchObject({
+            code: AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE
+        });
+        expect(convertToWav).not.toHaveBeenCalled();
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
     it('accepts MAI audio at the strict less-than-300-MB boundary after conversion', async () => {
-        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-        const apiClient = new AzureAPIClient(settings);
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5));
         const sourceBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1);
         const wavBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES, 'audio/wav');
         convertToWav.mockResolvedValueOnce(wavBlob);
@@ -473,11 +461,17 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('rejects an oversized MAI WAV after conversion and before request construction', async () => {
-        const settings = createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-        const apiClient = new AzureAPIClient(settings);
+    it('rejects an oversized MAI WAV before token acquisition and request construction', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(
+            createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5),
+            tokenProvider
+        );
         const sourceBlob = createBlobWithStubbedSize(1);
-        const oversizedWavBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1, 'audio/wav');
+        const oversizedWavBlob = createBlobWithStubbedSize(
+            MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1,
+            'audio/wav'
+        );
         convertToWav.mockResolvedValueOnce(oversizedWavBlob);
 
         await expect(apiClient.transcribe(sourceBlob)).rejects.toMatchObject({
@@ -488,7 +482,7 @@ describe('AzureAPIClient model adapter registry', () => {
 
         expect(convertToWav).toHaveBeenCalledWith(sourceBlob);
         expect(globalThis.FormData).not.toHaveBeenCalled();
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
         expect(globalThis.fetch).not.toHaveBeenCalled();
     });
-
 });

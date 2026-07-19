@@ -1,6 +1,6 @@
 # Plan 034: Add Selected Audio upload, validation, review, and transcription
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -482,7 +482,7 @@ Expected: all gates pass; no persistence or rejected terminology/extra success U
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plans 031–033 are incomplete or their API/auth/navigation-safety boundaries differ materially.
 - File support or a size limit cannot be derived from the retained model adapters
   without duplicating/contradicting their authoritative validation.

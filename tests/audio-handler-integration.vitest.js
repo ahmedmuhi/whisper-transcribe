@@ -4,6 +4,12 @@
  */
 
 import { vi } from 'vitest';
+import {
+  API_ERROR_CODES,
+  AUDIO_SAFETY_STATES,
+  AUTHENTICATION_STATES
+} from '../js/constants.js';
+import { COGNITIVE_SERVICES_SCOPE } from '../js/authentication-config.js';
 import { applyDomSpies, resetEventBus } from './helpers/test-dom-vitest.js';
 
 // Backup original mediaDevices API for restoration
@@ -64,6 +70,7 @@ describe('AudioHandler Integration', () => {
   let audioHandler;
   let mockSettings;
   let mockApiClient;
+  let mockAuthenticationReadiness;
   let eventBusEmitSpy;
   let mockMediaRecorder;
   let mediaRecorderEventHandlers;
@@ -127,19 +134,27 @@ describe('AudioHandler Integration', () => {
       getCurrentModel: vi.fn().mockReturnValue('whisper'),
       openSettingsModal: vi.fn(),
       getModelConfig: vi.fn().mockReturnValue({
-        apiKey: 'test-api-key',
-        uri: 'https://test-uri.com'
+        model: 'whisper',
+        uri: 'https://target.invalid/transcribe'
       })
     };
     
     // Create mock API client
     mockApiClient = {
-      validateConfig: vi.fn(),
+      validateConfig: vi.fn().mockReturnValue({
+        model: 'whisper',
+        uri: 'https://target.invalid/transcribe'
+      }),
+      getScopeForModel: vi.fn().mockReturnValue(COGNITIVE_SERVICES_SCOPE),
       transcribe: vi.fn().mockResolvedValue('Test transcription result')
+    };
+
+    mockAuthenticationReadiness = {
+      ensureTokenReady: vi.fn().mockResolvedValue(AUTHENTICATION_STATES.READY)
     };
     
     // Create AudioHandler instance
-    audioHandler = new AudioHandler(mockApiClient, mockSettings);
+    audioHandler = new AudioHandler(mockApiClient, mockSettings, mockAuthenticationReadiness);
     
     // Spy on event bus emissions
     eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
@@ -177,8 +192,157 @@ describe('AudioHandler Integration', () => {
     expect(visualizationStops).toHaveLength(startedVisualization ? 1 : 0);
     expect(recordingTransitions).toHaveLength(startedVisualization ? 1 : 0);
   };
+
+  describe('Authentication readiness gate', () => {
+    it('blocks recording before auth or microphone access while Selected Audio exists', async () => {
+      const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
+      audioHandler.setAudioSourceCoordinator({
+        getAudioSafetyState: vi.fn(() => AUDIO_SAFETY_STATES.SELECTED)
+      });
+
+      await audioHandler.startRecordingFlow();
+
+      expect(mockApiClient.validateConfig).not.toHaveBeenCalled();
+      expect(mockAuthenticationReadiness.ensureTokenReady).not.toHaveBeenCalled();
+      expect(microphoneSpy).not.toHaveBeenCalled();
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        expect.objectContaining({ message: MESSAGES.SELECTED_AUDIO_REQUIRES_REMOVAL })
+      );
+    });
+
+    it.each([
+      AUTHENTICATION_STATES.SIGNED_OUT,
+      AUTHENTICATION_STATES.INTERACTION_REQUIRED,
+      AUTHENTICATION_STATES.CONFIGURATION_ERROR,
+      AUTHENTICATION_STATES.NETWORK_ERROR,
+      AUTHENTICATION_STATES.AUTHENTICATION_ERROR
+    ])('blocks microphone and Azure access for %s', async (state) => {
+      mockAuthenticationReadiness.ensureTokenReady.mockResolvedValueOnce(state);
+      const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
+
+      await audioHandler.startRecordingFlow();
+
+      expect(mockApiClient.getScopeForModel).toHaveBeenCalledWith('whisper');
+      expect(mockAuthenticationReadiness.ensureTokenReady)
+        .toHaveBeenCalledWith(COGNITIVE_SERVICES_SCOPE);
+      expect(microphoneSpy).not.toHaveBeenCalled();
+      expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+      expect(mockApiClient.transcribe).not.toHaveBeenCalled();
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.AUTHENTICATION_STATE_CHANGED,
+        { state }
+      );
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.APP_PREREQUISITES_CHECKED,
+        { ready: false, reason: 'authentication', state }
+      );
+    });
+
+    it('establishes silent readiness before requesting microphone access', async () => {
+      const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
+
+      await audioHandler.startRecordingFlow();
+
+      expect(mockAuthenticationReadiness.ensureTokenReady)
+        .toHaveBeenCalledWith(COGNITIVE_SERVICES_SCOPE);
+      expect(microphoneSpy).toHaveBeenCalledTimes(1);
+      expect(mockAuthenticationReadiness.ensureTokenReady.mock.invocationCallOrder[0])
+        .toBeLessThan(microphoneSpy.mock.invocationCallOrder[0]);
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+    });
+  });
+
+  describe('Authentication navigation audio safety', () => {
+    it('reports active audio throughout the recording lifecycle', () => {
+      const stateSpy = vi.spyOn(audioHandler.stateMachine, 'getState');
+      const activeStates = [
+        RECORDING_STATES.INITIALIZING,
+        RECORDING_STATES.RECORDING,
+        RECORDING_STATES.PAUSED,
+        RECORDING_STATES.CONFIRMING_DISCARD,
+        RECORDING_STATES.STOPPING,
+        RECORDING_STATES.PROCESSING,
+        RECORDING_STATES.CANCELLING
+      ];
+
+      activeStates.forEach((recordingState) => {
+        stateSpy.mockReturnValue(recordingState);
+        expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.ACTIVE);
+      });
+    });
+
+    it('reports an Unsent Recording without exposing its Blob', () => {
+      audioHandler.pendingRetryBlob = new Blob([new Uint8Array([0])], { type: 'audio/webm' });
+      vi.spyOn(audioHandler.stateMachine, 'getState').mockReturnValue(RECORDING_STATES.ERROR);
+
+      const safetyState = audioHandler.getAudioSafetyState();
+
+      expect(safetyState).toBe(AUDIO_SAFETY_STATES.UNSENT);
+      expect(safetyState).not.toBeInstanceOf(Blob);
+    });
+
+    it('reports safe only when no active lifecycle or Unsent Recording exists', () => {
+      vi.spyOn(audioHandler.stateMachine, 'getState').mockReturnValue(RECORDING_STATES.IDLE);
+
+      expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+    });
+
+    it('downloads the Unsent Recording with a container-matching filename and delayed URL revocation', () => {
+      vi.useFakeTimers();
+      const pendingBlob = new Blob([new Uint8Array([0])], { type: 'audio/mp4' });
+      audioHandler.pendingRetryBlob = pendingBlob;
+      const anchor = {
+        href: '',
+        download: '',
+        click: vi.fn(),
+        remove: vi.fn()
+      };
+      const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+      const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture');
+      const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+      expect(audioHandler.downloadUnsentRecording()).toBe(true);
+
+      expect(createElementSpy).toHaveBeenCalledWith('a');
+      expect(createObjectURLSpy).toHaveBeenCalledWith(pendingBlob);
+      expect(anchor.href).toBe('blob:fixture');
+      expect(anchor.download).toBe('recording.mp4');
+      expect(anchor.click).toHaveBeenCalledTimes(1);
+      expect(anchor.remove).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+      expect(audioHandler.pendingRetryBlob).toBe(pendingBlob);
+      expect(audioHandler.wasUnsentRecordingDownloadInitiated()).toBe(true);
+
+      vi.runOnlyPendingTimers();
+      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:fixture');
+      vi.useRealTimers();
+    });
+
+    it('does not create a download when no Unsent Recording exists', () => {
+      const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL');
+
+      expect(audioHandler.downloadUnsentRecording()).toBe(false);
+      expect(createObjectURLSpy).not.toHaveBeenCalled();
+    });
+
+    it('clears only the Unsent Recording when discard is explicitly authorized', () => {
+      audioHandler.pendingRetryBlob = new Blob([new Uint8Array([0])], { type: 'audio/webm' });
+      audioHandler.pendingTranscriptionErrorCode = API_ERROR_CODES.AUTHENTICATION_REQUIRED;
+      audioHandler.audioChunks = [createAudioChunk()];
+
+      expect(audioHandler.discardUnsentRecording()).toBe(true);
+
+      expect(audioHandler.pendingRetryBlob).toBeNull();
+      expect(audioHandler.pendingTranscriptionErrorCode).toBeNull();
+      expect(audioHandler.wasUnsentRecordingDownloadInitiated()).toBe(false);
+      expect(audioHandler.audioChunks).toHaveLength(1);
+    });
+  });
   
   afterEach(() => {
+    vi.useRealTimers();
     // Restore original mediaDevices API
     Object.defineProperty(global.navigator, 'mediaDevices', {
       value: _originalMediaDevices,
@@ -392,8 +556,7 @@ describe('AudioHandler Integration', () => {
     it('emits one structured lifecycle for a successful transcription', async () => {
       mockSettings.getModelConfig.mockReturnValue({
         model: 'whisper',
-        apiKey: 'test-api-key',
-        uri: 'https://test.azure.com'
+        uri: 'https://target.invalid/transcribe'
       });
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -401,7 +564,9 @@ describe('AudioHandler Integration', () => {
         headers: { get: vi.fn().mockReturnValue('text/plain') },
         text: vi.fn().mockResolvedValue('Test transcription result')
       });
-      audioHandler.apiClient = new AzureAPIClient(mockSettings);
+      audioHandler.apiClient = new AzureAPIClient(mockSettings, {
+        getToken: vi.fn().mockResolvedValue('fake-audio-handler-bearer-token')
+      });
       audioHandler.stateMachine.currentState = RECORDING_STATES.STOPPING;
 
       await audioHandler.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
@@ -449,6 +614,48 @@ describe('AudioHandler Integration', () => {
           newState: RECORDING_STATES.ERROR,
           canRetry: false
         })
+      );
+    });
+
+    it.each([
+      [API_ERROR_CODES.AUTHENTICATION_REQUIRED, 401],
+      [API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED, 403]
+    ])('preserves the Unsent Recording without blind retry for %s', async (code, status) => {
+      const requestError = new Error('Safe authentication recovery message');
+      requestError.code = code;
+      requestError.status = status;
+      mockApiClient.transcribe.mockRejectedValueOnce(requestError);
+      audioHandler.audioChunks = [new Uint8Array([1, 2, 3])];
+
+      await audioHandler.processAndSendAudio(mockStream);
+
+      expect(mockApiClient.transcribe).toHaveBeenCalledTimes(1);
+      expect(audioHandler.pendingRetryBlob).toBeInstanceOf(Blob);
+      expect(audioHandler.pendingRetryBlob.size).toBeGreaterThan(0);
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.RECORDING_STATE_CHANGED,
+        expect.objectContaining({
+          newState: RECORDING_STATES.ERROR,
+          canRetry: false,
+          error: 'Safe authentication recovery message'
+        })
+      );
+
+      const unsentRecording = audioHandler.pendingRetryBlob;
+      const microphoneSpy = vi.spyOn(audioHandler.permissionManager, 'requestMicrophoneAccess');
+
+      await audioHandler.startRecordingFlow();
+
+      expect(audioHandler.pendingRetryBlob).toBe(unsentRecording);
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+      expect(mockAuthenticationReadiness.ensureTokenReady).not.toHaveBeenCalled();
+      expect(microphoneSpy).not.toHaveBeenCalled();
+      expect(eventBusEmitSpy).toHaveBeenCalledWith(
+        APP_EVENTS.UI_STATUS_UPDATE,
+        {
+          message: MESSAGES.UNSENT_RECORDING_REQUIRES_RECOVERY,
+          type: 'error'
+        }
       );
     });
 
@@ -516,8 +723,7 @@ describe('AudioHandler Integration', () => {
     it('emits one structured lifecycle for each user-initiated retry', async () => {
       mockSettings.getModelConfig.mockReturnValue({
         model: 'whisper',
-        apiKey: 'test-api-key',
-        uri: 'https://test.azure.com'
+        uri: 'https://target.invalid/transcribe'
       });
       globalThis.fetch = vi.fn()
         .mockResolvedValueOnce({
@@ -532,7 +738,9 @@ describe('AudioHandler Integration', () => {
           headers: { get: vi.fn().mockReturnValue('text/plain') },
           text: vi.fn().mockResolvedValue('Recovered transcription')
         });
-      audioHandler.apiClient = new AzureAPIClient(mockSettings);
+      audioHandler.apiClient = new AzureAPIClient(mockSettings, {
+        getToken: vi.fn().mockResolvedValue('fake-audio-handler-bearer-token')
+      });
       audioHandler.audioChunks = [new Uint8Array([1, 2, 3])];
       audioHandler.stateMachine.currentState = RECORDING_STATES.PROCESSING;
 
@@ -760,8 +968,7 @@ describe('AudioHandler Integration', () => {
     it('should NOT emit API_REQUEST_ERROR from audio handler (Issue 2 regression guard)', async () => {
       mockSettings.getModelConfig.mockReturnValue({
         model: 'whisper',
-        apiKey: 'test-key',
-        uri: 'https://test.azure.com'
+        uri: 'https://target.invalid/transcribe'
       });
       mockApiClient.transcribe.mockRejectedValue(new Error('Transcription failed'));
 
@@ -811,15 +1018,21 @@ describe('AudioHandler Integration', () => {
     });
   });
 
+  describe('Target URI recovery', () => {
+    it('opens Settings when runtime validation reports a missing Target URI', () => {
+      eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri' });
+
+      expect(mockSettings.openSettingsModal).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Lifecycle — destroy()', () => {
     it('should unsubscribe all event bus listeners', () => {
-      // 4 original listeners (CANCEL_BUTTON_CLICKED retired) + 3 discard-flow listeners
       expect(audioHandler._unsubscribers.length).toBe(7);
 
       audioHandler.destroy();
 
       expect(audioHandler._unsubscribers).toEqual([]);
-      // Verify the API_CONFIG_MISSING listener was removed
       expect(eventBus.events.has(APP_EVENTS.API_CONFIG_MISSING)).toBe(false);
     });
 

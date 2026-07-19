@@ -1,6 +1,6 @@
 # Plan 035: Migrate the live two-model Azure contract to a least-privilege GitHub OIDC identity
 
-> **Required executor profile**: use `gpt-5.6-terra` with **high** reasoning
+> **Required executor profile**: use `gpt-5.6-sol` with **extra-high (`xhigh`)** reasoning
 > effort. If that exact model/effort combination is unavailable, STOP and ask
 > the User whether to substitute; do not silently use another executor.
 >
@@ -126,8 +126,9 @@ need a management-plane Reader assignment merely to establish CLI context.
 
 ### Live evidence stages
 
-1. Before data-plane roles: authenticate by OIDC and make authorization-only,
-   no-audio probes; require genuine HTTP 403 for both endpoints.
+1. Before data-plane roles: authenticate by OIDC, validate the protected token
+   contract in-process, and make authorization-only, no-audio probes; require a
+   genuine service denial (HTTP 401 or 403) for both endpoints.
 2. Human owner assigns the two narrow roles at their individual resources.
 3. Run exactly one harmless transcription through each retained model, with no
    Playwright retries. Record sanitized pass/fail, status class, workflow URL,
@@ -171,7 +172,7 @@ need a management-plane Reader assignment merely to establish CLI context.
 - `vite.config.js` (OIDC-live build alias only)
 - `tests/browser-live/live-azure.contract.spec.js`
 - `tests/browser-live/authorization-probe.contract.spec.js` (create if keeping
-  no-audio 403 evidence separate improves safety)
+  no-audio authorization-denial evidence separate improves safety)
 - `tests/browser-live/oidc-authentication-factory.js` (create; live-test build only)
 - `tests/browser-live/fixtures/spoken-phrase.wav` (reuse unchanged)
 - `tests/live-contract-hygiene.vitest.js` (create for workflow/source scans)
@@ -180,7 +181,7 @@ need a management-plane Reader assignment merely to establish CLI context.
 
 - Create one Entra workload app/service principal and one federated credential.
 - Add protected environment identifier/Target URI values without printing them.
-- Run the pre-role 403 workflow stage.
+- Run the pre-role token-validated authorization-denial workflow stage.
 - Assign the two named resource-scoped data-plane roles.
 - Run two potentially billable transcription calls.
 - Delete the legacy GitHub environment API-key secret after proof.
@@ -365,22 +366,29 @@ Federated login succeeds; no client credential exists; zero Azure RBAC roles are
 
 Do not paste command output into the issue.
 
-### Step 6: Approval checkpoint — prove genuine pre-role HTTP 403
+### Step 6: Approval checkpoint — prove genuine pre-role authorization denial
 
 Request approval to dispatch the `authorization-probe` stage. It obtains a real
 OIDC token and sends an authorization-only POST without audio to each endpoint.
-Require browser/process-readable HTTP 403 for both. A 400 means authorization
-was accepted and the probe is invalid; a 401 means token/audience/federation is
-wrong. Stop on either rather than relabeling it.
+Before either POST, validate in-process without logging that the token is
+current and its audience, tenant, and workload client claims match the protected
+contract. Then require browser/process-readable HTTP 401 or 403 for both. Azure
+documents that `401 Principal does not have access to API/Operation` can mean
+authentication is correct but the principal lacks data-plane permission. A 401
+is therefore evidence only after the token contract passes. A 400 means
+authorization was accepted and the probe is invalid; every other status stops
+the sequence.
+
+Reference: [Microsoft Entra keyless authentication troubleshooting](https://learn.microsoft.com/en-us/azure/ai-foundry/model-inference/how-to/configure-entra-id?pivots=ai-foundry-portal&tabs=rest).
 
 The workflow must suppress response bodies and endpoint values. Record only:
 
 ```text
-candidate SHA | workflow URL | date | Whisper HTTP 403 | MAI HTTP 403
+candidate SHA | workflow URL | date | Whisper denial status | MAI denial status
 ```
 
 **Verify**: the protected workflow completes its expected-denial stage with two
-403 statuses and zero audio/transcription call.
+token-validated 401/403 statuses and zero audio/transcription call.
 
 ### Step 7: Approval checkpoint — assign exactly two narrow roles
 
@@ -449,7 +457,8 @@ protected inputs.
 - Production-bundle scan proving the OIDC live provider/token markers are absent.
 - Local absent-config run proving zero fetch and no fallback.
 - Test-build-only Playwright contract for both production adapters.
-- One real pre-role 403 per model, no audio, after explicit approval.
+- One real pre-role token-validated HTTP 401/403 per model, no audio, after
+  explicit approval.
 - One real successful transcription per model after exact roles, after approval.
 - Repeat the two-model success at Plan 037's immutable SHA and Plan 038 cutover.
 
@@ -458,7 +467,8 @@ protected inputs.
 - [ ] Live workflow is protected and manual-only with exact OIDC permissions.
 - [ ] Separate workload identity has no secret/certificate and no management/key authority.
 - [ ] Identity federation is restricted to the repository's protected environment.
-- [ ] Pre-role authorization-only probes produce genuine 403 for both endpoints.
+- [ ] Pre-role authorization-only probes produce genuine HTTP 401/403 for both
+  endpoints only after the protected token contract passes.
 - [ ] Exactly the two named resource-scoped roles are assigned.
 - [ ] Live contract covers Whisper and MAI through production client/adapters with one clean POST each.
 - [ ] Token remains process/browser memory only and is masked; no token/key enters storage/logs/artifacts.
@@ -473,13 +483,14 @@ protected inputs.
 
 Stop and report instead of improvising if:
 
-- `gpt-5.6-terra` with high effort is unavailable.
+- `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Plan 032's token-provider/client boundary is incomplete or would require a production test hook.
 - OIDC requires a client secret/certificate, subscription-wide role, Reader,
   management permission, key access, or reuse of the SPA registration.
 - The workflow token cannot be masked before propagation or could enter an artifact/log/trace.
-- A pre-role probe returns anything other than genuine 403; diagnose federation,
-  audience, existing role, endpoint, and request order privately before proceeding.
+- A pre-role probe returns anything other than token-validated HTTP 401/403;
+  diagnose federation, audience, existing role, endpoint, and request order
+  privately before proceeding.
 - Either successful model call retries, returns unexpected content, or needs a broader role.
 - Any step would expose a real identifier, Target URI, token, key,
   authentication response, audio, transcript, HAR, or identity-bearing screenshot.

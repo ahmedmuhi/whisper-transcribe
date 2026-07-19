@@ -12,3 +12,34 @@ describe('Dynamic Island mobile layout CSS', () => {
         expect(css).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*\.control-cluster\.island-recording \.island-timer\s*\{[^}]*flex:\s*0 0 100%;/);
     });
 });
+
+describe('User menu responsive layout CSS', () => {
+    it('places desktop detail beside the root panel', () => {
+        expect(css).toMatch(/\.user-menu-surface\s*\{[^}]*display:\s*flex;[^}]*gap:/s);
+        expect(css).toMatch(/\.user-menu-panel\s*\{[^}]*width:\s*min\(340px,/s);
+    });
+
+    it('fits the surface to a narrow viewport and replaces root with detail', () => {
+        expect(css).toMatch(/@media\s*\(max-width:\s*760px\)[\s\S]*\.user-menu-surface\s*\{[^}]*width:\s*calc\(100vw - 1\.5rem\);/);
+        expect(css).toMatch(/@media\s*\(max-width:\s*760px\)[\s\S]*\.user-menu-panel\s*\{[^}]*width:\s*100%;/);
+    });
+
+    it('includes menu state in the reduced-motion end-state rule', () => {
+        expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.user-menu-surface[\s\S]*transition:\s*none\s*!important;/);
+    });
+
+    it('contains no removed sidebar selectors', () => {
+        expect(css).not.toMatch(/side-panel|sidebar-pinned|panel-backdrop|panel-toggle/);
+    });
+});
+
+describe('Selected Audio responsive layout CSS', () => {
+    it('bounds the review workspace and stacks actions at phone widths', () => {
+        expect(css).toMatch(/\.selected-audio-workspace\s*\{[^}]*width:\s*min\([^;]*100%/s);
+        expect(css).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*\.selected-audio-actions\s*\{[^}]*width:\s*100%/s);
+    });
+
+    it('collapses Selected Audio progress animation for reduced motion', () => {
+        expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.selected-audio-dot[\s\S]*animation:\s*none\s*!important/s);
+    });
+});

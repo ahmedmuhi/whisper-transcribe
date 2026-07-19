@@ -4,7 +4,12 @@ import { resetEventBus } from './helpers/test-dom-vitest.js';
 
 describe('safeStopRecorder', () => {
   it('calls stop only when active', () => {
-    const handler = new AudioHandler({}, { getCurrentModel: () => 'x' });
+    const authenticationReadiness = { ensureTokenReady: vi.fn() };
+    const handler = new AudioHandler(
+      {},
+      { getCurrentModel: () => 'x' },
+      authenticationReadiness
+    );
     handler.mediaRecorder = { state: 'inactive', stop: vi.fn() };
     handler.safeStopRecorder();
     expect(handler.mediaRecorder.stop).not.toHaveBeenCalled();

@@ -6,13 +6,24 @@
 
 import { vi } from 'vitest';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { MESSAGES, TRANSCRIPTION_TIMEOUT_MS } from '../js/constants.js';
+import { API_ERROR_CODES, MESSAGES, TRANSCRIPTION_TIMEOUT_MS } from '../js/constants.js';
 import { applyDomSpies } from './helpers/test-dom-vitest.js';
 
 // Mock Settings
 const mockSettings = {
     getModelConfig: vi.fn()
 };
+const mockTokenProvider = {
+    getToken: vi.fn()
+};
+const FAKE_TOKEN = 'fake-error-test-bearer-token';
+
+const loggerSpies = vi.hoisted(() => ({
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+}));
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -36,16 +47,8 @@ vi.mock('../js/audio-converter.js', () => ({
 
 vi.mock('../js/logger.js', () => ({
     logger: {
-        info: vi.fn(),
-        debug: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        child: vi.fn(() => ({
-            info: vi.fn(),
-            debug: vi.fn(),
-            warn: vi.fn(),
-            error: vi.fn()
-        }))
+        ...loggerSpies,
+        child: vi.fn(() => loggerSpies)
     }
 }));
 
@@ -66,12 +69,12 @@ describe('AzureAPIClient Error Handling', () => {
         // Setup default mock settings
         mockSettings.getModelConfig.mockReturnValue({
             model: 'whisper',
-            apiKey: 'test-api-key',
-            uri: 'https://test-api.azure.com'
+            uri: 'https://target.invalid/transcribe'
         });
+        mockTokenProvider.getToken.mockResolvedValue(FAKE_TOKEN);
         
         // Create API client instance
-        apiClient = new AzureAPIClient(mockSettings);
+        apiClient = new AzureAPIClient(mockSettings, mockTokenProvider);
         vi.spyOn(apiClient, '_sleep').mockResolvedValue();
         
         // Spy on eventBus emissions
@@ -94,33 +97,22 @@ describe('AzureAPIClient Error Handling', () => {
     });
 
     describe('Configuration Validation Errors', () => {
-        it('should throw error when API key is missing during transcription', async () => {
-            // Setup missing API key
+        it('accepts a configuration containing only a model and Target URI', async () => {
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'whisper',
-                apiKey: '',
-                uri: 'https://test-api.azure.com'
+                uri: 'https://target.invalid/transcribe'
             });
-            
-            // Attempt to transcribe without API key
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.API_KEY_REQUIRED);
-            
-            // transcribe() now uses validateConfig() which emits API_CONFIG_MISSING events
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_CONFIG_MISSING,
-                expect.objectContaining({
-                    missing: 'apiKey',
-                    model: 'whisper'
-                })
-            );
-            expect(global.fetch).not.toHaveBeenCalled();
+
+            await expect(apiClient.transcribe(new Blob())).resolves.toBe('Test transcription');
+
+            expect(mockTokenProvider.getToken).toHaveBeenCalledTimes(1);
+            expect(global.fetch).toHaveBeenCalledTimes(1);
         });
         
         it('should throw error when URI is missing during transcription', async () => {
             // Setup missing URI
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'whisper',
-                apiKey: 'test-api-key',
                 uri: ''
             });
             
@@ -138,37 +130,34 @@ describe('AzureAPIClient Error Handling', () => {
             expect(global.fetch).not.toHaveBeenCalled();
         });
 
-        it('should reject API keys unsafe for fetch headers before making a request', async () => {
-            const unsupportedCharacter = '\u2014';
+        it('should reject a malformed Target URI before requesting a token', async () => {
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'mai-transcribe-1.5',
-                apiKey: `speech${unsupportedCharacter}key`,
-                uri: 'https://test-api.azure.com'
+                uri: 'not-a-target-uri'
             });
 
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.INVALID_API_KEY_CHARACTERS);
+            await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.INVALID_URI_FORMAT);
 
+            expect(mockTokenProvider.getToken).not.toHaveBeenCalled();
             expect(global.fetch).not.toHaveBeenCalled();
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_CONFIG_MISSING,
                 expect.objectContaining({
-                    missing: 'validApiKey',
+                    missing: 'validUri',
                     model: 'mai-transcribe-1.5'
                 })
             );
         });
         
         it('should not send the request over an insecure (http) URI', async () => {
-            // Valid API key, but a cleartext http:// endpoint
             mockSettings.getModelConfig.mockReturnValue({
                 model: 'whisper',
-                apiKey: 'test-api-key',
-                uri: 'http://insecure.openai.azure.com/'
+                uri: 'http://target.invalid/transcribe'
             });
 
-            // transcribe() must reject before any network call leaks the API key
             await expect(apiClient.transcribe(new Blob())).rejects.toThrow(MESSAGES.URI_MUST_BE_HTTPS);
 
+            expect(mockTokenProvider.getToken).not.toHaveBeenCalled();
             expect(global.fetch).not.toHaveBeenCalled();
         });
     });
@@ -225,49 +214,71 @@ describe('AzureAPIClient Error Handling', () => {
         });
     });
     
-    describe('API Authentication Errors', () => {
-        it('should handle invalid API key errors (401)', async () => {
-            // Mock unauthorized response
+    describe('Authentication and authorization errors', () => {
+        it('categorizes 401 safely without reading or retrying the response body', async () => {
+            const responseText = vi.fn().mockResolvedValue('fake-sensitive-authentication-response');
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 401,
                 headers: { get: vi.fn().mockReturnValue(null) },
-                text: vi.fn().mockResolvedValue('Invalid API key')
+                text: responseText
             });
-            
-            // Attempt to transcribe
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow('API responded with status: 401');
-            
-            // Should emit API_REQUEST_ERROR event with specific status
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_REQUEST_ERROR,
-                expect.objectContaining({
-                    status: 401,
-                    details: 'Invalid API key'
-                })
+
+            const error = await apiClient.transcribe(new Blob()).catch(value => value);
+
+            expect(error).toMatchObject({
+                code: API_ERROR_CODES.AUTHENTICATION_REQUIRED,
+                status: 401
+            });
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(apiClient._sleep).not.toHaveBeenCalled();
+            expect(responseText).not.toHaveBeenCalled();
+            const errorEvent = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
             );
+            expect(errorEvent).toEqual([APP_EVENTS.API_REQUEST_ERROR, {
+                error: MESSAGES.AUTHENTICATION_REQUIRED,
+                status: 401,
+                code: API_ERROR_CODES.AUTHENTICATION_REQUIRED,
+                model: 'whisper'
+            }]);
+            expect(JSON.stringify(eventBusEmitSpy.mock.calls)).not.toContain('fake-sensitive');
+            expect(JSON.stringify(loggerSpies)).not.toContain('fake-sensitive');
+            expect(JSON.stringify(error)).not.toContain('fake-sensitive');
+            expect(JSON.stringify(error)).not.toContain(FAKE_TOKEN);
         });
-        
-        it('should handle subscription key errors (403)', async () => {
-            // Mock forbidden response
+
+        it('categorizes 403 safely without reading or retrying the response body', async () => {
+            const responseText = vi.fn().mockResolvedValue('fake-sensitive-authorization-response');
             global.fetch.mockResolvedValue({
                 ok: false,
                 status: 403,
                 headers: { get: vi.fn().mockReturnValue(null) },
-                text: vi.fn().mockResolvedValue('Subscription key is invalid')
+                text: responseText
             });
-            
-            // Attempt to transcribe
-            await expect(apiClient.transcribe(new Blob())).rejects.toThrow('API responded with status: 403');
-            
-            // Should emit API_REQUEST_ERROR event with specific status
-            expect(eventBusEmitSpy).toHaveBeenCalledWith(
-                APP_EVENTS.API_REQUEST_ERROR,
-                expect.objectContaining({
-                    status: 403,
-                    details: 'Subscription key is invalid'
-                })
+
+            const error = await apiClient.transcribe(new Blob()).catch(value => value);
+
+            expect(error).toMatchObject({
+                code: API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED,
+                status: 403
+            });
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(apiClient._sleep).not.toHaveBeenCalled();
+            expect(responseText).not.toHaveBeenCalled();
+            const errorEvent = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
             );
+            expect(errorEvent).toEqual([APP_EVENTS.API_REQUEST_ERROR, {
+                error: MESSAGES.AZURE_AUTHORIZATION_DENIED,
+                status: 403,
+                code: API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED,
+                model: 'whisper'
+            }]);
+            expect(JSON.stringify(eventBusEmitSpy.mock.calls)).not.toContain('fake-sensitive');
+            expect(JSON.stringify(loggerSpies)).not.toContain('fake-sensitive');
+            expect(JSON.stringify(error)).not.toContain('fake-sensitive');
+            expect(JSON.stringify(error)).not.toContain(FAKE_TOKEN);
         });
     });
     
