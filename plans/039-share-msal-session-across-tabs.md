@@ -18,7 +18,8 @@
 - **Risk**: MED
 - **Depends on**: none (Plans 031–038 are complete)
 - **Category**: migration
-- **Status**: TODO
+- **Status**: IN PROGRESS (implementation `ff83c47` independently reviewed;
+  awaiting PR/CI, Pages deployment, and production two-tab acceptance)
 - **Planned at**: commit `f9c90f7`, 2026-07-19
 
 ## Why this matters
