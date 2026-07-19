@@ -78,7 +78,10 @@ Ownership is strict:
   interaction recovery, and logout redirects.
 - `createAuthenticationConfig()` validates public single-tenant client and
   directory identifiers, derives the base-aware callback URI, requests the
-  Cognitive Services scope, and configures MSAL `sessionStorage`.
+  Cognitive Services scope, and configures MSAL-owned `localStorage` so a new
+  same-origin tab can discover the shared account. Do not configure
+  `temporaryCacheLocation`; temporary OAuth artifacts remain tab-scoped under
+  MSAL's default behavior.
 - `createTokenProvider()` exposes only `getToken(scope)` and never retains the
   returned token.
 - `AzureAPIClient` acquires one request-local token as late as possible and is
@@ -89,11 +92,14 @@ Ownership is strict:
   construct authentication headers.
 
 Access tokens and authentication responses must not enter Settings,
-localStorage, application-managed sessionStorage, IndexedDB, adapters, event
+application-managed localStorage or sessionStorage, IndexedDB, adapters, event
 payloads/history, logs, error details, URLs, screenshots, traces, or artifacts.
-MSAL alone owns its opaque session cache. Authentication events contain safe
-state only; account presentation is normalized name/username data used by the
-User menu and is never retained there.
+MSAL alone owns its opaque shared localStorage cache; application code must not
+read, copy, migrate, log, or expose its artifacts. Authentication events contain
+safe state only; account presentation is normalized name/username data used by
+the User menu and is never retained there. Shared cache availability normally
+lets a new tab start ready, but genuine Entra interaction requirements still use
+the full-page redirect flow.
 
 HTTP behavior is deliberately distinct: 401 is a token/authentication recovery
 category; 403 is an external Azure RBAC category; neither reads the response

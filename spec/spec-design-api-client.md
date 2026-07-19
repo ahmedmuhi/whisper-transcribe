@@ -45,7 +45,7 @@ The implementation uses the browser `fetch`, `FormData`, `Blob`, `URL`, and
 
 | Concern | Owner | Constraint |
 |---|---|---|
-| MSAL initialization, account, redirects, silent acquisition, session cache | `AuthenticationService` | No request formation or Target URI access |
+| MSAL initialization, account, redirects, silent acquisition, shared cache | `AuthenticationService` | MSAL alone owns its opaque localStorage artifacts; no request formation or Target URI access |
 | Narrow token handoff | `createTokenProvider()` | Exposes only `getToken(scope)` and retains nothing |
 | Model and manual Target URI persistence | `Settings` | Returns only `{ model, uri }` to the API client |
 | Bearer header, HTTPS validation, timeout, retry, error category | `AzureAPIClient` | Sole application owner of `Authorization: Bearer ...` |
@@ -115,11 +115,15 @@ body construction and immediately before the request options are created.
 
 The client acquires one token per transcription call. The same local request
 options may be reused only within that call's bounded retry loop. The token MUST
-NOT be copied to a client property, adapter, Settings, storage, event payload,
-log, error object, URL, response detail, screenshot, trace, or artifact. Once
-the call settles, the application retains no reference. MSAL's opaque token cache
-is separately owned by `AuthenticationService` in `sessionStorage`; application
-code does not inspect it.
+NOT be copied to a client property, adapter, Settings, application-managed
+storage, event payload, log, error object, URL, response detail, screenshot,
+trace, or artifact. Once the call settles, the application retains no reference.
+MSAL's opaque token cache is separately owned by `AuthenticationService` in
+shared `localStorage`; application code does not inspect, copy, migrate, or log
+it. `temporaryCacheLocation` remains unconfigured so temporary OAuth artifacts
+retain MSAL's default tab-scoped behavior. A new same-origin tab may start ready
+from the shared account, while genuine interaction-required conditions still
+fall back to the full-page redirect flow.
 
 ### 5.3 Successful response
 

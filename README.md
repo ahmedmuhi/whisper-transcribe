@@ -61,8 +61,11 @@ Only one Audio Source can be active at a time.
 - Selected Audio and Unsent Recording blobs are memory-only. They are not put in
   localStorage, sessionStorage, event history, or logs. Closing the tab releases
   them, so recover an Unsent Recording before leaving.
-- MSAL alone owns its token cache in `sessionStorage`. Application modules do not
-  persist, emit, or log access tokens.
+- MSAL alone owns its opaque authentication cache in `localStorage` so a new
+  same-origin tab can reuse the existing account without another **Continue
+  with Microsoft** action when the Microsoft session permits it. Application
+  modules never read that cache or persist, emit, or log access tokens; genuine
+  interaction-required conditions still use the full-page sign-in flow.
 - Transcript content, model choice, manual Target URIs, microphone preference,
   and theme are non-secret browser-local settings stored in `localStorage`.
 - Startup performs a targeted, remove-only cleanup of the two historical
