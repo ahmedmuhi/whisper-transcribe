@@ -2,7 +2,7 @@
 title: Azure API Client Design Specification
 version: 2.0
 date_created: 2025-07-07
-last_updated: 2026-07-18
+last_updated: 2026-07-29
 owner: Speech-to-Text Transcription App Team
 tags: [design, api-client, azure, transcription, authentication, architecture, app]
 ---
@@ -36,6 +36,9 @@ The implementation uses the browser `fetch`, `FormData`, `Blob`, `URL`, and
   which Target URI is used.
 - **Target URI**: the manual HTTPS endpoint address. It identifies the
   destination but does not authorize access.
+- **Transcription style**: the MAI-only readability or verbatim preference.
+  Readability is selected by omitting `transcribeStyle`; only the literal
+  `verbatim` value is serialized.
 - **Model Adapter**: an immutable registry entry that owns one model's scope,
   Target URI metadata, request body construction, and response parsing.
 - **Token provider**: the injected `{ getToken(scope) }` interface that hides the
@@ -47,7 +50,7 @@ The implementation uses the browser `fetch`, `FormData`, `Blob`, `URL`, and
 |---|---|---|
 | MSAL initialization, account, redirects, silent acquisition, shared cache | `AuthenticationService` | MSAL alone owns its opaque localStorage artifacts; no request formation or Target URI access |
 | Narrow token handoff | `createTokenProvider()` | Exposes only `getToken(scope)` and retains nothing |
-| Model and manual Target URI persistence | `Settings` | Returns only `{ model, uri }` to the API client |
+| Model, manual Target URI, and MAI style persistence | `Settings` | Returns `{ model, uri, transcribeStyle? }`; the optional field is MAI-only |
 | Bearer header, HTTPS validation, timeout, retry, error category | `AzureAPIClient` | Sole application owner of `Authorization: Bearer ...` |
 | Model scope, URI storage metadata, `FormData`, response parsing | Registered adapter | Credential-blind; never receives a token |
 | Historical credential removal | `cleanupLegacyCredentials()` at bootstrap | Separate remove-only migration; never an API-client responsibility |
@@ -66,7 +69,7 @@ tries parsers in registry order.
 
 | Model identifier | Label | Scope | Target URI metadata | Request body |
 |---|---|---|---|---|
-| `mai-transcribe-1.5` | Azure MAI-Transcribe 1.5 | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.MAI_TRANSCRIBE_URI` | WAV `audio` plus JSON `definition` with enhanced `transcribe` mode |
+| `mai-transcribe-1.5` | Azure MAI-Transcribe 1.5 | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.MAI_TRANSCRIBE_URI` | WAV `audio` plus JSON `definition` with enhanced `transcribe` mode and optional verbatim style |
 | `whisper` | Azure Whisper | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.WHISPER_URI` | Original audio in `file` plus the default `language` field |
 
 The Whisper adapter rejects files larger than 25 MiB before submission and
@@ -81,12 +84,13 @@ contain a credential field, authentication storage key, or header constructor.
 
 `validateConfig()` MUST:
 
-1. read `{ model, uri }` from `Settings.getModelConfig()`;
+1. read `{ model, uri, transcribeStyle? }` from `Settings.getModelConfig()`;
 2. remove whitespace from the URI string;
 3. require a non-empty Target URI;
 4. parse it with `URL`;
 5. require the `https:` protocol; and
-6. return only `{ model, uri }`.
+6. return the explicit `{ model, uri }` allow-list plus `transcribeStyle` only
+   when Settings supplied it.
 
 A missing, malformed, or insecure Target URI emits `API_CONFIG_MISSING` with a
 safe reason and model identifier, then fails before token acquisition or fetch.
@@ -112,6 +116,12 @@ validate Settings configuration
 The adapter builds `FormData`; browser code MUST NOT set `Content-Type` manually,
 because the browser owns the multipart boundary. Token acquisition occurs after
 body construction and immediately before the request options are created.
+
+The MAI adapter always serializes `enabled`, `model`, and `task` inside
+`enhancedMode`. It adds `"transcribeStyle":"verbatim"` only when the validated
+configuration exactly matches the verbatim enum value. Readability, missing,
+and unknown values omit the field so Microsoft's readability default and the
+existing request bytes are preserved. Whisper never receives a MAI definition.
 
 The client acquires one token per transcription call. The same local request
 options may be reused only within that call's bounded retry loop. The token MUST
@@ -170,7 +180,7 @@ model. They never contain a response body or token.
 class AzureAPIClient {
     constructor(settings, tokenProvider, adapterRegistry = modelAdapterRegistry)
     transcribe(audioBlob, onProgress?): Promise<string>
-    validateConfig(): { model: string, uri: string }
+    validateConfig(): { model: string, uri: string, transcribeStyle?: string }
     getScopeForModel(model): string
     parseResponse(data): string
 }
@@ -218,6 +228,9 @@ when explicitly enabled for deterministic tests.
   storage read and preserves all unrelated settings/transcript data.
 - **AC-010**: Both microphone and Selected Audio submissions use this one client
   and converge on the same safe transcription-ready event path.
+- **AC-011**: MAI verbatim requests add only
+  `"transcribeStyle":"verbatim"` inside `enhancedMode`; readability and unknown
+  values omit the field, and Whisper remains unchanged.
 
 ## 10. Verification
 
@@ -225,12 +238,13 @@ The primary deterministic coverage is:
 
 - `tests/token-boundary.vitest.js` — narrow provider, call order, one bearer
   owner, no leakage, and retry-local reuse;
-- `tests/api-client-validation.vitest.js` — model/URI validation and adapter
-  selection;
+- `tests/api-client-validation.vitest.js` — model/URI validation, the explicit
+  optional-style allow-list, and adapter selection;
 - `tests/api-client-errors.vitest.js` — HTTPS, 401/403 body blindness, retry,
   timeout, and safe event behavior;
 - `tests/model-adapters.vitest.js` and `tests/response-parsers.vitest.js` — exact
-  two-model request/response contracts;
+  two-model request/response contracts, including verbatim emission and
+  readability omission;
 - `tests/legacy-credential-cleanup.vitest.js` — remove-only ordering and storage
   preservation;
 - `tests/browser/transcription-smoke.spec.js` and

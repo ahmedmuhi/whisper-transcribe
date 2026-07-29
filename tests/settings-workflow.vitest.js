@@ -70,6 +70,8 @@ global.document = {
 
 // Mock window.matchMedia
 global.window = {
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
     matchMedia: vi.fn(() => ({
         matches: false,
         addEventListener: vi.fn(),

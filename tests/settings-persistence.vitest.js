@@ -207,6 +207,35 @@ describe('Settings draft and persistence workflow', () => {
         settings.destroy();
     });
 
+    it('synchronizes cross-tab transcription-style changes and removes the listener on destroy', () => {
+        const settings = new Settings();
+        const dispatchStyleChange = () => window.dispatchEvent(new StorageEvent('storage', {
+            key: STORAGE_KEYS.MAI_TRANSCRIBE_STYLE
+        }));
+
+        localStorage.setItem(
+            STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
+            MAI_TRANSCRIBE_STYLES.VERBATIM
+        );
+        dispatchStyleChange();
+        expect(settings.verbatimToggle.checked).toBe(true);
+
+        localStorage.setItem(
+            STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
+            MAI_TRANSCRIBE_STYLES.READABILITY
+        );
+        dispatchStyleChange();
+        expect(settings.verbatimToggle.checked).toBe(false);
+
+        settings.destroy();
+        localStorage.setItem(
+            STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
+            MAI_TRANSCRIBE_STYLES.VERBATIM
+        );
+        dispatchStyleChange();
+        expect(settings.verbatimToggle.checked).toBe(false);
+    });
+
     it('fails closed to readability for an unknown stored transcription style', () => {
         localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
         localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, 'VERBATIM ');

@@ -42,6 +42,11 @@ export class Settings {
         this.verbatimToggle = document.getElementById(ID.VERBATIM_TOGGLE);
         this.inputDeviceSelect = document.getElementById(ID.INPUT_DEVICE);
         this.themeModeInputs = Array.from(document.querySelectorAll?.('input[name="theme-mode"]') || []);
+        this._storageHandler = (event) => {
+            if (event.key === STORAGE_KEYS.MAI_TRANSCRIBE_STYLE || event.key === null) {
+                this.loadVerbatimToggle();
+            }
+        };
 
         this.init();
     }
@@ -163,6 +168,7 @@ export class Settings {
                 eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: input.value });
             });
         });
+        window.addEventListener('storage', this._storageHandler);
     }
 
     async populateDeviceList() {
@@ -414,6 +420,7 @@ export class Settings {
     }
 
     destroy() {
+        window.removeEventListener('storage', this._storageHandler);
         this._offPermissionGranted?.();
         this._offPermissionGranted = null;
     }
