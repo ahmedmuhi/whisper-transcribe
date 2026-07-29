@@ -16,7 +16,10 @@ publication. Their required executor is `gpt-5.6-sol` with extra-high (`xhigh`) 
 if unavailable, stop and ask before substituting. Execute in the order below
 unless dependencies say otherwise. Plan 039 was generated through the focused
 Improve `plan` workflow on 2026-07-19 at commit `f9c90f7` after production use
-exposed repeated new-tab authentication interaction.
+exposed repeated new-tab authentication interaction. Plan 040 was generated the
+same way on 2026-07-29 at commit `dc45b1c`, reintroducing the MAI-Transcribe 1.5
+verbatim option that plans 008/009 added and then removed — see the note below
+before touching it.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
@@ -72,6 +75,7 @@ and update your row when done.
 | 037 | [Qualify one immutable keyless release candidate across CI, Pages, and the accepted browser matrix](https://github.com/ahmedmuhi/whisper-transcribe/issues/120) | P1 | L | 031–036 | DONE (`keyless-rc-03` at `95fd3f4`; exact-SHA CI, reproducible build, Pages deployment, five accepted real-auth sessions, 10/10 accepted browser/origin/model transcription cells, four corrected browser-readable no-audio 401 boundaries, protected two-model OIDC, final five-axis review, sanitized ledger audit, merge via PR #123, and post-merge `main` CI/Pages deployment passed. Safari-local was explicitly not applicable; resource enforcement completed in Plan 038.) |
 | 038 | [Enforce Azure key rejection one resource at a time and retire every legacy key](https://github.com/ahmedmuhi/whisper-transcribe/issues/121) | P1 | L | 037 | DONE (`keyless-rc-03`; both resources finished with `disableLocalAuth=true`; same-key baselines reached media validation before post-enforcement HTTP 403; signed-in User and protected OIDC bearer paths passed; the sole owner explicitly waived the planned 24-hour wait after accepted Windows/macOS use; provider-required per-resource unlock/Key1+Key2 rotation/re-lock completed without reading replacement values; legacy CI key secret absent; migration forward-only.) |
 | 039 | Share the MSAL sign-in session across same-browser tabs | P1 | S/M | — | IN PROGRESS (implementation `ff83c47` independently reviewed; focused 28 tests, 540-test coverage, build, lint, dependency, high-audit, size, and 11-browser-scenario gates passed; awaiting PR/CI, Pages deployment, and production two-tab acceptance) |
+| 040 | Add a MAI-Transcribe 1.5 verbatim transcription toggle | P2 | M | — | DONE (fast-forwarded locally to `main` at `87cfc0e`, 2026-07-29; implementation `45bcca8` plus review follow-up `87cfc0e`; final `/autoreview` clean with zero findings at 0.95 confidence; exact request shapes, cross-tab preference synchronization, normative API contract, 42 files / 550 tests, 93.59/82.97/94.32/93.59 coverage, build, lint, Knip, 20,208/20,500-byte application budget, and 11 deterministic Chromium cases passed; nothing pushed and no live Azure operation) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -89,6 +93,17 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > an audit finding) — a user request to expose Microsoft's MAI-1.5
 > `transcribeStyle` (verbatim vs readability-optimized). Integration points were
 > mapped by a parallel workflow and every excerpt re-verified by hand.
+
+> **Plan 040 supersedes the 008/009 pair — do not re-run 008 and do not revert
+> the revert.** The User asked for the verbatim option again on 2026-07-29, so
+> plan 040 reintroduces it as an immediately-saved switch in the User menu's
+> Model panel (008 used a dropdown in the since-removed settings modal), still
+> defaulting to readability. Three of 008's load-bearing assumptions are dead at
+> `dc45b1c`: `js/api-client.js` no longer spreads `{ ...config }` but builds an
+> explicit `{ model, uri }` allow-list, so 040 must modify that file where 008
+> called it a STOP condition; MAI-Transcribe 1.0 is gone (plan 010), making
+> 008's `apiModel` gate redundant; and the settings modal was replaced by
+> User-menu panels (plan 033). 008 and 009 stay as historical record only.
 
 > Plan 010 was added 2026-06-18 via a user request (not an audit finding) — the
 > user decided to drop the MAI-Transcribe 1 model and make MAI-Transcribe 1.5
