@@ -9,6 +9,7 @@ import {
     DEFAULT_WAV_FILENAME,
     formatAudioUploadLimitMessage,
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
+    MAI_TRANSCRIBE_STYLES,
     MESSAGES,
     MODEL_TYPES,
     STORAGE_KEYS,
@@ -27,7 +28,7 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
         storageKeys: Object.freeze({
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
         }),
-        async buildRequest(audioBlob, _config, onProgress) {
+        async buildRequest(audioBlob, config, onProgress) {
             const format = resolveSupportedAudioFormat(audioBlob.type, audioBlob.name);
             if (!format) {
                 const error = new Error(
@@ -63,13 +64,15 @@ function createMaiTranscribeModelAdapter(id, label, apiModel) {
 
             const formData = new FormData();
             formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
-            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({
-                enhancedMode: {
-                    enabled: true,
-                    model: apiModel,
-                    task: 'transcribe'
-                }
-            }));
+            const enhancedMode = {
+                enabled: true,
+                model: apiModel,
+                task: 'transcribe'
+            };
+            if (config?.transcribeStyle === MAI_TRANSCRIBE_STYLES.VERBATIM) {
+                enhancedMode[API_PARAMS.MAI_TRANSCRIBE_STYLE_FIELD] = MAI_TRANSCRIBE_STYLES.VERBATIM;
+            }
+            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
 
             return {
                 body: formData,

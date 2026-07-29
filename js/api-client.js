@@ -440,7 +440,7 @@ export class AzureAPIClient {
      * Validates the API client configuration for required URI and model settings.
      * 
      * @method validateConfig
-     * @returns {{uri: string, model: string}} Validated configuration object
+     * @returns {{uri: string, model: string, transcribeStyle?: string}} Validated configuration object
      * @throws {Error} When Target URI is missing or invalid
      */
     validateConfig() {
@@ -451,6 +451,9 @@ export class AzureAPIClient {
                 ? config.uri.replace(/\s+/g, '')
                 : config.uri
         };
+        if (config.transcribeStyle) {
+            normalizedConfig.transcribeStyle = config.transcribeStyle;
+        }
         
         if (!normalizedConfig.uri) {
             const error = new Error(`${normalizedConfig.model} ${MESSAGES.URI_REQUIRED}`);

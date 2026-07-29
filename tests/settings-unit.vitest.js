@@ -21,6 +21,7 @@ function installSettingsDom() {
         <input id="${ID.RECORDING_ENVIRONMENT}" type="hidden">
         <select id="${ID.INPUT_DEVICE}"><option value="">System Default</option></select>
         <input id="${ID.NOISE_TOGGLE}" type="checkbox">
+        <label id="${ID.VERBATIM_SETTING}"><input id="${ID.VERBATIM_TOGGLE}" type="checkbox"></label>
         <button id="${ID.SAVE_SETTINGS}">Save changes</button>
         <input type="radio" name="theme-mode" value="auto">
         <input type="radio" name="theme-mode" value="light">
@@ -70,6 +71,21 @@ describe('Settings model defaults', () => {
 
         expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
         expect(setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        settings.destroy();
+    });
+});
+
+describe('Settings MAI verbatim visibility', () => {
+    it('shows the verbatim switch only for MAI-Transcribe 1.5', () => {
+        const settings = new Settings();
+
+        settings.modelSelect.value = MODEL_TYPES.WHISPER;
+        settings.updateVerbatimVisibility();
+        expect(settings.verbatimSetting.hidden).toBe(true);
+
+        settings.modelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        settings.updateVerbatimVisibility();
+        expect(settings.verbatimSetting.hidden).toBe(false);
         settings.destroy();
     });
 });

@@ -42,6 +42,7 @@ export const STORAGE_KEYS = {
   MODEL:                'transcription_model',
   WHISPER_URI:          'whisper_uri',
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
+  MAI_TRANSCRIBE_STYLE:   'mai_transcribe_style',
   THEME_MODE:           'themeMode',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
@@ -58,6 +59,20 @@ export const RECORDING_ENVIRONMENTS = {
 };
 
 /**
+ * MAI-Transcribe 1.5 transcription styles. READABILITY is the default and is a
+ * sentinel meaning "omit transcribeStyle entirely", which is how Microsoft's
+ * readability-optimized default is selected. Only VERBATIM is ever sent.
+ * @constant {Object} MAI_TRANSCRIBE_STYLES
+ */
+export const MAI_TRANSCRIBE_STYLES = {
+  READABILITY: 'readability',
+  VERBATIM: 'verbatim'
+};
+
+/** @constant {string} DEFAULT_MAI_TRANSCRIBE_STYLE @default 'readability' */
+export const DEFAULT_MAI_TRANSCRIBE_STYLE = MAI_TRANSCRIBE_STYLES.READABILITY;
+
+/**
  * Form parameter names for Azure Speech Services requests.
  * 
  * @constant {Object} API_PARAMS
@@ -68,7 +83,8 @@ export const API_PARAMS = {
   FILE:            'file',
   LANGUAGE:        'language',
   MAI_AUDIO_FIELD:    'audio',
-  MAI_DEFINITION_FIELD: 'definition'
+  MAI_DEFINITION_FIELD: 'definition',
+  MAI_TRANSCRIBE_STYLE_FIELD: 'transcribeStyle'
 };
 
 /**
@@ -240,6 +256,8 @@ export const ID = Object.freeze({
   WHISPER_URI: 'whisper-uri',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
   NOISE_TOGGLE: 'noise-toggle',
+  VERBATIM_SETTING: 'verbatim-setting',
+  VERBATIM_TOGGLE: 'verbatim-toggle',
   INPUT_DEVICE: 'input-device',
   VISUALIZER: 'visualizer',
   MOON_ICON: 'moon-icon',

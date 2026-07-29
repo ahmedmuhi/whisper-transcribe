@@ -116,10 +116,10 @@ Exactly two adapters are registered, in response-parser precedence order:
 
 Both declare `https://cognitiveservices.azure.com/.default`. Browser-local
 persistence is limited to non-secret model, manual HTTPS Target URI,
-microphone, theme, and transcript data. `Settings` owns the preferences;
-`TranscriptStore` owns transcript content. `STORAGE_KEYS` owns literal storage
-names, and each adapter's `storageKeys.uri` maps a model to its Target URI.
-Never add a credential field or key fallback.
+microphone, transcription style, theme, and transcript data. `Settings` owns
+the preferences; `TranscriptStore` owns transcript content. `STORAGE_KEYS` owns
+literal storage names, and each adapter's `storageKeys.uri` maps a model to its
+Target URI. Never add a credential field or key fallback.
 
 `UserMenu` owns the initials-only launcher, account presentation, and nested
 Model, Microphone, Settings, Azure help, and logout surfaces. `Settings` owns

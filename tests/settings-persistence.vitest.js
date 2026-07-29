@@ -5,8 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_EVENTS, eventBus } from '../js/event-bus.js';
 import {
+    DEFAULT_MAI_TRANSCRIBE_STYLE,
     DEFAULT_MODEL_TYPE,
     ID,
+    MAI_TRANSCRIBE_STYLES,
     MESSAGES,
     MODEL_TYPES,
     RECORDING_ENVIRONMENTS,
@@ -33,6 +35,7 @@ function installSettingsDom() {
             <option value="fixture-device">Fixture device</option>
         </select>
         <input id="${ID.NOISE_TOGGLE}" type="checkbox">
+        <label id="${ID.VERBATIM_SETTING}"><input id="${ID.VERBATIM_TOGGLE}" type="checkbox"></label>
         <button id="${ID.SAVE_SETTINGS}">Save changes</button>
         <input type="radio" name="theme-mode" value="auto">
         <input type="radio" name="theme-mode" value="light">
@@ -174,6 +177,46 @@ describe('Settings draft and persistence workflow', () => {
             .toBe(RECORDING_ENVIRONMENTS.NOISY);
         settings.destroy();
     });
+
+    it('persists verbatim transcription immediately when the toggle changes', () => {
+        const settings = new Settings();
+
+        settings.verbatimToggle.checked = true;
+        settings.verbatimToggle.dispatchEvent(new Event('change'));
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
+            .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+
+        settings.verbatimToggle.checked = false;
+        settings.verbatimToggle.dispatchEvent(new Event('change'));
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
+            .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        settings.destroy();
+    });
+
+    it('hydrates stored verbatim transcription into the toggle and MAI configuration', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        localStorage.setItem(
+            STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
+            MAI_TRANSCRIBE_STYLES.VERBATIM
+        );
+        const settings = new Settings();
+
+        expect(settings.verbatimToggle.checked).toBe(true);
+        expect(settings.getModelConfig().transcribeStyle)
+            .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+        settings.destroy();
+    });
+
+    it('fails closed to readability for an unknown stored transcription style', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, 'VERBATIM ');
+        const settings = new Settings();
+
+        expect(settings.verbatimToggle.checked).toBe(false);
+        expect(settings.getModelConfig().transcribeStyle)
+            .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        settings.destroy();
+    });
 });
 
 describe('Settings validation and events', () => {
@@ -302,16 +345,21 @@ describe('Settings adapter metadata and initial configuration', () => {
     });
 
     it.each([
-        [MODEL_TYPES.WHISPER, STORAGE_KEYS.WHISPER_URI],
-        [MODEL_TYPES.MAI_TRANSCRIBE_1_5, STORAGE_KEYS.MAI_TRANSCRIBE_URI]
-    ])('retrieves the committed configuration for %s', (model, uriKey) => {
+        [MODEL_TYPES.WHISPER, STORAGE_KEYS.WHISPER_URI, {}],
+        [
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            STORAGE_KEYS.MAI_TRANSCRIBE_URI,
+            { transcribeStyle: DEFAULT_MAI_TRANSCRIBE_STYLE }
+        ]
+    ])('retrieves the committed configuration for %s', (model, uriKey, expectedExtraFields) => {
         localStorage.setItem(STORAGE_KEYS.MODEL, model);
         localStorage.setItem(uriKey, 'https://target.invalid/transcribe');
         const settings = new Settings();
 
         expect(settings.getModelConfig()).toEqual({
             model,
-            uri: 'https://target.invalid/transcribe'
+            uri: 'https://target.invalid/transcribe',
+            ...expectedExtraFields
         });
         settings.destroy();
     });

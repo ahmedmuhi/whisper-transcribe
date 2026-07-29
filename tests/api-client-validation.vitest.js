@@ -67,6 +67,31 @@ describe('AzureAPIClient configuration validation', () => {
         );
     });
 
+    it('passes the MAI-Transcribe style through the explicit allow-list', () => {
+        mockSettings.getModelConfig.mockReturnValue({
+            model: 'mai-transcribe-1.5',
+            uri: 'https://mai-transcribe.invalid/transcribe',
+            transcribeStyle: 'verbatim'
+        });
+
+        expect(apiClient.validateConfig()).toEqual({
+            model: 'mai-transcribe-1.5',
+            uri: 'https://mai-transcribe.invalid/transcribe',
+            transcribeStyle: 'verbatim'
+        });
+    });
+
+    it('keeps a Whisper configuration at exactly two keys', () => {
+        mockSettings.getModelConfig.mockReturnValue({
+            model: 'whisper',
+            uri: 'https://whisper.invalid/transcribe'
+        });
+
+        const result = apiClient.validateConfig();
+
+        expect(Object.keys(result)).toEqual(['model', 'uri']);
+    });
+
     it.each([
         {
             label: 'empty URI',

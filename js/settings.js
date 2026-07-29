@@ -3,8 +3,10 @@
  */
 
 import {
+    DEFAULT_MAI_TRANSCRIBE_STYLE,
     DEFAULT_MODEL_TYPE,
     ID,
+    MAI_TRANSCRIBE_STYLES,
     MESSAGES,
     MODEL_TYPES,
     RECORDING_ENVIRONMENTS,
@@ -36,6 +38,8 @@ export class Settings {
         this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
         this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
         this.noiseToggle = document.getElementById(ID.NOISE_TOGGLE);
+        this.verbatimSetting = document.getElementById(ID.VERBATIM_SETTING);
+        this.verbatimToggle = document.getElementById(ID.VERBATIM_TOGGLE);
         this.inputDeviceSelect = document.getElementById(ID.INPUT_DEVICE);
         this.themeModeInputs = Array.from(document.querySelectorAll?.('input[name="theme-mode"]') || []);
 
@@ -45,9 +49,11 @@ export class Settings {
     init() {
         this.loadSavedModel();
         this.loadNoiseToggle();
+        this.loadVerbatimToggle();
         this.loadThemeMode();
         this.setupEventListeners();
         this.updateSettingsVisibility();
+        this.updateVerbatimVisibility();
         this._offPermissionGranted = eventBus.on(
             APP_EVENTS.PERMISSION_GRANTED,
             () => void this.populateDeviceList()
@@ -67,6 +73,18 @@ export class Settings {
         }
         if (this.recordingEnvironmentSelect) {
             this.recordingEnvironmentSelect.value = environment;
+        }
+    }
+
+    _getTranscribeStyle() {
+        return localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE) === MAI_TRANSCRIBE_STYLES.VERBATIM
+            ? MAI_TRANSCRIBE_STYLES.VERBATIM
+            : DEFAULT_MAI_TRANSCRIBE_STYLE;
+    }
+
+    loadVerbatimToggle() {
+        if (this.verbatimToggle) {
+            this.verbatimToggle.checked = this._getTranscribeStyle() === MAI_TRANSCRIBE_STYLES.VERBATIM;
         }
     }
 
@@ -103,6 +121,7 @@ export class Settings {
             if (this.settingsModelSelect) this.settingsModelSelect.value = model;
             logger.child('Settings').info('UI model switched:', model, '(session only)');
             eventBus.emit(APP_EVENTS.UI_MODEL_SWITCHED, { model, savedModel });
+            this.updateVerbatimVisibility();
         });
 
         this.settingsModelSelect?.addEventListener('change', () => {
@@ -119,6 +138,15 @@ export class Settings {
             if (this.recordingEnvironmentSelect) {
                 this.recordingEnvironmentSelect.value = environment;
             }
+        });
+
+        this.verbatimToggle?.addEventListener('change', () => {
+            localStorage.setItem(
+                STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
+                this.verbatimToggle.checked
+                    ? MAI_TRANSCRIBE_STYLES.VERBATIM
+                    : MAI_TRANSCRIBE_STYLES.READABILITY
+            );
         });
 
         this.inputDeviceSelect?.addEventListener('change', () => {
@@ -170,6 +198,13 @@ export class Settings {
         if (this.maiTranscribeSettings) this.maiTranscribeSettings.hidden = false;
     }
 
+    /** The verbatim switch is MAI-Transcribe 1.5 only; Whisper never sends the field. */
+    updateVerbatimVisibility() {
+        if (this.verbatimSetting) {
+            this.verbatimSetting.hidden = !this._isMaiModel(this.getCurrentModel());
+        }
+    }
+
     prepareSettingsDraft() {
         this.loadSettingsToForm();
         this.updateSettingsVisibility();
@@ -218,6 +253,7 @@ export class Settings {
         this._loadStoredTargetUri(MODEL_TYPES.WHISPER, this.whisperUriInput);
         this._loadStoredTargetUri(MODEL_TYPES.MAI_TRANSCRIBE_1_5, this.maiTranscribeUriInput);
         this.loadNoiseToggle();
+        this.loadVerbatimToggle();
         this.loadThemeMode();
     }
 
@@ -303,6 +339,7 @@ export class Settings {
             );
         }
         if (this.modelSelect) this.modelSelect.value = currentModel;
+        this.updateVerbatimVisibility();
 
         this.closeSettingsModal();
         eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
@@ -347,10 +384,14 @@ export class Settings {
 
     getModelConfig() {
         const model = this.getCurrentModel();
-        return {
+        const config = {
             model,
             uri: localStorage.getItem(this._getTargetUriStorageKey(model))
         };
+        if (this._isMaiModel(model)) {
+            config.transcribeStyle = this._getTranscribeStyle();
+        }
+        return config;
     }
 
     _isMaiModel(model) {

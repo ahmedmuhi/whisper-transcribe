@@ -12,6 +12,7 @@ import {
     DEFAULT_WAV_FILENAME,
     formatAudioUploadLimitMessage,
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
+    MAI_TRANSCRIBE_STYLES,
     MESSAGES,
     MODEL_TYPES,
     STORAGE_KEYS,
@@ -423,6 +424,65 @@ describe('AzureAPIClient model adapter registry', () => {
             combinedPhrases: [{ text: 'Combined output.' }],
             text: 'Text field output.'
         })).toBe('Combined output.');
+    });
+
+    it('emits verbatim style for MAI-Transcribe 1.5 when requested', async () => {
+        const apiClient = createApiClient(createSettings(
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            { transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM }
+        ));
+        const audioBlob = new Blob(['captured audio'], { type: 'audio/mp4' });
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'Verbatim output.' }],
+            phrases: []
+        });
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe',
+                transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM
+            }
+        });
+    });
+
+    it('omits transcribeStyle for explicit MAI-Transcribe 1.5 readability', async () => {
+        const apiClient = createApiClient(createSettings(
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            { transcribeStyle: MAI_TRANSCRIBE_STYLES.READABILITY }
+        ));
+        const audioBlob = new Blob(['captured audio'], { type: 'audio/mp4' });
+        mockJsonResponse({
+            combinedPhrases: [{ text: 'Readability output.' }],
+            phrases: []
+        });
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe'
+            }
+        });
+    });
+
+    it('ignores transcribeStyle for Whisper requests', async () => {
+        const apiClient = createApiClient(createSettings(
+            MODEL_TYPES.WHISPER,
+            { transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM }
+        ));
+        const audioBlob = new Blob(['captured audio'], { type: 'audio/webm' });
+        mockTextResponse('Whisper output');
+
+        await apiClient.transcribe(audioBlob);
+
+        expect(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD)).toBeUndefined();
+        expect(getFormEntry(API_PARAMS.FILE)).toBeDefined();
     });
 
     it('rejects unsupported local audio before MAI conversion or fetch', async () => {
