@@ -1156,7 +1156,7 @@ export class UI {
         if (this.discardDialogBody) {
             this.discardDialogBody.textContent = durationLabel
                 ? `Discard ${durationLabel} of recording?`
-                : 'Discard this recording?';
+                : 'The audio has not been transcribed and cannot be recovered.';
         }
         // If the modal cannot be presented (no native <dialog> support, or showModal
         // throws), never strand the FSM in CONFIRMING_DISCARD with a live recorder —

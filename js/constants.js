@@ -235,11 +235,11 @@ export const CONTENT_TYPES = {
  * @property {string} SETTINGS_NO_RESULTS - Empty-state shown when no settings match the search
  * @property {string} WHISPER_URI_BADGE - Live validation badge for the Whisper Target URI
  * @property {string} MAI_URI_BADGE - Live validation badge for the MAI-Transcribe Target URI
- * @property {string} LOGOUT_DIALOG - Audio-safety dialog shown before logging out
+ * @property {string} LOGOUT_DIALOG - Audio-safety dialog shown before signing out
  * @property {string} LOGOUT_DIALOG_STATUS - Logout dialog message paragraph
- * @property {string} LOGOUT_DOWNLOAD - Download the Unsent Recording before logging out
- * @property {string} LOGOUT_CONTINUE - Continue logging out after a download was initiated
- * @property {string} LOGOUT_DISCARD - Discard the Unsent Recording and log out
+ * @property {string} LOGOUT_DOWNLOAD - Download the Unsent Recording before signing out
+ * @property {string} LOGOUT_CONTINUE - Continue signing out after a download was initiated
+ * @property {string} LOGOUT_DISCARD - Discard the Unsent Recording and sign out
  * @property {string} LOGOUT_CANCEL - Close the logout dialog and stay signed in
  */
 export const ID = Object.freeze({
@@ -437,13 +437,13 @@ export const AZURE_RBAC_HELP_URL =
 export const MESSAGES = {
   // Browser & Permissions
   BROWSER_NOT_SUPPORTED: 'Your browser does not support audio recording.',
-  PERMISSION_DENIED: '🚫 Microphone permission denied. Please allow microphone access.',
-  NO_MICROPHONE: '🎤 No microphone found. Please connect a microphone.',
-  MICROPHONE_ERROR_PREFIX: '❌ Error accessing microphone: ',
+  PERMISSION_DENIED: 'Microphone permission denied. Please allow microphone access.',
+  NO_MICROPHONE: 'No microphone found. Please connect a microphone.',
+  MICROPHONE_ERROR_PREFIX: 'Error accessing microphone: ',
   MICROPHONE_ACCESS_GRANTED: 'Microphone access granted',
   
   // Configuration
-  TARGET_URI_NOT_CONFIGURED: '⚙️ Please configure an Azure Target URI first',
+  TARGET_URI_NOT_CONFIGURED: 'Please configure an Azure Target URI first',
   FILL_REQUIRED_FIELDS: 'Please fill in all required fields',
   SETTINGS_SAVED: 'Settings saved',
   AUTHENTICATION_NOT_CONFIGURED: 'Microsoft Entra authentication is not configured.',
@@ -472,7 +472,7 @@ export const MESSAGES = {
   TARGET_URI_REQUIRED_BODY: 'Add a valid HTTPS Target URI before recording.',
   OPEN_SETTINGS: 'Open settings',
   AUTHENTICATION_ACTION_FAILED: 'The authentication action could not be completed. Try again.',
-  LOGOUT_FAILED: 'Log out could not be completed. Try again.',
+  LOGOUT_FAILED: 'Sign out could not be completed. Try again.',
   RECORDING_DOWNLOAD_FAILED: 'The recording download could not be started. Try again.',
   
   // API Validation

@@ -52,7 +52,7 @@ function installSettingsDom() {
             </div>
             <div class="settings-row" data-settings-row="device" data-category="microphone">
                 <select id="${ID.INPUT_DEVICE}">
-                    <option value="">System Default</option>
+                    <option value="">System default</option>
                     <option value="fixture-device">Fixture device</option>
                 </select>
             </div>
