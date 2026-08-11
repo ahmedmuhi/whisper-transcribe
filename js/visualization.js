@@ -5,8 +5,8 @@
  */
 import { COLORS } from './constants.js';
 
-const VIZ_RGB_LIGHT = [60, 80, 255];
-const VIZ_RGB_DARK  = [90, 120, 255];
+const VIZ_RGB_LIGHT = [36, 95, 115];
+const VIZ_RGB_DARK  = [143, 186, 203];
 
 /** Interval between amplitude samples in milliseconds */
 const SAMPLE_INTERVAL_MS = 100;

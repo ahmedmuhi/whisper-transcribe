@@ -1,47 +1,49 @@
 /* ==========================================================================
-   Soft Precision — Lavender Blue / Deep Navy
-   Calming, layered interface inspired by premium finance/wellness apps
+   Coastal Teal / Rust — Andika
+   Warm, high-legibility interface: teal ink on white with rust highlights
+   (from the "Whisper App" Claude Design mock)
    ========================================================================== */
 
 /* --- Design Tokens --- */
 :root {
-    /* Light mode — Lavender Blue */
-    --bg-primary: #EEF0FB;
+    /* Light mode — Teal on White */
+    --bg-primary: #FFFFFF;
     --bg-surface: #FFFFFF;
-    --bg-inset: #F5F6FC;
-    --border-color: #E0E3F0;
-    --border-subtle: #D1D5E8;
-    --text-primary: #1E2A3A;
-    --text-secondary: #6B7280;
-    --text-muted: #9CA3AF;
-    --accent: #5B6EF5;
-    --accent-glow: rgba(91, 110, 245, 0.15);
-    --accent-subtle: rgba(91, 110, 245, 0.06);
-    --recording: #EF4444;
-    --recording-glow: rgba(239, 68, 68, 0.3);
+    --bg-inset: #FAF7F2;
+    --border-color: #BBBDBC;
+    --border-subtle: #98989A;
+    --text-primary: #245F73;
+    --text-secondary: #5C5E5D;
+    --text-muted: #98989A;
+    --accent: #245F73;
+    --accent-warm: #733E24;
+    --accent-glow: rgba(36, 95, 115, 0.16);
+    --accent-subtle: rgba(36, 95, 115, 0.06);
+    --recording: #DB2C23;
+    --recording-glow: rgba(219, 44, 35, 0.3);
     /* Accessible status text (WCAG-AA on --bg-surface #FFFFFF):
-       --status-text #5B6478 ≈ 5.5:1, --status-error #C42B1C ≈ 5.3:1,
-       --status-success #0E7A6B ≈ 5.2:1. The raw --recording/--accent reds/greens
-       fail AA for normal text, so status uses these dedicated tokens. Success is
-       a desaturated teal that meets AA while staying in the lavender/navy family
-       (verified by tests/status-tokens.vitest.js). */
-    --status-text: #5B6478;
-    --status-error: #C42B1C;
-    --status-success: #0E7A6B;
-    --shadow-sm: 0 1px 2px rgba(91, 110, 245, 0.04);
-    --shadow-md: 0 4px 12px rgba(91, 110, 245, 0.06);
-    --shadow-lg: 0 8px 24px rgba(91, 110, 245, 0.08);
+       --status-text #5C5E5D ≈ 6.5:1, --status-error #DB2C23 ≈ 4.8:1,
+       --status-success #1E7A57 ≈ 5.3:1. The mock's badge green #2E9E71 fails AA
+       for normal text (≈ 3.4:1), so success is darkened while staying in the
+       teal/rust family (verified by tests/status-tokens.vitest.js). */
+    --status-text: #5C5E5D;
+    --status-error: #DB2C23;
+    --status-success: #1E7A57;
+    --shadow-sm: 0 1px 2px rgba(36, 95, 115, 0.05);
+    --shadow-md: 0 4px 12px rgba(36, 95, 115, 0.08);
+    --shadow-lg: 0 8px 24px rgba(36, 95, 115, 0.12);
     --radius-sm: 6px;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-full: 9999px;
     --transition: 200ms ease-out;
-    --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-    --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-display: 'Andika', 'Segoe UI', sans-serif;
+    --font-body: 'Andika', 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
     --mic-bg: var(--accent);
-    --mic-hover-bg: #4A5BD4;
+    --mic-hover-bg: #1C4A5A;
     --visualizer-bg: var(--bg-inset);
-    --modal-backdrop: rgba(30, 42, 58, 0.5);
+    --modal-backdrop: rgba(36, 95, 115, 0.16);
     --noise-opacity: 0.015;
     --focus-ring: 0 0 0 2px var(--accent-glow);
     --icon-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.08));
@@ -49,35 +51,36 @@
     --transition-slow: 300ms ease-out;
 }
 
-/* Dark mode — Deep Navy */
+/* Dark mode — Deep Teal */
 .dark-theme {
-    --bg-primary: #0C0F1A;
-    --bg-surface: #151929;
-    --bg-inset: #1C2137;
-    --border-color: #252A40;
-    --border-subtle: #353B58;
-    --text-primary: #E4E7F1;
-    --text-secondary: #9CA3C4;
-    --text-muted: #6B7294;
-    --accent: #7B8FF7;
-    --accent-glow: rgba(123, 143, 247, 0.2);
-    --accent-subtle: rgba(123, 143, 247, 0.06);
-    --recording: #EF4444;
-    --recording-glow: rgba(239, 68, 68, 0.35);
-    /* Accessible status text (WCAG-AA on --bg-surface #151929):
-       --status-text #AEB6D6 ≈ 7.4:1, --status-error #FF8A80 ≈ 6.2:1,
-       --status-success #5FD2C2 ≈ 9.5:1 (a soft teal, not vivid mint — in the
-       lavender/navy family). */
-    --status-text: #AEB6D6;
-    --status-error: #FF8A80;
-    --status-success: #5FD2C2;
+    --bg-primary: #0E1B21;
+    --bg-surface: #14252C;
+    --bg-inset: #1B313A;
+    --border-color: #2E4750;
+    --border-subtle: #4A6772;
+    --text-primary: #CFE0E7;
+    --text-secondary: #B9C6CB;
+    --text-muted: #6C8189;
+    --accent: #3E7A93;
+    --accent-warm: #C97F58;
+    --accent-glow: rgba(62, 122, 147, 0.25);
+    --accent-subtle: rgba(62, 122, 147, 0.08);
+    --recording: #DB2C23;
+    --recording-glow: rgba(219, 44, 35, 0.35);
+    /* Accessible status text (WCAG-AA on --bg-surface #14252C):
+       --status-text #B9C6CB ≈ 9.0:1, --status-error #E58A7A ≈ 6.2:1 (rust-
+       tinted, not neon red), --status-success #5FC79B ≈ 7.6:1 — all in the
+       teal/rust family. */
+    --status-text: #B9C6CB;
+    --status-error: #E58A7A;
+    --status-success: #5FC79B;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
     --mic-bg: var(--accent);
-    --mic-hover-bg: #95A5F9;
+    --mic-hover-bg: #4F8CA6;
     --visualizer-bg: var(--bg-inset);
-    --modal-backdrop: rgba(0, 0, 0, 0.7);
+    --modal-backdrop: rgba(0, 0, 0, 0.5);
     --noise-opacity: 0.025;
     --icon-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
@@ -97,7 +100,7 @@
 }
 
 body {
-    font-family: var(--font-mono);
+    font-family: var(--font-body);
     font-weight: 400;
     font-size: 14px;
     line-height: 1.6;
@@ -175,15 +178,14 @@ body > header {
 .wordmark h1 {
     font-family: var(--font-display);
     font-size: 1.4rem;
-    font-weight: 400;
-    font-style: italic;
+    font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-primary);
     line-height: 1;
 }
 
 .wordmark-dot {
-    color: var(--accent);
+    color: var(--accent-warm);
 }
 
 /* --- Layout --- */
@@ -354,8 +356,7 @@ body > header {
 .auth-context-title {
     font-family: var(--font-display);
     font-size: 1.15rem;
-    font-style: italic;
-    font-weight: 400;
+    font-weight: 700;
 }
 
 .auth-context-body,
@@ -556,7 +557,7 @@ body > header {
 
 .btn-discard:hover:not(:disabled) {
     color: var(--recording);
-    background: rgba(239, 68, 68, 0.08);
+    background: rgba(219, 44, 35, 0.08);
 }
 
 /* --- Processing indicator (folded into the island) ---
@@ -620,8 +621,7 @@ body > header {
 
 .transcript-title {
     font-family: var(--font-display);
-    font-weight: 400;
-    font-style: italic;
+    font-weight: 700;
     font-size: 1.1rem;
     color: var(--text-primary);
 }
@@ -690,10 +690,10 @@ body > header {
     min-height: 120px;
     resize: vertical;
     padding: 0.75rem;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    line-height: 1.7;
-    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.625;
+    color: var(--text-secondary);
     background-color: var(--bg-inset);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
@@ -753,7 +753,6 @@ body > header {
 
 .transcript-empty-title {
     font-family: var(--font-display);
-    font-style: italic;
     font-size: 1rem;
     color: var(--text-secondary);
 }
@@ -1114,8 +1113,7 @@ body > header {
 .user-menu-detail-header strong {
     font-family: var(--font-display);
     font-size: 1.05rem;
-    font-style: italic;
-    font-weight: 400;
+    font-weight: 700;
 }
 
 .user-menu-back {
@@ -1281,8 +1279,7 @@ body > header {
 
 .discard-dialog-title {
     font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 400;
+    font-weight: 700;
     font-size: 1.2rem;
     margin-bottom: 0.5rem;
 }

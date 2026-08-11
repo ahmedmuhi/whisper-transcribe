@@ -8,13 +8,13 @@
  * no error/success hex belongs here.
  *
  * @constant {Object} COLORS
- * @property {string} DARK_BG - Dark theme background color (#0C0F1A)
- * @property {string} LIGHT_BG - Light theme background color (#EEF0FB)
+ * @property {string} DARK_BG - Dark theme background color (#0E1B21)
+ * @property {string} LIGHT_BG - Light theme background color (#FFFFFF)
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
  * @property {string} CANVAS_LIGHT_BG - Canvas background for light theme
  */
-const DARK_BG  = '#0C0F1A';
-const LIGHT_BG = '#EEF0FB';
+const DARK_BG  = '#0E1B21';
+const LIGHT_BG = '#FFFFFF';
 
 export const COLORS = {
   DARK_BG,
