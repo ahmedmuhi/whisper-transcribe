@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { modelAdapterRegistry } from '../js/model-adapters/index.js';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readRepoFile = relativePath => readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
@@ -68,8 +70,11 @@ describe('live OIDC browser harness hygiene', () => {
     it('defines exactly one guarded transcription case per supported model', () => {
         const spec = readRepoFile(paths.transcriptionSpec);
 
-        expect(spec.match(/model:\s*'whisper'/gu)).toHaveLength(1);
-        expect(spec.match(/model:\s*'mai-transcribe-1\.5'/gu)).toHaveLength(1);
+        for (const id of modelAdapterRegistry.keys()) {
+            const pattern = new RegExp(`model:\\s*'${id.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}'`, 'gu');
+
+            expect(spec.match(pattern)).toHaveLength(1);
+        }
         expect(spec).toContain('AZURE_WHISPER_TARGET_URI');
         expect(spec).toContain('AZURE_MAI_TRANSCRIBE_TARGET_URI');
         expect(spec).toContain('AZURE_OIDC_ACCESS_TOKEN');
