@@ -763,8 +763,7 @@ describe('AudioHandler Integration', () => {
         ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
       )).toEqual([[APP_EVENTS.API_REQUEST_ERROR, {
         error: 'API responded with status: 400',
-        status: 400,
-        details: 'Bad request'
+        status: 400
       }]]);
       expect(eventBusEmitSpy.mock.calls.filter(
         ([event]) => event === APP_EVENTS.API_REQUEST_SUCCESS

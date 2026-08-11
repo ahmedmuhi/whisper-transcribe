@@ -337,8 +337,7 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,
                 expect.objectContaining({
-                    status: 429,
-                    details: 'Too many requests'
+                    status: 429
                 })
             );
         });
@@ -363,8 +362,7 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,
                 expect.objectContaining({
-                    status: 400,
-                    details: 'Invalid audio format'
+                    status: 400
                 })
             );
         });
@@ -385,8 +383,7 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,
                 expect.objectContaining({
-                    status: 400,
-                    details: 'Empty audio file'
+                    status: 400
                 })
             );
         });
@@ -412,8 +409,7 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,
                 expect.objectContaining({
-                    status: 500,
-                    details: 'Internal server error'
+                    status: 500
                 })
             );
         });
@@ -437,8 +433,7 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,
                 expect.objectContaining({
-                    status: 503,
-                    details: 'Service unavailable'
+                    status: 503
                 })
             );
         });
@@ -576,8 +571,7 @@ describe('AzureAPIClient Error Handling', () => {
             expect(eventBusEmitSpy).toHaveBeenCalledWith(
                 APP_EVENTS.API_REQUEST_ERROR,
                 expect.objectContaining({
-                    status: 500,
-                    details: 'Server error'
+                    status: 500
                 })
             );
         });
@@ -789,6 +783,66 @@ describe('AzureAPIClient Error Handling', () => {
             expect(global.fetch).toHaveBeenCalledTimes(1);
             // A signal is still supplied so the timer can guard the attempt.
             expect(global.fetch.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+        });
+    });
+
+    describe('Raw error body containment', () => {
+        const SENTINEL_BODY = JSON.stringify({
+            error: {
+                message: 'Deployment not found.',
+                target: 'https://real-resource.example/deployment-name',
+                correlationId: 'fake-correlation-0000'
+            }
+        });
+
+        beforeEach(() => {
+            global.fetch.mockResolvedValue({
+                ok: false,
+                status: 500,
+                headers: { get: vi.fn().mockReturnValue(null) },
+                text: vi.fn().mockResolvedValue(SENTINEL_BODY)
+            });
+        });
+
+        it('keeps the raw response body out of apiContext and the error event', async () => {
+            const error = await apiClient.transcribe(new Blob()).catch(value => value);
+
+            // The bounded, sanitized detail is the only survivor.
+            expect(error.apiContext.details).toBe('Deployment not found.');
+            expect(error.apiContext.status).toBe(500);
+            expect(JSON.stringify(error.apiContext)).not.toContain('real-resource.example');
+            expect(JSON.stringify(error.apiContext)).not.toContain('fake-correlation-0000');
+            expect(JSON.stringify(eventBusEmitSpy.mock.calls)).not.toContain('real-resource.example');
+            expect(JSON.stringify(eventBusEmitSpy.mock.calls)).not.toContain('fake-correlation-0000');
+        });
+
+        it('never hands the raw response body to the logger', async () => {
+            await apiClient.transcribe(new Blob()).catch(() => {});
+
+            const loggedArgs = JSON.stringify(
+                Object.values(loggerSpies).flatMap(spy => spy.mock.calls)
+            );
+            expect(loggedArgs).not.toContain('real-resource.example');
+            expect(loggedArgs).not.toContain('fake-correlation-0000');
+            expect(loggedArgs).not.toContain(SENTINEL_BODY);
+        });
+
+        it('omits details entirely when the body carries no extractable message', async () => {
+            global.fetch.mockResolvedValue({
+                ok: false,
+                status: 500,
+                headers: { get: vi.fn().mockReturnValue(null) },
+                text: vi.fn().mockResolvedValue('https://real-resource.example/deployment-name failed')
+            });
+
+            const error = await apiClient.transcribe(new Blob()).catch(value => value);
+
+            expect(error.apiContext.details).toBeUndefined();
+            expect(JSON.stringify(error.apiContext)).not.toContain('real-resource.example');
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            expect(errorEmit[1]).not.toHaveProperty('details');
         });
     });
 });
