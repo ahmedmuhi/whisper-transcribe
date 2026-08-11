@@ -75,6 +75,13 @@ export class Settings {
             }
             if (event.key === STORAGE_KEYS.THEME_PALETTE || event.key === null) {
                 this.loadThemePalette();
+                // Same emit as the in-tab path: the visualizer canvas repaints
+                // its ground from this event, so without it a recording tab
+                // keeps the previous palette's fill under the new CSS.
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, {
+                    mode: this._getStoredThemeMode(),
+                    palette: this._getStoredThemePalette()
+                });
             }
         };
 

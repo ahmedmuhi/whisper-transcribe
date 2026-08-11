@@ -102,18 +102,34 @@
    light value leaks into dark mode. --mic-bg, --visualizer-bg and
    --focus-ring are var()-based and follow any palette; --noise-opacity and
    --icon-shadow are theme-neutral, so none of the five is redeclared.
-   Hex values come verbatim from the design handoff.
+   Hex values come from the design handoff, verbatim except for the two AA
+   corrections recorded on --accent (Organic light) and --accent-warm
+   (Industry light) below.
    ========================================================================== */
 
-/* --visualizer-bar is the canvas bar colour the visualizer used to freeze in
-   JS. Coastal keeps its historical literals so the canvas is byte-identical;
-   declared here, after .dark-theme, so the two Coastal blocks stay untouched. */
+/* Three tokens are declared here, after .dark-theme, so the two Coastal blocks
+   stay untouched:
+   --visualizer-bar is the canvas bar colour the visualizer used to freeze in
+   JS; Coastal keeps its historical literals so the canvas is byte-identical.
+   --accent-deep is the accent's deep step (the handoff names it for Organic as
+   "Link/hover text #8c491a"); it paints the selected palette card's check.
+   --text-link is the colour --accent-warm used to paint as *text* on
+   .link-button and the Target URI field. As a fill, accent-2 is a handoff role;
+   as text it fails AA in Industry light (3.53:1 on --bg-primary) and Broadsheet
+   dark (3.12:1 on --bg-inset), so text keeps its own token. Coastal keeps its
+   shipped rust literals, so nothing that already ships moves. */
 :root {
     --visualizer-bar: #245F73;
+    --accent-deep: #1C4A5A;
+    --text-link: #733E24;
 }
 
 .dark-theme {
     --visualizer-bar: #8FBACB;
+    --accent-deep: #4F8CA6;
+    /* Pre-existing: 4.31:1 on Coastal dark --bg-inset. Plan 055 D3 rules
+       changing the shipped Coastal scheme out of scope, so it stands. */
+    --text-link: #C97F58;
 }
 
 /* Organic — light */
@@ -126,27 +142,38 @@
     --text-primary: #2e2b25;
     --text-secondary: #645c50;
     --text-muted: #a19786;
-    --accent: #b2622d;
+    /* AA correction to the handoff's #b2622d. That accent carries the
+       handoff's own --text-on-accent #fff8f2 at 4.27:1 and reads 4.25:1 as
+       text on --bg-surface, both under the 4.5:1 the app has enforced since
+       plan 046; pure white only reaches 4.49:1, so the accent itself is
+       darkened in-hue (plan 055 D1). #9E5220 gives 5.42:1 for the button
+       label and 5.39:1 for accent-as-text. */
+    --accent: #9E5220;
     --accent-warm: #56633f;
     --text-on-accent: #fff8f2;
     --text-on-warm: #f0fae1;
-    --accent-glow: rgba(178, 98, 45, 0.16);
-    --accent-subtle: rgba(178, 98, 45, 0.06);
+    --accent-deep: #8c491a;
+    --text-link: var(--accent-deep);
+    --accent-glow: rgba(158, 82, 32, 0.16);
+    --accent-subtle: rgba(158, 82, 32, 0.06);
     --recording: #b93b2b;
     --recording-glow: rgba(185, 59, 43, 0.3);
-    /* Accessible status text (WCAG-AA on --bg-surface #fdf8f0):
-       --status-text #645c50 ≈ 6.2:1, --status-error #b93b2b ≈ 5.3:1 (the
-       palette's own recording red clears the gate), --status-success #2F6B3F
-       ≈ 6.0:1 — a green inside Organic's earthy family. */
+    /* Accessible status text. Ratios are quoted on --bg-primary #f5ead8, the
+       darker of the two grounds a status line sits on (the status caption sits
+       on the window ground; toasts sit on --bg-surface #fdf8f0, where every
+       value is higher): --status-text #645c50 ≈ 5.5:1, --status-error #b93b2b
+       ≈ 4.7:1 (the palette's own recording red clears the gate),
+       --status-success #2F6B3F ≈ 5.4:1 — a green inside Organic's earthy
+       family. */
     --status-text: #645c50;
     --status-error: #b93b2b;
     --status-success: #2F6B3F;
     --shadow-sm: 0 1px 2px rgba(64, 35, 16, 0.06);
     --shadow-md: 0 4px 12px rgba(64, 35, 16, 0.10);
     --shadow-lg: 0 8px 24px rgba(64, 35, 16, 0.14);
-    --mic-hover-bg: #975326;
-    --modal-backdrop: rgba(178, 98, 45, 0.16);
-    --visualizer-bar: #b2622d;
+    --mic-hover-bg: #8c491a;
+    --modal-backdrop: rgba(158, 82, 32, 0.16);
+    --visualizer-bar: #9E5220;
 }
 
 /* Organic — dark */
@@ -163,6 +190,8 @@
     --accent-warm: #aebf92;
     --text-on-accent: #402310;
     --text-on-warm: #272e1b;
+    --accent-deep: #DC9263;
+    --text-link: var(--accent-deep);
     --accent-glow: rgba(214, 127, 72, 0.25);
     --accent-subtle: rgba(214, 127, 72, 0.08);
     --recording: #e5766a;
@@ -173,9 +202,11 @@
     --status-text: #dcd3c4;
     --status-error: #e5766a;
     --status-success: #9CCF9A;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    /* The handoff's dark shadow scale: card .3, island .4 (--shadow-lg
+       continues the ladder at .5). */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
     --mic-hover-bg: #DC9263;
     --modal-backdrop: rgba(0, 0, 0, 0.5);
     --visualizer-bar: #E6B291;
@@ -192,24 +223,31 @@
     --text-secondary: #5d5d60;
     --text-muted: #98989b;
     --accent: #416180;
-    --accent-warm: #627d98;
+    /* AA correction to the handoff's #627d98. That fill carries the handoff's
+       own --text-on-warm #f5f5f8 at 3.93:1 — it is the "Done" label, on screen
+       for the whole of every recording — so accent-2 is darkened in-hue to
+       reach 4.73:1 (plan 055 D2). */
+    --accent-warm: #55708C;
     --text-on-accent: #f5f5f8;
     --text-on-warm: #f5f5f8;
+    --accent-deep: #37526D;
+    --text-link: var(--accent-deep);
     --accent-glow: rgba(65, 97, 128, 0.16);
     --accent-subtle: rgba(65, 97, 128, 0.06);
     --recording: #DB2C23;
     --recording-glow: rgba(219, 44, 35, 0.3);
-    /* Accessible status text (WCAG-AA on --bg-surface #f5f5f8):
-       --status-text #5d5d60 ≈ 6.0:1, --status-success #0F7355 ≈ 5.4:1.
-       --status-error is #C0271F ≈ 5.4:1, not the palette's recording red
-       #DB2C23, which is only ≈ 4.4:1 on this near-white grey; it is the same
-       hue darkened until it clears the gate. */
+    /* Accessible status text, quoted on --bg-primary #e9e9ea, the darker of the
+       two grounds (toasts sit on --bg-surface #f5f5f8 and read higher):
+       --status-text #5d5d60 ≈ 5.4:1, --status-success #0F7355 ≈ 4.8:1.
+       --status-error is #C0271F ≈ 4.9:1, not the palette's recording red
+       #DB2C23, which is only ≈ 4.0:1 on this grey; it is the same hue darkened
+       until it clears the gate. */
     --status-text: #5d5d60;
     --status-error: #C0271F;
     --status-success: #0F7355;
-    --shadow-sm: 0 1px 2px rgba(29, 31, 32, 0.05);
-    --shadow-md: 0 4px 12px rgba(29, 31, 32, 0.08);
-    --shadow-lg: 0 8px 24px rgba(29, 31, 32, 0.12);
+    --shadow-sm: 0 1px 2px rgba(29, 31, 32, 0.06);
+    --shadow-md: 0 4px 12px rgba(29, 31, 32, 0.10);
+    --shadow-lg: 0 8px 24px rgba(29, 31, 32, 0.14);
     --mic-hover-bg: #37526D;
     --modal-backdrop: rgba(65, 97, 128, 0.16);
     --visualizer-bar: #416180;
@@ -229,6 +267,8 @@
     --accent-warm: #9ebbd8;
     --text-on-accent: #1d2d3d;
     --text-on-warm: #1f2d3a;
+    --accent-deep: #A4C6E7;
+    --text-link: var(--accent-deep);
     --accent-glow: rgba(148, 188, 227, 0.25);
     --accent-subtle: rgba(148, 188, 227, 0.08);
     --recording: #e5766a;
@@ -241,9 +281,11 @@
     --status-text: #d4d4d7;
     --status-error: #F09489;
     --status-success: #6FD0A8;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    /* The handoff's dark shadow scale: card .3, island .4 (--shadow-lg
+       continues the ladder at .5). */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
     --mic-hover-bg: #A4C6E7;
     --modal-backdrop: rgba(0, 0, 0, 0.5);
     --visualizer-bar: #BFD7EE;
@@ -263,21 +305,24 @@
     --accent-warm: #006786;
     --text-on-accent: #fff1f4;
     --text-on-warm: #e9f8ff;
+    --accent-deep: #900949;
+    --text-link: var(--accent-deep);
     --accent-glow: rgba(170, 11, 86, 0.16);
     --accent-subtle: rgba(170, 11, 86, 0.06);
     --recording: #d6006c;
     --recording-glow: rgba(214, 0, 108, 0.3);
-    /* Accessible status text (WCAG-AA on --bg-surface #f8f4f4):
-       --status-text #605d5d ≈ 6.0:1, --status-success #0F7355 ≈ 5.3:1.
-       --status-error is #C2004F ≈ 5.7:1: the recording magenta #d6006c clears
+    /* Accessible status text, quoted on --bg-primary #eae9e9, the darker of the
+       two grounds (toasts sit on --bg-surface #f8f4f4 and read higher):
+       --status-text #605d5d ≈ 5.4:1, --status-success #0F7355 ≈ 4.8:1.
+       --status-error is #C2004F ≈ 5.1:1: the recording magenta #d6006c clears
        the surface at ≈ 4.7:1 but only ≈ 4.2:1 on the inset, so it is darkened
        in-hue. */
     --status-text: #605d5d;
     --status-error: #C2004F;
     --status-success: #0F7355;
-    --shadow-sm: 0 1px 2px rgba(32, 30, 29, 0.05);
-    --shadow-md: 0 4px 12px rgba(32, 30, 29, 0.08);
-    --shadow-lg: 0 8px 24px rgba(32, 30, 29, 0.12);
+    --shadow-sm: 0 1px 2px rgba(32, 30, 29, 0.06);
+    --shadow-md: 0 4px 12px rgba(32, 30, 29, 0.10);
+    --shadow-lg: 0 8px 24px rgba(32, 30, 29, 0.14);
     --mic-hover-bg: #900949;
     --modal-backdrop: rgba(170, 11, 86, 0.16);
     --visualizer-bar: #aa0b56;
@@ -297,6 +342,10 @@
     --accent-warm: #ff458e;
     --text-on-accent: #0a303e;
     --text-on-warm: #4b1528;
+    /* Lighter than --mic-hover-bg #56B3D6, which is only 4.24:1 on this
+       palette's --bg-inset (the Target URI field's ground). */
+    --accent-deep: #66BEDF;
+    --text-link: var(--accent-deep);
     --accent-glow: rgba(56, 166, 207, 0.25);
     --accent-subtle: rgba(56, 166, 207, 0.08);
     --recording: #ff458e;
@@ -308,9 +357,11 @@
     --status-text: #d7d3d3;
     --status-error: #FF85B4;
     --status-success: #4FD0A8;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    /* The handoff's dark shadow scale: card .3, island .4 (--shadow-lg
+       continues the ladder at .5). */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
     --mic-hover-bg: #56B3D6;
     --modal-backdrop: rgba(0, 0, 0, 0.5);
     --visualizer-bar: #88CAE2;
@@ -1368,7 +1419,7 @@ body > header {
     min-height: 24px;
     border: 0;
     background: transparent;
-    color: var(--accent-warm);
+    color: var(--text-link);
     font-family: inherit;
     font-size: 0.84rem;
     font-weight: 700;
@@ -1785,7 +1836,7 @@ input[type="checkbox"][role="switch"]:disabled {
 /* Target URIs read as data, not prose. */
 .settings-row input[type="url"] {
     background: var(--bg-inset);
-    color: var(--accent-warm);
+    color: var(--text-link);
     font-family: var(--font-mono);
     font-size: 0.8125rem;
 }
@@ -1877,7 +1928,8 @@ input[type="checkbox"][role="switch"]:disabled {
 .palette-card-check {
     flex: none;
     visibility: hidden;
-    color: var(--accent);
+    /* The handoff asks for the accent's deep step, not the plain accent. */
+    color: var(--accent-deep);
 }
 
 .palette-card[aria-checked="true"] .palette-card-check {

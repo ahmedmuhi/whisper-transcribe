@@ -18,16 +18,17 @@ import {
     THEME_PALETTES
 } from '../js/constants.js';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { extractCssBlock } from './helpers/css-tokens.js';
+import { contrastRatio, extractCssBlock } from './helpers/css-tokens.js';
 
 const css = readFileSync('css/styles.css', 'utf-8');
 const indexSource = readFileSync('index.html', 'utf8');
 
-/** The 25 tokens every palette block declares, in the order :root uses. */
+/** The 27 tokens every palette block declares, in the order :root uses. */
 const PALETTE_TOKENS = [
     '--bg-primary', '--bg-surface', '--bg-inset', '--border-color', '--border-subtle',
     '--text-primary', '--text-secondary', '--text-muted', '--accent', '--accent-warm',
-    '--text-on-accent', '--text-on-warm', '--accent-glow', '--accent-subtle',
+    '--text-on-accent', '--text-on-warm', '--accent-deep', '--text-link',
+    '--accent-glow', '--accent-subtle',
     '--recording', '--recording-glow', '--status-text', '--status-error',
     '--status-success', '--shadow-sm', '--shadow-md', '--shadow-lg',
     '--mic-hover-bg', '--modal-backdrop', '--visualizer-bar'
@@ -65,7 +66,7 @@ const HANDOFF = {
     'organic light': {
         '--bg-primary': '#f5ead8', '--bg-surface': '#fdf8f0', '--bg-inset': '#efe3ce',
         '--border-color': '#dcd3c4', '--text-primary': '#2e2b25',
-        '--text-secondary': '#645c50', '--text-muted': '#a19786', '--accent': '#b2622d',
+        '--text-secondary': '#645c50', '--text-muted': '#a19786',
         '--text-on-accent': '#fff8f2', '--accent-warm': '#56633f',
         '--text-on-warm': '#f0fae1', '--recording': '#b93b2b'
     },
@@ -80,7 +81,7 @@ const HANDOFF = {
         '--bg-primary': '#e9e9ea', '--bg-surface': '#f5f5f8', '--bg-inset': '#e7e7ea',
         '--border-color': '#d4d4d7', '--text-primary': '#1d1f20',
         '--text-secondary': '#5d5d60', '--text-muted': '#98989b', '--accent': '#416180',
-        '--text-on-accent': '#f5f5f8', '--accent-warm': '#627d98',
+        '--text-on-accent': '#f5f5f8',
         '--text-on-warm': '#f5f5f8', '--recording': '#DB2C23'
     },
     'industry dark': {
@@ -105,6 +106,28 @@ const HANDOFF = {
         '--text-on-warm': '#4b1528', '--recording': '#ff458e'
     }
 };
+
+/**
+ * The two hexes this branch deliberately does not take from the handoff, with
+ * the AA failure each one fixes. Anything that moves them has to move this too.
+ */
+const AA_CORRECTIONS = {
+    'organic light': { '--accent': ['#9E5220', '#b2622d'] },
+    'industry light': { '--accent-warm': ['#55708C', '#627d98'] }
+};
+
+/**
+ * Foreground/background pairs the palettes paint as normal-size text, so all
+ * eight forms owe them 4.5:1. --text-on-accent is the .btn-primary label, the
+ * initials badge, the active segment and the active settings-nav item;
+ * --text-on-warm is the "Done" label; --text-link is .link-button and the
+ * Target URI field, which sit on three different grounds.
+ */
+const FILL_PAIRS = [
+    ['--text-on-accent', '--accent'],
+    ['--text-on-warm', '--accent-warm']
+];
+const LINK_GROUNDS = ['--bg-surface', '--bg-primary', '--bg-inset'];
 
 /** Coastal Teal as it shipped. A diff here means the default scheme moved. */
 const COASTAL = {
@@ -168,9 +191,154 @@ describe('Palette CSS token blocks', () => {
         }
     });
 
+    it.each(Object.entries(AA_CORRECTIONS))('%s carries its AA correction, not the handoff hex', (form, tokens) => {
+        const [palette, variant] = form.split(' ');
+        const declared = declarationsOf(selectorFor(palette, variant));
+
+        for (const [token, [corrected, handoff]] of Object.entries(tokens)) {
+            expect(declared.get(token), `${token} in ${form}`).toBe(corrected);
+            expect(declared.get(token)).not.toBe(handoff);
+        }
+    });
+
     it('keeps the Coastal visualizer bar on its historical hexes', () => {
-        expect(css).toMatch(/:root\s*\{\s*--visualizer-bar:\s*#245F73;\s*\}/);
-        expect(css).toMatch(/\.dark-theme\s*\{\s*--visualizer-bar:\s*#8FBACB;\s*\}/);
+        expect(css).toMatch(/:root\s*\{[^}]*--visualizer-bar:\s*#245F73;/u);
+        expect(css).toMatch(/\.dark-theme\s*\{[^}]*--visualizer-bar:\s*#8FBACB;/u);
+    });
+});
+
+describe('Palette text contrast (WCAG-AA)', () => {
+    const FORMS = [
+        { name: 'Coastal Teal light', selector: ':root' },
+        { name: 'Coastal Teal dark', selector: '.dark-theme' },
+        ...NEW_PALETTES.flatMap((palette) => [
+            { name: `${palette} light`, selector: selectorFor(palette, 'light') },
+            { name: `${palette} dark`, selector: selectorFor(palette, 'dark') }
+        ])
+    ];
+
+    /** Every block a selector opens, merged in file order. */
+    function allDeclarationsOf(selector) {
+        const escaped = selector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+        const declarations = new Map();
+        for (const block of css.matchAll(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, 'gu'))) {
+            for (const match of block[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/gu)) {
+                declarations.set(match[1], match[2].trim());
+            }
+        }
+        return declarations;
+    }
+
+    /**
+     * The cascade a form actually resolves through, so a token a palette
+     * inherits (Coastal dark takes --text-on-accent from :root) is measured
+     * where it lands rather than reported as missing.
+     *
+     * @param {string} selector One of FORMS' selectors.
+     * @returns {Map<string, string>} Resolved custom properties.
+     */
+    function cascadeOf(selector) {
+        const palette = selector.match(/\[data-palette="(\w+)"\]/u)?.[1];
+        const dark = selector.endsWith('.dark-theme');
+        const chain = [':root'];
+        if (dark) chain.push('.dark-theme');
+        if (palette) {
+            chain.push(selectorFor(palette, 'light'));
+            if (dark) chain.push(selectorFor(palette, 'dark'));
+        }
+        return chain.reduce((merged, link) => {
+            for (const [name, value] of allDeclarationsOf(link)) merged.set(name, value);
+            return merged;
+        }, new Map());
+    }
+
+    /**
+     * Reads a hex token, following var() indirection inside the same cascade so
+     * `--text-link: var(--accent-deep)` resolves.
+     *
+     * @param {string} selector Palette form.
+     * @param {string} token Custom property name.
+     * @returns {string} A 6-digit hex.
+     */
+    function hexOf(selector, token) {
+        const declared = cascadeOf(selector);
+        let value = declared.get(token);
+        while (/^var\(/u.test(value || '')) value = declared.get(value.match(/^var\((--[\w-]+)\)$/u)[1]);
+        expect(value, `${token} in ${selector}`).toMatch(/^#[0-9A-Fa-f]{6}$/u);
+        return value;
+    }
+
+    it.each(FORMS)('$name keeps its filled-control labels at 4.5:1', ({ name, selector }) => {
+        for (const [label, fill] of FILL_PAIRS) {
+            const ratio = contrastRatio(hexOf(selector, label), hexOf(selector, fill));
+            expect(ratio, `${label} on ${fill} in ${name}`).toBeGreaterThanOrEqual(4.5);
+        }
+    });
+
+    it.each(FORMS)('$name keeps --text-link at 4.5:1 on every ground it paints on', ({ name, selector }) => {
+        const link = hexOf(selector, '--text-link');
+        for (const ground of LINK_GROUNDS) {
+            // Coastal dark's shipped rust is 4.31:1 on --bg-inset. Plan 055 D3
+            // rules changing the already-shipped scheme out of scope, so this
+            // one pair is grandfathered rather than silently unmeasured.
+            const floor = (name === 'Coastal Teal dark' && ground === '--bg-inset') ? 4.3 : 4.5;
+            const ratio = contrastRatio(link, hexOf(selector, ground));
+            expect(ratio, `--text-link ${link} on ${ground} in ${name}`).toBeGreaterThanOrEqual(floor);
+        }
+    });
+
+    it('paints the link roles from --text-link, not the accent-2 fill token', () => {
+        expect(extractCssBlock(css, '.link-button')).toMatch(/color:\s*var\(--text-link\)/u);
+        expect(css).toMatch(/input\[type="url"\]\s*\{[^}]*color:\s*var\(--text-link\)/u);
+    });
+
+    it('draws the selected palette check in the accent deep step', () => {
+        expect(extractCssBlock(css, '.palette-card-check')).toMatch(/color:\s*var\(--accent-deep\)/u);
+    });
+});
+
+describe('Anti-FOUC bootstrap script', () => {
+    /**
+     * The inline script in index.html paints the palette before any module
+     * loads, so it cannot import js/constants.js and has to repeat the key and
+     * the palette list. This guard is what stops the copy from drifting: a
+     * fifth palette added to THEME_PALETTES alone would otherwise flash Coastal
+     * on every reload, with nothing reporting it.
+     */
+    const inlineScript = indexSource.match(/<script>([\s\S]*?)<\/script>/u)?.[1] || '';
+
+    it('repeats THEME_PALETTES exactly', () => {
+        const listed = inlineScript
+            .match(/const palettes = \[([^\]]*)\]/u)?.[1]
+            .split(',')
+            .map((entry) => entry.trim().replace(/^'|'$/gu, ''));
+
+        expect(listed).toEqual([...THEME_PALETTES]);
+    });
+
+    it('reads the storage keys STORAGE_KEYS declares', () => {
+        expect(inlineScript).toContain(`localStorage.getItem('${STORAGE_KEYS.THEME_PALETTE}')`);
+        expect(inlineScript).toContain(`localStorage.getItem('${STORAGE_KEYS.THEME_MODE}')`);
+    });
+
+    it('falls back to the default palette', () => {
+        expect(inlineScript).toContain(`'${DEFAULT_THEME_PALETTE}'`);
+    });
+
+    it('gives every palette card swatches matching that palette\'s own tokens', () => {
+        for (const palette of THEME_PALETTES) {
+            const markup = indexSource
+                .split(`data-palette-value="${palette}"`)[1]
+                ?.split('</button>')[0] || '';
+            const swatches = [...markup.matchAll(/background:(#[0-9A-Fa-f]{6})/gu)]
+                .map(([, hex]) => hex.toLowerCase());
+            const selector = palette === DEFAULT_THEME_PALETTE ? ':root' : selectorFor(palette, 'light');
+            const declared = declarationsOf(selector);
+
+            expect(swatches, `${palette} swatches`).toEqual(
+                ['--bg-primary', '--accent', '--accent-warm'].map((token) => declared.get(token).toLowerCase())
+            );
+        }
     });
 });
 
@@ -332,14 +500,18 @@ describe('Palette settings row', () => {
         expect(localStorage.getItem(STORAGE_KEYS.THEME_PALETTE)).toBe('organic');
     });
 
-    it('re-applies a palette chosen in another tab', () => {
+    it('re-applies a palette chosen in another tab and announces it', () => {
         settings = new Settings();
+        const themeChanged = vi.fn();
+        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, themeChanged);
 
         localStorage.setItem(STORAGE_KEYS.THEME_PALETTE, 'broadsheet');
         window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEYS.THEME_PALETTE }));
 
         expect(activePalette()).toBe('broadsheet');
         expect(checkedPalettes()).toEqual(['broadsheet']);
+        // The canvas visualizer repaints its ground from this event only.
+        expect(themeChanged).toHaveBeenCalledWith({ mode: 'auto', palette: 'broadsheet' });
     });
 
     it('keeps the palette out of the quick-settings popover', () => {
