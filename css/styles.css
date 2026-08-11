@@ -398,7 +398,7 @@ body > header {
 
 .auth-context-note {
     color: var(--status-text);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
 }
 
 .auth-context-actions {
@@ -842,7 +842,7 @@ body > header {
 
 .selected-audio-eyebrow {
     color: var(--status-text);
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -894,7 +894,7 @@ body > header {
 .selected-audio-file-copy small,
 .selected-audio-note {
     color: var(--status-text);
-    font-size: 0.64rem;
+    font-size: 0.75rem;
 }
 
 .selected-audio-verdict,
@@ -904,7 +904,7 @@ body > header {
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--status-success) 9%, transparent);
     color: var(--status-success);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     text-align: center;
 }
 
@@ -1126,7 +1126,7 @@ body > header {
 
 .quick-settings-footer kbd {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     color: var(--status-text);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
@@ -1765,7 +1765,7 @@ input[type="checkbox"][role="switch"]:focus-visible {
     }
 
     .transcript-content {
-        font-size: 0.9rem;
+        font-size: 1rem;
         min-height: 80px;
     }
 
@@ -1858,6 +1858,14 @@ input[type="checkbox"][role="switch"]:focus-visible {
     .settings-row select,
     .settings-row input[type="url"] {
         width: 100%;
+    }
+
+    /* 16px inputs stop iOS from zooming the viewport on focus. */
+    .settings-row select,
+    .settings-row input[type="url"],
+    .settings-search input,
+    .quick-settings-field select {
+        font-size: 1rem;
     }
 }
 
