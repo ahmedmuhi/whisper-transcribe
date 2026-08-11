@@ -37,6 +37,7 @@ export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
  * @property {string} MODEL - Key for storing selected transcription model
  * @property {string} WHISPER_URI - Key for storing the Whisper Target URI
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
+ * @property {string} THEME_PALETTE - Key for storing user's preferred colour palette
  */
 export const STORAGE_KEYS = {
   MODEL:                'transcription_model',
@@ -44,10 +45,40 @@ export const STORAGE_KEYS = {
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
   MAI_TRANSCRIBE_STYLE:   'mai_transcribe_style',
   THEME_MODE:           'themeMode',
+  THEME_PALETTE:        'themePalette',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
   TRANSCRIPT_RECORD:     'transcript_record'
 };
+
+/**
+ * Selectable colour palettes. Each has a light and a dark form; the light/dark
+ * choice stays with THEME_MODE. 'coastal' is the shipped scheme and owns the
+ * :root/.dark-theme token blocks, so it has no [data-palette] block in CSS.
+ * The literals are mirrored by the anti-FOUC script in index.html.
+ * @constant {string[]} THEME_PALETTES
+ */
+export const THEME_PALETTES = Object.freeze(['coastal', 'organic', 'industry', 'broadsheet']);
+
+/**
+ * Palette used when nothing valid is stored, so existing users see no change.
+ * @constant {string} DEFAULT_THEME_PALETTE
+ * @default 'coastal'
+ */
+export const DEFAULT_THEME_PALETTE = THEME_PALETTES[0];
+
+/**
+ * Attribute carrying the active palette on document.documentElement — the same
+ * element the .dark-theme class is toggled on.
+ * @constant {string} THEME_PALETTE_ATTRIBUTE
+ */
+export const THEME_PALETTE_ATTRIBUTE = 'data-palette';
+
+/**
+ * Attribute each palette card carries with the palette it selects.
+ * @constant {string} THEME_PALETTE_VALUE_ATTRIBUTE
+ */
+export const THEME_PALETTE_VALUE_ATTRIBUTE = 'data-palette-value';
 
 /**
  * Recording environment profiles that control browser audio processing.
@@ -241,6 +272,8 @@ export const CONTENT_TYPES = {
  * @property {string} LOGOUT_CONTINUE - Continue signing out after a download was initiated
  * @property {string} LOGOUT_DISCARD - Discard the Unsent Recording and sign out
  * @property {string} LOGOUT_CANCEL - Close the logout dialog and stay signed in
+ * @property {string} PALETTE_LABEL - Title of the Appearance Palette row (labels its radiogroup)
+ * @property {string} PALETTE_GRID - Radiogroup of palette swatch cards
  */
 export const ID = Object.freeze({
   GRAB_TEXT_BUTTON: 'grab-text-button',
@@ -298,6 +331,8 @@ export const ID = Object.freeze({
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
   MAI_URI_BADGE: 'mai-uri-badge',
   NOISE_TOGGLE: 'noise-toggle',
+  PALETTE_LABEL: 'palette-label',
+  PALETTE_GRID: 'palette-grid',
   VERBATIM_SETTING: 'verbatim-setting',
   VERBATIM_TOGGLE: 'verbatim-toggle',
   INPUT_DEVICE: 'input-device',

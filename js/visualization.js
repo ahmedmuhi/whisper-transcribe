@@ -5,8 +5,57 @@
  */
 import { COLORS } from './constants.js';
 
+/** Coastal Teal fallbacks for environments that cannot compute styles. */
 const VIZ_RGB_LIGHT = [36, 95, 115];
 const VIZ_RGB_DARK  = [143, 186, 203];
+
+/**
+ * Reads a live custom property off the root element so the canvas follows the
+ * selected palette instead of a frozen hex.
+ *
+ * @param {string} property Custom property name, e.g. '--bg-primary'.
+ * @param {string} fallback Value used when styles cannot be computed.
+ * @returns {string} The resolved colour, or the fallback.
+ */
+export function readRootColor(property, fallback) {
+    try {
+        const value = window.getComputedStyle(document.documentElement)
+            .getPropertyValue(property)
+            .trim();
+        return value || fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+/**
+ * Canvas ground colour for the current theme form.
+ *
+ * @param {boolean} isDarkTheme Whether the dark form is active.
+ * @returns {string} CSS colour for the visualizer canvas fill.
+ */
+export function readCanvasGround(isDarkTheme) {
+    return readRootColor(
+        '--bg-primary',
+        isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG
+    );
+}
+
+/**
+ * Bar colour as an [r, g, b] triple, read once per recording session.
+ *
+ * @param {boolean} isDarkTheme Whether the dark form is active.
+ * @returns {number[]} Red, green, and blue channels 0-255.
+ */
+function readBarRgb(isDarkTheme) {
+    const fallback = isDarkTheme ? VIZ_RGB_DARK : VIZ_RGB_LIGHT;
+    const value = readRootColor('--visualizer-bar', '');
+    const hex = value.match(/^#([0-9a-f]{6})$/iu);
+    if (hex) return hex[1].match(/.{2}/gu).map((pair) => parseInt(pair, 16));
+    const rgb = value.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/iu);
+    if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+    return fallback;
+}
 
 /** Interval between amplitude samples in milliseconds */
 const SAMPLE_INTERVAL_MS = 100;
@@ -87,8 +136,8 @@ export class VisualizationController {
      * @returns {void}
      */
     start() {
-        const [baseR, baseG, baseB] = this.isDarkTheme ? VIZ_RGB_DARK : VIZ_RGB_LIGHT;
-        const bgColor = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
+        const [baseR, baseG, baseB] = readBarRgb(this.isDarkTheme);
+        const bgColor = readCanvasGround(this.isDarkTheme);
         // Pre-build quantized fillStyle strings to avoid per-bar allocation in draw loop
         const ALPHA_STEPS = 32;
         const fillStyles = new Array(ALPHA_STEPS + 1);
@@ -175,7 +224,7 @@ export class VisualizationController {
             try { this.audioContext.close(); } catch { /* already closed */ }
         }
         this.amplitudeHistory = [];
-        this.canvasCtx.fillStyle = this.isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
+        this.canvasCtx.fillStyle = readCanvasGround(this.isDarkTheme);
         this.canvasCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 }

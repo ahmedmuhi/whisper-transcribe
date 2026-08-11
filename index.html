@@ -15,6 +15,15 @@
 
                 document.documentElement.classList.toggle('dark-theme', isDark);
                 document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+
+                // Key and values must match STORAGE_KEYS.THEME_PALETTE and
+                // THEME_PALETTES in js/constants.js
+                const palettes = ['coastal', 'organic', 'industry', 'broadsheet'];
+                const storedPalette = localStorage.getItem('themePalette');
+                document.documentElement.setAttribute(
+                    'data-palette',
+                    palettes.indexOf(storedPalette) >= 0 ? storedPalette : 'coastal'
+                );
             } catch {
                 // If storage access fails, keep auto behavior from CSS/JS defaults.
             }
@@ -363,11 +372,73 @@
                     </div>
                 </div>
 
+                <div class="settings-row settings-row--stacked" data-settings-row="palette" data-category="appearance"
+                     data-keywords="palette appearance colour color theme scheme organic industry broadsheet coastal teal">
+                    <div class="settings-row-copy">
+                        <span class="settings-row-title" id="palette-label">Palette<span class="settings-row-chip" aria-hidden="true">Appearance</span></span>
+                        <p class="settings-row-subtitle">Colour set for the whole app · each palette carries its own light and dark form</p>
+                    </div>
+                    <div class="palette-grid" id="palette-grid" role="radiogroup" aria-labelledby="palette-label">
+                        <button type="button" class="palette-card" role="radio" aria-checked="true" tabindex="0" data-palette-value="coastal">
+                            <span class="palette-swatches" aria-hidden="true">
+                                <span style="background:#FFFFFF"></span>
+                                <span style="background:#245F73"></span>
+                                <span style="background:#733E24"></span>
+                            </span>
+                            <span class="palette-card-footer">
+                                <span class="palette-card-name">Coastal Teal</span>
+                                <svg class="palette-card-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </button>
+                        <button type="button" class="palette-card" role="radio" aria-checked="false" tabindex="-1" data-palette-value="organic">
+                            <span class="palette-swatches" aria-hidden="true">
+                                <span style="background:#f5ead8"></span>
+                                <span style="background:#b2622d"></span>
+                                <span style="background:#56633f"></span>
+                            </span>
+                            <span class="palette-card-footer">
+                                <span class="palette-card-name">Organic</span>
+                                <svg class="palette-card-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </button>
+                        <button type="button" class="palette-card" role="radio" aria-checked="false" tabindex="-1" data-palette-value="industry">
+                            <span class="palette-swatches" aria-hidden="true">
+                                <span style="background:#e9e9ea"></span>
+                                <span style="background:#416180"></span>
+                                <span style="background:#627d98"></span>
+                            </span>
+                            <span class="palette-card-footer">
+                                <span class="palette-card-name">Industry</span>
+                                <svg class="palette-card-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </button>
+                        <button type="button" class="palette-card" role="radio" aria-checked="false" tabindex="-1" data-palette-value="broadsheet">
+                            <span class="palette-swatches" aria-hidden="true">
+                                <span style="background:#eae9e9"></span>
+                                <span style="background:#aa0b56"></span>
+                                <span style="background:#006786"></span>
+                            </span>
+                            <span class="palette-card-footer">
+                                <span class="palette-card-name">Broadsheet</span>
+                                <svg class="palette-card-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="settings-row" data-settings-row="theme" data-category="appearance"
                      data-keywords="theme appearance dark light system colour color">
                     <div class="settings-row-copy">
                         <span class="settings-row-title">Theme<span class="settings-row-chip" aria-hidden="true">Appearance</span></span>
-                        <p class="settings-row-subtitle">Follows your system by default</p>
+                        <p class="settings-row-subtitle">Light or dark form of the selected palette</p>
                     </div>
                     <div class="settings-row-control">
                         <fieldset class="theme-segment">

@@ -397,7 +397,7 @@ describe('Settings surface', () => {
             typeSearch('');
 
             expect(noResults.hidden).toBe(true);
-            expect(visibleRows()).toEqual(['theme']);
+            expect(visibleRows()).toEqual(['palette', 'theme']);
             expect(document.getElementById('settings-heading').textContent).toBe('Appearance');
             expect(row('theme').querySelector('.settings-row-chip').hidden).toBe(true);
         });

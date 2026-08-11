@@ -20,6 +20,11 @@ exposed repeated new-tab authentication interaction. Plan 040 was generated the
 same way on 2026-07-29 at commit `dc45b1c`, reintroducing the MAI-Transcribe 1.5
 verbatim option that plans 008/009 added and then removed — see the note below
 before touching it.
+Plan 046 was generated through the focused Improve `plan` workflow on
+2026-08-12 at commit `b4597f2` from a better-interface (interfaces plugin)
+full-mode review of the whole app UI: two WCAG blockers (invisible focus
+rings on the main controls, `--text-muted` text failing AA in both themes)
+plus eight smaller accessibility, typography, and copy findings.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
@@ -77,7 +82,36 @@ and update your row when done.
 | 039 | Share the MSAL sign-in session across same-browser tabs | P1 | S/M | — | IN PROGRESS (implementation `ff83c47` independently reviewed; focused 28 tests, 540-test coverage, build, lint, dependency, high-audit, size, and 11-browser-scenario gates passed; awaiting PR/CI, Pages deployment, and production two-tab acceptance) |
 | 040 | Add a MAI-Transcribe 1.5 verbatim transcription toggle | P2 | M | — | DONE (fast-forwarded locally to `main` at `87cfc0e`, 2026-07-29; implementation `45bcca8` plus review follow-up `87cfc0e`; final `/autoreview` clean with zero findings at 0.95 confidence; exact request shapes, cross-tab preference synchronization, normative API contract, 42 files / 550 tests, 93.59/82.97/94.32/93.59 coverage, build, lint, Knip, 20,208/20,500-byte application budget, and 11 deterministic Chromium cases passed; nothing pushed and no live Azure operation) |
 
+| 048 | Clear the stored Target URI when the field is edited into an invalid value | P1 | S | — | TODO |
+| 049 | Release the mic when the blob is built; report Active during in-flight upload | P1 | S | — | TODO |
+| 050 | Stop logging/broadcasting raw Azure error bodies; remove the ?debug URL switch | P1 | S | — | TODO |
+| 051 | Test the auth token guards, logout fail-closed branches, real registry lookups, staleness guards | P1 | M | — | TODO |
+| 052 | Replace the "exactly two adapters" invariant with an adapter contract + addition checklist | P1 | S | — | TODO |
+| 046 | Remediate the ten interface-review findings (focus rings, contrast, type floors, copy) | P1 | M | — | DONE (merged via PR #133 as `c4a13bb`, 2026-08-12; code `d2b3c66..66682b3`; 663 tests / 42 files, lint, build, CI checks + browser-smoke green; adversarial re-review PASS; contrast on changed pairs 6.11–9.02:1) |
+| 053 | Drive model UI from the adapter registry; per-model upload limits at selection time | P1 | M | 051, 052 | TODO |
+| 054 | Add the gpt-transcribe model adapter | P1 | S | 052, 053 | TODO |
+| 055 | Add four selectable colour palettes and the Appearance Palette row | P2 | M | — | BLOCKED (implemented on `feature/055-palette-themes`; 712 tests / 43 files, lint and the eight-form AA gate green, handoff hexes verbatim and Coastal untouched — but `npm run size` fails: application 21 kB vs the 20.5 kB budget and authentication runtime 55.16 kB vs 55 kB. The plan forbids raising a budget without a maintainer ruling, and D1–D3 are still unruled) |
+
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+> **2026-08-12 design handoff @ `c4a13bb`.** Plan 055 is not an audit finding:
+> it implements the "Palette themes (Appearance settings)" design handoff —
+> three new palettes (Organic, Industry, Broadsheet) alongside the existing
+> Coastal Teal, each with a light and a dark form, plus one new settings row.
+> Coastal Teal (`:root` / `.dark-theme`) does not change. The handoff's hexes
+> are authoritative; the plan pre-computes every token the handoff does not name
+> and records three sub-AA pairs (D1–D3) that need a maintainer ruling before
+> execution starts. Branch `feature/055-palette-themes`.
+
+> **2026-08-07 standard audit @ `b4597f2`.** Plans 048–054 come from a fresh
+> standard-level audit (4 parallel read-only subagents, all nine playbook
+> categories, findings vetted against the code by the advisor). Selected by the
+> User: the gpt-transcribe path (052→053→054), the top correctness/security
+> fixes (048–050), and the auth-boundary test hardening (051). Executor model:
+> Opus 5 at medium effort, isolated worktrees, no merge without the User's
+> explicit approval. Unselected vetted findings are recorded in the Backlog
+> additions below; the diarization design spike was offered and declined
+> (User needs gpt-transcribe only).
 
 > **Reconciled 2026-06-18 @ `f53667c`.** Plans 009 and 010 confirmed merged (PR
 > #71 / #72) — their stale "awaiting merge" statuses were updated. Done-criteria
@@ -186,6 +220,27 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > instead.
 
 ## Dependency notes
+
+- **2026-08-07 batch** (renumbered 048–054 after colliding with another session's 041/046): 048/049/050/051/052 are mutually independent and can
+  run in parallel worktrees. 053 requires 052 (docs/tests no longer forbid a
+  third adapter) and wants 051 first as its safety net; 053's executor should
+  merge the 048 branch into its worktree if 048 is unmerged (both touch
+  `js/settings.js`). 054 requires 052 + 053 and builds on 053's branch.
+  Backlog additions from the same audit (vetted, not planned): device-loss
+  FSM stranding (M), worker round-trip timeout (S), AudioContext leak on
+  failed viz start (S), waveform dirty-flag rendering (S), CSP + self-hosted
+  fonts (M), Dependabot config (S), relational version assertions (S),
+  test-suite shared build via globalSetup + fix CLAUDE.md's "does not write
+  dist/" claim (S), lint-staged/eslint-cache hooks (S), checkJs typecheck
+  gate (M), retire the dead cross-shape `parseResponse()` (S), collapse the
+  MAI apiModel duplicate constant (S), SettingsSurface↔controller integration
+  test (M), device-preference flow tests (S), Retry-After date form + abort
+  drain tests (S), MAI decode-failure mapping tests (S), replace wall-clock
+  sleeps (S), assert the repeated-stop viz test (S).
+- gpt-4o-transcribe-diarize spike: offered, declined 2026-08-07 (User needs
+  gpt-transcribe only). gpt-live-transcribe: assessed as an architecture
+  change (streaming client, FSM states, socket-lifetime token) — deferred,
+  do not scope as "another adapter".
 
 - **003 first.** It fixes the measurement itself — today a bare `vitest run`
   executes 756 tests (the real 378 plus a duplicate set from the
@@ -357,11 +412,11 @@ Promote any of these to a numbered plan on request. Order is roughly by leverage
 
 ## Direction options (maintainer strategy calls, not defects)
 
-- **Surface the already-built whisper-translate adapter**: fully implemented
-  and registered (`js/model-adapters/whisper-translate.js`, registry
-  `index.js:14`, spec'd in `spec/spec-design-api-client.md`), but absent from
-  both `<select>`s in `index.html` — zero UI references. Scope as
-  "verify against a live endpoint + surface", S.
+- ~~Surface the already-built whisper-translate adapter~~ **Corrected
+  2026-08-07: this entry was wrong.** No `js/model-adapters/whisper-translate.js`
+  exists, the registry holds no translate adapter, and the spec no longer
+  mentions translate. A translate adapter would be a build-from-scratch item
+  (M, not S), and is not currently requested.
 - **Expose transcription language** (companion to the above): `DEFAULT_LANGUAGE = 'en'`
   is hardcoded into every Whisper request (`js/model-adapters/whisper.js:18`);
   no UI, storage key, or event exists for it. M.

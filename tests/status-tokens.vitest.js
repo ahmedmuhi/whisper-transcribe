@@ -31,13 +31,24 @@ function contrastRatio(a, b) {
 }
 
 const TOKENS = ['--status-text', '--status-error', '--status-success'];
+/**
+ * Every palette form carries its own status tokens, so the AA gate covers all
+ * eight: Coastal Teal owns :root/.dark-theme, the other three own attribute
+ * blocks. A palette that ships an off-AA status colour fails here.
+ */
 const THEMES = [
-    { name: 'light (:root)', selector: ':root' },
-    { name: 'dark (.dark-theme)', selector: '.dark-theme' }
+    { name: 'Coastal Teal light (:root)', selector: ':root' },
+    { name: 'Coastal Teal dark (.dark-theme)', selector: '.dark-theme' },
+    { name: 'Organic light', selector: '[data-palette="organic"]' },
+    { name: 'Organic dark', selector: '[data-palette="organic"].dark-theme' },
+    { name: 'Industry light', selector: '[data-palette="industry"]' },
+    { name: 'Industry dark', selector: '[data-palette="industry"].dark-theme' },
+    { name: 'Broadsheet light', selector: '[data-palette="broadsheet"]' },
+    { name: 'Broadsheet dark', selector: '[data-palette="broadsheet"].dark-theme' }
 ];
 
 describe('Status text tokens (WCAG-AA)', () => {
-    it('defines all three status tokens as hex in both themes', () => {
+    it('defines all three status tokens as hex in every palette form', () => {
         for (const theme of THEMES) {
             for (const token of TOKENS) {
                 expect(cssVar(theme.selector, token), `${token} in ${theme.name}`).toMatch(/^#[0-9A-Fa-f]{6}$/);

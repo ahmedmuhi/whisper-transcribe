@@ -193,8 +193,10 @@ describe('Settings modal and popover responsive layout CSS', () => {
     });
 
     it('keeps a visible focus ring on the popover and modal controls', () => {
-        expect(css).toMatch(/#quick-settings-button:focus-visible[\s\S]{0,400}?box-shadow:\s*var\(--focus-ring\)/);
+        expect(css).toMatch(/#quick-settings-button:focus-visible[\s\S]{0,600}?box-shadow:\s*var\(--focus-ring\)/);
         expect(css).toMatch(/#settings-close:focus-visible|\.settings-nav button:focus-visible/);
+        // The palette cards share the one focus treatment rather than adding a ring.
+        expect(css).toMatch(/\.palette-card:focus-visible[\s\S]{0,200}?box-shadow:\s*var\(--focus-ring\)/);
     });
 });
 

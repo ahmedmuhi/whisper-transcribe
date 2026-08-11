@@ -96,7 +96,9 @@ global.document = {
     }),
     querySelector: vi.fn(() => createStatefulMockElement('query')),
     querySelectorAll: vi.fn(() => []),
-    body: createStatefulMockElement('body')
+    body: createStatefulMockElement('body'),
+    // The palette attribute and the .dark-theme class both land on this element.
+    documentElement: createStatefulMockElement('documentElement')
 };
 
 // Mock window.matchMedia
