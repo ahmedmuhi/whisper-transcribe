@@ -9,7 +9,7 @@ import {
     createAuthenticationConfig
 } from '../js/authentication-config.js';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
-import { AUTHENTICATION_STATES } from '../js/constants.js';
+import { AUTHENTICATION_STATES, MESSAGES } from '../js/constants.js';
 import { AuthenticationService } from '../js/authentication-service.js';
 
 const FAKE_CLIENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -371,6 +371,94 @@ describe('AuthenticationService token and redirect boundary', () => {
         });
         expect(client.loginPopup).not.toHaveBeenCalled();
         expect(client.acquireTokenPopup).not.toHaveBeenCalled();
+    });
+
+    it('refuses a token before readiness without touching the MSAL client', async () => {
+        const uninitializedClient = createFakeClient();
+        const uninitializedService = createService(uninitializedClient);
+
+        await expect(uninitializedService.getAccessToken(COGNITIVE_SERVICES_SCOPE)).rejects.toEqual(
+            expect.objectContaining({
+                name: 'AuthenticationTokenError',
+                code: AUTHENTICATION_STATES.UNINITIALIZED,
+                message: MESSAGES.AUTHENTICATION_TOKEN_UNAVAILABLE
+            })
+        );
+
+        expect(uninitializedClient.getActiveAccount).not.toHaveBeenCalled();
+        expect(uninitializedClient.acquireTokenSilent).not.toHaveBeenCalled();
+    });
+
+    it('fails closed into signed out when the active account disappeared', async () => {
+        client.getActiveAccount.mockReturnValue(null);
+
+        await expect(service.getAccessToken(COGNITIVE_SERVICES_SCOPE)).rejects.toEqual(
+            expect.objectContaining({
+                name: 'AuthenticationTokenError',
+                code: AUTHENTICATION_STATES.SIGNED_OUT,
+                message: MESSAGES.AUTHENTICATION_TOKEN_UNAVAILABLE
+            })
+        );
+
+        expect(service.getState()).toBe(AUTHENTICATION_STATES.SIGNED_OUT);
+        expect(client.acquireTokenSilent).not.toHaveBeenCalled();
+        expect(emitSpy).toHaveBeenLastCalledWith(
+            APP_EVENTS.AUTHENTICATION_STATE_CHANGED,
+            { state: AUTHENTICATION_STATES.SIGNED_OUT }
+        );
+    });
+
+    it.each([
+        ['an empty authentication result', {}],
+        ['a missing access token', { account: null }],
+        ['a non-string access token', { accessToken: 123 }],
+        ['an empty access token', { accessToken: '' }]
+    ])('never returns a Bearer value from %s', async (_caseName, authenticationResult) => {
+        client.acquireTokenSilent.mockResolvedValueOnce({
+            ...authenticationResult,
+            idToken: 'fake-unusable-id-token'
+        });
+
+        await expect(service.getAccessToken(COGNITIVE_SERVICES_SCOPE)).rejects.toEqual(
+            expect.objectContaining({
+                name: 'AuthenticationTokenError',
+                code: AUTHENTICATION_STATES.AUTHENTICATION_ERROR,
+                message: MESSAGES.AUTHENTICATION_TOKEN_UNAVAILABLE
+            })
+        );
+
+        expect(service.getState()).toBe(AUTHENTICATION_STATES.AUTHENTICATION_ERROR);
+        expect(JSON.stringify(emitSpy.mock.calls)).not.toContain('fake-unusable-id-token');
+    });
+
+    it('reports readiness without acquiring a token before initialization', async () => {
+        const uninitializedClient = createFakeClient();
+        const uninitializedService = createService(uninitializedClient);
+
+        await expect(uninitializedService.ensureTokenReady(COGNITIVE_SERVICES_SCOPE))
+            .resolves.toBe(AUTHENTICATION_STATES.UNINITIALIZED);
+
+        expect(uninitializedClient.getActiveAccount).not.toHaveBeenCalled();
+        expect(uninitializedClient.acquireTokenSilent).not.toHaveBeenCalled();
+    });
+
+    it('reports signed out readiness when the active account disappeared', async () => {
+        client.getActiveAccount.mockReturnValue(null);
+
+        await expect(service.ensureTokenReady(COGNITIVE_SERVICES_SCOPE))
+            .resolves.toBe(AUTHENTICATION_STATES.SIGNED_OUT);
+
+        expect(service.getState()).toBe(AUTHENTICATION_STATES.SIGNED_OUT);
+        expect(client.acquireTokenSilent).not.toHaveBeenCalled();
+    });
+
+    it('reports an authentication error readiness for a tokenless silent result', async () => {
+        client.acquireTokenSilent.mockResolvedValueOnce({});
+
+        await expect(service.ensureTokenReady(COGNITIVE_SERVICES_SCOPE))
+            .resolves.toBe(AUTHENTICATION_STATES.AUTHENTICATION_ERROR);
+
+        expect(service.getState()).toBe(AUTHENTICATION_STATES.AUTHENTICATION_ERROR);
     });
 
     it('uses redirect logout with only the active account and transitions safely', async () => {

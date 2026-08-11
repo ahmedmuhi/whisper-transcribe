@@ -109,12 +109,14 @@ overall deadline. Never make a broader role or key path an error workaround.
 
 ## Models, Settings, and the settings surface
 
-Exactly two adapters are registered, in response-parser precedence order:
+The adapter registry in `js/model-adapters/index.js` is the source of truth for
+supported models. Every registered adapter declares: an immutable `id`, `label`,
+`scope`, `storageKeys.uri`, a `buildRequest` returning
+`{ body, statusMessage }`, and a `parseResponse`. Registry insertion order
+carries no production semantics. Adding a model follows the adapter-addition
+checklist in `spec/spec-design-api-client.md`.
 
-1. `maiTranscribe15ModelAdapter` (`mai-transcribe-1.5`)
-2. `whisperModelAdapter` (`whisper`)
-
-Both declare `https://cognitiveservices.azure.com/.default`. Browser-local
+Every adapter declares `https://cognitiveservices.azure.com/.default`. Browser-local
 persistence is limited to non-secret model, manual HTTPS Target URI,
 microphone, transcription style, theme, and transcript data. `Settings` owns
 the preferences; `TranscriptStore` owns transcript content. `STORAGE_KEYS` owns

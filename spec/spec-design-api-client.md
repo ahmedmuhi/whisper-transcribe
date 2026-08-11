@@ -63,9 +63,10 @@ emitting their values. It MUST NOT become configuration fallback.
 
 ## 4. Supported adapters
 
-The registry contains exactly two adapters. Its insertion order remains MAI
-first, then Whisper, because the public cross-shape `parseResponse()` helper
-tries parsers in registry order.
+The registry is the source of truth for supported models; insertion order
+carries no production semantics (the legacy cross-shape `parseResponse()`
+helper is test-only). The table below documents the adapters registered today,
+not a closed set.
 
 | Model identifier | Label | Scope | Target URI metadata | Request body |
 |---|---|---|---|---|
@@ -77,6 +78,27 @@ preserves a supported source filename/container. The MAI adapter accepts the
 supported source formats, converts to WAV through the existing worker/fallback,
 and rejects a converted payload at or above 300 MiB. Model adapters MUST NOT
 contain a credential field, authentication storage key, or header constructor.
+
+### 4.1 Adapter-addition checklist
+
+A new model touches these sites today:
+
+1. `js/model-adapters/<model>.js` — frozen adapter object (pattern:
+   `js/model-adapters/whisper.js`).
+2. `js/model-adapters/index.js` — registry entry.
+3. `js/constants.js` — `MODEL_TYPES`, `STORAGE_KEYS.<MODEL>_URI`,
+   `ELEMENT_IDS` for the URI input and badge, `MESSAGES.SENDING_TO_<MODEL>`,
+   and the upload-limit constant.
+4. `index.html` — both model `<select>`s, the Connection URI row, and the
+   `ready-<id>` / `tooLarge-<id>` selected-audio panels.
+5. `js/selected-audio-controller.js` — the selection-time size gate.
+6. Tests — adapter unit tests, settings persistence, hygiene expectations.
+7. `tests/browser-live/` — guarded case plus protected Target URI
+   (operator-gated).
+
+Items 3–5 exist because model metadata is still spread across shared modules.
+Plan 053 collapses them into adapter-declared metadata; update this checklist
+when that lands.
 
 ## 5. Configuration and request lifecycle
 
