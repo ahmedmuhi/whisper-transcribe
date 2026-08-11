@@ -18,7 +18,15 @@ const TEST_SCOPE = 'https://service.invalid/.default';
 
 function createHarness(
     audioState = AUDIO_SAFETY_STATES.SAFE,
-    { downloadResult = true, confirmation = true } = {}
+    {
+        downloadResult = true,
+        downloadThrows = false,
+        confirmation = true,
+        confirmThrows = false,
+        discardResult = true,
+        discardThrows = false,
+        discardClearsAudio = true
+    } = {}
 ) {
     const callOrder = [];
     let currentAudioState = audioState;
@@ -35,6 +43,7 @@ function createHarness(
         }),
         downloadUnsentRecording: vi.fn(() => {
             callOrder.push('download');
+            if (downloadThrows) throw new Error('private download failure detail');
             if (downloadResult) downloadInitiated = true;
             return downloadResult;
         }),
@@ -43,13 +52,17 @@ function createHarness(
         )),
         discardUnsentRecording: vi.fn(() => {
             callOrder.push('discard');
-            currentAudioState = AUDIO_SAFETY_STATES.SAFE;
-            downloadInitiated = false;
-            return true;
+            if (discardThrows) throw new Error('private discard failure detail');
+            if (discardResult && discardClearsAudio) {
+                currentAudioState = AUDIO_SAFETY_STATES.SAFE;
+                downloadInitiated = false;
+            }
+            return discardResult;
         })
     };
     const confirmDiscard = vi.fn(async () => {
         callOrder.push('confirm');
+        if (confirmThrows) throw new Error('private confirmation failure detail');
         return confirmation;
     });
     const controller = new AuthInteractionController({
@@ -181,6 +194,58 @@ describe('Unsent Recording authentication recovery', () => {
             .toEqual({ state: AUTH_RECOVERY_STATES.DOWNLOADED });
     });
 
+    it.each([
+        ['download reports failure', { downloadResult: false }],
+        ['download throws', { downloadThrows: true }]
+    ])('blocks and keeps the Unsent Recording undownloaded when %s', async (_caseName, options) => {
+        const harness = createHarness(AUDIO_SAFETY_STATES.UNSENT, options);
+
+        await expect(harness.controller.downloadUnsentRecording())
+            .resolves.toEqual({ state: AUTH_RECOVERY_STATES.BLOCKED });
+
+        expect(harness.callOrder).toEqual(['audio-safety', 'download']);
+        expect(harness.audioSafety.discardUnsentRecording).not.toHaveBeenCalled();
+        expect(harness.authenticationService.signInRedirect).not.toHaveBeenCalled();
+        expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
+        expect(harness.authenticationService.signOutRedirect).not.toHaveBeenCalled();
+
+        await expect(harness.controller.continueAfterDownload({ interactionRequired: true }))
+            .resolves.toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
+        expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['discard reports failure', { confirmation: true, discardResult: false }],
+        ['discard throws', { confirmation: true, discardThrows: true }],
+        ['confirmation throws', { confirmThrows: true }]
+    ])('blocks the sign-in discard path when %s', async (_caseName, options) => {
+        const harness = createHarness(AUDIO_SAFETY_STATES.UNSENT, options);
+
+        await expect(harness.controller.discardUnsentAndContinue({ interactionRequired: true }))
+            .resolves.toEqual({ state: AUTH_RECOVERY_STATES.BLOCKED });
+
+        expect(harness.authenticationService.signInRedirect).not.toHaveBeenCalled();
+        expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
+    });
+
+    it('does not redirect when the audio is still unsent after a reported discard', async () => {
+        const harness = createHarness(
+            AUDIO_SAFETY_STATES.UNSENT,
+            { discardClearsAudio: false }
+        );
+
+        await expect(harness.controller.discardUnsentAndContinue({ interactionRequired: true }))
+            .resolves.toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
+
+        expect(harness.callOrder).toEqual([
+            'audio-safety',
+            'confirm',
+            'discard',
+            'audio-safety'
+        ]);
+        expect(harness.authenticationService.acquireTokenRedirect).not.toHaveBeenCalled();
+    });
+
     it('requires a separate explicit Continue after download initiation', async () => {
         const harness = createHarness(AUDIO_SAFETY_STATES.UNSENT);
 
@@ -292,6 +357,51 @@ describe('Unsent Recording logout recovery', () => {
             'logout'
         ]);
         expect(harness.authenticationService.signOutRedirect).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        ['discard reports failure', { confirmation: true, discardResult: false }],
+        ['discard throws', { confirmation: true, discardThrows: true }],
+        ['confirmation throws', { confirmThrows: true }]
+    ])('blocks the logout discard path when %s', async (_caseName, options) => {
+        const harness = createHarness(AUDIO_SAFETY_STATES.UNSENT, options);
+
+        await expect(harness.controller.discardUnsentAndLogOut())
+            .resolves.toEqual({ state: AUTH_RECOVERY_STATES.BLOCKED });
+
+        expect(harness.authenticationService.signOutRedirect).not.toHaveBeenCalled();
+    });
+
+    it('does not log out when the audio is still unsent after a reported discard', async () => {
+        const harness = createHarness(
+            AUDIO_SAFETY_STATES.UNSENT,
+            { discardClearsAudio: false }
+        );
+
+        await expect(harness.controller.discardUnsentAndLogOut())
+            .resolves.toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
+
+        expect(harness.callOrder).toEqual([
+            'audio-safety',
+            'confirm',
+            'discard',
+            'audio-safety'
+        ]);
+        expect(harness.authenticationService.signOutRedirect).not.toHaveBeenCalled();
+    });
+
+    it('blocks the logout download path without logging out when the download fails', async () => {
+        const harness = createHarness(
+            AUDIO_SAFETY_STATES.UNSENT,
+            { downloadThrows: true }
+        );
+
+        await expect(harness.controller.downloadUnsentRecording())
+            .resolves.toEqual({ state: AUTH_RECOVERY_STATES.BLOCKED });
+        await expect(harness.controller.continueLogoutAfterDownload())
+            .resolves.toEqual({ state: AUDIO_SAFETY_STATES.UNSENT });
+
+        expect(harness.authenticationService.signOutRedirect).not.toHaveBeenCalled();
     });
 
     it('retains the Unsent Recording and remains signed in when logout discard is cancelled', async () => {
