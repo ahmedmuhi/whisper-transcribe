@@ -37,7 +37,7 @@ port, base path, and callback path exactly.
 Built-output checks cover both entries and the separated authentication chunk.
 The initial packaging measurements were 19.52 kB for the application entry and
 2.73 kB for the redirect bridge. The current reviewed Brotli ceilings in
-`package.json` are 20.5 kB for the application assets, 60 kB for the
+`package.json` are 20.5 kB for the application assets, 55 kB for the
 authentication runtime, and 5 kB for the redirect bridge.
 
 ## Consequences

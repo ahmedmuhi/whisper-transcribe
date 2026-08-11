@@ -406,13 +406,13 @@ export function getWhisperFilename(mimeType, sourceName = '') {
 export const TRANSCRIPT_SEGMENT_DIVIDER = '\n\n──────────\n\n';
 
 /**
- * Default status message displayed when the application is ready for recording.
- * 
+ * Status message shown when the application is ready for recording.
+ * Intentionally empty: the idle pill's "Start recording" label already says
+ * it, so the status line stays quiet until something needs attention.
+ *
  * @constant {string} DEFAULT_RESET_STATUS
- * @default '🎙️ Click the microphone to start recording'
  */
-export const DEFAULT_RESET_STATUS =
-  '🎙️ Click the microphone to start recording';
+export const DEFAULT_RESET_STATUS = '';
 
 /**
  * Centralized user-facing messages for the application.
@@ -481,7 +481,9 @@ export const MESSAGES = {
   URI_MUST_BE_HTTPS: 'URI must use HTTPS',
   
   // Recording States
-  RECORDING_IN_PROGRESS: 'Recording... Click to stop',
+  // Intentionally empty: the active pill's Done button already says how to
+  // stop, so recording adds no caption under the strip.
+  RECORDING_IN_PROGRESS: '',
   RECORDING_PAUSED: 'Recording paused',
   RECORDING_CANCELLED: 'Recording cancelled',
   FINISHING_RECORDING: 'Finishing...',
