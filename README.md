@@ -19,8 +19,9 @@ surface, Microsoft sign-in, and no application backend.
   successfully retries it. Redirects and logout never silently discard audio.
 - **Transcript continuity** — transcriptions append with dividers, autosave to
   the browser, and support Grab, Restore, and Clear.
-- **Unified User menu** — an initials-only launcher contains the Transcription
-  Model, microphone, appearance, Target URI, Azure help, and logout paths.
+- **Unified settings surface** — a header gear opens quick settings (model,
+  noise cancellation, theme); the full settings modal (Ctrl+,) adds search,
+  microphone, Target URI, and sign-out paths. Every change applies instantly.
 - **Accessible interaction** — fixed hit targets, visible focus, WCAG-AA status
   colours, proportional confirmation, and complete reduced-motion behavior.
 
@@ -117,12 +118,14 @@ client secret, Azure credential, or Target URI in the Vite environment. For a
 Pages deployment, configure the same two names as GitHub repository variables
 used by `.github/workflows/pages.yml`.
 
-After sign-in, open the initials-only **User menu**:
+After sign-in, open **All settings…** from the header gear (or press Ctrl+,):
 
 1. Under **Model**, select Azure Whisper or MAI-Transcribe 1.5.
-2. Under **Settings**, enter both manual HTTPS Target URIs and save changes.
-3. Use **Help & Azure setup** when the app reports HTTP 403. Access must be
-   assigned outside the application.
+2. Under **Connection**, enter both manual HTTPS Target URIs. Each field
+   validates as you type and persists only while it holds a valid HTTPS URI;
+   there is no save step.
+3. When the app reports HTTP 403, follow the **View Azure setup** action it
+   offers. Access must be assigned outside the application.
 
 ## Development
 

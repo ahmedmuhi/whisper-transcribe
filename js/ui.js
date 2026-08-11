@@ -69,6 +69,7 @@ export class UI {
         this.timerElement = document.getElementById(ID.TIMER);
         this.spinnerContainer = document.getElementById(ID.SPINNER_CONTAINER);
         this.visualizer = document.getElementById(ID.VISUALIZER);
+        this.visualizerContainer = document.getElementById(ID.VISUALIZER_CONTAINER);
 
         // Guided-morph recording controls (rendered from FSM state) — the
         // Dynamic Island cluster reshapes around these fixed-size buttons.
@@ -77,6 +78,7 @@ export class UI {
         this.secondaryAction = document.getElementById(ID.SECONDARY_ACTION);
         this.discardAction = document.getElementById(ID.DISCARD_ACTION);
         this.retryAction = document.getElementById(ID.RETRY_ACTION);
+        this.recordDot = document.getElementById(ID.RECORD_DOT);
         this.uploadAction = document.getElementById(ID.UPLOAD_ACTION);
         this.audioFileInput = document.getElementById(ID.AUDIO_FILE_INPUT);
 
@@ -109,11 +111,6 @@ export class UI {
         this.discardDialogBody = document.getElementById(ID.DISCARD_DIALOG_BODY);
         this.discardKeepButton = document.getElementById(ID.DISCARD_KEEP);
         this.discardConfirmButton = document.getElementById(ID.DISCARD_CONFIRM);
-
-        // Settings / theme
-        this.themeToggle = document.getElementById(ID.THEME_TOGGLE);
-        this.moonIcon = document.getElementById(ID.MOON_ICON);
-        this.sunIcon = document.getElementById(ID.SUN_ICON);
 
         this.visualizationController = null;
 
@@ -177,24 +174,6 @@ export class UI {
      * @returns {void}
      */
     setupEventListeners() {
-        // Theme toggle
-        if (this.themeToggle) {
-            this.themeToggle.addEventListener('click', () => {
-                const currentMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE) || 'auto';
-                let newMode;
-                if (currentMode === 'auto') {
-                    newMode = document.documentElement.classList.contains('dark-theme') ? 'light' : 'dark';
-                } else if (currentMode === 'light') {
-                    newMode = 'dark';
-                } else {
-                    newMode = 'light';
-                }
-                localStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode);
-                this.applyTheme();
-                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: newMode });
-            });
-        }
-
         // Recording controls — each emits an intent event for AudioHandler.
         // The primary morphs Start↔Done; both map onto MIC_BUTTON_CLICKED (toggle).
         if (this.primaryAction) {
@@ -437,14 +416,6 @@ export class UI {
         document.documentElement.classList.toggle('dark-theme', isDark);
         document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
 
-        if (isDark) {
-            if (this.moonIcon) this.moonIcon.style.display = 'none';
-            if (this.sunIcon) this.sunIcon.style.display = 'block';
-        } else {
-            if (this.moonIcon) this.moonIcon.style.display = 'block';
-            if (this.sunIcon) this.sunIcon.style.display = 'none';
-        }
-
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             if (canvasCtx) {
@@ -607,6 +578,7 @@ export class UI {
      */
     renderControls(state) {
         if (this.#selectedSnapshot?.state !== SELECTED_AUDIO_STATES.IDLE) {
+            this._renderRecordingIndicators(null);
             if (this.controlCluster) this.controlCluster.hidden = true;
             return;
         }
@@ -625,6 +597,7 @@ export class UI {
                 this._applyButton(this.uploadAction, { hidden: true });
                 if (this.timerElement) this.timerElement.hidden = true;
                 this._setIslandState('island-auth');
+                this._renderRecordingIndicators(null);
                 this.controlCluster?.classList?.toggle('island-has-indicator', false);
                 this.hideSpinner();
                 return;
@@ -644,6 +617,7 @@ export class UI {
 
             // The island's resting shape per state (CSS owns colour/radius).
             this._setIslandState(this._islandStateFor(state));
+            this._renderRecordingIndicators(state);
 
             // The dots indicator replaces the primary's label only when shown.
             if (this.controlCluster && this.controlCluster.classList) {
@@ -656,6 +630,31 @@ export class UI {
                 this.hideSpinner();
             }
         });
+    }
+
+    /**
+     * Renders the recording indicators that live outside the button set: the
+     * pulsing record dot, the cluster's paused styling, and the visualizer strip.
+     * Pass `null` to turn all three off (authentication context, Selected Audio,
+     * and every non-recording state).
+     *
+     * @method _renderRecordingIndicators
+     * @private
+     * @param {?string} state - Current RECORDING_STATES value, or null for "off"
+     * @returns {void}
+     */
+    _renderRecordingIndicators(state) {
+        const S = RECORDING_STATES;
+        const showDot = state === S.RECORDING
+            || state === S.PAUSED
+            || state === S.CONFIRMING_DISCARD;
+        const showVisualizer = state === S.RECORDING
+            || state === S.PAUSED
+            || state === S.STOPPING;
+
+        if (this.recordDot) this.recordDot.hidden = !showDot;
+        this.controlCluster?.classList?.toggle('island-paused', state === S.PAUSED);
+        this.visualizerContainer?.classList?.toggle('viz-active', showVisualizer);
     }
 
     /**

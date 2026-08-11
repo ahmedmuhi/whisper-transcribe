@@ -8,13 +8,13 @@
  * no error/success hex belongs here.
  *
  * @constant {Object} COLORS
- * @property {string} DARK_BG - Dark theme background color (#0C0F1A)
- * @property {string} LIGHT_BG - Light theme background color (#EEF0FB)
+ * @property {string} DARK_BG - Dark theme background color (#0E1B21)
+ * @property {string} LIGHT_BG - Light theme background color (#FFFFFF)
  * @property {string} CANVAS_DARK_BG - Canvas background for dark theme
  * @property {string} CANVAS_LIGHT_BG - Canvas background for light theme
  */
-const DARK_BG  = '#0C0F1A';
-const LIGHT_BG = '#EEF0FB';
+const DARK_BG  = '#0E1B21';
+const LIGHT_BG = '#FFFFFF';
 
 export const COLORS = {
   DARK_BG,
@@ -206,24 +206,47 @@ export const CONTENT_TYPES = {
 /**
  * DOM element IDs for consistent element selection throughout the application.
  * Frozen object to prevent accidental modification.
- * 
+ *
+ * Grouped by surface: transcription card, island control cluster, the header
+ * quick-settings popover, the settings modal, and the logout safety dialog.
+ *
  * @constant {Object} ID
  * @readonly
  * @property {string} GRAB_TEXT_BUTTON - Copy transcription text button
- * @property {string} SAVE_SETTINGS - Save settings button
- * @property {string} THEME_TOGGLE - Theme switching toggle button
  * @property {string} STATUS - Status message display element
  * @property {string} TRANSCRIPT - Transcription text display area
  * @property {string} TIMER - Recording timer display element
+ * @property {string} RECORD_DOT - Pulsing dot shown in the recording pill
  * @property {string} VISUALIZER - Audio visualization canvas element
+ * @property {string} VISUALIZER_CONTAINER - Visualizer strip shown while recording
  * @property {string} SPINNER_CONTAINER - Loading spinner container
+ * @property {string} QUICK_SETTINGS_BUTTON - Header gear button opening the quick-settings popover
+ * @property {string} QUICK_SETTINGS - Quick-settings popover container
+ * @property {string} USER_BADGE - Header initials badge for the signed-in account
+ * @property {string} QUICK_NOISE_TOGGLE - Noise cancellation switch inside the popover
+ * @property {string} OPEN_ALL_SETTINGS - Popover link that opens the settings modal
+ * @property {string} SETTINGS_MODAL - Settings dialog element
+ * @property {string} SETTINGS_SEARCH - Settings search field
+ * @property {string} SETTINGS_HEADING - Settings content heading (category or search results)
+ * @property {string} SETTINGS_CLOSE - Settings close button
+ * @property {string} SETTINGS_AVATAR - Initials badge in the settings account footer
+ * @property {string} SETTINGS_ACCOUNT_NAME - Display name in the settings account footer
+ * @property {string} SETTINGS_SIGN_OUT - Sign out link in the settings account footer
+ * @property {string} SETTINGS_NO_RESULTS - Empty-state shown when no settings match the search
+ * @property {string} WHISPER_URI_BADGE - Live validation badge for the Whisper Target URI
+ * @property {string} MAI_URI_BADGE - Live validation badge for the MAI-Transcribe Target URI
+ * @property {string} LOGOUT_DIALOG - Audio-safety dialog shown before logging out
+ * @property {string} LOGOUT_DIALOG_STATUS - Logout dialog message paragraph
+ * @property {string} LOGOUT_DOWNLOAD - Download the Unsent Recording before logging out
+ * @property {string} LOGOUT_CONTINUE - Continue logging out after a download was initiated
+ * @property {string} LOGOUT_DISCARD - Discard the Unsent Recording and log out
+ * @property {string} LOGOUT_CANCEL - Close the logout dialog and stay signed in
  */
 export const ID = Object.freeze({
   GRAB_TEXT_BUTTON: 'grab-text-button',
   RESTORE_BUTTON: 'restore-button',
-  SAVE_SETTINGS: 'save-settings',
-  THEME_TOGGLE: 'theme-toggle',
   CONTROL_CLUSTER: 'control-cluster',
+  RECORD_DOT: 'record-dot',
   PRIMARY_ACTION: 'primary-action',
   SECONDARY_ACTION: 'secondary-action',
   DISCARD_ACTION: 'discard-action',
@@ -235,6 +258,12 @@ export const ID = Object.freeze({
   DISCARD_DIALOG_BODY: 'discard-dialog-body',
   DISCARD_KEEP: 'discard-keep',
   DISCARD_CONFIRM: 'discard-confirm',
+  LOGOUT_DIALOG: 'logout-dialog',
+  LOGOUT_DIALOG_STATUS: 'logout-dialog-status',
+  LOGOUT_DOWNLOAD: 'logout-download',
+  LOGOUT_CONTINUE: 'logout-continue',
+  LOGOUT_DISCARD: 'logout-discard',
+  LOGOUT_CANCEL: 'logout-cancel',
   AUTH_CONTEXT: 'auth-context',
   AUTH_CONTEXT_TITLE: 'auth-context-title',
   AUTH_CONTEXT_BODY: 'auth-context-body',
@@ -248,20 +277,32 @@ export const ID = Object.freeze({
   STATUS: 'status',
   TRANSCRIPT: 'transcript',
   TIMER: 'timer',
-  WHISPER_SETTINGS: 'whisper-settings',
-  MAI_TRANSCRIBE_SETTINGS: 'mai-transcribe-settings',
+  QUICK_SETTINGS_BUTTON: 'quick-settings-button',
+  QUICK_SETTINGS: 'quick-settings',
+  USER_BADGE: 'user-badge',
+  QUICK_NOISE_TOGGLE: 'quick-noise-toggle',
+  OPEN_ALL_SETTINGS: 'open-all-settings',
+  SETTINGS_MODAL: 'settings-modal',
+  SETTINGS_SEARCH: 'settings-search',
+  SETTINGS_HEADING: 'settings-heading',
+  SETTINGS_CLOSE: 'settings-close',
+  SETTINGS_AVATAR: 'settings-avatar',
+  SETTINGS_ACCOUNT_NAME: 'settings-account-name',
+  SETTINGS_SIGN_OUT: 'settings-sign-out',
+  SETTINGS_NO_RESULTS: 'settings-no-results',
   MODEL_SELECT: 'model-select',
   SETTINGS_MODEL_SELECT: 'settings-model-select',
   RECORDING_ENVIRONMENT: 'recording-environment',
   WHISPER_URI: 'whisper-uri',
+  WHISPER_URI_BADGE: 'whisper-uri-badge',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
+  MAI_URI_BADGE: 'mai-uri-badge',
   NOISE_TOGGLE: 'noise-toggle',
   VERBATIM_SETTING: 'verbatim-setting',
   VERBATIM_TOGGLE: 'verbatim-toggle',
   INPUT_DEVICE: 'input-device',
   VISUALIZER: 'visualizer',
-  MOON_ICON: 'moon-icon',
-  SUN_ICON: 'sun-icon',
+  VISUALIZER_CONTAINER: 'visualizer-container',
   SPINNER_CONTAINER: 'spinner-container'
 });
 

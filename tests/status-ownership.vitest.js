@@ -7,7 +7,9 @@
  */
 
 import { vi } from 'vitest';
+import { readFileSync } from 'fs';
 import { showTemporaryStatus } from '../js/status-helper.js';
+import { ID } from '../js/constants.js';
 import { UI } from '../js/ui.js';
 
 // Invoke the REAL setStatus against a bare context (mirrors status-reset.vitest.js).
@@ -73,5 +75,57 @@ describe('Status line ownership (toast vs base setStatus)', () => {
         expect(el.textContent).toBe('hello');
         expect(el.classList.contains('status--success')).toBe(false);
         expect(el._statusTimeout == null).toBe(true);
+    });
+});
+
+/**
+ * The redesign moves the status line under the recording visualizer strip as its
+ * centred mono caption. The colour/ownership rules above only hold if the caption
+ * is still the element `UI` binds (`ID.STATUS`) and still carries the `.status`
+ * class the AA-safe modifiers hang off — so pin the real node from `index.html`
+ * and run the real toast/base interaction against it.
+ */
+describe('Status caption in the redesigned DOM', () => {
+    let caption;
+    let root;
+
+    beforeEach(() => {
+        const body = readFileSync('index.html', 'utf8').match(/<body>([\s\S]*)<\/body>/u)?.[1] || '';
+        root = document.createElement('div');
+        root.innerHTML = body.replace(/<script[^>]*><\/script>/gu, '');
+        caption = root.querySelector(`#${ID.STATUS}`);
+    });
+
+    it('keeps the caption element UI binds, with the base status class', () => {
+        expect(ID.STATUS).toBe('status');
+        expect(caption).not.toBeNull();
+        expect(caption.classList.contains('status')).toBe(true);
+        expect(caption.getAttribute('aria-live')).toBe('polite');
+    });
+
+    it('sits directly beneath the visualizer strip inside the controls area', () => {
+        const strip = root.querySelector('#visualizer-container');
+        expect(strip).not.toBeNull();
+        expect(caption.previousElementSibling).toBe(strip);
+        expect(caption.parentElement.classList.contains('controls-area')).toBe(true);
+    });
+
+    it('carries toast modifiers and reverts on the real caption node', () => {
+        vi.useFakeTimers();
+        try {
+            showTemporaryStatus(caption, 'Grabbed to clipboard', 'success', 3000, 'ready');
+            expect(caption.textContent).toBe('Grabbed to clipboard');
+            expect(caption.classList.contains('status--success')).toBe(true);
+
+            UI.prototype.setStatus.call({ statusElement: caption }, 'latest base message');
+            expect(caption.textContent).toBe('Grabbed to clipboard');
+
+            vi.advanceTimersByTime(3000);
+            expect(caption.textContent).toBe('latest base message');
+            expect(caption.classList.contains('status--success')).toBe(false);
+            expect(caption.classList.contains('status')).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

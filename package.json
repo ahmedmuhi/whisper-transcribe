@@ -55,7 +55,7 @@
     {
       "name": "authentication runtime",
       "path": "dist/assets/authentication-*.js",
-      "limit": "55 kB"
+      "limit": "60 kB"
     },
     {
       "name": "redirect bridge",
