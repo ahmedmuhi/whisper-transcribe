@@ -334,7 +334,7 @@ Primary deterministic coverage includes:
 - `tests/selected-audio.vitest.js` and `tests/selected-audio-ui.vitest.js` —
   memory-only File state, model revalidation, explicit Transcribe, and recovery;
 - `tests/browser/auth-menu-recovery.spec.js` — built-browser checking, 401, 403,
-  User menu, and narrow layout behavior;
+  the settings surface, and narrow layout behavior;
 - `tests/browser/selected-audio.spec.js` — built-browser Variant B selection,
   local validation, explicit request, retry, privacy, and success convergence.
 

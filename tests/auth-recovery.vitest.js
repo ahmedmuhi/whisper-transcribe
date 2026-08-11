@@ -318,23 +318,36 @@ function createIslandHarness({ recoveryState = AUDIO_SAFETY_STATES.SAFE } = {}) 
                 <button id="auth-primary-action"><svg class="microsoft-mark" aria-hidden="true"></svg><span class="btn-label"></span></button>
                 <button id="auth-secondary-action"><span class="btn-label"></span></button>
             </div>
+            <span id="record-dot" class="island-record-dot" aria-hidden="true" hidden></span>
             <div id="timer"></div>
             <button id="primary-action"><span class="btn-label"></span></button>
+            <button id="upload-action"><span class="btn-label"></span></button>
             <button id="secondary-action"><span class="btn-label"></span></button>
             <button id="discard-action"><span class="btn-label"></span></button>
             <button id="retry-action"><span class="btn-label"></span></button>
             <div id="spinner-container"></div>
         </div>
+        <div id="visualizer-container" class="visualizer-container">
+            <canvas id="visualizer"></canvas>
+        </div>
         <div id="status"></div>
         <textarea id="transcript"></textarea>
         <button id="grab-text-button"></button>
         <button id="restore-button"></button>
-        <canvas id="visualizer"></canvas>
         <dialog id="discard-dialog">
             <h3 id="discard-dialog-title"></h3>
             <p id="discard-dialog-body"></p>
             <button id="discard-keep"></button>
             <button id="discard-confirm"></button>
+        </dialog>
+        <dialog id="logout-dialog">
+            <p id="logout-dialog-status"></p>
+            <div class="logout-dialog-actions">
+                <button id="logout-download">Download recording</button>
+                <button id="logout-continue" hidden>Continue to log out</button>
+                <button id="logout-discard">Discard recording and log out</button>
+                <button id="logout-cancel">Cancel</button>
+            </div>
         </dialog>
     `;
     document.getElementById = (id) => document.querySelector(`#${id}`);
@@ -479,6 +492,19 @@ describe('authentication island presentation', () => {
         expect(ui.authPrimaryAction.dataset.authAction).toBe('open-settings');
     });
 
+    it('opens the settings modal from the Target URI recovery action with focus return', () => {
+        const { ui, settings } = createIslandHarness();
+        ui.setupEventListeners();
+        ui.setupEventBusListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.READY);
+
+        eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri' });
+        ui.authPrimaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(settings.openSettingsModal).toHaveBeenCalledTimes(1);
+        expect(settings.openSettingsModal).toHaveBeenCalledWith(ui.authPrimaryAction);
+    });
+
     it('uses keyless Target URI wording for missing model configuration', () => {
         expect(MESSAGES.TARGET_URI_NOT_CONFIGURED).toMatch(/target uri/i);
         expect(MESSAGES.TARGET_URI_NOT_CONFIGURED).not.toMatch(/api settings/i);
@@ -508,10 +534,9 @@ describe('authentication island presentation', () => {
 
     it('restores focus to the control that opened an Unsent Recording confirmation', async () => {
         const { ui } = createIslandHarness();
-        const logoutDiscard = document.createElement('button');
-        logoutDiscard.textContent = 'Discard recording and log out';
-        document.body.append(logoutDiscard);
+        const logoutDiscard = document.querySelector('#logout-dialog #logout-discard');
         logoutDiscard.focus();
+        expect(document.activeElement).toBe(logoutDiscard);
         ui.discardDialog.showModal = vi.fn();
         ui.discardDialog.close = vi.fn();
         ui.setupEventListeners();
@@ -525,5 +550,53 @@ describe('authentication island presentation', () => {
 
         await expect(confirmation).resolves.toBe(false);
         expect(document.activeElement).toBe(logoutDiscard);
+    });
+});
+
+describe('recording indicators outside the button set', () => {
+    beforeEach(() => {
+        eventBus.clear();
+        vi.clearAllMocks();
+    });
+
+    /**
+     * Reads the three indicators the island renders outside its button set.
+     *
+     * @returns {{dot: boolean, viz: boolean, paused: boolean}} Indicator state
+     */
+    function indicators() {
+        return {
+            dot: !document.querySelector('#record-dot').hidden,
+            viz: document.querySelector('#visualizer-container').classList.contains('viz-active'),
+            paused: document.querySelector('#control-cluster').classList.contains('island-paused')
+        };
+    }
+
+    it.each([
+        ['recording', { dot: true, viz: true, paused: false }],
+        ['paused', { dot: true, viz: true, paused: true }],
+        ['confirmingDiscard', { dot: true, viz: false, paused: false }],
+        ['stopping', { dot: false, viz: true, paused: false }],
+        ['processing', { dot: false, viz: false, paused: false }],
+        ['idle', { dot: false, viz: false, paused: false }]
+    ])('renders the dot, paused styling, and visualizer strip for %s', (state, expected) => {
+        const { ui } = createIslandHarness();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.READY);
+
+        ui.renderControls(state);
+
+        expect(indicators()).toEqual(expected);
+    });
+
+    it('clears every recording indicator when the island shows authentication context', () => {
+        const { ui } = createIslandHarness();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.READY);
+        ui.renderControls('paused');
+        expect(indicators()).toEqual({ dot: true, viz: true, paused: true });
+
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.SIGNED_OUT);
+
+        expect(ui.authContext.hidden).toBe(false);
+        expect(indicators()).toEqual({ dot: false, viz: false, paused: false });
     });
 });

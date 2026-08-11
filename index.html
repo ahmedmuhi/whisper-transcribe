@@ -41,7 +41,44 @@
                 <h1>whisper<span class="wordmark-dot">.</span></h1>
             </div>
         </div>
+
+        <span class="header-actions">
+            <button id="quick-settings-button" class="quick-settings-button" type="button"
+                    aria-label="Quick settings" aria-haspopup="dialog"
+                    aria-expanded="false" aria-controls="quick-settings">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
+            <span id="user-badge" class="user-badge" role="img" hidden></span>
+        </span>
     </header>
+
+    <!-- Quick settings popover: the three controls changed most often, plus a way
+         through to everything else. -->
+    <div id="quick-settings" class="quick-settings" role="dialog" aria-label="Quick settings" hidden>
+        <label class="quick-settings-field" for="model-select">Model
+            <select id="model-select">
+                <option value="whisper">Azure Whisper</option>
+                <option value="mai-transcribe-1.5">MAI-Transcribe 1.5</option>
+            </select>
+        </label>
+        <label class="quick-settings-switch" for="quick-noise-toggle">
+            <span>Noise cancellation</span>
+            <input type="checkbox" id="quick-noise-toggle" role="switch">
+        </label>
+        <fieldset class="theme-segment theme-segment-mini">
+            <legend>Theme</legend>
+            <label><input type="radio" name="theme-mode-quick" value="auto">Sys</label>
+            <label><input type="radio" name="theme-mode-quick" value="light">Light</label>
+            <label><input type="radio" name="theme-mode-quick" value="dark">Dark</label>
+        </fieldset>
+        <div class="quick-settings-footer">
+            <button id="open-all-settings" type="button" class="link-button">All settings…</button>
+            <kbd>Ctrl ,</kbd>
+        </div>
+    </div>
 
     <div class="container" role="main">
         <!-- Transcription Area -->
@@ -188,6 +225,9 @@
                     </div>
                 </section>
 
+                <!-- Live recording tell: pulses while recording, goes still when paused. -->
+                <span id="record-dot" class="island-record-dot" aria-hidden="true" hidden></span>
+
                 <!-- The timer folds into the island while recording/paused. -->
                 <div id="timer" class="timer island-timer" hidden>00:00</div>
 
@@ -241,102 +281,141 @@
         </div>
     </dialog>
 
-    <div id="user-menu" class="user-menu">
-        <button id="user-menu-launcher" class="user-menu-launcher" type="button"
-                aria-label="Open User menu" aria-controls="user-menu-surface"
-                aria-expanded="false" hidden>
-            <span id="user-menu-initials" aria-hidden="true">?</span>
-        </button>
-        <div id="user-menu-surface" class="user-menu-surface" hidden>
-            <section id="user-menu-root" class="user-menu-panel user-menu-root" aria-label="User menu">
-                <header class="user-menu-identity">
-                    <span class="user-menu-avatar" aria-hidden="true">?</span>
-                    <span class="user-menu-identity-copy">
-                        <strong id="user-menu-name"></strong>
-                        <small id="user-menu-username"></small>
-                    </span>
-                </header>
-                <div class="user-menu-list">
-                    <button id="user-menu-model" class="user-menu-row" type="button" data-menu-view="model" aria-expanded="false">
-                        <span><strong>Model</strong><small>Choose transcription model</small></span><span aria-hidden="true">›</span>
-                    </button>
-                    <button id="user-menu-microphone" class="user-menu-row" type="button" data-menu-view="microphone" aria-expanded="false">
-                        <span><strong>Microphone</strong><small>Input and noise cancellation</small></span><span aria-hidden="true">›</span>
-                    </button>
-                    <button id="user-menu-settings" class="user-menu-row" type="button" data-menu-view="settings" aria-expanded="false">
-                        <span><strong>Settings</strong><small>Appearance and Target URIs</small></span><span aria-hidden="true">›</span>
-                    </button>
-                    <button id="user-menu-help" class="user-menu-row" type="button"><span><strong>Help &amp; Azure setup</strong></span></button>
-                    <button id="user-menu-logout" class="user-menu-row user-menu-logout" type="button"><span><strong>Log out</strong></span></button>
+    <!-- Settings: every preference on one surface, applied the moment it changes. -->
+    <dialog id="settings-modal" class="settings-modal" aria-label="Settings">
+        <div class="settings-sidebar">
+            <div class="settings-search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input id="settings-search" type="search" placeholder="Search settings" aria-label="Search settings" autocomplete="off" spellcheck="false">
+            </div>
+            <nav class="settings-nav" aria-label="Settings categories">
+                <button type="button" data-settings-category="model">Model</button>
+                <button type="button" data-settings-category="microphone">Microphone</button>
+                <button type="button" data-settings-category="appearance">Appearance</button>
+                <button type="button" data-settings-category="connection">Connection</button>
+            </nav>
+            <div class="settings-account">
+                <span id="settings-avatar" class="user-badge" aria-hidden="true">?</span>
+                <span class="settings-account-copy">
+                    <strong id="settings-account-name"></strong>
+                    <button id="settings-sign-out" type="button" class="link-button">Sign out</button>
+                </span>
+            </div>
+        </div>
+        <div class="settings-content">
+            <header class="settings-content-header">
+                <h2 id="settings-heading">Model</h2>
+                <button id="settings-close" type="button" aria-label="Close settings">✕</button>
+            </header>
+            <div class="settings-rows">
+                <div id="settings-no-results" class="settings-no-results" hidden></div>
+
+                <div class="settings-row" data-settings-row="model" data-category="model"
+                     data-keywords="transcription model azure whisper mai">
+                    <div class="settings-row-copy">
+                        <label class="settings-row-title" for="settings-model-select">Transcription model<span class="settings-row-chip" aria-hidden="true">Model</span></label>
+                        <p class="settings-row-subtitle">The Azure model used for recordings and uploads</p>
+                    </div>
+                    <div class="settings-row-control">
+                        <select id="settings-model-select">
+                            <option value="whisper">Azure Whisper</option>
+                            <option value="mai-transcribe-1.5">MAI-Transcribe 1.5</option>
+                        </select>
+                    </div>
                 </div>
-            </section>
 
-            <section id="user-menu-detail" class="user-menu-panel user-menu-detail" aria-label="User menu detail" hidden>
-                <header class="user-menu-detail-header">
-                    <button id="user-menu-back" class="user-menu-back" type="button" aria-label="Back to User menu" hidden>←</button>
-                    <strong id="user-menu-detail-title"></strong>
-                </header>
-                <div class="user-menu-detail-content">
-                    <div data-menu-panel="model" hidden>
-                        <label class="user-menu-field" for="model-select">Transcription model
-                            <select id="model-select">
-                                <option value="whisper">Azure Whisper</option>
-                                <option value="mai-transcribe-1.5">MAI-Transcribe 1.5</option>
-                            </select>
-                        </label>
-                        <label class="user-menu-switch" for="verbatim-toggle" id="verbatim-setting" hidden>
-                            <span><strong>Verbatim transcription</strong><small>Keep filler words and false starts</small></span>
-                            <input type="checkbox" id="verbatim-toggle" role="switch">
-                        </label>
-                        <a id="model-help" class="user-menu-support" href="https://learn.microsoft.com/azure/ai-services/openai/concepts/models" target="_blank" rel="noopener noreferrer">Help me choose a model</a>
+                <div class="settings-row" id="verbatim-setting" data-settings-row="verbatim" data-category="model"
+                     data-keywords="verbatim filler words false starts mai transcribe" hidden>
+                    <div class="settings-row-copy">
+                        <label class="settings-row-title" for="verbatim-toggle">Verbatim transcription<span class="settings-row-chip" aria-hidden="true">Model</span></label>
+                        <p class="settings-row-subtitle">Keep filler words and false starts · MAI-Transcribe 1.5 only</p>
                     </div>
-
-                    <div data-menu-panel="microphone" hidden>
-                        <label class="user-menu-field" for="input-device">Input device
-                            <select id="input-device"><option value="">System Default</option></select>
-                        </label>
-                        <label class="user-menu-switch" for="noise-toggle">
-                            <span><strong>Noise Cancellation</strong><small>Filter background hum and static</small></span>
-                            <input type="checkbox" id="noise-toggle" role="switch">
-                        </label>
+                    <div class="settings-row-control">
+                        <input type="checkbox" id="verbatim-toggle" role="switch">
                     </div>
+                </div>
 
-                    <div data-menu-panel="settings" hidden>
-                        <fieldset class="user-menu-theme">
-                            <legend>Appearance</legend>
+                <div class="settings-row" data-settings-row="device" data-category="microphone"
+                     data-keywords="input device microphone mic recording">
+                    <div class="settings-row-copy">
+                        <label class="settings-row-title" for="input-device">Input device<span class="settings-row-chip" aria-hidden="true">Microphone</span></label>
+                        <p class="settings-row-subtitle">Microphone used for new recordings</p>
+                    </div>
+                    <div class="settings-row-control">
+                        <select id="input-device">
+                            <option value="">System Default</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-row" data-settings-row="noise" data-category="microphone"
+                     data-keywords="noise cancellation background hum static filter">
+                    <div class="settings-row-copy">
+                        <label class="settings-row-title" for="noise-toggle">Noise cancellation<span class="settings-row-chip" aria-hidden="true">Microphone</span></label>
+                        <p class="settings-row-subtitle">Filter background hum and static</p>
+                    </div>
+                    <div class="settings-row-control">
+                        <input type="checkbox" id="noise-toggle" role="switch">
+                        <input type="hidden" id="recording-environment" value="quiet">
+                    </div>
+                </div>
+
+                <div class="settings-row" data-settings-row="theme" data-category="appearance"
+                     data-keywords="theme appearance dark light system colour color">
+                    <div class="settings-row-copy">
+                        <span class="settings-row-title">Theme<span class="settings-row-chip" aria-hidden="true">Appearance</span></span>
+                        <p class="settings-row-subtitle">Follows your system by default</p>
+                    </div>
+                    <div class="settings-row-control">
+                        <fieldset class="theme-segment">
+                            <legend class="sr-only">Theme</legend>
                             <label><input type="radio" name="theme-mode" value="auto">System</label>
                             <label><input type="radio" name="theme-mode" value="light">Light</label>
                             <label><input type="radio" name="theme-mode" value="dark">Dark</label>
                         </fieldset>
-                        <select id="settings-model-select" hidden aria-hidden="true" tabindex="-1">
-                            <option value="whisper">Azure Whisper</option>
-                            <option value="mai-transcribe-1.5">MAI-Transcribe 1.5</option>
-                        </select>
-                        <input type="hidden" id="recording-environment" value="quiet">
-                        <div id="whisper-settings" class="user-menu-target">
-                            <label class="user-menu-field" for="whisper-uri">Whisper Target URI
-                                <input type="url" id="whisper-uri" autocomplete="off" spellcheck="false">
-                            </label>
-                        </div>
-                        <div id="mai-transcribe-settings" class="user-menu-target">
-                            <label class="user-menu-field" for="mai-transcribe-uri">MAI-Transcribe 1.5 Target URI
-                                <input type="url" id="mai-transcribe-uri" autocomplete="off" spellcheck="false">
-                            </label>
-                        </div>
-                        <button id="save-settings" class="save-button" type="button">Save changes</button>
-                    </div>
-
-                    <div data-menu-panel="logout" hidden>
-                        <p id="user-menu-logout-status">Protect the Unsent Recording before logging out.</p>
-                        <button id="user-menu-download-recording" class="btn btn-secondary" type="button">Download recording</button>
-                        <button id="user-menu-continue-logout" class="btn btn-primary" type="button" hidden>Continue to log out</button>
-                        <button id="user-menu-discard-logout" class="btn btn-discard" type="button">Discard recording and log out</button>
                     </div>
                 </div>
-            </section>
-            <div id="user-menu-status" class="user-menu-status" role="status" aria-live="polite"></div>
+
+                <div class="settings-row" data-settings-row="whisperUri" data-category="connection"
+                     data-keywords="whisper target uri endpoint https azure connection">
+                    <div class="settings-row-copy">
+                        <label class="settings-row-title" for="whisper-uri">Whisper Target URI<span class="settings-row-chip" aria-hidden="true">Connection</span></label>
+                        <p class="settings-row-subtitle">Your Azure Whisper endpoint · HTTPS only</p>
+                        <span id="whisper-uri-badge" class="uri-badge"></span>
+                    </div>
+                    <div class="settings-row-control">
+                        <input type="url" id="whisper-uri" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
+
+                <div class="settings-row" data-settings-row="maiUri" data-category="connection"
+                     data-keywords="mai transcribe target uri endpoint https azure connection">
+                    <div class="settings-row-copy">
+                        <label class="settings-row-title" for="mai-transcribe-uri">MAI-Transcribe 1.5 Target URI<span class="settings-row-chip" aria-hidden="true">Connection</span></label>
+                        <p class="settings-row-subtitle">Your Azure MAI-Transcribe endpoint · HTTPS only</p>
+                        <span id="mai-uri-badge" class="uri-badge"></span>
+                    </div>
+                    <div class="settings-row-control">
+                        <input type="url" id="mai-transcribe-uri" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </dialog>
+
+    <!-- Sign-out safety: an in-flight or unsent recording is named before it is lost. -->
+    <dialog id="logout-dialog" class="logout-dialog" aria-labelledby="logout-dialog-status">
+        <p id="logout-dialog-status"></p>
+        <div class="logout-dialog-actions">
+            <button id="logout-download" type="button" class="btn btn-secondary">Download recording</button>
+            <button id="logout-continue" type="button" class="btn btn-primary" hidden>Continue to log out</button>
+            <button id="logout-discard" type="button" class="btn btn-discard">Discard recording and log out</button>
+            <button id="logout-cancel" type="button" class="btn btn-secondary">Cancel</button>
+        </div>
+    </dialog>
 
     <script type="module" src="./js/main.js"></script>
 </body>

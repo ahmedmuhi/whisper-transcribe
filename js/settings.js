@@ -1,5 +1,5 @@
 /**
- * @fileoverview Settings persistence and User-menu form behavior.
+ * @fileoverview Settings persistence and instant-apply preference controls.
  */
 
 import {
@@ -19,29 +19,48 @@ import { modelAdapterRegistry } from './model-adapters/index.js';
 
 const THEME_MODES = Object.freeze(['auto', 'light', 'dark']);
 
+/** Base class of the Target URI status badge rendered next to each URI field. */
+const URI_BADGE_CLASS = 'uri-badge';
+
+/**
+ * Target URI badge states. Text is user-facing; the class carries the token colour.
+ *
+ * @constant {Object<string, {text: string, modifier: string}>} URI_BADGE_STATES
+ */
+const URI_BADGE_STATES = Object.freeze({
+    VALID: Object.freeze({ text: '✓ Valid HTTPS', modifier: 'uri-badge--valid' }),
+    NOT_HTTPS: Object.freeze({ text: 'Must be HTTPS', modifier: 'uri-badge--error' }),
+    INVALID: Object.freeze({ text: MESSAGES.INVALID_URI_FORMAT, modifier: 'uri-badge--error' }),
+    REQUIRED: Object.freeze({ text: 'Required for the active model', modifier: 'uri-badge--warn' }),
+    UNSET: Object.freeze({ text: 'Not set', modifier: 'uri-badge--muted' })
+});
+
 /**
  * Manages non-secret model, Target URI, microphone, and appearance settings.
- * Presentation and focus containment belong to UserMenu.
+ * Every control applies instantly; there is no draft, no save step.
+ * Presentation, focus containment, and search belong to SettingsSurface.
  */
 export class Settings {
     constructor(adapterRegistry = modelAdapterRegistry) {
         this.adapterRegistry = adapterRegistry;
-        this.userMenu = null;
+        this.surface = null;
 
         this.modelSelect = document.getElementById(ID.MODEL_SELECT);
         this.settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
-        this.saveSettingsButton = document.getElementById(ID.SAVE_SETTINGS);
         this.statusElement = document.getElementById(ID.STATUS);
-        this.whisperSettings = document.getElementById(ID.WHISPER_SETTINGS);
         this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
-        this.maiTranscribeSettings = document.getElementById(ID.MAI_TRANSCRIBE_SETTINGS);
+        this.whisperUriBadge = document.getElementById(ID.WHISPER_URI_BADGE);
         this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
+        this.maiUriBadge = document.getElementById(ID.MAI_URI_BADGE);
         this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
         this.noiseToggle = document.getElementById(ID.NOISE_TOGGLE);
+        this.quickNoiseToggle = document.getElementById(ID.QUICK_NOISE_TOGGLE);
         this.verbatimSetting = document.getElementById(ID.VERBATIM_SETTING);
         this.verbatimToggle = document.getElementById(ID.VERBATIM_TOGGLE);
         this.inputDeviceSelect = document.getElementById(ID.INPUT_DEVICE);
-        this.themeModeInputs = Array.from(document.querySelectorAll?.('input[name="theme-mode"]') || []);
+        this.themeModeInputs = Array.from(document.querySelectorAll?.(
+            'input[name="theme-mode"], input[name="theme-mode-quick"]'
+        ) || []);
         this._storageHandler = (event) => {
             if (event.key === STORAGE_KEYS.MAI_TRANSCRIBE_STYLE || event.key === null) {
                 this.loadVerbatimToggle();
@@ -53,12 +72,13 @@ export class Settings {
 
     init() {
         this.loadSavedModel();
+        this.loadTargetUris();
         this.loadNoiseToggle();
         this.loadVerbatimToggle();
         this.loadThemeMode();
         this.setupEventListeners();
-        this.updateSettingsVisibility();
         this.updateVerbatimVisibility();
+        this.renderUriBadges();
         this._offPermissionGranted = eventBus.on(
             APP_EVENTS.PERMISSION_GRANTED,
             () => void this.populateDeviceList()
@@ -66,19 +86,26 @@ export class Settings {
         this.checkInitialSettings();
     }
 
-    setUserMenu(userMenu) {
-        this.userMenu = userMenu;
+    /**
+     * Connects the surface that owns the popover, the modal, and focus return.
+     *
+     * @param {object} surface SettingsSurface instance.
+     */
+    setSurface(surface) {
+        this.surface = surface;
     }
 
     loadNoiseToggle() {
         const environment = localStorage.getItem(STORAGE_KEYS.RECORDING_ENVIRONMENT)
             || RECORDING_ENVIRONMENTS.QUIET;
-        if (this.noiseToggle) {
-            this.noiseToggle.checked = environment === RECORDING_ENVIRONMENTS.NOISY;
-        }
-        if (this.recordingEnvironmentSelect) {
-            this.recordingEnvironmentSelect.value = environment;
-        }
+        this._applyNoiseEnvironment(environment);
+    }
+
+    _applyNoiseEnvironment(environment) {
+        const noisy = environment === RECORDING_ENVIRONMENTS.NOISY;
+        if (this.noiseToggle) this.noiseToggle.checked = noisy;
+        if (this.quickNoiseToggle) this.quickNoiseToggle.checked = noisy;
+        if (this.recordingEnvironmentSelect) this.recordingEnvironmentSelect.value = environment;
     }
 
     _getTranscribeStyle() {
@@ -95,7 +122,11 @@ export class Settings {
 
     loadThemeMode() {
         const storedMode = localStorage.getItem(STORAGE_KEYS.THEME_MODE);
-        const themeMode = THEME_MODES.includes(storedMode) ? storedMode : 'auto';
+        this._applyThemeMode(THEME_MODES.includes(storedMode) ? storedMode : 'auto');
+    }
+
+    /** Keeps the modal radios and the quick-settings radios showing one mode. */
+    _applyThemeMode(themeMode) {
         this.themeModeInputs.forEach((input) => {
             input.checked = input.value === themeMode;
         });
@@ -114,35 +145,38 @@ export class Settings {
     }
 
     _getSelectableModels() {
-        return Array.from(this.modelSelect?.options || [])
+        const options = this.modelSelect?.options || this.settingsModelSelect?.options || [];
+        return Array.from(options)
             .map((option) => option.value)
             .filter(Boolean);
     }
 
+    /** Loads each model's stored Target URI into its field. */
+    loadTargetUris() {
+        this._loadStoredTargetUri(MODEL_TYPES.WHISPER, this.whisperUriInput);
+        this._loadStoredTargetUri(MODEL_TYPES.MAI_TRANSCRIBE_1_5, this.maiTranscribeUriInput);
+    }
+
     setupEventListeners() {
         this.modelSelect?.addEventListener('change', (event) => {
-            const model = event.target.value;
-            const savedModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
-            if (this.settingsModelSelect) this.settingsModelSelect.value = model;
-            logger.child('Settings').info('UI model switched:', model, '(session only)');
-            eventBus.emit(APP_EVENTS.UI_MODEL_SWITCHED, { model, savedModel });
-            this.updateVerbatimVisibility();
+            this._handleModelChange(event.target.value);
         });
 
-        this.settingsModelSelect?.addEventListener('change', () => {
-            this.updateSettingsVisibility();
+        this.settingsModelSelect?.addEventListener('change', (event) => {
+            this._handleModelChange(event.target.value);
         });
 
-        this.saveSettingsButton?.addEventListener('click', () => this.saveSettings());
+        this._setupUriListener(this.whisperUriInput, MODEL_TYPES.WHISPER);
+        this._setupUriListener(this.maiTranscribeUriInput, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
 
-        this.noiseToggle?.addEventListener('change', () => {
-            const environment = this.noiseToggle.checked
-                ? RECORDING_ENVIRONMENTS.NOISY
-                : RECORDING_ENVIRONMENTS.QUIET;
-            localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, environment);
-            if (this.recordingEnvironmentSelect) {
-                this.recordingEnvironmentSelect.value = environment;
-            }
+        [this.noiseToggle, this.quickNoiseToggle].forEach((toggle) => {
+            toggle?.addEventListener('change', () => {
+                const environment = toggle.checked
+                    ? RECORDING_ENVIRONMENTS.NOISY
+                    : RECORDING_ENVIRONMENTS.QUIET;
+                localStorage.setItem(STORAGE_KEYS.RECORDING_ENVIRONMENT, environment);
+                this._applyNoiseEnvironment(environment);
+            });
         });
 
         this.verbatimToggle?.addEventListener('change', () => {
@@ -165,10 +199,59 @@ export class Settings {
             input.addEventListener('change', () => {
                 if (!input.checked || !THEME_MODES.includes(input.value)) return;
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, input.value);
+                this._applyThemeMode(input.value);
                 eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: input.value });
             });
         });
         window.addEventListener('storage', this._storageHandler);
+    }
+
+    _setupUriListener(uriInput, model) {
+        uriInput?.addEventListener('input', () => this._handleUriInput(uriInput, model));
+    }
+
+    /**
+     * Applies a model choice at once: both selects, storage, and the model events.
+     *
+     * @param {string} model Selected model identifier.
+     */
+    _handleModelChange(model) {
+        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
+        if (this.modelSelect) this.modelSelect.value = model;
+        if (this.settingsModelSelect) this.settingsModelSelect.value = model;
+        localStorage.setItem(STORAGE_KEYS.MODEL, model);
+        logger.child('Settings').info('Model switched:', model);
+
+        eventBus.emit(APP_EVENTS.UI_MODEL_SWITCHED, { model, savedModel: previousModel });
+
+        if (model !== previousModel) {
+            eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, { model, previousModel });
+            const presentation = { model, hasUri: Boolean(this._getStoredTargetUri(model)) };
+            eventBus.emit(APP_EVENTS.SETTINGS_SAVED, presentation);
+            eventBus.emit(APP_EVENTS.SETTINGS_LOADED, presentation);
+            eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
+        }
+
+        this.updateVerbatimVisibility();
+        this.renderUriBadges();
+    }
+
+    /**
+     * Validates a Target URI as it is typed and persists it only while it is valid HTTPS.
+     *
+     * @param {HTMLInputElement} uriInput Field being edited.
+     * @param {string} model Model the field belongs to.
+     */
+    _handleUriInput(uriInput, model) {
+        this._sanitizeUriInput(uriInput);
+        const uri = uriInput.value.trim();
+        if (!uri) {
+            localStorage.removeItem(this._getTargetUriStorageKey(model));
+        } else if (!this._validateUri(uri)) {
+            localStorage.setItem(this._getTargetUriStorageKey(model), uri);
+        }
+        eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
+        this.renderUriBadges();
     }
 
     async populateDeviceList() {
@@ -198,45 +281,58 @@ export class Settings {
         this.inputDeviceSelect.value = savedDevice;
     }
 
-    /** Both accepted Target URI fields remain visible in the Settings detail. */
-    updateSettingsVisibility() {
-        if (this.whisperSettings) this.whisperSettings.hidden = false;
-        if (this.maiTranscribeSettings) this.maiTranscribeSettings.hidden = false;
-    }
-
-    /** The verbatim switch is MAI-Transcribe 1.5 only; Whisper never sends the field. */
+    /**
+     * The verbatim switch is MAI-Transcribe 1.5 only; Whisper never sends the field.
+     * The surface owns row visibility once it is wired, so it re-runs its category
+     * and search filter — showing the row here directly would leak it into whatever
+     * category the modal happens to be on.
+     */
     updateVerbatimVisibility() {
+        if (this.surface?.refreshRows) {
+            this.surface.refreshRows();
+            return;
+        }
         if (this.verbatimSetting) {
             this.verbatimSetting.hidden = !this._isMaiModel(this.getCurrentModel());
         }
     }
 
-    prepareSettingsDraft() {
-        this.loadSettingsToForm();
-        this.updateSettingsVisibility();
+    /** Redraws both Target URI status badges from the current field values. */
+    renderUriBadges() {
+        this._renderUriBadge(this.whisperUriInput, this.whisperUriBadge, MODEL_TYPES.WHISPER);
+        this._renderUriBadge(
+            this.maiTranscribeUriInput,
+            this.maiUriBadge,
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5
+        );
     }
 
-    /** Compatibility entry point used by prerequisite recovery to open the menu detail. */
+    _renderUriBadge(uriInput, badge, model) {
+        if (!badge) return;
+        const state = this._getUriBadgeState(uriInput?.value?.trim() || '', model);
+        badge.textContent = state.text;
+        badge.className = `${URI_BADGE_CLASS} ${state.modifier}`;
+    }
+
+    _getUriBadgeState(uri, model) {
+        if (!uri) {
+            return model === this.getCurrentModel() ? URI_BADGE_STATES.REQUIRED : URI_BADGE_STATES.UNSET;
+        }
+        const error = this._validateUri(uri);
+        if (error === MESSAGES.URI_MUST_BE_HTTPS) return URI_BADGE_STATES.NOT_HTTPS;
+        if (error) return URI_BADGE_STATES.INVALID;
+        return URI_BADGE_STATES.VALID;
+    }
+
+    /** Delegates to the surface so recovery paths land on the Connection category.
+     *  The surface owns the UI_SETTINGS_OPENED emission. */
     openSettingsModal(invoker = null) {
-        this.prepareSettingsDraft();
-        this.userMenu?.openDetail?.('settings', invoker);
-        eventBus.emit(APP_EVENTS.UI_SETTINGS_OPENED);
+        this.surface?.openModal?.({ category: 'connection', invoker });
     }
 
-    /** Compatibility entry point; the User menu owns visual dismissal and focus return. */
+    /** The surface owns visual dismissal, focus return, and UI_SETTINGS_CLOSED. */
     closeSettingsModal() {
-        this.discardSettingsDraft();
-        this.userMenu?.closeDetail?.();
-        eventBus.emit(APP_EVENTS.UI_SETTINGS_CLOSED);
-    }
-
-    discardSettingsDraft() {
-        this.loadSettingsToForm();
-        this.updateSettingsVisibility();
-    }
-
-    _discardSettingsDraft() {
-        this.discardSettingsDraft();
+        this.surface?.closeModal?.();
     }
 
     _getTargetUriStorageKey(model) {
@@ -247,32 +343,15 @@ export class Settings {
         return uriStorageKey;
     }
 
+    _getStoredTargetUri(model) {
+        return this.adapterRegistry.has(model)
+            ? localStorage.getItem(this._getTargetUriStorageKey(model))
+            : null;
+    }
+
     _loadStoredTargetUri(model, uriInput) {
         if (!uriInput || !this.adapterRegistry.has(model)) return;
-        uriInput.value = localStorage.getItem(this._getTargetUriStorageKey(model)) || '';
-    }
-
-    loadSettingsToForm() {
-        if (this.settingsModelSelect) {
-            this.settingsModelSelect.value = this.getCurrentModel();
-        }
-        this._loadStoredTargetUri(MODEL_TYPES.WHISPER, this.whisperUriInput);
-        this._loadStoredTargetUri(MODEL_TYPES.MAI_TRANSCRIBE_1_5, this.maiTranscribeUriInput);
-        this.loadNoiseToggle();
-        this.loadVerbatimToggle();
-        this.loadThemeMode();
-    }
-
-    _getActiveInputs() {
-        return {
-            uriInput: this._isMaiModel(this.getCurrentModelFromSettings())
-                ? this.maiTranscribeUriInput
-                : this.whisperUriInput
-        };
-    }
-
-    sanitizeInputs() {
-        this._sanitizeUriInput(this._getActiveInputs().uriInput);
+        uriInput.value = this._getStoredTargetUri(model) || '';
     }
 
     _sanitizeUriInput(uriInput) {
@@ -281,8 +360,8 @@ export class Settings {
         }
     }
 
-    _validateUri(uri, { required = false } = {}) {
-        if (!uri) return required ? MESSAGES.URI_REQUIRED : null;
+    _validateUri(uri) {
+        if (!uri) return MESSAGES.URI_REQUIRED;
         try {
             return new URL(uri).protocol === 'https:' ? null : MESSAGES.URI_MUST_BE_HTTPS;
         } catch {
@@ -290,102 +369,11 @@ export class Settings {
         }
     }
 
-    getValidationErrors() {
-        this.sanitizeInputs();
-        const uri = this._getActiveInputs().uriInput?.value?.trim() || '';
-        const error = this._validateUri(uri, { required: true });
-        return error ? [error] : [];
-    }
-
-    getSettingsFocusTarget() {
-        const activeUriInput = this._getActiveInputs().uriInput;
-        return this.getValidationErrors().length > 0
-            ? activeUriInput
-            : this.themeModeInputs.find((input) => input.checked) || activeUriInput;
-    }
-
-    _getAdditionalTargetUriErrors(currentModel) {
-        if (![MODEL_TYPES.WHISPER, MODEL_TYPES.MAI_TRANSCRIBE_1_5].includes(currentModel)) {
-            return [];
-        }
-        const inactiveInput = this._isMaiModel(currentModel)
-            ? this.whisperUriInput
-            : this.maiTranscribeUriInput;
-        this._sanitizeUriInput(inactiveInput);
-        const error = this._validateUri(inactiveInput?.value?.trim() || '');
-        return error ? [error] : [];
-    }
-
-    saveSettings() {
-        const currentModel = this.getCurrentModelFromSettings();
-        const errors = [
-            ...this.getValidationErrors(),
-            ...this._getAdditionalTargetUriErrors(currentModel)
-        ];
-        if (errors.length > 0) {
-            eventBus.emit(APP_EVENTS.SETTINGS_VALIDATION_ERROR, { errors });
-            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: errors[0] || MESSAGES.FILL_REQUIRED_FIELDS,
-                type: 'error',
-                temporary: true
-            });
-            return false;
-        }
-
-        const previousModel = localStorage.getItem(STORAGE_KEYS.MODEL) || DEFAULT_MODEL_TYPE;
-        const activeUri = this._getActiveInputs().uriInput?.value?.trim() || '';
-        localStorage.setItem(STORAGE_KEYS.MODEL, currentModel);
-        localStorage.setItem(this._getTargetUriStorageKey(currentModel), activeUri);
-        this._saveOtherTargetUri(currentModel);
-
-        if (this.recordingEnvironmentSelect) {
-            localStorage.setItem(
-                STORAGE_KEYS.RECORDING_ENVIRONMENT,
-                this.recordingEnvironmentSelect.value || RECORDING_ENVIRONMENTS.QUIET
-            );
-        }
-        if (this.modelSelect) this.modelSelect.value = currentModel;
-        this.updateVerbatimVisibility();
-
-        this.closeSettingsModal();
-        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-            message: MESSAGES.SETTINGS_SAVED,
-            type: 'success',
-            temporary: true,
-            duration: 3000
-        });
-        if (currentModel !== previousModel) {
-            eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, {
-                model: currentModel,
-                previousModel
-            });
-        }
-        const presentation = { model: currentModel, hasUri: Boolean(activeUri) };
-        eventBus.emit(APP_EVENTS.SETTINGS_SAVED, presentation);
-        eventBus.emit(APP_EVENTS.SETTINGS_LOADED, presentation);
-        eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
-        return true;
-    }
-
-    _saveOtherTargetUri(currentModel) {
-        if (![MODEL_TYPES.WHISPER, MODEL_TYPES.MAI_TRANSCRIBE_1_5].includes(currentModel)) return;
-        const otherModel = this._isMaiModel(currentModel)
-            ? MODEL_TYPES.WHISPER
-            : MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-        const otherInput = this._isMaiModel(currentModel)
-            ? this.whisperUriInput
-            : this.maiTranscribeUriInput;
-        const otherUri = otherInput?.value?.trim() || '';
-        if (otherUri) localStorage.setItem(this._getTargetUriStorageKey(otherModel), otherUri);
-        else localStorage.removeItem(this._getTargetUriStorageKey(otherModel));
-    }
-
     getCurrentModel() {
-        return this.modelSelect?.value || DEFAULT_MODEL_TYPE;
-    }
-
-    getCurrentModelFromSettings() {
-        return this.settingsModelSelect?.value || this.getCurrentModel();
+        return this.modelSelect?.value
+            || this.settingsModelSelect?.value
+            || localStorage.getItem(STORAGE_KEYS.MODEL)
+            || DEFAULT_MODEL_TYPE;
     }
 
     getModelConfig() {

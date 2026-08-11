@@ -1,5 +1,6 @@
 /**
- * @fileoverview Built-browser coverage for authentication, User-menu, and recovery states.
+ * @fileoverview Built-browser coverage for authentication, the settings surface,
+ * and recovery states.
  */
 
 import { expect, test } from '@playwright/test';
@@ -41,66 +42,95 @@ async function openScenario(page, { scenario = 'ready', configured = true } = {}
     return { pageErrors, consoleErrors, externalRequests };
 }
 
-async function openMenu(page) {
-    const launcher = page.locator('#user-menu-launcher');
-    await expect(launcher).toBeVisible();
-    await launcher.click();
-    await expect(page.locator('#user-menu-surface')).toBeVisible();
-    return launcher;
+async function openQuickSettings(page) {
+    const gear = page.locator('#quick-settings-button');
+    await expect(gear).toBeVisible();
+    await gear.click();
+    await expect(page.locator('#quick-settings')).toBeVisible();
+    return gear;
 }
 
-test('desktop User menu renders dynamic identity and adjacent nested details', async ({ page }) => {
+async function openSettingsModal(page) {
+    await openQuickSettings(page);
+    await page.locator('#open-all-settings').click();
+    await expect(page.locator('#settings-modal')).toBeVisible();
+}
+
+test('desktop settings surface carries identity, categories, and instant apply', async ({ page }) => {
     const observations = await openScenario(page);
-    const launcher = page.locator('#user-menu-launcher');
-    await expect(launcher).toHaveText('BF');
-    await expect(launcher).not.toContainText('Browser Fixture');
+    const badge = page.locator('#user-badge');
+    await expect(badge).toHaveText('BF');
+    await expect(badge).not.toContainText('Browser Fixture');
 
-    await openMenu(page);
-    await expect(page.locator('#user-menu-name')).toHaveText('Browser Fixture');
-    await expect(page.locator('#user-menu-username')).toHaveText('browser-fixture@example.invalid');
-    await expect(page.locator('#user-menu-root')).not.toContainText(
-        ['Signed', 'in', 'with', 'Microsoft'].join(' ')
-    );
-    await expect(page.locator('#user-menu-root')).not.toContainText(
-        ['Azure', 'ready'].join(' ')
-    );
-
-    const rootRows = page.locator('#user-menu-root .user-menu-row');
-    await expect(rootRows).toHaveCount(5);
-    await expect(rootRows.nth(0)).toContainText('Model');
-    await expect(rootRows.nth(1)).toContainText('Microphone');
-    await expect(rootRows.nth(2)).toContainText('Settings');
-    await expect(rootRows.nth(3)).toContainText('Help & Azure setup');
-    await expect(rootRows.nth(4)).toHaveText('Log out');
-
-    await page.locator('#user-menu-model').click();
-    await expect(page.locator('#user-menu-root')).toBeVisible();
-    await expect(page.locator('#user-menu-detail')).toBeVisible();
-    await expect(page.locator('#model-select option')).toHaveCount(2);
+    const gear = await openQuickSettings(page);
     await expect(page.locator('#model-select option')).toHaveText([
         'Azure Whisper',
         'MAI-Transcribe 1.5'
     ]);
-    await expect(page.locator('#model-help')).toHaveAttribute('target', '_blank');
+    await expect(page.locator('input[name="theme-mode-quick"]')).toHaveCount(3);
 
-    await page.locator('#user-menu-settings').click();
-    await expect(page.locator('#whisper-uri')).toBeVisible();
-    await expect(page.locator('#mai-transcribe-uri')).toBeVisible();
-    await expect(page.locator('input[name="theme-mode"]')).toHaveCount(3);
-    await expect(page.locator('#save-settings')).toHaveText('Save changes');
+    // Quick settings applies at once: no Save control exists anywhere.
+    await page.locator('#model-select').selectOption('mai-transcribe-1.5');
+    expect(await page.evaluate(() => localStorage.getItem('transcription_model')))
+        .toBe('mai-transcribe-1.5');
+    await page.locator('#model-select').selectOption('whisper');
 
-    await page.locator('#user-menu-microphone').click();
+    await page.locator('#open-all-settings').click();
+    await expect(page.locator('#settings-modal')).toBeVisible();
+    await expect(page.locator('#settings-search')).toBeFocused();
+    await expect(page.locator('#settings-heading')).toHaveText('Model');
+    await expect(page.locator('#settings-model-select')).toBeVisible();
+    await expect(page.locator('#settings-account-name')).toHaveText('Browser Fixture');
+    await expect(page.locator('#settings-sign-out')).toBeVisible();
+    await expect(page.locator('#save-settings')).toHaveCount(0);
+    // Verbatim belongs to MAI-Transcribe 1.5 only.
+    await expect(page.locator('#verbatim-setting')).toBeHidden();
+
+    await page.locator('[data-settings-category="microphone"]').click();
+    await expect(page.locator('#settings-heading')).toHaveText('Microphone');
     await expect(page.locator('#input-device')).toBeVisible();
     const enumeratedMicrophone = page.locator('#input-device option:not([value=""])').first();
     await expect(enumeratedMicrophone).toBeAttached();
     await expect(enumeratedMicrophone).not.toHaveText('');
     await expect(page.locator('#noise-toggle')).toBeVisible();
 
-    await page.locator('body > header').click();
-    await expect(page.locator('#user-menu-surface')).toBeHidden();
-    await expect(launcher).toBeFocused();
+    await page.locator('[data-settings-category="appearance"]').click();
+    await expect(page.locator('input[name="theme-mode"]')).toHaveCount(3);
+
+    await page.locator('[data-settings-category="connection"]').click();
+    await expect(page.locator('#whisper-uri')).toBeVisible();
+    await expect(page.locator('#mai-transcribe-uri')).toBeVisible();
+    await expect(page.locator('#whisper-uri-badge')).toHaveText('✓ Valid HTTPS');
+
+    await page.locator('#settings-search').fill('noise');
+    await expect(page.locator('#settings-heading')).toHaveText('Results for "noise"');
+    await expect(page.locator('[data-settings-row="noise"]')).toBeVisible();
+    await expect(page.locator('[data-settings-row="model"]')).toBeHidden();
+    await page.locator('#settings-search').fill('nothing matches this');
+    await expect(page.locator('#settings-no-results'))
+        .toHaveText('No settings match "nothing matches this"');
+
+    await page.locator('#settings-close').click();
+    await expect(page.locator('#settings-modal')).toBeHidden();
+    await expect(gear).toBeFocused();
     expect(await page.evaluate(() => globalThis.__browserTestMicCalls)).toBe(0);
     expect(observations.externalRequests).toEqual([]);
+    expect(observations.pageErrors).toEqual([]);
+    expect(observations.consoleErrors).toEqual([]);
+});
+
+test('quick settings closes on Escape and on an outside click', async ({ page }) => {
+    const observations = await openScenario(page);
+    const gear = await openQuickSettings(page);
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#quick-settings')).toBeHidden();
+    await expect(gear).toBeFocused();
+
+    await gear.click();
+    await expect(page.locator('#quick-settings')).toBeVisible();
+    await page.locator('body > header').click();
+    await expect(page.locator('#quick-settings')).toBeHidden();
     expect(observations.pageErrors).toEqual([]);
     expect(observations.consoleErrors).toEqual([]);
 });
@@ -122,7 +152,7 @@ test('checking becomes signed out and Continue is the only route to ready', asyn
 
     await expect(page.locator('#primary-action')).toHaveText('Start recording');
     await expect(page.locator('#primary-action')).toBeEnabled();
-    await expect(page.locator('#user-menu-launcher')).toBeVisible();
+    await expect(page.locator('#user-badge')).toBeVisible();
     expect(await page.evaluate(() => globalThis.__browserTestMicCalls)).toBe(0);
     expect(observations.externalRequests).toEqual([]);
     expect(observations.pageErrors).toEqual([]);
@@ -144,8 +174,10 @@ test('invalid Target URI opens Settings directly without recording', async ({ pa
     await expect(page.locator('#auth-primary-action')).toHaveText('Open settings');
     await expect(page.locator('#auth-primary-action .microsoft-mark')).toBeHidden();
     await page.locator('#auth-primary-action').click();
-    await expect(page.locator('[data-menu-panel="settings"]')).toBeVisible();
-    await expect(page.locator('#whisper-uri')).toBeFocused();
+    await expect(page.locator('#settings-modal')).toBeVisible();
+    await expect(page.locator('#settings-heading')).toHaveText('Connection');
+    await expect(page.locator('#whisper-uri')).toBeVisible();
+    await expect(page.locator('#whisper-uri-badge')).toHaveText('Required for the active model');
     expect(await page.evaluate(() => globalThis.__browserTestMicCalls)).toBe(0);
     expect(observations.externalRequests).toEqual([]);
     expect(observations.pageErrors).toEqual([]);
@@ -213,26 +245,21 @@ test('403 guidance retains audio and never changes Azure access', async ({ page 
     expect(observations.pageErrors).toEqual([]);
 });
 
-test('390 px detail replaces root, Back restores it, and nothing overflows', async ({ page }) => {
+test('390 px settings fit the viewport and Escape returns focus to the gear', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const observations = await openScenario(page);
-    await openMenu(page);
-    await page.locator('#user-menu-settings').click();
+    await openSettingsModal(page);
 
-    await expect(page.locator('#user-menu-root')).toBeHidden();
-    await expect(page.locator('#user-menu-detail')).toBeVisible();
-    await expect(page.locator('#user-menu-back')).toBeVisible();
+    await expect(page.locator('.settings-nav')).toBeVisible();
+    await page.locator('[data-settings-category="connection"]').click();
+    await expect(page.locator('#whisper-uri')).toBeVisible();
     expect(await page.evaluate(() => (
         globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth
     ))).toBe(true);
 
-    await page.locator('#user-menu-back').click();
-    await expect(page.locator('#user-menu-root')).toBeVisible();
-    await expect(page.locator('#user-menu-detail')).toBeHidden();
-    await expect(page.locator('#user-menu-settings')).toBeFocused();
-
     await page.keyboard.press('Escape');
-    await expect(page.locator('#user-menu-launcher')).toBeFocused();
+    await expect(page.locator('#settings-modal')).toBeHidden();
+    await expect(page.locator('#quick-settings-button')).toBeFocused();
     expect(observations.externalRequests).toEqual([]);
     expect(observations.pageErrors).toEqual([]);
     expect(observations.consoleErrors).toEqual([]);

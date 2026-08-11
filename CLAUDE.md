@@ -97,7 +97,7 @@ payloads/history, logs, error details, URLs, screenshots, traces, or artifacts.
 MSAL alone owns its opaque shared localStorage cache; application code must not
 read, copy, migrate, log, or expose its artifacts. Authentication events contain
 safe state only; account presentation is normalized name/username data used by
-the User menu and is never retained there. Shared cache availability normally
+the settings surface and is never retained there. Shared cache availability normally
 lets a new tab start ready, but genuine Entra interaction requirements still use
 the full-page redirect flow.
 
@@ -107,7 +107,7 @@ body nor retries. Retry handling is limited to 429, 500, 502, 503, 504 and
 per-attempt abort timeouts under the existing backoff, Retry-After cap, and
 overall deadline. Never make a broader role or key path an error workaround.
 
-## Models, Settings, and User menu
+## Models, Settings, and the settings surface
 
 Exactly two adapters are registered, in response-parser precedence order:
 
@@ -121,11 +121,34 @@ the preferences; `TranscriptStore` owns transcript content. `STORAGE_KEYS` owns
 literal storage names, and each adapter's `storageKeys.uri` maps a model to its
 Target URI. Never add a credential field or key fallback.
 
-`UserMenu` owns the initials-only launcher, account presentation, and nested
-Model, Microphone, Settings, Azure help, and logout surfaces. `Settings` owns
-draft/commit behavior inside those surfaces. Closing or switching away from a
-Settings detail discards the draft. Keep narrow-width Back/focus behavior and
-the external-invoker focus return intact.
+`SettingsSurface` owns the header gear popover, the native `<dialog>` settings
+modal, the initials badge and account presentation, and the logout dialog. The
+popover carries Model, Noise cancellation, Theme, and the All settings link; the
+modal pairs a sidebar (search, the Model, Microphone, Appearance, and Connection
+categories, and an account footer with Sign out) with the matching rows.
+`Ctrl/Cmd + ,` toggles the modal from anywhere, Escape closes the open surface,
+and focus returns to the invoker. The badge, account footer, and Sign out appear
+only in the ready authentication state; the gear is always visible.
+`Settings.openSettingsModal(invoker)` delegates to the surface so
+`API_CONFIG_MISSING` recovery and the island Open settings action land on the
+Connection category.
+
+`Settings` applies every preference instantly. There is no Save button, draft,
+or commit step and no discard-on-close behavior. A model change persists and
+emits immediately; a Target URI field strips whitespace, validates on input,
+persists only while the value is valid HTTPS, and removes the stored key when
+emptied, with a `.uri-badge` reporting valid, error, required, or not-set state
+from the tested status tokens. Noise cancellation and theme stay in sync across
+the popover and the modal, and the verbatim row is visible only while
+`mai-transcribe-1.5` is the current model. Keep the external-invoker focus
+return and the narrow-width modal layout intact.
+
+Logout safety is unchanged: Sign out calls `AuthInteractionController.logOut()`,
+and an active recording, Selected Audio, blocked, or Unsent Recording result
+opens `#logout-dialog` instead of navigating. The Unsent Recording path offers
+Download, then Continue to log out after the download starts, or Discard
+recording and log out; every other blocked result names the reason and offers
+only Cancel.
 
 ## Audio Source and navigation safety
 

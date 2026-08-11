@@ -7,6 +7,7 @@
  * animate/getBoundingClientRect, so they pin the parts that ship un-pinned:
  *   - the FSM state -> island shape class mapping (_islandStateFor),
  *   - the island-has-indicator toggle (only while the spinner shows),
+ *   - the recording indicators (record dot, island-paused, viz-active strip),
  *   - the FLIP morph cancelling an in-flight animation before starting a new one,
  *   - reduced-motion skipping the animation entirely (instant, correct mutate).
  */
@@ -29,7 +30,11 @@ vi.mock('../js/status-helper.js', () => ({
     showTemporaryStatus: vi.fn()
 }));
 
-const { RECORDING_STATES } = await import('../js/constants.js');
+const {
+    RECORDING_STATES,
+    SELECTED_AUDIO_STATES,
+    AUTH_PRESENTATION_STATES
+} = await import('../js/constants.js');
 const { UI } = await import('../js/ui.js');
 
 /** A real classList backed by a Set (the DOM double's is a no-op). */
@@ -68,11 +73,15 @@ function makeCluster() {
     };
 }
 
-function newUI() {
+function newUI(options = {}) {
     applyDomSpies();
-    const ui = new UI();
+    const ui = new UI(options);
     ui.ready = true;
     ui.controlCluster = makeCluster();
+    // The DOM double's classList is a no-op, so the strip needs a real one and
+    // the dot a real `hidden` property before we can read the indicator state.
+    ui.visualizerContainer.classList = realClassList();
+    ui.recordDot.hidden = true;
     return ui;
 }
 
@@ -114,6 +123,94 @@ describe('Dynamic Island control cluster', () => {
                 expect(ui.controlCluster.classList.contains('island-has-indicator'))
                     .toBe(state === RECORDING_STATES.PROCESSING);
             }
+        });
+    });
+
+    describe('recording indicators', () => {
+        const DOT_STATES = [
+            RECORDING_STATES.RECORDING,
+            RECORDING_STATES.PAUSED,
+            RECORDING_STATES.CONFIRMING_DISCARD
+        ];
+        const VIZ_STATES = [
+            RECORDING_STATES.RECORDING,
+            RECORDING_STATES.PAUSED,
+            RECORDING_STATES.STOPPING
+        ];
+
+        it('shows the record dot only while a recording is on the microphone', () => {
+            reduceMotion = true;
+            const ui = newUI();
+            for (const state of Object.values(RECORDING_STATES)) {
+                ui.renderControls(state);
+                expect(ui.recordDot.hidden).toBe(!DOT_STATES.includes(state));
+            }
+        });
+
+        it('marks the cluster island-paused only in PAUSED', () => {
+            reduceMotion = true;
+            const ui = newUI();
+            for (const state of Object.values(RECORDING_STATES)) {
+                ui.renderControls(state);
+                expect(ui.controlCluster.classList.contains('island-paused'))
+                    .toBe(state === RECORDING_STATES.PAUSED);
+            }
+        });
+
+        it('shows the visualizer strip only for recording, paused, and stopping', () => {
+            reduceMotion = true;
+            const ui = newUI();
+            for (const state of Object.values(RECORDING_STATES)) {
+                ui.renderControls(state);
+                expect(ui.visualizerContainer.classList.contains('viz-active'))
+                    .toBe(VIZ_STATES.includes(state));
+            }
+        });
+
+        it('clears the paused styling when recording resumes, keeping dot and strip on', () => {
+            reduceMotion = true;
+            const ui = newUI();
+
+            ui.renderControls(RECORDING_STATES.PAUSED);
+            expect(ui.controlCluster.classList.contains('island-paused')).toBe(true);
+
+            ui.renderControls(RECORDING_STATES.RECORDING);
+            expect(ui.controlCluster.classList.contains('island-paused')).toBe(false);
+            expect(ui.recordDot.hidden).toBe(false);
+            expect(ui.visualizerContainer.classList.contains('viz-active')).toBe(true);
+        });
+
+        it('turns every indicator off when the island shows authentication context', () => {
+            reduceMotion = true;
+            const ui = newUI({ authenticationState: AUTH_PRESENTATION_STATES.SIGNED_OUT });
+
+            ui.renderControls(RECORDING_STATES.IDLE);
+
+            expect(ui.recordDot.hidden).toBe(true);
+            expect(ui.controlCluster.classList.contains('island-paused')).toBe(false);
+            expect(ui.visualizerContainer.classList.contains('viz-active')).toBe(false);
+        });
+
+        it('turns every indicator off when Selected Audio owns the workspace', () => {
+            reduceMotion = true;
+            const ui = newUI({
+                selectedAudioController: {
+                    getSnapshot: () => ({ state: SELECTED_AUDIO_STATES.READY })
+                }
+            });
+
+            // Indicators left over from a microphone recording must be cleared,
+            // not merely skipped, once the picked file owns the workspace.
+            ui.recordDot.hidden = false;
+            ui.controlCluster.classList.add('island-paused');
+            ui.visualizerContainer.classList.add('viz-active');
+
+            ui.renderControls(RECORDING_STATES.RECORDING);
+
+            expect(ui.recordDot.hidden).toBe(true);
+            expect(ui.controlCluster.classList.contains('island-paused')).toBe(false);
+            expect(ui.visualizerContainer.classList.contains('viz-active')).toBe(false);
+            expect(ui.controlCluster.hidden).toBe(true);
         });
     });
 

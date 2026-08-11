@@ -149,8 +149,9 @@ by `.github/workflows/pages.yml`. They are not secrets and must not be confused
 with the separately protected OIDC values.
 
 Target URIs are not Vite variables. The User enters one manual HTTPS Target URI
-for Whisper and one for MAI in the initials-only User menu. Settings persist
-those non-secret destinations locally; they never authorize access. Do not put
+for Whisper and one for MAI under the settings modal's Connection category
+(header gear → All settings…). Settings persist those non-secret destinations
+locally the moment they validate; they never authorize access. Do not put
 them in source, `.env.example`, the Pages build variables, a public issue, or an
 evidence artifact.
 
@@ -375,7 +376,8 @@ WebKit is not Safari evidence.
 
 Across the six browser/origin authentication sessions, verify checking,
 signed-out gating, Continue with Microsoft, callback completion, manual Target
-URI configuration, no legacy key UI/storage, initials-only User menu, new-tab
+URI configuration, no legacy key UI/storage, initials badge and settings modal
+account presentation, new-tab
 silent SSO or explicit interaction fallback, logout, and same-tab token renewal.
 
 Separately approve four invalid-placeholder, no-audio bearer probes: both models

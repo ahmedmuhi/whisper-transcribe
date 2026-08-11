@@ -34,7 +34,7 @@ vi.mock('../js/status-helper.js', () => ({
 }));
 
 const { eventBus, APP_EVENTS } = await import('../js/event-bus.js');
-const { RECORDING_STATES, MESSAGES } = await import('../js/constants.js');
+const { RECORDING_STATES, MESSAGES, AUTH_PRESENTATION_STATES } = await import('../js/constants.js');
 const { UI } = await import('../js/ui.js');
 const { showTemporaryStatus } = await import('../js/status-helper.js');
 
@@ -113,12 +113,14 @@ describe('UI Event Bus Communication', () => {
             expect(ui.secondaryAction.hidden).toBe(true);
             expect(ui.discardAction.hidden).toBe(true);
             expect(ui.retryAction.hidden).toBe(true);
+            expect(ui.uploadAction.hidden).toBe(false); // idle pill: Start recording + Upload audio
         });
 
         it('RECORDING morphs the primary to Done and reveals Pause + Discard', () => {
             render(RECORDING_STATES.RECORDING);
             expect(ui.primaryAction.textContent).toBe(MESSAGES.CONTROL_DONE);
             expect(ui.primaryAction.disabled).toBe(false);
+            expect(ui.uploadAction.hidden).toBe(true); // Upload leaves the recording pill
             expect(ui.secondaryAction.hidden).toBe(false);
             expect(ui.secondaryAction.textContent).toBe(MESSAGES.CONTROL_PAUSE);
             expect(ui.discardAction.hidden).toBe(false);
@@ -181,6 +183,88 @@ describe('UI Event Bus Communication', () => {
             ui._setReady(true);
             expect(ui.retryAction.hidden).toBe(false);
             expect(ui.currentState).toBe(RECORDING_STATES.ERROR);
+        });
+    });
+
+    describe('Recording indicators (dot, paused cluster, visualizer strip)', () => {
+        const render = (newState) =>
+            eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, { newState, oldState: 'idle' });
+
+        // The stub classList.toggle only records calls, so read the last value
+        // written for a class rather than a live className.
+        const lastToggle = (element, className) =>
+            element.classList.toggle.mock.calls.filter(([name]) => name === className).at(-1)?.[1];
+
+        const dotVisible = () => ui.recordDot.hidden === false;
+        const vizActive = () => lastToggle(ui.visualizerContainer, 'viz-active');
+        const paused = () => lastToggle(ui.controlCluster, 'island-paused');
+
+        it('RECORDING pulses the dot, activates the strip, and is not paused', () => {
+            render(RECORDING_STATES.RECORDING);
+            expect(dotVisible()).toBe(true);
+            expect(vizActive()).toBe(true);
+            expect(paused()).toBe(false);
+        });
+
+        it('PAUSED keeps the dot and strip and marks the cluster paused', () => {
+            render(RECORDING_STATES.PAUSED);
+            expect(dotVisible()).toBe(true);
+            expect(vizActive()).toBe(true);
+            expect(paused()).toBe(true);
+        });
+
+        it('STOPPING keeps the strip visible while the dot goes away', () => {
+            render(RECORDING_STATES.STOPPING);
+            expect(dotVisible()).toBe(false);
+            expect(vizActive()).toBe(true);
+            expect(paused()).toBe(false);
+        });
+
+        it('CONFIRMING_DISCARD keeps the dot but hides the strip', () => {
+            render(RECORDING_STATES.CONFIRMING_DISCARD);
+            expect(dotVisible()).toBe(true);
+            expect(vizActive()).toBe(false);
+        });
+
+        it.each([
+            RECORDING_STATES.IDLE,
+            RECORDING_STATES.INITIALIZING,
+            RECORDING_STATES.PROCESSING,
+            RECORDING_STATES.CANCELLING,
+            RECORDING_STATES.ERROR
+        ])('%s hides the dot and the strip', (state) => {
+            render(state);
+            expect(dotVisible()).toBe(false);
+            expect(vizActive()).toBe(false);
+            expect(paused()).toBe(false);
+        });
+
+        it('turns the indicators off while the island shows authentication context', () => {
+            render(RECORDING_STATES.RECORDING);
+            expect(vizActive()).toBe(true);
+
+            ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.SIGNED_OUT);
+            render(RECORDING_STATES.IDLE);
+
+            expect(dotVisible()).toBe(false);
+            expect(vizActive()).toBe(false);
+            expect(paused()).toBe(false);
+        });
+    });
+
+    describe('User menu removal', () => {
+        it('never looks up a user-menu element', () => {
+            applyDomSpies();
+            const fresh = new UI();
+            fresh.setupEventBusListeners();
+            fresh.setupEventListeners();
+            eventBus.emit(APP_EVENTS.RECORDING_STATE_CHANGED, {
+                newState: RECORDING_STATES.RECORDING, oldState: 'idle'
+            });
+
+            const ids = document.getElementById.mock.calls.map(([id]) => id);
+            expect(ids.length).toBeGreaterThan(0);
+            expect(ids.filter((id) => String(id).startsWith('user-menu'))).toEqual([]);
         });
     });
 

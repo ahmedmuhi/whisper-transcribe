@@ -7,7 +7,7 @@ import { logger } from './logger.js';
 import { cleanupLegacyCredentials } from './legacy-credential-cleanup.js';
 import { createTokenProvider } from './token-provider.js';
 import { AuthInteractionController } from './auth-interaction-controller.js';
-import { UserMenu } from './user-menu.js';
+import { SettingsSurface } from './settings-surface.js';
 import { AUTH_PRESENTATION_STATES } from './constants.js';
 import { SelectedAudioController } from './selected-audio-controller.js';
 import { AuthenticationService } from './authentication-service.js';
@@ -46,15 +46,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         authInteractionController,
         selectedAudioController
     });
-    const userMenu = new UserMenu({
+    const settingsSurface = new SettingsSurface({
         authenticationService,
         authInteractionController,
         settings
     });
-    settings.setUserMenu?.(userMenu);
+    settings.setSurface?.(settingsSurface);
 
     ui.init(settings, transcriptStore);
-    userMenu.init();
+    settingsSurface.init();
     await authenticationInitialization;
 
     logger.info('Speech-to-Text App initialized');
