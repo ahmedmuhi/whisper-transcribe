@@ -60,7 +60,13 @@ export const createStatefulMockElement = (id) => {
         selectionStart: 0,
         selectionEnd: 0,
         scrollTop: 0,
-        scrollHeight: 0
+        scrollHeight: 0,
+        // Registry-generated rows and options build DOM nodes; these stubs let the
+        // builders run without turning this harness into a real document.
+        dataset: {},
+        firstChild: null,
+        appendChild: vi.fn(),
+        removeChild: vi.fn()
     };
 };
 

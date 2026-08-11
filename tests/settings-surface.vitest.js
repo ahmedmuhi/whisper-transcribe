@@ -16,6 +16,7 @@ import {
 } from '../js/constants.js';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { computeInitials, SettingsSurface } from '../js/settings-surface.js';
+import { renderConnectionRows } from '../js/settings.js';
 
 function createClient(account) {
     return {
@@ -93,6 +94,9 @@ const indexSource = readFileSync('index.html', 'utf8');
 function installProductionBody() {
     const body = indexSource.match(/<body>([\s\S]*)<\/body>/u)?.[1] || '';
     document.body.innerHTML = body.replace(/<script[^>]*src=[^>]*><\/script>/gu, '');
+    // Connection rows are generated from the adapter registry in production;
+    // this surface harness stubs Settings, so it renders them the same way.
+    renderConnectionRows();
     document.getElementById = (id) => document.querySelector(`#${id}`);
 }
 

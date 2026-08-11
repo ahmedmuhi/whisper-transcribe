@@ -25,6 +25,7 @@ function createMaiTranscribeModelAdapter({
     id,
     label,
     optionLabel,
+    uiOrder,
     apiModel,
     uploadLimitLabel,
     uploadLimitVerdict,
@@ -34,6 +35,7 @@ function createMaiTranscribeModelAdapter({
         id,
         label,
         optionLabel,
+        uiOrder,
         scope: COGNITIVE_SERVICES_SCOPE,
         storageKeys: Object.freeze({
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
@@ -102,6 +104,7 @@ export const maiTranscribe15ModelAdapter = createMaiTranscribeModelAdapter({
     id: MODEL_TYPES.MAI_TRANSCRIBE_1_5,
     label: 'Azure MAI-Transcribe 1.5',
     optionLabel: 'MAI-Transcribe 1.5',
+    uiOrder: 2,
     apiModel: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
     uploadLimitLabel: 'under 300 MB',
     uploadLimitVerdict: 'under 300 MB after conversion',

@@ -24,6 +24,7 @@ export const whisperModelAdapter = Object.freeze({
     id: MODEL_TYPES.WHISPER,
     label: WHISPER_LABEL,
     optionLabel: WHISPER_LABEL,
+    uiOrder: 1,
     scope: COGNITIVE_SERVICES_SCOPE,
     storageKeys: Object.freeze({
         uri: STORAGE_KEYS.WHISPER_URI
