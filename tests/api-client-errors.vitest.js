@@ -340,6 +340,14 @@ describe('AzureAPIClient Error Handling', () => {
                     status: 429
                 })
             );
+
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            // Bounded detail only: this plain-text body yields no extractable
+            // message, so details must be absent rather than the raw body.
+            expect(errorEmit[1]).not.toHaveProperty('details');
+            expect(JSON.stringify(errorEmit[1])).not.toContain('Too many requests');
         });
     });
     
@@ -365,6 +373,14 @@ describe('AzureAPIClient Error Handling', () => {
                     status: 400
                 })
             );
+
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            // Bounded detail only: this plain-text body yields no extractable
+            // message, so details must be absent rather than the raw body.
+            expect(errorEmit[1]).not.toHaveProperty('details');
+            expect(JSON.stringify(errorEmit[1])).not.toContain('Invalid audio format');
         });
         
         it('should handle empty audio file errors', async () => {
@@ -386,6 +402,14 @@ describe('AzureAPIClient Error Handling', () => {
                     status: 400
                 })
             );
+
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            // Bounded detail only: this plain-text body yields no extractable
+            // message, so details must be absent rather than the raw body.
+            expect(errorEmit[1]).not.toHaveProperty('details');
+            expect(JSON.stringify(errorEmit[1])).not.toContain('Empty audio file');
         });
     });
     
@@ -412,6 +436,14 @@ describe('AzureAPIClient Error Handling', () => {
                     status: 500
                 })
             );
+
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            // Bounded detail only: this plain-text body yields no extractable
+            // message, so details must be absent rather than the raw body.
+            expect(errorEmit[1]).not.toHaveProperty('details');
+            expect(JSON.stringify(errorEmit[1])).not.toContain('Internal server error');
         });
         
         it('should handle service unavailable errors (503)', async () => {
@@ -436,6 +468,14 @@ describe('AzureAPIClient Error Handling', () => {
                     status: 503
                 })
             );
+
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            // Bounded detail only: this plain-text body yields no extractable
+            // message, so details must be absent rather than the raw body.
+            expect(errorEmit[1]).not.toHaveProperty('details');
+            expect(JSON.stringify(errorEmit[1])).not.toContain('Service unavailable');
         });
     });
     
@@ -574,6 +614,14 @@ describe('AzureAPIClient Error Handling', () => {
                     status: 500
                 })
             );
+
+            const errorEmit = eventBusEmitSpy.mock.calls.find(
+                ([event]) => event === APP_EVENTS.API_REQUEST_ERROR
+            );
+            // Bounded detail only: this plain-text body yields no extractable
+            // message, so details must be absent rather than the raw body.
+            expect(errorEmit[1]).not.toHaveProperty('details');
+            expect(JSON.stringify(errorEmit[1])).not.toContain('Server error');
         });
     });
 
