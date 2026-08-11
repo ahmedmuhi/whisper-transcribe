@@ -235,10 +235,10 @@ export const CONTENT_TYPES = {
  * @property {string} SETTINGS_NO_RESULTS - Empty-state shown when no settings match the search
  * @property {string} WHISPER_URI_BADGE - Live validation badge for the Whisper Target URI
  * @property {string} MAI_URI_BADGE - Live validation badge for the MAI-Transcribe Target URI
- * @property {string} LOGOUT_DIALOG - Audio-safety dialog shown before logging out
+ * @property {string} LOGOUT_DIALOG - Audio-safety dialog shown before signing out
  * @property {string} LOGOUT_DIALOG_STATUS - Logout dialog message paragraph
- * @property {string} LOGOUT_DOWNLOAD - Download the Unsent Recording before logging out
- * @property {string} LOGOUT_CONTINUE - Continue logging out after a download was initiated
+ * @property {string} LOGOUT_DOWNLOAD - Download the Unsent Recording before signing out
+ * @property {string} LOGOUT_CONTINUE - Continue signing out after a download was initiated
  * @property {string} LOGOUT_DISCARD - Discard the Unsent Recording and sign out
  * @property {string} LOGOUT_CANCEL - Close the logout dialog and stay signed in
  */
