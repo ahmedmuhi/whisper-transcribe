@@ -113,6 +113,8 @@ if (model === MODEL_TYPES.WHISPER && file.size > WHISPER_MAX_UPLOAD_BYTES) {
 - `js/settings.js`, `js/selected-audio-controller.js`, `js/ui.js`
 - `js/constants.js`
 - `index.html`
+- `package.json` and `tests/vite-build.vitest.js` — ONLY the application
+  size-budget value (maintainer-approved raise to 22 kB; see STOP conditions)
 - `tests/` files whose assertions reference the changed surfaces
 - `spec/spec-design-api-client.md` — ONLY the adapter-addition checklist
   items that this plan collapses (mark them adapter-declared)
@@ -275,8 +277,17 @@ Stop and report back (do not improvise) if:
   working with generated rows.
 - The Playwright deterministic suite fails on panel focus/visibility after
   Step 4 and the fix is not a faithful-generation bug.
-- `npm run size` fails — generated-DOM code pushed the application bundle
-  over its budget; report the delta, do not raise the budget.
+- ~~`npm run size` fails — do not raise the budget~~ **RESOLVED by maintainer
+  ruling (first execution attempt correctly stopped here):** the application
+  bundle sat at 20.45 kB of a 20.5 kB budget before this plan; registry-driven
+  rendering cannot fit in 50 bytes. The maintainer explicitly approved raising
+  the application budget to **22 kB** as a reviewed decision (deliberate
+  architecture growth, more models expected). As part of this plan, update the
+  application budget from `20.5 kB` to `22 kB` in BOTH places: the size-limit
+  config in `package.json` AND the literal assertion in
+  `tests/vite-build.vitest.js` (search for `20.5 kB`). Touch no other budget
+  (the redirect and authentication budgets stay). `npm run size` failing
+  AFTER the raise remains a STOP condition.
 - Any excerpt mismatch (drift), including plans 048/051/052 having changed
   in-scope lines in ways these steps did not anticipate.
 
