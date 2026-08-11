@@ -15,8 +15,8 @@ const UNSENT_DISCARD_CONFIRMATION = Object.freeze({
 
 const UNSENT_LOGOUT_CONFIRMATION = Object.freeze({
     title: 'Discard Unsent Recording?',
-    message: 'Discard the Unsent Recording and log out?',
-    confirmLabel: 'Discard recording and log out'
+    message: 'Discard the Unsent Recording and sign out?',
+    confirmLabel: 'Discard recording and sign out'
 });
 
 export class AuthInteractionController {

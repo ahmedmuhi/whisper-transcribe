@@ -388,7 +388,7 @@ export class PermissionManager {
             }
             
             eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: `🚫 ${instructions}`,
+                message: instructions,
                 type: 'error'
             });
             
