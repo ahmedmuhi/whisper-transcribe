@@ -33,7 +33,7 @@ function installSettingsDom() {
             <div id="${ID.VERBATIM_SETTING}" class="settings-row" data-settings-row="verbatim">
                 <input type="checkbox" id="${ID.VERBATIM_TOGGLE}" role="switch">
             </div>
-            <select id="${ID.INPUT_DEVICE}"><option value="">System Default</option></select>
+            <select id="${ID.INPUT_DEVICE}"><option value="">System default</option></select>
             <input type="checkbox" id="${ID.NOISE_TOGGLE}" role="switch">
             <input type="radio" name="theme-mode" value="auto">
             <input type="radio" name="theme-mode" value="light">

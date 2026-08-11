@@ -266,7 +266,7 @@ export class Settings {
         } else {
             const option = document.createElement('option');
             option.value = '';
-            option.textContent = 'System Default';
+            option.textContent = 'System default';
             this.inputDeviceSelect.appendChild(option);
         }
 

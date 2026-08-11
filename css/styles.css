@@ -681,7 +681,9 @@ body > header {
     text-transform: uppercase;
     letter-spacing: 0.06em;
     cursor: pointer;
-    transition: all var(--transition);
+    transition: border-color var(--transition),
+                color var(--transition),
+                background-color var(--transition);
 }
 
 .clear-btn svg {
@@ -1136,9 +1138,11 @@ body > header {
 
 /* A rust text action — used for "All settings…" and "Sign out". */
 .link-button {
+    display: inline-flex;
+    align-items: center;
     padding: 0;
     min-width: 0;
-    min-height: 0;
+    min-height: 24px;
     border: 0;
     background: transparent;
     color: var(--accent-warm);
