@@ -10,7 +10,7 @@ tags: [design, api-client, azure, transcription, authentication, architecture, a
 # Introduction
 
 This specification defines the implemented bearer-only contract for
-`AzureAPIClient` and the two registered Transcription Model adapters. The client
+`AzureAPIClient` and the registered Transcription Model adapters. The client
 is the application's single Azure request boundary: it validates manual Target
 URI configuration, acquires a request-local token through an injected provider,
 constructs bearer authorization, executes bounded requests, classifies errors,
@@ -72,11 +72,15 @@ not a closed set.
 |---|---|---|---|---|
 | `mai-transcribe-1.5` | Azure MAI-Transcribe 1.5 | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.MAI_TRANSCRIBE_URI` | WAV `audio` plus JSON `definition` with enhanced `transcribe` mode and optional verbatim style |
 | `whisper` | Azure Whisper | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.WHISPER_URI` | Original audio in `file` plus the default `language` field |
+| `gpt-transcribe` | Azure GPT Transcribe | `https://cognitiveservices.azure.com/.default` | `STORAGE_KEYS.GPT_TRANSCRIBE_URI` | Original audio in `file`; default JSON response |
 
 The Whisper adapter rejects files larger than 25 MiB before submission and
-preserves a supported source filename/container. The MAI adapter accepts the
-supported source formats, converts to WAV through the existing worker/fallback,
-and rejects a converted payload at or above 300 MiB. Model adapters MUST NOT
+preserves a supported source filename/container. The GPT Transcribe adapter
+shares that Azure OpenAI `/audio/transcriptions` shape, the same 25 MiB source
+ceiling, and the Whisper response parser; it sends no `language` field, so the
+service detects the spoken language. The MAI adapter accepts the supported
+source formats, converts to WAV through the existing worker/fallback, and
+rejects a converted payload at or above 300 MiB. Model adapters MUST NOT
 contain a credential field, authentication storage key, or header constructor.
 
 ### 4.1 Adapter-addition checklist

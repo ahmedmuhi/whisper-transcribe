@@ -11,10 +11,12 @@ import {
     AUDIO_SAFETY_STATES,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     AUTHENTICATION_STATES,
+    GPT_TRANSCRIBE_MAX_UPLOAD_BYTES,
     ID,
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MODEL_TYPES,
-    SELECTED_AUDIO_STATES
+    SELECTED_AUDIO_STATES,
+    STORAGE_KEYS
 } from '../js/constants.js';
 import { APP_EVENTS, eventBus } from '../js/event-bus.js';
 import { logger } from '../js/logger.js';
@@ -107,6 +109,7 @@ describe('A newly registered adapter renders itself', () => {
             expect(options).toEqual([
                 MODEL_TYPES.WHISPER,
                 MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+                MODEL_TYPES.GPT_TRANSCRIBE,
                 FAKE_MODEL
             ]);
         }
@@ -196,12 +199,58 @@ describe('A newly registered adapter renders itself', () => {
 
         expect(verdict('ready-whisper')).toBe('Ready for Azure Whisper');
         expect(verdict('ready-mai-transcribe-1.5')).toBe('Ready for Azure MAI-Transcribe 1.5');
+        expect(verdict('ready-gpt-transcribe')).toBe('Ready for Azure GPT Transcribe');
         expect(verdict('tooLarge-whisper'))
             .toBe('This file is too large for Azure Whisper (25 MB maximum).');
         expect(verdict('tooLarge-mai-transcribe-1.5'))
             .toBe('This file is too large for Azure MAI-Transcribe 1.5 (under 300 MB after conversion).');
+        expect(verdict('tooLarge-gpt-transcribe'))
+            .toBe('This file is too large for Azure GPT Transcribe (25 MB maximum).');
         expect(document.querySelectorAll('[data-settings-row="whisperUri"]')).toHaveLength(1);
         expect(document.querySelectorAll('[data-settings-row="maiUri"]')).toHaveLength(1);
+        expect(document.querySelectorAll('[data-settings-row="gptTranscribeUri"]')).toHaveLength(1);
+    });
+});
+
+describe('The real gpt-transcribe adapter generates its own UI', () => {
+    it('renders its option, Connection row, and badge from the shipped registry', () => {
+        const settings = new Settings();
+
+        for (const select of [settings.modelSelect, settings.settingsModelSelect]) {
+            expect(Array.from(select.options).map(option => option.value))
+                .toContain(MODEL_TYPES.GPT_TRANSCRIBE);
+        }
+        const row = document.querySelector('[data-settings-row="gptTranscribeUri"]');
+        expect(row.dataset.category).toBe('connection');
+        expect(row.querySelector('.settings-row-title').textContent)
+            .toContain('GPT Transcribe Target URI');
+
+        const input = document.getElementById(ID.GPT_TRANSCRIBE_URI);
+        const badge = document.getElementById(ID.GPT_TRANSCRIBE_URI_BADGE);
+        input.value = 'https://gpt.invalid/audio/transcriptions';
+        input.dispatchEvent(new Event('input'));
+        expect(badge.textContent).toBe('✓ Valid HTTPS');
+        expect(localStorage.getItem(STORAGE_KEYS.GPT_TRANSCRIBE_URI))
+            .toBe('https://gpt.invalid/audio/transcriptions');
+        settings.destroy();
+    });
+
+    it('gates an oversized selection at 25 MB before any request', async () => {
+        const controller = createController({
+            model: MODEL_TYPES.GPT_TRANSCRIBE,
+            adapterRegistry: modelAdapterRegistry
+        });
+
+        await controller.select(createFile({ size: GPT_TRANSCRIBE_MAX_UPLOAD_BYTES + 1 }));
+        expect(controller.getSnapshot()).toMatchObject({
+            state: SELECTED_AUDIO_STATES.TOO_LARGE,
+            model: MODEL_TYPES.GPT_TRANSCRIBE,
+            errorCode: AUDIO_UPLOAD_LIMIT_ERROR_CODE
+        });
+
+        await controller.replace(createFile({ size: GPT_TRANSCRIBE_MAX_UPLOAD_BYTES }));
+        expect(controller.getSnapshot().state).toBe(SELECTED_AUDIO_STATES.READY);
+        controller.destroy();
     });
 });
 

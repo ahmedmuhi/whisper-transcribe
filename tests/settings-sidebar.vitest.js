@@ -81,7 +81,7 @@ describe('Settings modal sidebar', () => {
     it.each([
         ['microphone', 'Microphone', ['device', 'noise']],
         ['appearance', 'Appearance', ['theme']],
-        ['connection', 'Connection', ['whisperUri', 'maiUri']]
+        ['connection', 'Connection', ['whisperUri', 'maiUri', 'gptTranscribeUri']]
     ])('shows only %s rows when that category is selected', (category, heading, rows) => {
         categoryButton(category).click();
 
@@ -193,7 +193,7 @@ describe('Settings modal sidebar', () => {
         surface.openModal({ category: 'connection' });
 
         expect(document.getElementById(ID.SETTINGS_SEARCH).value).toBe('');
-        expect(visibleRows()).toEqual(['whisperUri', 'maiUri']);
+        expect(visibleRows()).toEqual(['whisperUri', 'maiUri', 'gptTranscribeUri']);
         expect(document.getElementById(ID.SETTINGS_HEADING).textContent).toBe('Connection');
         expect(surface.settings.populateDeviceList).toHaveBeenCalled();
     });

@@ -280,7 +280,7 @@ describe('Settings surface', () => {
 
             expect(document.getElementById('settings-modal').open).toBe(true);
             expect(document.getElementById('settings-heading').textContent).toBe('Connection');
-            expect(visibleRows()).toEqual(['whisperUri', 'maiUri']);
+            expect(visibleRows()).toEqual(['whisperUri', 'maiUri', 'gptTranscribeUri']);
             expect(settings.populateDeviceList).toHaveBeenCalledOnce();
             expect(opened).toHaveBeenCalledOnce();
             expect(document.activeElement).toBe(document.getElementById('settings-search'));

@@ -11,6 +11,7 @@ import {
     DEFAULT_LANGUAGE,
     DEFAULT_WAV_FILENAME,
     formatAudioUploadLimitMessage,
+    GPT_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MAI_TRANSCRIBE_STYLES,
     MESSAGES,
@@ -144,11 +145,16 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5).storageKeys).toEqual({
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
         });
+        expect(modelAdapterRegistry.get(MODEL_TYPES.GPT_TRANSCRIBE).storageKeys).toEqual({
+            uri: STORAGE_KEYS.GPT_TRANSCRIBE_URI
+        });
+        expect(modelAdapterRegistry.size).toBe(3);
     });
 
     it.each([
         [MODEL_TYPES.WHISPER],
-        [MODEL_TYPES.MAI_TRANSCRIBE_1_5]
+        [MODEL_TYPES.MAI_TRANSCRIBE_1_5],
+        [MODEL_TYPES.GPT_TRANSCRIBE]
     ])('resolves the real registered scope for %s without a stub', (model) => {
         const apiClient = createApiClient(createSettings(model));
 
@@ -533,6 +539,63 @@ describe('AzureAPIClient model adapter registry', () => {
             value: wavBlob,
             filename: DEFAULT_WAV_FILENAME
         });
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends GPT Transcribe audio as a bare file part and parses the JSON text', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.GPT_TRANSCRIBE));
+        const onProgress = vi.fn();
+        const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
+        mockJsonResponse({ text: 'GPT Transcribe text' });
+
+        await expect(apiClient.transcribe(audioBlob, onProgress))
+            .resolves.toBe('GPT Transcribe text');
+
+        expect(getFetchOptions().headers).toEqual({ Authorization: `Bearer ${FAKE_TOKEN}` });
+        expect(getFormEntry(API_PARAMS.FILE)).toEqual({
+            key: API_PARAMS.FILE,
+            value: audioBlob,
+            filename: DEFAULT_FILENAME
+        });
+        expect(getFormEntry(API_PARAMS.LANGUAGE)).toBeUndefined();
+        expect(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD)).toBeUndefined();
+        expect(convertToWav).not.toHaveBeenCalled();
+        expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_GPT_TRANSCRIBE);
+        expect(modelAdapterRegistry.get(MODEL_TYPES.GPT_TRANSCRIBE)
+            .parseResponse({ text: 'hi' })).toBe('hi');
+        expect(eventBusEmitSpy).toHaveBeenCalledWith(APP_EVENTS.API_REQUEST_START, {
+            model: MODEL_TYPES.GPT_TRANSCRIBE,
+            message: MESSAGES.SENDING_TO_GPT_TRANSCRIBE
+        });
+    });
+
+    it('rejects GPT Transcribe audio one byte above the 25 MB limit before token acquisition', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(
+            createSettings(MODEL_TYPES.GPT_TRANSCRIBE),
+            tokenProvider
+        );
+
+        await expect(apiClient.transcribe(
+            createBlobWithStubbedSize(GPT_TRANSCRIBE_MAX_UPLOAD_BYTES + 1)
+        )).rejects.toMatchObject({
+            code: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+            retryable: false,
+            message: formatAudioUploadLimitMessage('Azure GPT Transcribe', 'up to 25 MB')
+        });
+
+        expect(globalThis.FormData).not.toHaveBeenCalled();
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('accepts GPT Transcribe audio at the 25 MB limit', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.GPT_TRANSCRIBE));
+        mockJsonResponse({ text: 'GPT Transcribe text' });
+
+        await expect(apiClient.transcribe(
+            createBlobWithStubbedSize(GPT_TRANSCRIBE_MAX_UPLOAD_BYTES)
+        )).resolves.toBe('GPT Transcribe text');
         expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
