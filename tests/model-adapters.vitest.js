@@ -149,6 +149,24 @@ describe('AzureAPIClient model adapter registry', () => {
         });
     });
 
+    it.each([
+        [MODEL_TYPES.WHISPER],
+        [MODEL_TYPES.MAI_TRANSCRIBE_1_5]
+    ])('resolves the real registered scope for %s without a stub', (model) => {
+        const apiClient = createApiClient(createSettings(model));
+
+        expect(apiClient.getScopeForModel(model)).toBe(COGNITIVE_SERVICES_SCOPE);
+        expect(apiClient.getScopeForModel(model))
+            .toBe('https://cognitiveservices.azure.com/.default');
+    });
+
+    it('refuses to resolve a scope for an unregistered model', () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.WHISPER));
+
+        expect(() => apiClient.getScopeForModel('nope'))
+            .toThrow('Unsupported transcription model: nope');
+    });
+
     it('routes request building and parsing through the active adapter', async () => {
         const audioBlob = new Blob(['audio'], { type: 'audio/webm' });
         const onProgress = vi.fn();
