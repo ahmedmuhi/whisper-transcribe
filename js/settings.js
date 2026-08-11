@@ -351,6 +351,10 @@ export class Settings {
     /**
      * Validates a Target URI as it is typed and persists it only while it is valid HTTPS.
      *
+     * Emptying the field or editing it into an invalid value removes the stored key, so the
+     * stored Target URI always mirrors a valid visible value and never stays live behind an
+     * error badge.
+     *
      * @param {HTMLInputElement} uriInput Field being edited.
      * @param {string} model Model the field belongs to.
      */
@@ -361,6 +365,8 @@ export class Settings {
             localStorage.removeItem(this._getTargetUriStorageKey(model));
         } else if (!this._validateUri(uri)) {
             localStorage.setItem(this._getTargetUriStorageKey(model), uri);
+        } else {
+            localStorage.removeItem(this._getTargetUriStorageKey(model));
         }
         eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
         this.renderUriBadges();

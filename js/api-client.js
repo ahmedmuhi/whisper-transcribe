@@ -102,7 +102,8 @@ export class AzureAPIClient {
      * @param {Error} error - The error object to handle
      * @param {Object} [context={}] - Additional error context
      * @param {number} [context.status] - HTTP status code for API response errors
-     * @param {string} [context.details] - Additional error details from API response
+     * @param {string} [context.details] - Bounded, sanitized detail extracted from the
+     *   API response body; the raw body is never carried here
      */
     _handleApiError(error, context = {}) {
         // Log error with standardized context
@@ -324,7 +325,7 @@ export class AzureAPIClient {
 
         const errorText = await response.text();
         const retryAfterSeconds = this._parseRetryAfterSeconds(response.headers?.get?.('Retry-After'));
-        logger.child('AzureAPIClient').error('API Error Details:', errorText);
+        logger.child('AzureAPIClient').error('API error', response.status);
 
         const detail = this._extractErrorDetail(errorText);
         let message;
@@ -346,9 +347,13 @@ export class AzureAPIClient {
         const error = new Error(message);
         error.apiContext = {
             status: response.status,
-            details: errorText,
             retryAfter: retryAfterSeconds
         };
+        // Only the bounded, sanitized detail may travel with the error. The raw
+        // response body can carry resource paths and correlation identifiers.
+        if (detail) {
+            error.apiContext.details = detail;
+        }
         return error;
     }
 
