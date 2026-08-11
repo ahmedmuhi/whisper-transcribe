@@ -131,36 +131,9 @@
                         </div>
                         <p class="selected-audio-note">Nothing has been sent to Azure.</p>
                     </div>
-                    <div class="selected-audio-state" data-selected-state="ready-whisper" hidden>
-                        <div class="selected-audio-verdict" role="status">Ready for Azure Whisper</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="transcribe"><span class="btn-label">Transcribe</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
-                    <div class="selected-audio-state" data-selected-state="ready-mai-transcribe-1.5" hidden>
-                        <div class="selected-audio-verdict" role="status">Ready for Azure MAI-Transcribe 1.5</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="transcribe"><span class="btn-label">Transcribe</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
+                    <!-- Per-model ready/tooLarge panels are appended here from the adapter registry. -->
                     <div class="selected-audio-state" data-selected-state="unsupported" hidden>
                         <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">Unsupported audio file. Choose MP3, MP4, MPEG/MPGA, M4A, WAV, or WebM.</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
-                    <div class="selected-audio-state" data-selected-state="tooLarge-whisper" hidden>
-                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">This file is too large for Azure Whisper (25 MB maximum).</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
-                    <div class="selected-audio-state" data-selected-state="tooLarge-mai-transcribe-1.5" hidden>
-                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">This file is too large for Azure MAI-Transcribe 1.5 (under 300 MB after conversion).</div>
                         <div class="selected-audio-actions">
                             <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
                             <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
