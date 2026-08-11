@@ -359,13 +359,13 @@ export class SettingsSurface {
             result = { state: AUTH_RECOVERY_STATES.BLOCKED };
         }
         if (result?.state === AUDIO_SAFETY_STATES.UNSENT) {
-            this._openLogoutDialog('Protect the Unsent Recording before logging out.', {
+            this._openLogoutDialog('Protect the Unsent Recording before signing out.', {
                 download: true
             });
         } else if (result?.state === AUDIO_SAFETY_STATES.ACTIVE) {
-            this._openLogoutDialog('Finish or discard the recording before logging out.');
+            this._openLogoutDialog('Finish or discard the recording before signing out.');
         } else if (result?.state === AUDIO_SAFETY_STATES.SELECTED) {
-            this._openLogoutDialog('Remove Selected Audio before logging out.');
+            this._openLogoutDialog('Remove Selected Audio before signing out.');
         } else if (result?.state === AUTH_RECOVERY_STATES.BLOCKED) {
             this._openLogoutDialog(MESSAGES.LOGOUT_FAILED);
         }
