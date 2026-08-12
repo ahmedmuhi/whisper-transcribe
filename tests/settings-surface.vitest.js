@@ -479,7 +479,7 @@ describe('Settings surface', () => {
 
             expect(document.getElementById('logout-dialog').open).toBe(true);
             expect(document.getElementById('logout-dialog-status').textContent)
-                .toBe('Protect the Unsent Recording before logging out.');
+                .toBe('Protect the Unsent Recording before signing out.');
             expect(document.getElementById('logout-download').hidden).toBe(false);
             expect(document.getElementById('logout-discard').hidden).toBe(false);
             expect(document.getElementById('logout-continue').hidden).toBe(true);
@@ -550,8 +550,8 @@ describe('Settings surface', () => {
         });
 
         it.each([
-            [AUDIO_SAFETY_STATES.ACTIVE, 'Finish or discard the recording before logging out.'],
-            [AUDIO_SAFETY_STATES.SELECTED, 'Remove Selected Audio before logging out.'],
+            [AUDIO_SAFETY_STATES.ACTIVE, 'Finish or discard the recording before signing out.'],
+            [AUDIO_SAFETY_STATES.SELECTED, 'Remove Selected Audio before signing out.'],
             [AUTH_RECOVERY_STATES.BLOCKED, MESSAGES.LOGOUT_FAILED]
         ])('explains a blocked sign-out for %s with Cancel as the only way on', async (
             logoutState,

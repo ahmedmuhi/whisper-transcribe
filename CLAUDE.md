@@ -149,8 +149,8 @@ return and the narrow-width modal layout intact.
 Logout safety is unchanged: Sign out calls `AuthInteractionController.logOut()`,
 and an active recording, Selected Audio, blocked, or Unsent Recording result
 opens `#logout-dialog` instead of navigating. The Unsent Recording path offers
-Download, then Continue to log out after the download starts, or Discard
-recording and log out; every other blocked result names the reason and offers
+Download, then Continue to sign out after the download starts, or Discard
+recording and sign out; every other blocked result names the reason and offers
 only Cancel.
 
 ## Audio Source and navigation safety

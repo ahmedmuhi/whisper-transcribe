@@ -346,8 +346,8 @@ describe('Unsent Recording logout recovery', () => {
 
         expect(harness.confirmDiscard).toHaveBeenCalledWith({
             title: 'Discard Unsent Recording?',
-            message: 'Discard the Unsent Recording and log out?',
-            confirmLabel: 'Discard recording and log out'
+            message: 'Discard the Unsent Recording and sign out?',
+            confirmLabel: 'Discard recording and sign out'
         });
         expect(harness.callOrder).toEqual([
             'audio-safety',
@@ -454,8 +454,8 @@ function createIslandHarness({ recoveryState = AUDIO_SAFETY_STATES.SAFE } = {}) 
             <p id="logout-dialog-status"></p>
             <div class="logout-dialog-actions">
                 <button id="logout-download">Download recording</button>
-                <button id="logout-continue" hidden>Continue to log out</button>
-                <button id="logout-discard">Discard recording and log out</button>
+                <button id="logout-continue" hidden>Continue to sign out</button>
+                <button id="logout-discard">Discard recording and sign out</button>
                 <button id="logout-cancel">Cancel</button>
             </div>
         </dialog>
@@ -653,8 +653,8 @@ describe('authentication island presentation', () => {
 
         const confirmation = ui.confirmUnsentDiscard({
             title: 'Discard Unsent Recording?',
-            message: 'Discard the Unsent Recording and log out?',
-            confirmLabel: 'Discard recording and log out'
+            message: 'Discard the Unsent Recording and sign out?',
+            confirmLabel: 'Discard recording and sign out'
         });
         ui.discardKeepButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
