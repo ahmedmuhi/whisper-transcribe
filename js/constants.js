@@ -36,6 +36,7 @@ export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
  * @constant {Object} STORAGE_KEYS
  * @property {string} MODEL - Key for storing selected transcription model
  * @property {string} WHISPER_URI - Key for storing the Whisper Target URI
+ * @property {string} GPT_TRANSCRIBE_URI - Key for storing the GPT Transcribe Target URI
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
  * @property {string} THEME_PALETTE - Key for storing user's preferred colour palette
  */
@@ -43,6 +44,7 @@ export const STORAGE_KEYS = {
   MODEL:                'transcription_model',
   WHISPER_URI:          'whisper_uri',
   MAI_TRANSCRIBE_URI:     'mai_transcribe_uri',
+  GPT_TRANSCRIBE_URI:     'gpt_transcribe_uri',
   MAI_TRANSCRIBE_STYLE:   'mai_transcribe_style',
   THEME_MODE:           'themeMode',
   THEME_PALETTE:        'themePalette',
@@ -128,7 +130,8 @@ export const API_PARAMS = {
 export const MODEL_TYPES = {
   WHISPER:           'whisper',
   MAI_TRANSCRIBE_1_5: 'mai-transcribe-1.5',
-  MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5'
+  MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5',
+  GPT_TRANSCRIBE:    'gpt-transcribe'
 };
 
 /**
@@ -136,9 +139,13 @@ export const MODEL_TYPES = {
  *
  * Azure OpenAI Whisper: https://learn.microsoft.com/azure/foundry/openai/whisper-quickstart
  * Azure MAI-Transcribe: https://learn.microsoft.com/azure/ai-services/speech-service/mai-transcribe
+ * Azure OpenAI GPT Transcribe: https://learn.microsoft.com/azure/ai-foundry/openai/whisper-quickstart
+ *   (the same Azure OpenAI audio quickstart documents the 25 MB inline upload
+ *   ceiling for every model on the `/audio/transcriptions` route)
  */
 export const WHISPER_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAI_TRANSCRIBE_MAX_UPLOAD_BYTES = (300 * 1024 * 1024) - 1;
+export const GPT_TRANSCRIBE_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /** Stable input-validation code for model upload-size failures. */
 export const AUDIO_UPLOAD_LIMIT_ERROR_CODE = 'audio-upload-limit-exceeded';
@@ -266,6 +273,7 @@ export const CONTENT_TYPES = {
  * @property {string} SETTINGS_NO_RESULTS - Empty-state shown when no settings match the search
  * @property {string} WHISPER_URI_BADGE - Live validation badge for the Whisper Target URI
  * @property {string} MAI_URI_BADGE - Live validation badge for the MAI-Transcribe Target URI
+ * @property {string} GPT_TRANSCRIBE_URI_BADGE - Live validation badge for the GPT Transcribe Target URI
  * @property {string} LOGOUT_DIALOG - Audio-safety dialog shown before signing out
  * @property {string} LOGOUT_DIALOG_STATUS - Logout dialog message paragraph
  * @property {string} LOGOUT_DOWNLOAD - Download the Unsent Recording before signing out
@@ -330,6 +338,8 @@ export const ID = Object.freeze({
   WHISPER_URI_BADGE: 'whisper-uri-badge',
   MAI_TRANSCRIBE_URI: 'mai-transcribe-uri',
   MAI_URI_BADGE: 'mai-uri-badge',
+  GPT_TRANSCRIBE_URI: 'gpt-transcribe-uri',
+  GPT_TRANSCRIBE_URI_BADGE: 'gpt-transcribe-uri-badge',
   NOISE_TOGGLE: 'noise-toggle',
   PALETTE_LABEL: 'palette-label',
   PALETTE_GRID: 'palette-grid',
@@ -538,6 +548,7 @@ export const MESSAGES = {
   SENDING_TO_WHISPER: 'Sending to Azure Whisper API...',
   CONVERTING_AUDIO: 'Converting audio format...',
   SENDING_TO_MAI_TRANSCRIBE: 'Sending to Azure MAI-Transcribe API...',
+  SENDING_TO_GPT_TRANSCRIBE: 'Sending to Azure GPT Transcribe API...',
   AUDIO_UPLOAD_LIMIT_EXCEEDED: '{model} accepts recordings {limit}. Make a shorter recording and try again.',
   UNKNOWN_API_RESPONSE: 'Unknown response format from API',
   

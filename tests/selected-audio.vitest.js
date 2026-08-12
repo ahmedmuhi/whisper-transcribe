@@ -496,6 +496,89 @@ describe('SelectedAudioController explicit transcription lifecycle', () => {
         expect(harness.apiClient.transcribe).not.toHaveBeenCalled();
     });
 
+    it('suppresses a stale transcript when the File is removed mid-transcribe', async () => {
+        let resolveTranscription;
+        const harness = createHarness();
+        harness.apiClient.transcribe.mockReturnValue(new Promise(resolve => {
+            resolveTranscription = resolve;
+        }));
+        const transcriptionEvents = [];
+        eventBus.on(APP_EVENTS.UI_TRANSCRIPTION_READY, data => transcriptionEvents.push(data));
+        await harness.controller.select(createFile());
+
+        const transcribing = harness.controller.transcribe();
+        await vi.waitFor(() => expect(harness.apiClient.transcribe).toHaveBeenCalledOnce());
+        expect(harness.controller.remove()).toBe(true);
+        resolveTranscription('Stale transcript');
+
+        await expect(transcribing).resolves.toBe(false);
+        expect(transcriptionEvents).toEqual([]);
+        expect(harness.controller.getSnapshot()).toEqual({ state: SELECTED_AUDIO_STATES.IDLE });
+        expect(harness.controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+    });
+
+    it('discards a resolved transcript for a File replaced mid-transcribe', async () => {
+        let resolveTranscription;
+        const harness = createHarness();
+        harness.apiClient.transcribe.mockReturnValue(new Promise(resolve => {
+            resolveTranscription = resolve;
+        }));
+        const transcriptionEvents = [];
+        eventBus.on(APP_EVENTS.UI_TRANSCRIPTION_READY, data => transcriptionEvents.push(data));
+        await harness.controller.select(createFile({ name: 'first.wav' }));
+
+        const transcribing = harness.controller.transcribe();
+        await vi.waitFor(() => expect(harness.apiClient.transcribe).toHaveBeenCalledOnce());
+        harness.controller.remove();
+        await harness.controller.select(createFile({ name: 'second.wav' }));
+        resolveTranscription('Stale transcript');
+
+        await expect(transcribing).resolves.toBe(false);
+        expect(transcriptionEvents).toEqual([]);
+        expect(harness.controller.getSnapshot()).toMatchObject({
+            state: SELECTED_AUDIO_STATES.READY,
+            name: 'second.wav'
+        });
+        expect(harness.controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SELECTED);
+    });
+
+    it('suppresses a stale failure snapshot when the File is removed mid-transcribe', async () => {
+        let rejectTranscription;
+        const harness = createHarness();
+        harness.apiClient.transcribe.mockReturnValue(new Promise((_resolve, reject) => {
+            rejectTranscription = reject;
+        }));
+        await harness.controller.select(createFile());
+
+        const transcribing = harness.controller.transcribe();
+        await vi.waitFor(() => expect(harness.apiClient.transcribe).toHaveBeenCalledOnce());
+        expect(harness.controller.remove()).toBe(true);
+        rejectTranscription(new Error('Service unavailable'));
+
+        await expect(transcribing).resolves.toBe(false);
+        expect(harness.controller.getSnapshot()).toEqual({ state: SELECTED_AUDIO_STATES.IDLE });
+    });
+
+    it('releases the File and stops reacting to model changes after destroy', async () => {
+        const harness = createHarness({ model: MODEL_TYPES.MAI_TRANSCRIBE_1_5 });
+        await harness.controller.select(createFile({ size: WHISPER_MAX_UPLOAD_BYTES + 1 }));
+
+        harness.controller.destroy();
+        expect(harness.controller.getSnapshot()).toEqual({ state: SELECTED_AUDIO_STATES.IDLE });
+        expect(harness.controller.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+
+        const snapshotEvents = [];
+        eventBus.on(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, data => snapshotEvents.push(data));
+        harness.setModel(MODEL_TYPES.WHISPER);
+        eventBus.emit(APP_EVENTS.SETTINGS_MODEL_CHANGED, { model: MODEL_TYPES.WHISPER });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(snapshotEvents).toEqual([]);
+        expect(harness.controller.getSnapshot()).toEqual({ state: SELECTED_AUDIO_STATES.IDLE });
+        expect(harness.apiClient.transcribe).not.toHaveBeenCalled();
+    });
+
     it('does not send against a model that changes while readiness is being established', async () => {
         let resolveReadiness;
         const harness = createHarness();

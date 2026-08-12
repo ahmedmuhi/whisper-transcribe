@@ -82,7 +82,7 @@ describe('Vite build contract', () => {
         const authenticationBudget = budgets.find(budget => budget.name === 'authentication runtime');
         const redirectBudget = budgets.find(budget => budget.name === 'redirect bridge');
 
-        expect(applicationBudget.limit).toBe('21.5 kB');
+        expect(applicationBudget.limit).toBe('22.5 kB');
         expect(redirectBudget.limit).toBe('5 kB');
         expect(authenticationBudget).toBeDefined();
 

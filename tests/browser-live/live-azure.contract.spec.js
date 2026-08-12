@@ -1,5 +1,10 @@
 /**
- * @fileoverview Opt-in two-model browser contract using a protected workload token.
+ * @fileoverview Opt-in multi-model browser contract using a protected workload token.
+ *
+ * Every registered model needs exactly one guarded case here. Models whose
+ * protected Target URI the operator has not provisioned yet are listed as
+ * optional: their case skips before any external action instead of blocking the
+ * models that are provisioned.
  */
 
 import { expect, test } from '@playwright/test';
@@ -27,6 +32,13 @@ const modelCases = Object.freeze([
         targetName: 'AZURE_MAI_TRANSCRIBE_TARGET_URI',
         hostnameSuffix: '.cognitiveservices.azure.com',
         storageName: 'mai_transcribe_uri'
+    }),
+    Object.freeze({
+        label: 'Azure GPT Transcribe',
+        model: 'gpt-transcribe',
+        targetName: 'AZURE_GPT_TRANSCRIBE_TARGET_URI',
+        hostnameSuffix: '.openai.azure.com',
+        storageName: 'gpt_transcribe_uri'
     })
 ]);
 
@@ -37,6 +49,10 @@ test.skip(
 
 for (const modelCase of modelCases) {
     test(`${modelCase.label} -> one harmless transcription -> expected fixture word`, async ({ browser }) => {
+        test.skip(
+            !process.env[modelCase.targetName],
+            `${modelCase.targetName} not provided; zero external requests for this model.`
+        );
         const protectedConfiguration = readProtectedConfiguration(
             modelCase.targetName,
             modelCase.hostnameSuffix

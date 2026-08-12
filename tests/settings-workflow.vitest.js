@@ -94,6 +94,8 @@ global.document = {
         if (!mockElements.has(id)) mockElements.set(id, createStatefulMockElement(id));
         return mockElements.get(id);
     }),
+    createElement: vi.fn((tag) => createStatefulMockElement(tag)),
+    createTextNode: vi.fn((text) => ({ textContent: text })),
     querySelector: vi.fn(() => createStatefulMockElement('query')),
     querySelectorAll: vi.fn(() => []),
     body: createStatefulMockElement('body'),

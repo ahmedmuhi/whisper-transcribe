@@ -9,12 +9,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ID, MODEL_TYPES } from '../js/constants.js';
 import { eventBus } from '../js/event-bus.js';
 import { SettingsSurface } from '../js/settings-surface.js';
+import { renderConnectionRows } from '../js/settings.js';
 
 const indexSource = readFileSync('index.html', 'utf8');
 
 function installProductionBody() {
     const body = indexSource.match(/<body>([\s\S]*)<\/body>/u)?.[1] || '';
     document.body.innerHTML = body.replace(/<script[^>]*src=[^>]*><\/script>/gu, '');
+    // Connection rows are generated from the adapter registry in production;
+    // this surface harness stubs Settings, so it renders them the same way.
+    renderConnectionRows();
     document.getElementById = (id) => document.querySelector(`#${id}`);
 }
 
@@ -77,7 +81,7 @@ describe('Settings modal sidebar', () => {
     it.each([
         ['microphone', 'Microphone', ['device', 'noise']],
         ['appearance', 'Appearance', ['palette', 'theme']],
-        ['connection', 'Connection', ['whisperUri', 'maiUri']]
+        ['connection', 'Connection', ['whisperUri', 'maiUri', 'gptTranscribeUri']]
     ])('shows only %s rows when that category is selected', (category, heading, rows) => {
         categoryButton(category).click();
 
@@ -189,7 +193,7 @@ describe('Settings modal sidebar', () => {
         surface.openModal({ category: 'connection' });
 
         expect(document.getElementById(ID.SETTINGS_SEARCH).value).toBe('');
-        expect(visibleRows()).toEqual(['whisperUri', 'maiUri']);
+        expect(visibleRows()).toEqual(['whisperUri', 'maiUri', 'gptTranscribeUri']);
         expect(document.getElementById(ID.SETTINGS_HEADING).textContent).toBe('Connection');
         expect(surface.settings.populateDeviceList).toHaveBeenCalled();
     });

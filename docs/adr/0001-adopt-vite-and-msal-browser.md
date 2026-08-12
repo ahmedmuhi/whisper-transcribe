@@ -37,13 +37,16 @@ port, base path, and callback path exactly.
 Built-output checks cover both entries and the separated authentication chunk.
 The initial packaging measurements were 19.52 kB for the application entry and
 2.73 kB for the redirect bridge. The current reviewed Brotli ceilings in
-`package.json` are 21.5 kB for the application assets, 60 kB for the
+`package.json` are 22.5 kB for the application assets, 60 kB for the
 authentication runtime, and 5 kB for the redirect bridge. The application
-ceiling moved from 20.5 kB when the four selectable colour palettes added their
-constants to the application chunk (measured 21.0 kB); the authentication
-ceiling moved from 55 kB when the pinned MSAL runtime measured 55.16 kB, and
+ceiling moved from 20.5 kB to 22 kB for the registry-driven model UI and then
+to 22.5 kB when the four selectable colour palettes landed on top of it
+(measured 22.31 kB); the authentication ceiling moved from 55 kB because the
+palette constants in the shared `js/constants.js` bleed into the
+authentication chunk (measured 55.09 kB, over the 55 kB bucket), and
 `tests/vite-build.vitest.js` re-derives that one from the built output rather
-than trusting the literal.
+than trusting the literal. That bleed is a known measurement flaw; a
+vendor-only MSAL budget that excludes shared constants is planned separately.
 
 ## Consequences
 

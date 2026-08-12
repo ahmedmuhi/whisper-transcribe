@@ -18,6 +18,7 @@ import {
     SELECTED_AUDIO_STATES,
     STATUS_TYPE_CLASSES
 } from './constants.js';
+import { listModelAdapters, modelAdapterRegistry } from './model-adapters/index.js';
 import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -36,6 +37,96 @@ import { readCanvasGround, VisualizationController } from './visualization.js';
  * @fires APP_EVENTS.UI_STATUS_UPDATE
  * @fires APP_EVENTS.UI_THEME_CHANGED
  */
+/** Marks the Selected Audio panels this module generates, so it replaces only its own. */
+const GENERATED_PANEL_ATTRIBUTE = 'data-selected-model-panel';
+
+/**
+ * Builds one Selected Audio action panel: a verdict line plus the two actions.
+ *
+ * @param {string} panelState `data-selected-state` value the renderer matches on.
+ * @param {string} verdictText User-facing verdict copy.
+ * @param {boolean} isError Whether the verdict is the error presentation.
+ * @param {Array<{action: string, label: string, className: string}>} actions Buttons in order.
+ * @returns {HTMLDivElement} The panel element, hidden until the renderer shows it.
+ */
+function createSelectedAudioPanel(panelState, verdictText, isError, actions) {
+    const panel = document.createElement('div');
+    panel.className = 'selected-audio-state';
+    panel.dataset.selectedState = panelState;
+    panel.dataset.selectedModelPanel = '';
+    panel.hidden = true;
+
+    const verdict = document.createElement('div');
+    verdict.className = isError
+        ? 'selected-audio-verdict selected-audio-verdict-error'
+        : 'selected-audio-verdict';
+    verdict.setAttribute('role', isError ? 'alert' : 'status');
+    verdict.textContent = verdictText;
+    panel.appendChild(verdict);
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'selected-audio-actions';
+    for (const { action, label, className } of actions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.dataset.selectedAction = action;
+        const span = document.createElement('span');
+        span.className = 'btn-label';
+        span.textContent = label;
+        button.appendChild(span);
+        actionRow.appendChild(button);
+    }
+    panel.appendChild(actionRow);
+    return panel;
+}
+
+/**
+ * Generates the per-model `ready-<id>` and `tooLarge-<id>` panels from adapter
+ * metadata so a newly registered adapter cannot render a blank workspace.
+ * Panels are built node by node: no innerHTML with adapter-supplied values.
+ *
+ * @param {HTMLElement|null} [container] Host element; defaults to the Selected Audio workspace.
+ * @param {Map<string, object>} [registry] Adapter registry; defaults to the production one.
+ */
+export function renderSelectedAudioModelPanels(
+    container = document.getElementById(ID.SELECTED_AUDIO_WORKSPACE),
+    registry = modelAdapterRegistry
+) {
+    // Harnesses that stub `document` without an element factory have nothing to
+    // host panels; rendering is a no-op there rather than a construction error.
+    if (typeof container?.appendChild !== 'function'
+        || typeof document.createElement !== 'function') return;
+    // Only previously generated panels are replaced; the static state panels
+    // (checking, unsupported, transcribing, failed) stay untouched.
+    container.querySelectorAll?.(`[${GENERATED_PANEL_ATTRIBUTE}]`)
+        ?.forEach((panel) => panel.remove());
+    for (const adapter of listModelAdapters(registry)) {
+        const label = adapter.label || adapter.id;
+        container.appendChild(createSelectedAudioPanel(
+            `${SELECTED_AUDIO_STATES.READY}-${adapter.id}`,
+            `Ready for ${label}`,
+            false,
+            [
+                { action: 'transcribe', label: 'Transcribe', className: 'btn btn-primary' },
+                { action: 'remove', label: 'Remove', className: 'btn btn-secondary' }
+            ]
+        ));
+        const limitCopy = adapter.uploadLimitVerdict || adapter.uploadLimitLabel;
+        container.appendChild(createSelectedAudioPanel(
+            `${SELECTED_AUDIO_STATES.TOO_LARGE}-${adapter.id}`,
+            limitCopy
+                ? `This file is too large for ${label} (${limitCopy}).`
+                : `This file is too large for ${label}.`,
+            true,
+            [
+                { action: 'choose', label: 'Choose another', className: 'btn btn-primary' },
+                { action: 'remove', label: 'Remove', className: 'btn btn-secondary' }
+            ]
+        ));
+    }
+}
+
 export class UI {
     #selectedController;
     #selectedSnapshot;
@@ -53,8 +144,10 @@ export class UI {
         authenticationState = AUTH_PRESENTATION_STATES.READY,
         authInteractionController = null,
         selectedAudioController = null,
-        openHelp = null
+        openHelp = null,
+        adapterRegistry = modelAdapterRegistry
     } = {}) {
+        renderSelectedAudioModelPanels(undefined, adapterRegistry);
         // Transcript + status + visualiser
         this.statusElement = document.getElementById(ID.STATUS);
         this.transcriptElement = document.getElementById(ID.TRANSCRIPT);
@@ -516,16 +609,26 @@ export class UI {
         if (this.#selectedFile) {
             this.#selectedFile.hidden = state === SELECTED_AUDIO_STATES.CHECKING;
         }
-        const panelState = [SELECTED_AUDIO_STATES.READY, SELECTED_AUDIO_STATES.TOO_LARGE].includes(state)
+        const requestedPanelState = [SELECTED_AUDIO_STATES.READY, SELECTED_AUDIO_STATES.TOO_LARGE]
+            .includes(state)
             ? `${state}-${snapshot.model}`
             : state;
+        // A model with no generated panel must not blank the workspace: fall back
+        // to the generic failed panel so the file stays removable.
+        const hasPanel = Boolean(
+            this.#selectedWorkspace?.querySelector(`[data-selected-state="${requestedPanelState}"]`)
+        );
+        if (!hasPanel) {
+            logger.warn(`No Selected Audio panel for state "${requestedPanelState}"; showing the failed panel.`);
+        }
+        const panelState = hasPanel ? requestedPanelState : SELECTED_AUDIO_STATES.FAILED;
         const panels = this.#selectedWorkspace?.querySelectorAll('[data-selected-state]') || [];
         panels.forEach(panel => {
             panel.hidden = panel.dataset.selectedState !== panelState;
         });
         const panel = this.#selectedWorkspace?.querySelector(`[data-selected-state="${panelState}"]`);
         const verdict = panel?.querySelector('[data-selected-verdict]');
-        if (state === SELECTED_AUDIO_STATES.FAILED && verdict) {
+        if ((state === SELECTED_AUDIO_STATES.FAILED || !hasPanel) && verdict) {
             verdict.textContent = snapshot.errorMessage || 'Azure request failed.';
             const authFailure = [
                 API_ERROR_CODES.AUTHENTICATION_REQUIRED,
