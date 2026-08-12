@@ -10,7 +10,6 @@ import {
     AUTH_RECOVERY_STATES,
     AZURE_RBAC_HELP_URL,
     STORAGE_KEYS,
-    COLORS,
     DEFAULT_RESET_STATUS,
     MESSAGES,
     ID,
@@ -24,7 +23,7 @@ import { showTemporaryStatus } from './status-helper.js';
 import { PermissionManager } from './permission-manager.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
 import { logger } from './logger.js';
-import { VisualizationController } from './visualization.js';
+import { readCanvasGround, VisualizationController } from './visualization.js';
 
 /**
  * User interface controller for managing DOM interactions and visual states.
@@ -512,7 +511,7 @@ export class UI {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             if (canvasCtx) {
-                canvasCtx.fillStyle = isDark ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
+                canvasCtx.fillStyle = readCanvasGround(isDark);
                 canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
             }
         }
@@ -1600,7 +1599,7 @@ export class UI {
         if (this.visualizer) {
             const canvasCtx = this.visualizer.getContext('2d');
             const isDarkTheme = document.documentElement.classList.contains('dark-theme');
-            canvasCtx.fillStyle = isDarkTheme ? COLORS.CANVAS_DARK_BG : COLORS.CANVAS_LIGHT_BG;
+            canvasCtx.fillStyle = readCanvasGround(isDarkTheme);
             canvasCtx.fillRect(0, 0, this.visualizer.width, this.visualizer.height);
         }
     }

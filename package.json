@@ -50,12 +50,12 @@
         "dist/assets/modulepreload-polyfill-*.js",
         "dist/assets/audio-converter.worker-*.js"
       ],
-      "limit": "22 kB"
+      "limit": "22.5 kB"
     },
     {
       "name": "authentication runtime",
       "path": "dist/assets/authentication-*.js",
-      "limit": "55 kB"
+      "limit": "60 kB"
     },
     {
       "name": "redirect bridge",

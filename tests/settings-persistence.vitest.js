@@ -59,6 +59,14 @@ function installSettingsDom() {
             <div class="settings-row" data-settings-row="noise" data-category="microphone">
                 <input id="${ID.NOISE_TOGGLE}" type="checkbox" role="switch">
             </div>
+            <div class="settings-row settings-row--stacked" data-settings-row="palette" data-category="appearance">
+                <div id="${ID.PALETTE_GRID}" role="radiogroup">
+                    <button type="button" role="radio" aria-checked="true" tabindex="0" data-palette-value="coastal"></button>
+                    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-palette-value="organic"></button>
+                    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-palette-value="industry"></button>
+                    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-palette-value="broadsheet"></button>
+                </div>
+            </div>
             <div class="settings-row" data-settings-row="theme" data-category="appearance">
                 <input type="radio" name="theme-mode" value="auto">
                 <input type="radio" name="theme-mode" value="light">
@@ -542,6 +550,34 @@ describe('Microphone and transcription preferences apply instantly', () => {
         expect(settings.getModelConfig().transcribeStyle)
             .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
         settings.destroy();
+    });
+
+    it('persists a palette choice and leaves the theme mode alone', () => {
+        localStorage.setItem(STORAGE_KEYS.THEME_MODE, 'dark');
+        const settings = new Settings();
+
+        document.querySelector('[data-palette-value="broadsheet"]').click();
+
+        expect(localStorage.getItem(STORAGE_KEYS.THEME_PALETTE)).toBe('broadsheet');
+        expect(localStorage.getItem(STORAGE_KEYS.THEME_MODE)).toBe('dark');
+        expect(document.documentElement.getAttribute('data-palette')).toBe('broadsheet');
+        settings.destroy();
+    });
+
+    it('synchronizes a cross-tab palette change and stops on destroy', () => {
+        const settings = new Settings();
+        const dispatchPaletteChange = () => window.dispatchEvent(new StorageEvent('storage', {
+            key: STORAGE_KEYS.THEME_PALETTE
+        }));
+
+        localStorage.setItem(STORAGE_KEYS.THEME_PALETTE, 'industry');
+        dispatchPaletteChange();
+        expect(document.documentElement.getAttribute('data-palette')).toBe('industry');
+
+        settings.destroy();
+        localStorage.setItem(STORAGE_KEYS.THEME_PALETTE, 'organic');
+        dispatchPaletteChange();
+        expect(document.documentElement.getAttribute('data-palette')).toBe('industry');
     });
 
     it('persists a chosen microphone and clears it for System Default', () => {

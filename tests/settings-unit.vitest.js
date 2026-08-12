@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    DEFAULT_THEME_PALETTE,
     ID,
     MAI_TRANSCRIBE_STYLES,
     MESSAGES,
@@ -35,6 +36,12 @@ function installSettingsDom() {
             </div>
             <select id="${ID.INPUT_DEVICE}"><option value="">System default</option></select>
             <input type="checkbox" id="${ID.NOISE_TOGGLE}" role="switch">
+            <div id="${ID.PALETTE_GRID}" role="radiogroup">
+                <button type="button" role="radio" aria-checked="true" tabindex="0" data-palette-value="coastal"></button>
+                <button type="button" role="radio" aria-checked="false" tabindex="-1" data-palette-value="organic"></button>
+                <button type="button" role="radio" aria-checked="false" tabindex="-1" data-palette-value="industry"></button>
+                <button type="button" role="radio" aria-checked="false" tabindex="-1" data-palette-value="broadsheet"></button>
+            </div>
             <input type="radio" name="theme-mode" value="auto">
             <input type="radio" name="theme-mode" value="light">
             <input type="radio" name="theme-mode" value="dark">
@@ -426,7 +433,7 @@ describe('Settings theme mode', () => {
         expect(localStorage.getItem(STORAGE_KEYS.THEME_MODE)).toBe('dark');
         expect(checkedThemeValues('theme-mode')).toEqual(['dark']);
         expect(checkedThemeValues('theme-mode-quick')).toEqual(['dark']);
-        expect(themeChanged).toHaveBeenCalledWith({ mode: 'dark' });
+        expect(themeChanged).toHaveBeenCalledWith({ mode: 'dark', palette: DEFAULT_THEME_PALETTE });
         settings.destroy();
     });
 
@@ -447,6 +454,42 @@ describe('Settings theme mode', () => {
 
         expect(checkedThemeValues('theme-mode')).toEqual(['auto']);
         expect(checkedThemeValues('theme-mode-quick')).toEqual(['auto']);
+        settings.destroy();
+    });
+});
+
+describe('Settings theme palette', () => {
+    function card(palette) {
+        return document.querySelector(`[data-palette-value="${palette}"]`);
+    }
+
+    function checkedPalettes() {
+        return Array.from(document.querySelectorAll('[data-palette-value]'))
+            .filter((button) => button.getAttribute('aria-checked') === 'true')
+            .map((button) => button.dataset.paletteValue);
+    }
+
+    it('applies a palette choice to the root element and persists it', () => {
+        const settings = new Settings();
+        const themeChanged = vi.fn();
+        eventBus.on(APP_EVENTS.UI_THEME_CHANGED, themeChanged);
+
+        card('organic').click();
+
+        expect(localStorage.getItem(STORAGE_KEYS.THEME_PALETTE)).toBe('organic');
+        expect(document.documentElement.getAttribute('data-palette')).toBe('organic');
+        expect(checkedPalettes()).toEqual(['organic']);
+        expect(themeChanged).toHaveBeenCalledWith({ mode: 'auto', palette: 'organic' });
+        settings.destroy();
+    });
+
+    it('restores the stored palette and falls back to the default', () => {
+        localStorage.setItem(STORAGE_KEYS.THEME_PALETTE, 'nonsense');
+        const settings = new Settings();
+
+        expect(checkedPalettes()).toEqual([DEFAULT_THEME_PALETTE]);
+        expect(document.documentElement.getAttribute('data-palette'))
+            .toBe(DEFAULT_THEME_PALETTE);
         settings.destroy();
     });
 });

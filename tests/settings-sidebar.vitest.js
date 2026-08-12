@@ -80,7 +80,7 @@ describe('Settings modal sidebar', () => {
 
     it.each([
         ['microphone', 'Microphone', ['device', 'noise']],
-        ['appearance', 'Appearance', ['theme']],
+        ['appearance', 'Appearance', ['palette', 'theme']],
         ['connection', 'Connection', ['whisperUri', 'maiUri', 'gptTranscribeUri']]
     ])('shows only %s rows when that category is selected', (category, heading, rows) => {
         categoryButton(category).click();

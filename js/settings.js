@@ -5,12 +5,16 @@
 import {
     DEFAULT_MAI_TRANSCRIBE_STYLE,
     DEFAULT_MODEL_TYPE,
+    DEFAULT_THEME_PALETTE,
     ID,
     MAI_TRANSCRIBE_STYLES,
     MESSAGES,
     MODEL_TYPES,
     RECORDING_ENVIRONMENTS,
-    STORAGE_KEYS
+    STORAGE_KEYS,
+    THEME_PALETTES,
+    THEME_PALETTE_ATTRIBUTE,
+    THEME_PALETTE_VALUE_ATTRIBUTE
 } from './constants.js';
 import { PermissionManager } from './permission-manager.js';
 import { APP_EVENTS, eventBus } from './event-bus.js';
@@ -134,9 +138,23 @@ export class Settings {
         this.themeModeInputs = Array.from(document.querySelectorAll?.(
             'input[name="theme-mode"], input[name="theme-mode-quick"]'
         ) || []);
+        this.paletteGrid = document.getElementById(ID.PALETTE_GRID);
+        this.paletteCards = Array.from(
+            this.paletteGrid?.querySelectorAll?.(`[${THEME_PALETTE_VALUE_ATTRIBUTE}]`) || []
+        );
         this._storageHandler = (event) => {
             if (event.key === STORAGE_KEYS.MAI_TRANSCRIBE_STYLE || event.key === null) {
                 this.loadVerbatimToggle();
+            }
+            if (event.key === STORAGE_KEYS.THEME_PALETTE || event.key === null) {
+                this.loadThemePalette();
+                // Same emit as the in-tab path: the visualizer canvas repaints
+                // its ground from this event, so without it a recording tab
+                // keeps the previous palette's fill under the new CSS.
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, {
+                    mode: this._getStoredThemeMode(),
+                    palette: this._getStoredThemePalette()
+                });
             }
         };
 
@@ -152,6 +170,7 @@ export class Settings {
         this.loadNoiseToggle();
         this.loadVerbatimToggle();
         this.loadThemeMode();
+        this.loadThemePalette();
         this.setupEventListeners();
         this.updateVerbatimVisibility();
         this.renderUriBadges();
@@ -206,6 +225,100 @@ export class Settings {
         this.themeModeInputs.forEach((input) => {
             input.checked = input.value === themeMode;
         });
+    }
+
+    /**
+     * Resolves the stored palette. A missing key and an unknown value both mean
+     * the default, so an existing user with only a themeMode keeps Coastal Teal.
+     *
+     * @returns {string} One of THEME_PALETTES.
+     */
+    _getStoredThemePalette() {
+        const stored = localStorage.getItem(STORAGE_KEYS.THEME_PALETTE);
+        return THEME_PALETTES.includes(stored) ? stored : DEFAULT_THEME_PALETTE;
+    }
+
+    /** Applies the stored palette without writing storage: reads never persist. */
+    loadThemePalette() {
+        this._applyThemePalette(this._getStoredThemePalette());
+    }
+
+    /**
+     * Paints the palette and syncs the radiogroup. The attribute goes on the
+     * element .dark-theme is toggled on, so palette and light/dark form compose.
+     *
+     * @param {string} palette One of THEME_PALETTES.
+     */
+    _applyThemePalette(palette) {
+        document.documentElement.setAttribute(THEME_PALETTE_ATTRIBUTE, palette);
+        this.paletteCards.forEach((card) => {
+            const selected = card.getAttribute(THEME_PALETTE_VALUE_ATTRIBUTE) === palette;
+            card.setAttribute('aria-checked', String(selected));
+            card.tabIndex = selected ? 0 : -1;
+        });
+    }
+
+    /**
+     * Persists and applies a palette choice instantly — no save step, no reload.
+     *
+     * @param {string} palette One of THEME_PALETTES.
+     */
+    _handleThemePaletteChange(palette) {
+        if (!THEME_PALETTES.includes(palette)) return;
+        localStorage.setItem(STORAGE_KEYS.THEME_PALETTE, palette);
+        this._applyThemePalette(palette);
+        eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, {
+            mode: this._getStoredThemeMode(),
+            palette
+        });
+    }
+
+    /** @returns {string} The stored theme mode, or 'auto'. */
+    _getStoredThemeMode() {
+        const stored = localStorage.getItem(STORAGE_KEYS.THEME_MODE);
+        return THEME_MODES.includes(stored) ? stored : 'auto';
+    }
+
+    /**
+     * Radiogroup keyboard model: arrows wrap and select, Home/End jump to the
+     * ends, Space/Enter selects the focused card, and focus follows selection.
+     *
+     * @param {KeyboardEvent} event Key pressed inside the palette grid.
+     */
+    _handlePaletteKeydown(event) {
+        const card = event.target.closest?.(`[${THEME_PALETTE_VALUE_ATTRIBUTE}]`);
+        const index = this.paletteCards.indexOf(card);
+        if (index < 0) return;
+
+        const last = this.paletteCards.length - 1;
+        let next = null;
+        switch (event.key) {
+            case 'ArrowRight':
+            case 'ArrowDown':
+                next = index === last ? 0 : index + 1;
+                break;
+            case 'ArrowLeft':
+            case 'ArrowUp':
+                next = index === 0 ? last : index - 1;
+                break;
+            case 'Home':
+                next = 0;
+                break;
+            case 'End':
+                next = last;
+                break;
+            case ' ':
+            case 'Enter':
+                next = index;
+                break;
+            default:
+                return;
+        }
+
+        event.preventDefault();
+        const target = this.paletteCards[next];
+        this._handleThemePaletteChange(target.getAttribute(THEME_PALETTE_VALUE_ATTRIBUTE));
+        target.focus();
     }
 
     loadSavedModel() {
@@ -312,9 +425,20 @@ export class Settings {
                 if (!input.checked || !THEME_MODES.includes(input.value)) return;
                 localStorage.setItem(STORAGE_KEYS.THEME_MODE, input.value);
                 this._applyThemeMode(input.value);
-                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, { mode: input.value });
+                eventBus.emit(APP_EVENTS.UI_THEME_CHANGED, {
+                    mode: input.value,
+                    palette: this._getStoredThemePalette()
+                });
             });
         });
+
+        this.paletteCards.forEach((card) => {
+            card.addEventListener('click', () => {
+                this._handleThemePaletteChange(card.getAttribute(THEME_PALETTE_VALUE_ATTRIBUTE));
+            });
+        });
+        this.paletteGrid?.addEventListener('keydown', (event) => this._handlePaletteKeydown(event));
+
         window.addEventListener('storage', this._storageHandler);
     }
 

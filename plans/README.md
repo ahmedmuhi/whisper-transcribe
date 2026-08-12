@@ -20,6 +20,11 @@ exposed repeated new-tab authentication interaction. Plan 040 was generated the
 same way on 2026-07-29 at commit `dc45b1c`, reintroducing the MAI-Transcribe 1.5
 verbatim option that plans 008/009 added and then removed — see the note below
 before touching it.
+Plan 046 was generated through the focused Improve `plan` workflow on
+2026-08-12 at commit `b4597f2` from a better-interface (interfaces plugin)
+full-mode review of the whole app UI: two WCAG blockers (invisible focus
+rings on the main controls, `--text-muted` text failing AA in both themes)
+plus eight smaller accessibility, typography, and copy findings.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
@@ -77,6 +82,7 @@ and update your row when done.
 | 039 | Share the MSAL sign-in session across same-browser tabs | P1 | S/M | — | IN PROGRESS (implementation `ff83c47` independently reviewed; focused 28 tests, 540-test coverage, build, lint, dependency, high-audit, size, and 11-browser-scenario gates passed; awaiting PR/CI, Pages deployment, and production two-tab acceptance) |
 | 040 | Add a MAI-Transcribe 1.5 verbatim transcription toggle | P2 | M | — | DONE (fast-forwarded locally to `main` at `87cfc0e`, 2026-07-29; implementation `45bcca8` plus review follow-up `87cfc0e`; final `/autoreview` clean with zero findings at 0.95 confidence; exact request shapes, cross-tab preference synchronization, normative API contract, 42 files / 550 tests, 93.59/82.97/94.32/93.59 coverage, build, lint, Knip, 20,208/20,500-byte application budget, and 11 deterministic Chromium cases passed; nothing pushed and no live Azure operation) |
 
+| 046 | Remediate the ten interface-review findings (focus rings, contrast, type floors, copy) | P1 | M | — | DONE (merged via PR #133 as `c4a13bb`, 2026-08-12; code `d2b3c66..66682b3`; 663 tests / 42 files, lint, build, CI checks + browser-smoke green; adversarial re-review PASS; contrast on changed pairs 6.11–9.02:1) |
 | 048 | Clear the stored Target URI when the field is edited into an invalid value | P1 | S | — | DONE (merged via PR #135 as `ff82538`, 2026-08-12; maintainer ruled clear-on-invalid wins over mid-edit tolerance after the first executor correctly STOPPED on the deliberate keep-stale test, which was converted, not deleted; adversarial verify approve, mutation-checked) |
 | 049 | Release the mic when the blob is built; report Active during in-flight upload | P1 | S | — | DONE (merged via PR #134 as `74e02a3`, 2026-08-12; capture tracks stop at Blob assembly, getAudioSafetyState checks active FSM states before pendingRetryBlob; 3 new tests, mutation-checked by the verifier) |
 | 050 | Stop logging/broadcasting raw Azure error bodies; remove the ?debug URL switch | P1 | S | — | DONE (merged via PR #135, 2026-08-12; apiContext carries bounded detail only, ?debug promotion removed; six existing assertions restored as bounded-detail checks after a fix-up pass; auth budget churn was measured as brotli rounding against the 5 kB bucket contract, final value re-tightened to 55 kB post-merge) |
@@ -84,8 +90,18 @@ and update your row when done.
 | 052 | Replace the "exactly two adapters" invariant with an adapter contract + addition checklist | P1 | S | — | DONE (merged via PR #135, 2026-08-12; CLAUDE.md, API-client spec, hygiene test, and the registry unit test are all contract-based and registry-driven; adapter-addition checklist added to the spec) |
 | 053 | Drive model UI from the adapter registry; per-model upload limits at selection time | P1 | M | 051, 052 | DONE (merged via PR #135, 2026-08-12; selects, Connection URI rows, and ready/tooLarge panels generate from the registry, unknown-panel fallback added, MAI pre-decode OOM trap closed by selection-time gates; application budget 20.5→22 kB as an explicit maintainer-approved decision after the first executor correctly STOPPED at 50 bytes of headroom) |
 | 054 | Add the gpt-transcribe model adapter | P1 | S | 052, 053 | DONE (merged via PR #135, 2026-08-12; third adapter registered, 710 tests / 12 browser specs green, adapter 100% statement coverage; language field deliberately omitted pending live verification; guarded live-contract case skips until the operator provisions the protected Target URI) |
+| 055 | Add four selectable colour palettes and the Appearance Palette row | P2 | M | — | IN REVIEW (implemented on `feature/055-palette-themes`, merged with post-#134/#135 main; Coastal untouched, registry-driven Connection/Model UI preserved. Maintainer rulings 2026-08-12: AA corrections accepted — Organic light `--accent` `#9E5220`, Industry light `--accent-warm` `#55708C`, per-palette `--text-link` token, all pinned by contrast gates; size budgets accepted in principle, application stays at main's 22 kB, authentication set by the size-contract measurement on the merged result; the shared-constants bleed into the auth chunk is a known measurement flaw and a vendor-only MSAL budget is planned separately, not in this branch) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+> **2026-08-12 design handoff @ `c4a13bb`.** Plan 055 is not an audit finding:
+> it implements the "Palette themes (Appearance settings)" design handoff —
+> three new palettes (Organic, Industry, Broadsheet) alongside the existing
+> Coastal Teal, each with a light and a dark form, plus one new settings row.
+> Coastal Teal (`:root` / `.dark-theme`) does not change. The handoff's hexes
+> are authoritative; the plan pre-computes every token the handoff does not name
+> and records three sub-AA pairs (D1–D3) that need a maintainer ruling before
+> execution starts. Branch `feature/055-palette-themes`.
 
 > **2026-08 standard audit @ `b4597f2` (plans 048–054, renumbered from 041–047
 > after colliding with another session's concurrent numbering).** Fresh
@@ -221,6 +237,27 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > instead.
 
 ## Dependency notes
+
+- **2026-08-07 batch** (renumbered 048–054 after colliding with another session's 041/046): 048/049/050/051/052 are mutually independent and can
+  run in parallel worktrees. 053 requires 052 (docs/tests no longer forbid a
+  third adapter) and wants 051 first as its safety net; 053's executor should
+  merge the 048 branch into its worktree if 048 is unmerged (both touch
+  `js/settings.js`). 054 requires 052 + 053 and builds on 053's branch.
+  Backlog additions from the same audit (vetted, not planned): device-loss
+  FSM stranding (M), worker round-trip timeout (S), AudioContext leak on
+  failed viz start (S), waveform dirty-flag rendering (S), CSP + self-hosted
+  fonts (M), Dependabot config (S), relational version assertions (S),
+  test-suite shared build via globalSetup + fix CLAUDE.md's "does not write
+  dist/" claim (S), lint-staged/eslint-cache hooks (S), checkJs typecheck
+  gate (M), retire the dead cross-shape `parseResponse()` (S), collapse the
+  MAI apiModel duplicate constant (S), SettingsSurface↔controller integration
+  test (M), device-preference flow tests (S), Retry-After date form + abort
+  drain tests (S), MAI decode-failure mapping tests (S), replace wall-clock
+  sleeps (S), assert the repeated-stop viz test (S).
+- gpt-4o-transcribe-diarize spike: offered, declined 2026-08-07 (User needs
+  gpt-transcribe only). gpt-live-transcribe: assessed as an architecture
+  change (streaming client, FSM states, socket-lifetime token) — deferred,
+  do not scope as "another adapter".
 
 - **003 first.** It fixes the measurement itself — today a bare `vitest run`
   executes 756 tests (the real 378 plus a duplicate set from the
