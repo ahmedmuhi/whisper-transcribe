@@ -77,7 +77,42 @@ and update your row when done.
 | 039 | Share the MSAL sign-in session across same-browser tabs | P1 | S/M | — | IN PROGRESS (implementation `ff83c47` independently reviewed; focused 28 tests, 540-test coverage, build, lint, dependency, high-audit, size, and 11-browser-scenario gates passed; awaiting PR/CI, Pages deployment, and production two-tab acceptance) |
 | 040 | Add a MAI-Transcribe 1.5 verbatim transcription toggle | P2 | M | — | DONE (fast-forwarded locally to `main` at `87cfc0e`, 2026-07-29; implementation `45bcca8` plus review follow-up `87cfc0e`; final `/autoreview` clean with zero findings at 0.95 confidence; exact request shapes, cross-tab preference synchronization, normative API contract, 42 files / 550 tests, 93.59/82.97/94.32/93.59 coverage, build, lint, Knip, 20,208/20,500-byte application budget, and 11 deterministic Chromium cases passed; nothing pushed and no live Azure operation) |
 
+| 048 | Clear the stored Target URI when the field is edited into an invalid value | P1 | S | — | DONE (merged via PR #135 as `ff82538`, 2026-08-12; maintainer ruled clear-on-invalid wins over mid-edit tolerance after the first executor correctly STOPPED on the deliberate keep-stale test, which was converted, not deleted; adversarial verify approve, mutation-checked) |
+| 049 | Release the mic when the blob is built; report Active during in-flight upload | P1 | S | — | DONE (merged via PR #134 as `74e02a3`, 2026-08-12; capture tracks stop at Blob assembly, getAudioSafetyState checks active FSM states before pendingRetryBlob; 3 new tests, mutation-checked by the verifier) |
+| 050 | Stop logging/broadcasting raw Azure error bodies; remove the ?debug URL switch | P1 | S | — | DONE (merged via PR #135, 2026-08-12; apiContext carries bounded detail only, ?debug promotion removed; six existing assertions restored as bounded-detail checks after a fix-up pass; auth budget churn was measured as brotli rounding against the 5 kB bucket contract, final value re-tightened to 55 kB post-merge) |
+| 051 | Test the auth token guards, logout fail-closed branches, real registry lookups, staleness guards | P1 | M | — | DONE (merged via PR #135, 2026-08-12; 27 additive tests, authentication-service guard lines 79-96 fully covered, coverage 95.02/85.73/96.74/95.02; zero production-code changes) |
+| 052 | Replace the "exactly two adapters" invariant with an adapter contract + addition checklist | P1 | S | — | DONE (merged via PR #135, 2026-08-12; CLAUDE.md, API-client spec, hygiene test, and the registry unit test are all contract-based and registry-driven; adapter-addition checklist added to the spec) |
+| 053 | Drive model UI from the adapter registry; per-model upload limits at selection time | P1 | M | 051, 052 | DONE (merged via PR #135, 2026-08-12; selects, Connection URI rows, and ready/tooLarge panels generate from the registry, unknown-panel fallback added, MAI pre-decode OOM trap closed by selection-time gates; application budget 20.5→22 kB as an explicit maintainer-approved decision after the first executor correctly STOPPED at 50 bytes of headroom) |
+| 054 | Add the gpt-transcribe model adapter | P1 | S | 052, 053 | DONE (merged via PR #135, 2026-08-12; third adapter registered, 710 tests / 12 browser specs green, adapter 100% statement coverage; language field deliberately omitted pending live verification; guarded live-contract case skips until the operator provisions the protected Target URI) |
+
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+> **2026-08 standard audit @ `b4597f2` (plans 048–054, renumbered from 041–047
+> after colliding with another session's concurrent numbering).** Fresh
+> standard-level audit: 4 parallel read-only subagents, all nine playbook
+> categories, findings vetted against the code by the advisor. Selected by the
+> User: the gpt-transcribe path (052→053→054), top correctness/security fixes
+> (048–050), and auth-boundary test hardening (051). Executed by Opus
+> executors in isolated worktrees with per-plan adversarial verification; two
+> executor STOPs (048 contract conflict, 053 size budget) were resolved by
+> explicit maintainer rulings. Shipped via PRs #134 and #135. The diarization
+> design spike was offered and declined (User needs gpt-transcribe only);
+> gpt-live-transcribe was assessed as an architecture change (streaming
+> client, FSM states, socket-lifetime token), deferred — do not scope it as
+> "another adapter". Unselected vetted backlog from the audit: device-loss FSM
+> stranding (M), worker round-trip timeout (S), AudioContext leak on failed
+> viz start (S), waveform dirty-flag rendering (S), CSP + self-hosted fonts
+> (M), Dependabot config (S), relational version assertions (S), shared test
+> build via globalSetup + fix CLAUDE.md's "does not write dist/" claim (S),
+> lint-staged/eslint-cache hooks (S), checkJs typecheck gate (M), retire the
+> dead cross-shape parseResponse() (S), collapse the MAI apiModel duplicate
+> constant (S), SettingsSurface↔controller integration test (M),
+> device-preference flow tests (S), Retry-After date form + abort drain tests
+> (S), MAI decode-failure mapping tests (S), replace wall-clock sleeps (S),
+> assert the repeated-stop viz test (S). Also: the size-budget contract's 5 kB
+> bucket turned a 150-byte brotli wobble into two forced budget bumps this
+> cycle — "should the contract allow slack" deserves its own small plan.
+
 
 > **Reconciled 2026-06-18 @ `f53667c`.** Plans 009 and 010 confirmed merged (PR
 > #71 / #72) — their stale "awaiting merge" statuses were updated. Done-criteria
@@ -357,11 +392,10 @@ Promote any of these to a numbered plan on request. Order is roughly by leverage
 
 ## Direction options (maintainer strategy calls, not defects)
 
-- **Surface the already-built whisper-translate adapter**: fully implemented
-  and registered (`js/model-adapters/whisper-translate.js`, registry
-  `index.js:14`, spec'd in `spec/spec-design-api-client.md`), but absent from
-  both `<select>`s in `index.html` — zero UI references. Scope as
-  "verify against a live endpoint + surface", S.
+- ~~Surface the already-built whisper-translate adapter~~ **Corrected
+  2026-08-12: this entry was wrong.** No `js/model-adapters/whisper-translate.js`
+  exists and the registry holds no translate adapter; a translate adapter
+  would be a build-from-scratch item (M, not S), currently unrequested.
 - **Expose transcription language** (companion to the above): `DEFAULT_LANGUAGE = 'en'`
   is hardcoded into every Whisper request (`js/model-adapters/whisper.js:18`);
   no UI, storage key, or event exists for it. M.
