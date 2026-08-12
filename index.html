@@ -59,10 +59,7 @@
          through to everything else. -->
     <div id="quick-settings" class="quick-settings" role="dialog" aria-label="Quick settings" hidden>
         <label class="quick-settings-field" for="model-select">Model
-            <select id="model-select">
-                <option value="whisper">Azure Whisper</option>
-                <option value="mai-transcribe-1.5">MAI-Transcribe 1.5</option>
-            </select>
+            <select id="model-select"></select>
         </label>
         <label class="quick-settings-switch" for="quick-noise-toggle">
             <span>Noise cancellation</span>
@@ -134,36 +131,9 @@
                         </div>
                         <p class="selected-audio-note">Nothing has been sent to Azure.</p>
                     </div>
-                    <div class="selected-audio-state" data-selected-state="ready-whisper" hidden>
-                        <div class="selected-audio-verdict" role="status">Ready for Azure Whisper</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="transcribe"><span class="btn-label">Transcribe</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
-                    <div class="selected-audio-state" data-selected-state="ready-mai-transcribe-1.5" hidden>
-                        <div class="selected-audio-verdict" role="status">Ready for Azure MAI-Transcribe 1.5</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="transcribe"><span class="btn-label">Transcribe</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
+                    <!-- Per-model ready/tooLarge panels are appended here from the adapter registry. -->
                     <div class="selected-audio-state" data-selected-state="unsupported" hidden>
                         <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">Unsupported audio file. Choose MP3, MP4, MPEG/MPGA, M4A, WAV, or WebM.</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
-                    <div class="selected-audio-state" data-selected-state="tooLarge-whisper" hidden>
-                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">This file is too large for Azure Whisper (25 MB maximum).</div>
-                        <div class="selected-audio-actions">
-                            <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
-                            <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
-                        </div>
-                    </div>
-                    <div class="selected-audio-state" data-selected-state="tooLarge-mai-transcribe-1.5" hidden>
-                        <div class="selected-audio-verdict selected-audio-verdict-error" role="alert">This file is too large for Azure MAI-Transcribe 1.5 (under 300 MB after conversion).</div>
                         <div class="selected-audio-actions">
                             <button type="button" class="btn btn-primary" data-selected-action="choose"><span class="btn-label">Choose another</span></button>
                             <button type="button" class="btn btn-secondary" data-selected-action="remove"><span class="btn-label">Remove</span></button>
@@ -320,10 +290,7 @@
                         <p class="settings-row-subtitle">The Azure model used for recordings and uploads</p>
                     </div>
                     <div class="settings-row-control">
-                        <select id="settings-model-select">
-                            <option value="whisper">Azure Whisper</option>
-                            <option value="mai-transcribe-1.5">MAI-Transcribe 1.5</option>
-                        </select>
+                        <select id="settings-model-select"></select>
                     </div>
                 </div>
 
@@ -379,29 +346,7 @@
                     </div>
                 </div>
 
-                <div class="settings-row" data-settings-row="whisperUri" data-category="connection"
-                     data-keywords="whisper target uri endpoint https azure connection">
-                    <div class="settings-row-copy">
-                        <label class="settings-row-title" for="whisper-uri">Whisper Target URI<span class="settings-row-chip" aria-hidden="true">Connection</span></label>
-                        <p class="settings-row-subtitle">Your Azure Whisper endpoint · HTTPS only</p>
-                        <span id="whisper-uri-badge" class="uri-badge"></span>
-                    </div>
-                    <div class="settings-row-control">
-                        <input type="url" id="whisper-uri" autocomplete="off" spellcheck="false">
-                    </div>
-                </div>
-
-                <div class="settings-row" data-settings-row="maiUri" data-category="connection"
-                     data-keywords="mai transcribe target uri endpoint https azure connection">
-                    <div class="settings-row-copy">
-                        <label class="settings-row-title" for="mai-transcribe-uri">MAI-Transcribe 1.5 Target URI<span class="settings-row-chip" aria-hidden="true">Connection</span></label>
-                        <p class="settings-row-subtitle">Your Azure MAI-Transcribe endpoint · HTTPS only</p>
-                        <span id="mai-uri-badge" class="uri-badge"></span>
-                    </div>
-                    <div class="settings-row-control">
-                        <input type="url" id="mai-transcribe-uri" autocomplete="off" spellcheck="false">
-                    </div>
-                </div>
+                <!-- Connection rows are generated from the adapter registry (Settings). -->
             </div>
         </div>
     </dialog>

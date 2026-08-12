@@ -92,7 +92,7 @@ describe('logger direct behavior', () => {
     expect(logger.getLevel()).toBe(0);
   });
 
-  it('detects debug query flag as development when hostname is non-local', async () => {
+  it('ignores the debug query flag when hostname is non-local', async () => {
     delete process.env.NODE_ENV;
     vi.stubGlobal('window', {
       location: {
@@ -102,6 +102,19 @@ describe('logger direct behavior', () => {
     });
 
     const logger = await loadFreshLogger();
-    expect(logger.getLevel()).toBe(0);
+    expect(logger.getLevel()).toBe(3);
+  });
+
+  it('ignores a bare debug query flag when hostname is non-local', async () => {
+    delete process.env.NODE_ENV;
+    vi.stubGlobal('window', {
+      location: {
+        hostname: 'example.com',
+        search: '?debug'
+      }
+    });
+
+    const logger = await loadFreshLogger();
+    expect(logger.getLevel()).toBe(3);
   });
 });

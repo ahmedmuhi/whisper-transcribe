@@ -315,15 +315,50 @@ describe('Target URI persists only while it is valid HTTPS', () => {
         settings.destroy();
     });
 
-    it('keeps the last valid Target URI while the field is mid-edit and invalid', () => {
+    it('clears the stored Target URI the moment the field becomes invalid', () => {
         localStorage.setItem(STORAGE_KEYS.WHISPER_URI, 'https://whisper.invalid/transcribe');
         const settings = new Settings();
 
         typeUri(settings.whisperUriInput, 'https:/');
-        typeUri(settings.whisperUriInput, 'http://whisper.invalid/transcribe');
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
 
-        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI))
-            .toBe('https://whisper.invalid/transcribe');
+        typeUri(settings.whisperUriInput, 'http://whisper.invalid/transcribe');
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
+        settings.destroy();
+    });
+
+    it('clears the stored Target URI when the scheme is edited down to insecure HTTP', () => {
+        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, 'https://whisper.invalid/transcribe');
+        const settings = new Settings();
+        const emit = vi.spyOn(eventBus, 'emit');
+
+        typeUri(settings.whisperUriInput, 'http://insecure.invalid/transcribe');
+
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
+        expect(emit).toHaveBeenCalledWith(APP_EVENTS.SETTINGS_UPDATED);
+        settings.destroy();
+    });
+
+    it('clears the stored Target URI when the field is edited into a non-URI string', () => {
+        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, 'https://whisper.invalid/transcribe');
+        const settings = new Settings();
+
+        typeUri(settings.whisperUriInput, 'not-a-url');
+
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
+        settings.destroy();
+    });
+
+    it('clears only the edited model Target URI and leaves the other model alone', () => {
+        localStorage.setItem(STORAGE_KEYS.WHISPER_URI, 'https://whisper.invalid/transcribe');
+        localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI, 'https://mai.invalid/transcribe');
+        const settings = new Settings();
+
+        typeUri(settings.whisperUriInput, 'http://insecure.invalid/transcribe');
+
+        expect(localStorage.getItem(STORAGE_KEYS.WHISPER_URI)).toBeNull();
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI))
+            .toBe('https://mai.invalid/transcribe');
         settings.destroy();
     });
 

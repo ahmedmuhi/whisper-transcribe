@@ -16,6 +16,7 @@ import {
 } from '../js/constants.js';
 import { eventBus, APP_EVENTS } from '../js/event-bus.js';
 import { computeInitials, SettingsSurface } from '../js/settings-surface.js';
+import { renderConnectionRows } from '../js/settings.js';
 
 function createClient(account) {
     return {
@@ -93,6 +94,9 @@ const indexSource = readFileSync('index.html', 'utf8');
 function installProductionBody() {
     const body = indexSource.match(/<body>([\s\S]*)<\/body>/u)?.[1] || '';
     document.body.innerHTML = body.replace(/<script[^>]*src=[^>]*><\/script>/gu, '');
+    // Connection rows are generated from the adapter registry in production;
+    // this surface harness stubs Settings, so it renders them the same way.
+    renderConnectionRows();
     document.getElementById = (id) => document.querySelector(`#${id}`);
 }
 
@@ -276,7 +280,7 @@ describe('Settings surface', () => {
 
             expect(document.getElementById('settings-modal').open).toBe(true);
             expect(document.getElementById('settings-heading').textContent).toBe('Connection');
-            expect(visibleRows()).toEqual(['whisperUri', 'maiUri']);
+            expect(visibleRows()).toEqual(['whisperUri', 'maiUri', 'gptTranscribeUri']);
             expect(settings.populateDeviceList).toHaveBeenCalledOnce();
             expect(opened).toHaveBeenCalledOnce();
             expect(document.activeElement).toBe(document.getElementById('settings-search'));

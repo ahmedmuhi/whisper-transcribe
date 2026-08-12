@@ -51,14 +51,9 @@ function detectEnvironment() {
         }
     }
     
-    // Check for debug flag in URL
-    if (typeof window !== 'undefined' && window.location && window.location.search) {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('debug')) {
-            return 'development';
-        }
-    }
-    
+    // No URL-controlled promotion: a query parameter must never be able to turn
+    // on verbose logging in a deployed build.
+
     // Default to production for safety
     return 'production';
 }

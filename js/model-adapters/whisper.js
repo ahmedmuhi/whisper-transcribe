@@ -8,6 +8,7 @@ import {
     DEFAULT_LANGUAGE,
     formatAudioUploadLimitMessage,
     getWhisperFilename,
+    ID,
     MESSAGES,
     MODEL_TYPES,
     STORAGE_KEYS,
@@ -16,16 +17,35 @@ import {
 import { COGNITIVE_SERVICES_SCOPE } from '../authentication-config.js';
 import { parseWhisperResponse } from './response-parsers.js';
 
+const WHISPER_LABEL = 'Azure Whisper';
+const WHISPER_UPLOAD_LIMIT_LABEL = 'up to 25 MB';
+
 export const whisperModelAdapter = Object.freeze({
     id: MODEL_TYPES.WHISPER,
-    label: 'Azure Whisper',
+    label: WHISPER_LABEL,
+    optionLabel: WHISPER_LABEL,
+    uiOrder: 1,
     scope: COGNITIVE_SERVICES_SCOPE,
     storageKeys: Object.freeze({
         uri: STORAGE_KEYS.WHISPER_URI
     }),
+    maxUploadBytes: WHISPER_MAX_UPLOAD_BYTES,
+    uploadLimitLabel: WHISPER_UPLOAD_LIMIT_LABEL,
+    uploadLimitVerdict: '25 MB maximum',
+    uploadLimitAppliesTo: 'source',
+    uri: Object.freeze({
+        rowId: 'whisperUri',
+        inputId: ID.WHISPER_URI,
+        badgeId: ID.WHISPER_URI_BADGE,
+        title: 'Whisper Target URI',
+        subtitle: 'Your Azure Whisper endpoint · HTTPS only',
+        keywords: 'whisper target uri endpoint https azure connection'
+    }),
     async buildRequest(audioBlob) {
         if (audioBlob.size > WHISPER_MAX_UPLOAD_BYTES) {
-            const error = new Error(formatAudioUploadLimitMessage('Azure Whisper', 'up to 25 MB'));
+            const error = new Error(
+                formatAudioUploadLimitMessage(WHISPER_LABEL, WHISPER_UPLOAD_LIMIT_LABEL)
+            );
             error.code = AUDIO_UPLOAD_LIMIT_ERROR_CODE;
             error.retryable = false;
             throw error;

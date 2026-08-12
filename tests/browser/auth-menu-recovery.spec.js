@@ -65,7 +65,8 @@ test('desktop settings surface carries identity, categories, and instant apply',
     const gear = await openQuickSettings(page);
     await expect(page.locator('#model-select option')).toHaveText([
         'Azure Whisper',
-        'MAI-Transcribe 1.5'
+        'MAI-Transcribe 1.5',
+        'Azure GPT Transcribe'
     ]);
     await expect(page.locator('input[name="theme-mode-quick"]')).toHaveCount(3);
 

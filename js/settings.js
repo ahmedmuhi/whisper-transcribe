@@ -15,12 +15,18 @@ import {
 import { PermissionManager } from './permission-manager.js';
 import { APP_EVENTS, eventBus } from './event-bus.js';
 import { logger } from './logger.js';
-import { modelAdapterRegistry } from './model-adapters/index.js';
+import { listModelAdapters, modelAdapterRegistry } from './model-adapters/index.js';
 
 const THEME_MODES = Object.freeze(['auto', 'light', 'dark']);
 
 /** Base class of the Target URI status badge rendered next to each URI field. */
 const URI_BADGE_CLASS = 'uri-badge';
+
+/** Container the settings modal lists every row in; generated rows join it directly. */
+const SETTINGS_ROWS_SELECTOR = '.settings-rows';
+
+/** Category every generated Target URI row belongs to. */
+const CONNECTION_CATEGORY = 'connection';
 
 /**
  * Target URI badge states. Text is user-facing; the class carries the token colour.
@@ -36,6 +42,70 @@ const URI_BADGE_STATES = Object.freeze({
 });
 
 /**
+ * Builds one Connection row per adapter from its `uri` metadata. The row shape
+ * matches what `SettingsSurface` searches and filters generically, so the
+ * generated markup must keep `data-settings-row`, `data-category`, and
+ * `data-keywords`. Rows are created node by node: no innerHTML with values.
+ */
+export function renderConnectionRows(container = document.querySelector?.(SETTINGS_ROWS_SELECTOR), registry = modelAdapterRegistry) {
+    if (!container) return;
+    container.querySelectorAll?.(`[data-category="${CONNECTION_CATEGORY}"]`)
+        ?.forEach((row) => row.remove());
+    for (const adapter of listModelAdapters(registry)) {
+        const meta = adapter.uri;
+        if (!meta?.inputId) continue;
+        container.appendChild(createConnectionRow(meta));
+    }
+}
+
+function createConnectionRow(meta) {
+    const row = document.createElement('div');
+    row.className = 'settings-row';
+    row.dataset.settingsRow = meta.rowId;
+    row.dataset.category = CONNECTION_CATEGORY;
+    row.dataset.keywords = meta.keywords || '';
+
+    const copy = document.createElement('div');
+    copy.className = 'settings-row-copy';
+
+    const label = document.createElement('label');
+    label.className = 'settings-row-title';
+    label.htmlFor = meta.inputId;
+    label.appendChild(document.createTextNode(meta.title || ''));
+    const chip = document.createElement('span');
+    chip.className = 'settings-row-chip';
+    chip.setAttribute('aria-hidden', 'true');
+    chip.textContent = 'Connection';
+    label.appendChild(chip);
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'settings-row-subtitle';
+    subtitle.textContent = meta.subtitle || '';
+
+    const badge = document.createElement('span');
+    badge.id = meta.badgeId;
+    badge.className = URI_BADGE_CLASS;
+
+    copy.appendChild(label);
+    copy.appendChild(subtitle);
+    copy.appendChild(badge);
+
+    const control = document.createElement('div');
+    control.className = 'settings-row-control';
+    const input = document.createElement('input');
+    input.type = 'url';
+    input.id = meta.inputId;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    control.appendChild(input);
+
+    row.appendChild(copy);
+    row.appendChild(control);
+    return row;
+}
+
+
+/**
  * Manages non-secret model, Target URI, microphone, and appearance settings.
  * Every control applies instantly; there is no draft, no save step.
  * Presentation, focus containment, and search belong to SettingsSurface.
@@ -48,10 +118,13 @@ export class Settings {
         this.modelSelect = document.getElementById(ID.MODEL_SELECT);
         this.settingsModelSelect = document.getElementById(ID.SETTINGS_MODEL_SELECT);
         this.statusElement = document.getElementById(ID.STATUS);
-        this.whisperUriInput = document.getElementById(ID.WHISPER_URI);
-        this.whisperUriBadge = document.getElementById(ID.WHISPER_URI_BADGE);
-        this.maiTranscribeUriInput = document.getElementById(ID.MAI_TRANSCRIBE_URI);
-        this.maiUriBadge = document.getElementById(ID.MAI_URI_BADGE);
+        // Target URI fields are keyed by adapter id; the named properties below
+        // stay as aliases for the two shipped models.
+        this.uriFields = new Map();
+        this.whisperUriInput = null;
+        this.whisperUriBadge = null;
+        this.maiTranscribeUriInput = null;
+        this.maiUriBadge = null;
         this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
         this.noiseToggle = document.getElementById(ID.NOISE_TOGGLE);
         this.quickNoiseToggle = document.getElementById(ID.QUICK_NOISE_TOGGLE);
@@ -71,6 +144,9 @@ export class Settings {
     }
 
     init() {
+        this._renderModelOptions();
+        renderConnectionRows(undefined, this.adapterRegistry);
+        this._resolveUriFields();
         this.loadSavedModel();
         this.loadTargetUris();
         this.loadNoiseToggle();
@@ -144,17 +220,52 @@ export class Settings {
         if (this.settingsModelSelect) this.settingsModelSelect.value = savedModel;
     }
 
+    /** Selectable models come from the adapter registry, never from the markup. */
     _getSelectableModels() {
-        const options = this.modelSelect?.options || this.settingsModelSelect?.options || [];
-        return Array.from(options)
-            .map((option) => option.value)
-            .filter(Boolean);
+        return Array.from(this.adapterRegistry.keys()).filter(Boolean);
+    }
+
+    /**
+     * Fills every model `<select>` from the registry so a newly registered
+     * adapter appears without touching index.html.
+     */
+    _renderModelOptions() {
+        [this.modelSelect, this.settingsModelSelect].forEach((select) => {
+            if (!select) return;
+            while (select.firstChild) select.removeChild(select.firstChild);
+            for (const adapter of listModelAdapters(this.adapterRegistry)) {
+                const option = document.createElement('option');
+                option.value = adapter.id;
+                option.textContent = adapter.optionLabel || adapter.label || adapter.id;
+                select.appendChild(option);
+            }
+        });
+    }
+
+    /** Maps every registered adapter to its Target URI input and badge. */
+    _resolveUriFields() {
+        this.uriFields = new Map();
+        for (const adapter of listModelAdapters(this.adapterRegistry)) {
+            const meta = adapter.uri;
+            if (!meta?.inputId) continue;
+            this.uriFields.set(adapter.id, {
+                input: document.getElementById(meta.inputId),
+                badge: document.getElementById(meta.badgeId)
+            });
+        }
+        const whisper = this.uriFields.get(MODEL_TYPES.WHISPER);
+        const mai = this.uriFields.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        this.whisperUriInput = whisper?.input || null;
+        this.whisperUriBadge = whisper?.badge || null;
+        this.maiTranscribeUriInput = mai?.input || null;
+        this.maiUriBadge = mai?.badge || null;
     }
 
     /** Loads each model's stored Target URI into its field. */
     loadTargetUris() {
-        this._loadStoredTargetUri(MODEL_TYPES.WHISPER, this.whisperUriInput);
-        this._loadStoredTargetUri(MODEL_TYPES.MAI_TRANSCRIBE_1_5, this.maiTranscribeUriInput);
+        for (const [model, field] of this.uriFields) {
+            this._loadStoredTargetUri(model, field.input);
+        }
     }
 
     setupEventListeners() {
@@ -166,8 +277,9 @@ export class Settings {
             this._handleModelChange(event.target.value);
         });
 
-        this._setupUriListener(this.whisperUriInput, MODEL_TYPES.WHISPER);
-        this._setupUriListener(this.maiTranscribeUriInput, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        for (const [model, field] of this.uriFields) {
+            this._setupUriListener(field.input, model);
+        }
 
         [this.noiseToggle, this.quickNoiseToggle].forEach((toggle) => {
             toggle?.addEventListener('change', () => {
@@ -239,6 +351,10 @@ export class Settings {
     /**
      * Validates a Target URI as it is typed and persists it only while it is valid HTTPS.
      *
+     * Emptying the field or editing it into an invalid value removes the stored key, so the
+     * stored Target URI always mirrors a valid visible value and never stays live behind an
+     * error badge.
+     *
      * @param {HTMLInputElement} uriInput Field being edited.
      * @param {string} model Model the field belongs to.
      */
@@ -249,6 +365,8 @@ export class Settings {
             localStorage.removeItem(this._getTargetUriStorageKey(model));
         } else if (!this._validateUri(uri)) {
             localStorage.setItem(this._getTargetUriStorageKey(model), uri);
+        } else {
+            localStorage.removeItem(this._getTargetUriStorageKey(model));
         }
         eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
         this.renderUriBadges();
@@ -297,14 +415,11 @@ export class Settings {
         }
     }
 
-    /** Redraws both Target URI status badges from the current field values. */
+    /** Redraws every Target URI status badge from the current field values. */
     renderUriBadges() {
-        this._renderUriBadge(this.whisperUriInput, this.whisperUriBadge, MODEL_TYPES.WHISPER);
-        this._renderUriBadge(
-            this.maiTranscribeUriInput,
-            this.maiUriBadge,
-            MODEL_TYPES.MAI_TRANSCRIBE_1_5
-        );
+        for (const [model, field] of this.uriFields) {
+            this._renderUriBadge(field.input, field.badge, model);
+        }
     }
 
     _renderUriBadge(uriInput, badge, model) {

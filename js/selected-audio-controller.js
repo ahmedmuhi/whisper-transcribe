@@ -8,13 +8,12 @@ import {
     AUDIO_SAFETY_STATES,
     AUDIO_UPLOAD_LIMIT_ERROR_CODE,
     AUTHENTICATION_STATES,
-    MODEL_TYPES,
     SELECTED_AUDIO_STATES,
-    WHISPER_MAX_UPLOAD_BYTES,
     MESSAGES,
     resolveSupportedAudioFormat
 } from './constants.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
+import { modelAdapterRegistry } from './model-adapters/index.js';
 
 const EMPTY_SNAPSHOT = Object.freeze({ state: SELECTED_AUDIO_STATES.IDLE });
 const DURATION_TIMEOUT_MS = 5_000;
@@ -93,6 +92,7 @@ export class SelectedAudioController {
     #api;
     #recording;
     #readDuration;
+    #adapterRegistry;
     #offModelChanged;
 
     constructor({
@@ -100,13 +100,15 @@ export class SelectedAudioController {
         authenticationReadiness,
         apiClient,
         recordingSafety,
-        durationReader = readSelectedAudioDuration
+        durationReader = readSelectedAudioDuration,
+        adapterRegistry = modelAdapterRegistry
     }) {
         this.#settings = settings;
         this.#auth = authenticationReadiness;
         this.#api = apiClient;
         this.#recording = recordingSafety;
         this.#readDuration = durationReader;
+        this.#adapterRegistry = adapterRegistry;
         this.#offModelChanged = eventBus.on(APP_EVENTS.SETTINGS_MODEL_CHANGED, () => {
             if (this.#file && this.#snapshot.state !== SELECTED_AUDIO_STATES.TRANSCRIBING) {
                 void this.#validateCurrentFile();
@@ -262,7 +264,13 @@ export class SelectedAudioController {
             return false;
         }
 
-        if (model === MODEL_TYPES.WHISPER && file.size > WHISPER_MAX_UPLOAD_BYTES) {
+        // Every model's ceiling is declared by its adapter. A 'converted' limit
+        // (MAI) is applied to the source size too: any supported source at or
+        // over the ceiling can only grow once converted to 16 kHz mono WAV, so
+        // gating here is conservative and avoids a GB-scale decode that would
+        // fail anyway. The adapter keeps its post-conversion check as backstop.
+        const limit = this.#adapterRegistry?.get?.(model)?.maxUploadBytes ?? null;
+        if (limit !== null && file.size > limit) {
             this.#setSnapshot({
                 state: SELECTED_AUDIO_STATES.TOO_LARGE,
                 ...base,
