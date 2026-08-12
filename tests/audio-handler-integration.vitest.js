@@ -283,6 +283,55 @@ describe('AudioHandler Integration', () => {
       expect(safetyState).not.toBeInstanceOf(Blob);
     });
 
+    const startInFlightTranscription = async () => {
+      let settleTranscription;
+      mockApiClient.transcribe.mockImplementationOnce(() => new Promise((resolve, reject) => {
+        settleTranscription = { resolve, reject };
+      }));
+      audioHandler.audioChunks = [createAudioChunk()];
+      audioHandler.stateMachine.currentState = RECORDING_STATES.STOPPING;
+      await audioHandler.stateMachine.transitionTo(RECORDING_STATES.PROCESSING);
+
+      const processing = audioHandler.processAndSendAudio(mockStream);
+      await vi.waitFor(() => expect(mockApiClient.transcribe).toHaveBeenCalledTimes(1));
+
+      return { processing, settleTranscription };
+    };
+
+    it('reports active audio while a transcription request is still in flight', async () => {
+      const { processing, settleTranscription } = await startInFlightTranscription();
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.PROCESSING);
+      expect(audioHandler.pendingRetryBlob).toBeInstanceOf(Blob);
+      expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.ACTIVE);
+
+      settleTranscription.resolve('Test transcription result');
+      await processing;
+    });
+
+    it('releases every capture track before the transcription request resolves', async () => {
+      const { processing, settleTranscription } = await startInFlightTranscription();
+
+      expect(trackStopSpy).toHaveBeenCalledTimes(1);
+
+      settleTranscription.resolve('Test transcription result');
+      await processing;
+
+      expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+    });
+
+    it('reports an Unsent Recording with released tracks after the request fails', async () => {
+      const { processing, settleTranscription } = await startInFlightTranscription();
+
+      settleTranscription.reject(new Error('Failed to fetch'));
+      await processing;
+
+      expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+      expect(audioHandler.pendingRetryBlob).toBeInstanceOf(Blob);
+      expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.UNSENT);
+      expect(trackStopSpy).toHaveBeenCalled();
+    });
+
     it('reports safe only when no active lifecycle or Unsent Recording exists', () => {
       vi.spyOn(audioHandler.stateMachine, 'getState').mockReturnValue(RECORDING_STATES.IDLE);
 

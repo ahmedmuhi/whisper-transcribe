@@ -104,9 +104,11 @@ export class AudioHandler {
      * @returns {string}
      */
     getAudioSafetyState() {
-        if (this.pendingRetryBlob) return AUDIO_SAFETY_STATES.UNSENT;
-        return ACTIVE_AUDIO_SAFETY_STATES.has(this.stateMachine.getState())
-            ? AUDIO_SAFETY_STATES.ACTIVE
+        if (ACTIVE_AUDIO_SAFETY_STATES.has(this.stateMachine.getState())) {
+            return AUDIO_SAFETY_STATES.ACTIVE;
+        }
+        return this.pendingRetryBlob
+            ? AUDIO_SAFETY_STATES.UNSENT
             : AUDIO_SAFETY_STATES.SAFE;
     }
 
@@ -674,6 +676,7 @@ export class AudioHandler {
         const audioBlob = new Blob(this.audioChunks, {
             type: recorderMimeType || chunkWithMimeType?.type || 'audio/webm'
         });
+        this.stopStreamTracks(stream);
         this.pendingRetryBlob = audioBlob;
         this.pendingRetryDownloadInitiated = false;
 
