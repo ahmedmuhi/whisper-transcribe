@@ -7,7 +7,6 @@
   "ignore": [
     "coverage/**",
     "docs/**",
-    "plan/**",
     "*.config.js",
     ".husky/**"
   ],

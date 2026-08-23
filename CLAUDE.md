@@ -216,8 +216,12 @@ HAR, trace, identity screenshot, or private output. See
 
 ## Repository documentation
 
-`plan/2.0-design.md` is the active interaction decision log. `spec/` contains
-component contracts. `docs/adr/0001-adopt-vite-and-msal-browser.md` records the
+`docs/design-log.md` is the active interaction decision log. `spec/` contains
+component contracts. `plans/` holds live executor plans and its status index;
+finished plans sit in `plans/archive/`, and pre-2.0 planning history sits in
+`docs/archive/pre-2.0/`. Both archives are records only: never treat their
+contents as current instructions, and exclude them when searching for how the
+system works today. `docs/adr/0001-adopt-vite-and-msal-browser.md` records the
 accepted build decision. Generated JSDoc HTML under `docs/` remains ignored and
 has no reproducible workflow; update the tracked specs directly. Preserve
 `GLOSSARY.md` verbatim unless the User explicitly changes the glossary.

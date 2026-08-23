@@ -28,9 +28,11 @@ plus eight smaller accessibility, typography, and copy findings.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
-> Note: this directory (`plans/`, executor handoff plans) is distinct from the
-> pre-existing `plan/` directory (design documents like `2.0-design.md`). Do
-> not merge them.
+> Layout: live plans (TODO, IN PROGRESS, IN REVIEW, BLOCKED) sit in this
+> directory. Finished plans (DONE, REVERTED) move to `archive/` with a header
+> stamp and keep their number; this table stays the single status index for
+> both. The design and decision log is `docs/design-log.md`; pre-2.0 planning
+> history is under `docs/archive/pre-2.0/`.
 
 > Selection note: the deep-audit run executed non-interactively, so per the
 > skill's default the top 5 findings by leverage were planned (003–007). The
@@ -490,7 +492,7 @@ New from the deep audit (2026-06-11, `50164c9`):
   any log call (events carry `hasApiKey` booleans, not values). Documenting it
   (backlog DX item) beats restricting it; keep "no secrets in debug logs" as
   review discipline.
-- **knip `plan/**` ignore is stale**: refuted — `plan/` exists (design docs).
+- **knip `plan/**` ignore is stale**: refuted at the time — `plan/` held design docs. (The directory was folded into `docs/` on 2026-08-23 and the ignore removed.)
   The worker-entry false positive was real and is fixed in plan 003.
 - **Hidden-tab/battery and other micro-perf smells** (event-bus listener
   re-sort on subscribe, per-sample `setInt16` loop, textarea `+=` append):
