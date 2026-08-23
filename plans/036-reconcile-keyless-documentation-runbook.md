@@ -13,7 +13,7 @@
 > `plans/README.md` when done unless the reviewer maintains the index.
 >
 > **Drift check (run first)**:
-> `git diff --stat e1f7083..HEAD -- README.md CLAUDE.md CONTEXT.md package.json .env.example .gitignore plan/2.0-design.md spec/ docs/adr/ docs/keyless-operator-runbook.md .github/workflows/`
+> `git diff --stat e1f7083..HEAD -- README.md CLAUDE.md GLOSSARY.md package.json .env.example .gitignore plan/2.0-design.md spec/ docs/adr/ docs/keyless-operator-runbook.md .github/workflows/`
 > Plans 031–035 must be complete or represented by their final rebased code.
 > Compare every documented command/symbol with the live implementation; drift is
 > a STOP condition, not a reason to document an intended-but-absent feature.
@@ -97,7 +97,7 @@ keeps generated HTML ignored.
 
 ### Agreed domain vocabulary
 
-Preserve/integrate these definitions verbatim in `CONTEXT.md` if it is tracked
+Preserve/integrate these definitions verbatim in `GLOSSARY.md` if it is tracked
 on the implementation branch; do not silently overwrite a User-owned untracked
 copy:
 
@@ -110,7 +110,7 @@ copy:
 - **Audio Source**: microphone capture or selected local audio.
 - **Selected Audio**: local Audio Source held for review; not yet sent to Azure.
 
-If `CONTEXT.md` remains untracked when execution begins, STOP and ask the User
+If `GLOSSARY.md` remains untracked when execution begins, STOP and ask the User
 whether to include that existing file; never replace or delete it as collateral.
 
 ## Required final documentation truth
@@ -144,7 +144,7 @@ whether to include that existing file; never replace or delete it as collateral.
 | Complete verification | `npm run lint && npm run test:coverage && npm run deps:check && npm run deps:check:prod && npm audit --audit-level=high && npm run size && npm run test:browser` | all exit 0 |
 | Docs stale-term scan | see Step 7 | no active stale key/no-build/Translate claims |
 | Tracked docs check | `git ls-files docs` | only approved ADR/runbook paths, no generated HTML |
-| Markdown diff | `git diff --check -- README.md CLAUDE.md CONTEXT.md package.json .env.example plan/2.0-design.md spec docs .gitignore` | exit 0 |
+| Markdown diff | `git diff --check -- README.md CLAUDE.md GLOSSARY.md package.json .env.example plan/2.0-design.md spec docs .gitignore` | exit 0 |
 
 ## Suggested executor toolkit
 
@@ -161,7 +161,7 @@ whether to include that existing file; never replace or delete it as collateral.
 
 - `README.md`
 - `CLAUDE.md`
-- `CONTEXT.md` only if the User-owned file is explicitly included/tracked before execution
+- `GLOSSARY.md` only if the User-owned file is explicitly included/tracked before execution
 - `package.json` (description/script naming reconciliation only; no dependency redesign)
 - `.env.example`
 - `.gitignore` (track the runbook while generated docs remain ignored)
@@ -201,7 +201,7 @@ Before editing, run:
 
 ```bash
 rg -n -i "api[ -]?key|subscription key|Ocp-Apim|whisper[- ]translate|no[ -]?build|no runtime|zero runtime|raw ES module|static-server|sidebar|settings modal|future.*Entra|Cosmos|backend" \
-  README.md CLAUDE.md package.json .env.example CONTEXT.md plan/2.0-design.md spec docs/adr 2>/dev/null
+  README.md CLAUDE.md package.json .env.example GLOSSARY.md plan/2.0-design.md spec docs/adr 2>/dev/null
 ```
 
 Classify every match as stale, historical/explicitly rejected, or a necessary
@@ -442,7 +442,7 @@ Run a final classified scan:
 
 ```bash
 rg -n -i "api[ -]?key|subscription key|Ocp-Apim|whisper[- ]translate|no[ -]?build|no runtime|zero runtime|raw ES module|branch.*GitHub Pages|future.*Entra|Cosmos.*backend" \
-  README.md CLAUDE.md package.json .env.example CONTEXT.md plan/2.0-design.md spec docs/adr docs/keyless-operator-runbook.md 2>/dev/null
+  README.md CLAUDE.md package.json .env.example GLOSSARY.md plan/2.0-design.md spec docs/adr docs/keyless-operator-runbook.md 2>/dev/null
 ```
 
 Allowed matches are only:
@@ -504,7 +504,7 @@ Expected: all pass. Do not run live OIDC/Azure/browser matrix calls here.
 - [ ] Sanitized runbook covers every setup/evidence/cutover/rollback/rotation stage with placeholders only.
 - [ ] No active doc instructs API-key entry/storage or calls Entra a future feature.
 - [ ] Generated JSDoc HTML remains ignored/untracked.
-- [ ] Domain vocabulary is preserved; User-owned `CONTEXT.md` was not overwritten.
+- [ ] Domain vocabulary is preserved; User-owned `GLOSSARY.md` was not overwritten.
 - [ ] All canonical automated gates pass.
 - [ ] No external configuration/live call occurred.
 - [ ] Only in-scope files changed and `plans/README.md` was updated as instructed.
@@ -515,7 +515,7 @@ Stop and report instead of improvising if:
 
 - `gpt-5.6-sol` with extra-high (`xhigh`) effort is unavailable.
 - Any implementation plan is incomplete or final code contradicts Wayfinder.
-- `CONTEXT.md` remains untracked/ambiguous and inclusion would overwrite User work.
+- `GLOSSARY.md` remains untracked/ambiguous and inclusion would overwrite User work.
 - A documented setup requires a real identifier, Target URI, credential, auth
   response, audio, private screenshot, or live command output.
 - A canonical script/feature is absent or failing; return to its owning plan

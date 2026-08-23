@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 This file is the executor architecture guide for Whisper Transcribe. Use
-`CONTEXT.md` for canonical domain vocabulary and keep every public artifact free
+`GLOSSARY.md` for canonical domain vocabulary and keep every public artifact free
 of real identifiers, Target URIs, credentials, authentication responses, audio,
 transcripts, screenshots, and private command output.
 
@@ -220,4 +220,4 @@ HAR, trace, identity screenshot, or private output. See
 component contracts. `docs/adr/0001-adopt-vite-and-msal-browser.md` records the
 accepted build decision. Generated JSDoc HTML under `docs/` remains ignored and
 has no reproducible workflow; update the tracked specs directly. Preserve
-`CONTEXT.md` verbatim unless the User explicitly changes the glossary.
+`GLOSSARY.md` verbatim unless the User explicitly changes the glossary.

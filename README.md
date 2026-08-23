@@ -196,7 +196,7 @@ HTTP 429 and selected 5xx responses use bounded retries; authentication and
 authorization failures do not retry.
 
 See [ADR-0001](docs/adr/0001-adopt-vite-and-msal-browser.md) for the packaging
-decision and [CONTEXT.md](CONTEXT.md) for canonical domain language.
+decision and [GLOSSARY.md](GLOSSARY.md) for canonical domain language.
 
 ## Deployment
 
