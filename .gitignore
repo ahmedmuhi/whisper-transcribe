@@ -24,6 +24,9 @@ docs/*
 !docs/adr/
 !docs/adr/**
 !docs/keyless-operator-runbook.md
+!docs/design-log.md
+!docs/archive/
+!docs/archive/**
 playwright-report/
 test-results/
 tests/browser/.artifacts/
