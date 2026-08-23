@@ -33,3 +33,7 @@ tests/browser/.artifacts/
 
 # But allow coverage baseline in metrics
 !metrics/
+
+# Architecture map sub-project (tools/architecture-map has its own lockfile)
+tools/architecture-map/node_modules/
+tools/architecture-map/dist/

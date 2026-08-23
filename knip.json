@@ -1,26 +1,48 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["js/main.js", "js/*.worker.js", "auth/redirect.html"],
-  "project": ["js/**/*.js", "auth/redirect.html"],
-  "ignoreBinaries": ["vite"],
-  "ignoreDependencies": ["@azure/msal-browser"],
+  "entry": [
+    "js/main.js",
+    "js/*.worker.js",
+    "auth/redirect.html"
+  ],
+  "project": [
+    "js/**/*.js",
+    "auth/redirect.html"
+  ],
+  "ignoreBinaries": [
+    "vite"
+  ],
+  "ignoreDependencies": [
+    "@azure/msal-browser"
+  ],
   "ignore": [
     "coverage/**",
     "docs/**",
     "*.config.js",
-    ".husky/**"
+    ".husky/**",
+    "tools/**"
   ],
   "ignoreExportsUsedInFile": true,
   "includeEntryExports": true,
   "eslint": {
-    "entry": ["eslint.config.js"],
-    "project": ["eslint.config.js"]
+    "entry": [
+      "eslint.config.js"
+    ],
+    "project": [
+      "eslint.config.js"
+    ]
   },
   "husky": {
-    "entry": [".husky/**/*"]
+    "entry": [
+      ".husky/**/*"
+    ]
   },
   "vitest": {
-    "entry": ["tests/**/*.vitest.js"],
-    "project": ["tests/**/*.vitest.js"]
+    "entry": [
+      "tests/**/*.vitest.js"
+    ],
+    "project": [
+      "tests/**/*.vitest.js"
+    ]
   }
 }

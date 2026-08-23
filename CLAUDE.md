@@ -223,5 +223,10 @@ finished plans sit in `plans/archive/`, and pre-2.0 planning history sits in
 contents as current instructions, and exclude them when searching for how the
 system works today. `docs/adr/0001-adopt-vite-and-msal-browser.md` records the
 accepted build decision. Generated JSDoc HTML under `docs/` remains ignored and
-has no reproducible workflow; update the tracked specs directly. Preserve
-`GLOSSARY.md` verbatim unless the User explicitly changes the glossary.
+has no reproducible workflow; update the tracked specs directly.
+`tools/architecture-map/` is a standalone interactive map of the production
+source with its own `package.json`; it is outside the app bundle and every root
+gate. Its prose and edges are authored in `src/architecture/graph.ts`; its
+counts come from `npm run sync` there, driven by `architecture.config.json` at
+the repo root. Preserve `GLOSSARY.md` verbatim unless the User explicitly
+changes the glossary.
