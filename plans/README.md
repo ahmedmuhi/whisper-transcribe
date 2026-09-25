@@ -93,8 +93,8 @@ and update your row when done.
 | 053 | Drive model UI from the adapter registry; per-model upload limits at selection time | P1 | M | 051, 052 | DONE (merged via PR #135, 2026-08-12; selects, Connection URI rows, and ready/tooLarge panels generate from the registry, unknown-panel fallback added, MAI pre-decode OOM trap closed by selection-time gates; application budget 20.5→22 kB as an explicit maintainer-approved decision after the first executor correctly STOPPED at 50 bytes of headroom) |
 | 054 | Add the gpt-transcribe model adapter | P1 | S | 052, 053 | DONE (merged via PR #135, 2026-08-12; third adapter registered, 710 tests / 12 browser specs green, adapter 100% statement coverage; language field deliberately omitted pending live verification; guarded live-contract case skips until the operator provisions the protected Target URI) |
 | 055 | Add four selectable colour palettes and the Appearance Palette row | P2 | M | — | IN REVIEW (implemented on `feature/055-palette-themes`, merged with post-#134/#135 main; Coastal untouched, registry-driven Connection/Model UI preserved. Maintainer rulings 2026-08-12: AA corrections accepted — Organic light `--accent` `#9E5220`, Industry light `--accent-warm` `#55708C`, per-palette `--text-link` token, all pinned by contrast gates; size budgets accepted in principle, application stays at main's 22 kB, authentication set by the size-contract measurement on the merged result; the shared-constants bleed into the auth chunk is a known measurement flaw and a vendor-only MSAL budget is planned separately, not in this branch) |
-| 056 | [Add MAI-Transcribe 2 alongside 1.5, with a Clean/Verbatim style dropdown](https://github.com/ahmedmuhi/whisper-transcribe/issues/141) | P1 | M | — | IN REVIEW (implemented on `advisor/056-057-mai-transcribe-2`, `8afec22..d51bb58`; first run STOPPED correctly on size, User ruled the `application` budget to 23.5 kB; scope, accessibility and `/code-review` medium reviews found no blocking/major issues; 830 tests, 13 browser specs, 22.92 kB; awaiting PR and the User's live-contract run) |
-| 057 | [Show a one-time "New" notice for a newly added model](https://github.com/ahmedmuhi/whisper-transcribe/issues/142) | P2 | S/M | 056 | IN REVIEW (implemented on the same branch as `cea0cfc`, plus the User's gear-dot ruling; reviews found no blocking/major issues; awaiting PR) |
+| 056 | [Add MAI-Transcribe 2 alongside 1.5, with a Clean/Verbatim style dropdown](https://github.com/ahmedmuhi/whisper-transcribe/issues/141) | P1 | M | — | DONE (merged to main 2026-09-25; see the MAI-Transcribe 2 note below) |
+| 057 | [Show a one-time "New" notice for a newly added model](https://github.com/ahmedmuhi/whisper-transcribe/issues/142) | P2 | S/M | 056 | DONE (merged to main 2026-09-25; see the MAI-Transcribe 2 note below) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -113,6 +113,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 > 22.5 kB; the User raised the `application` budget to 23.5 kB once for both
 > plans. Execute 056 then 057 on one branch; nothing is pushed and the live contract
 > is not run without the User's approval.
+> Outcome: both plans shipped on `advisor/056-057-mai-transcribe-2` (gear marker ruled to a dot; Coastal-dark palette test helper anchored); the User runs the live contract and the Pages hand test.
 
 > **2026-08-12 design handoff @ `c4a13bb`.** Plan 055 is not an audit finding:
 > it implements the "Palette themes (Appearance settings)" design handoff —
