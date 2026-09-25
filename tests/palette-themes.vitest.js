@@ -287,6 +287,13 @@ describe('Palette text contrast (WCAG-AA)', () => {
         }
     });
 
+    // The gear's one-time New marker is a text-free --accent dot on
+    // --bg-surface, so it owes the WCAG 1.4.11 non-text floor of 3:1.
+    it.each(FORMS)('$name keeps the gear New dot at 3:1 on --bg-surface', ({ name, selector }) => {
+        const ratio = contrastRatio(hexOf(selector, '--accent'), hexOf(selector, '--bg-surface'));
+        expect(ratio, `--accent on --bg-surface in ${name}`).toBeGreaterThanOrEqual(3);
+    });
+
     it('paints the link roles from --text-link, not the accent-2 fill token', () => {
         expect(extractCssBlock(css, '.link-button')).toMatch(/color:\s*var\(--text-link\)/u);
         expect(css).toMatch(/input\[type="url"\]\s*\{[^}]*color:\s*var\(--text-link\)/u);

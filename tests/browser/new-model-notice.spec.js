@@ -29,18 +29,19 @@ async function openApp(page) {
 test('the New notice shows once and is gone after quick settings opens', async ({ page }) => {
     const observations = await openApp(page);
     const gear = page.locator('#quick-settings-button');
-    const gearPill = page.locator('#quick-settings-new-pill');
+    const gearDot = page.locator('#quick-settings-new-pill');
     const maiOption = page.locator('#model-select option[value="mai-transcribe-2"]');
 
     await expect(gear).toBeVisible();
-    await expect(gearPill).toBeVisible();
+    await expect(gearDot).toBeVisible();
+    await expect(gearDot).toHaveText('');
     await expect(gear).toHaveAccessibleName('Quick settings, new model available');
     await expect(maiOption).toHaveText('MAI-Transcribe 2 · New');
-    const boxWithPill = await gear.boundingBox();
+    const boxWithDot = await gear.boundingBox();
 
     await gear.click();
     await expect(page.locator('#quick-settings')).toBeVisible();
-    await expect(gearPill).toBeHidden();
+    await expect(gearDot).toBeHidden();
     await expect(gear).toHaveAccessibleName('Quick settings');
     // The User sees what was new in the surface they just opened.
     await expect(page.locator('#quick-model-new-pill')).toBeVisible();
@@ -49,13 +50,13 @@ test('the New notice shows once and is gone after quick settings opens', async (
 
     await page.reload();
     await expect(gear).toBeVisible();
-    await expect(gearPill).toBeHidden();
+    await expect(gearDot).toBeHidden();
     await expect(gear).toHaveAccessibleName('Quick settings');
     await expect(maiOption).toHaveText('MAI-Transcribe 2');
     await expect(page.locator('#quick-model-new-pill')).toBeHidden();
     await expect(page.locator('#settings-model-new-pill')).toBeHidden();
 
-    // Hit-target rule: the pill must not change the gear's box.
-    expect(await gear.boundingBox()).toEqual(boxWithPill);
+    // Hit-target rule: the dot must not change the gear's box.
+    expect(await gear.boundingBox()).toEqual(boxWithDot);
     expect(observations.pageErrors).toEqual([]);
 });

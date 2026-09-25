@@ -1833,12 +1833,19 @@ input[type="checkbox"][role="switch"]:disabled {
     vertical-align: baseline;
 }
 
-/* Sits on the gear's corner without changing the button's box or hit target. */
+/* An 8 px accent dot on the gear's top-right edge; absolute, so the button's box and hit target stay unchanged.
+   The --bg-surface ring separates it from the gear's border, and --accent on --bg-surface holds 3:1 in every palette. */
 .new-model-pill--gear {
     position: absolute;
-    top: -6px;
-    right: -10px;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
     margin-left: 0;
+    padding: 0;
+    box-shadow: 0 0 0 2px var(--bg-surface);
+    font-size: 0;
+    line-height: 0;
     pointer-events: none;
 }
 
