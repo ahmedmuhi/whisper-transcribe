@@ -31,12 +31,12 @@ vi.mock('../js/audio-converter.js', () => ({ convertToWav: vi.fn() }));
 const FAKE_MODEL = 'fake-model';
 const FAKE_MAX_UPLOAD_BYTES = 4_096;
 
-/** A third adapter with UI metadata only — enough to prove the seam. */
+/** An extra adapter with UI metadata only — enough to prove the seam. */
 const fakeModelAdapter = Object.freeze({
     id: FAKE_MODEL,
     label: 'Fake Transcribe',
     optionLabel: 'Fake Transcribe',
-    uiOrder: 3,
+    uiOrder: 5,
     scope: 'https://scope.invalid/.default',
     storageKeys: Object.freeze({ uri: 'fakeModelTargetUri' }),
     maxUploadBytes: FAKE_MAX_UPLOAD_BYTES,
@@ -108,6 +108,7 @@ describe('A newly registered adapter renders itself', () => {
             expect(options).toContain(FAKE_MODEL);
             expect(options).toEqual([
                 MODEL_TYPES.WHISPER,
+                MODEL_TYPES.MAI_TRANSCRIBE_2,
                 MODEL_TYPES.MAI_TRANSCRIBE_1_5,
                 MODEL_TYPES.GPT_TRANSCRIBE,
                 FAKE_MODEL
@@ -198,17 +199,50 @@ describe('A newly registered adapter renders itself', () => {
             .textContent;
 
         expect(verdict('ready-whisper')).toBe('Ready for Azure Whisper');
+        expect(verdict('ready-mai-transcribe-2')).toBe('Ready for Azure MAI-Transcribe 2');
         expect(verdict('ready-mai-transcribe-1.5')).toBe('Ready for Azure MAI-Transcribe 1.5');
         expect(verdict('ready-gpt-transcribe')).toBe('Ready for Azure GPT Transcribe');
         expect(verdict('tooLarge-whisper'))
             .toBe('This file is too large for Azure Whisper (25 MB maximum).');
         expect(verdict('tooLarge-mai-transcribe-1.5'))
-            .toBe('This file is too large for Azure MAI-Transcribe 1.5 (under 300 MB after conversion).');
+            .toBe('This file is too large for Azure MAI-Transcribe 1.5 (under 250 MB after conversion).');
+        expect(verdict('tooLarge-mai-transcribe-2'))
+            .toBe('This file is too large for Azure MAI-Transcribe 2 (under 250 MB after conversion).');
         expect(verdict('tooLarge-gpt-transcribe'))
             .toBe('This file is too large for Azure GPT Transcribe (25 MB maximum).');
         expect(document.querySelectorAll('[data-settings-row="whisperUri"]')).toHaveLength(1);
         expect(document.querySelectorAll('[data-settings-row="maiUri"]')).toHaveLength(1);
         expect(document.querySelectorAll('[data-settings-row="gptTranscribeUri"]')).toHaveLength(1);
+    });
+});
+
+describe('The two MAI adapters share one Connection row', () => {
+    it('renders exactly one MAI row with four adapters and orders the model options', () => {
+        const settings = new Settings();
+
+        expect(modelAdapterRegistry.size).toBe(4);
+        const rows = document.querySelectorAll('[data-settings-row="maiUri"]');
+        expect(rows).toHaveLength(1);
+        expect(rows[0].querySelector('.settings-row-title').textContent)
+            .toContain('MAI-Transcribe Target URI');
+        expect(document.querySelectorAll(`#${ID.MAI_TRANSCRIBE_URI}`)).toHaveLength(1);
+        expect(document.querySelectorAll(`#${ID.MAI_URI_BADGE}`)).toHaveLength(1);
+        for (const select of [settings.modelSelect, settings.settingsModelSelect]) {
+            expect(Array.from(select.options).map(option => option.value)).toEqual([
+                'whisper',
+                'mai-transcribe-2',
+                'mai-transcribe-1.5',
+                'gpt-transcribe'
+            ]);
+        }
+        expect(Array.from(settings.uriFields.keys())).toEqual([
+            MODEL_TYPES.WHISPER,
+            MODEL_TYPES.MAI_TRANSCRIBE_2,
+            MODEL_TYPES.GPT_TRANSCRIBE
+        ]);
+        expect(settings.maiTranscribeUriInput).toBe(document.getElementById(ID.MAI_TRANSCRIBE_URI));
+        expect(settings.maiUriBadge).toBe(document.getElementById(ID.MAI_URI_BADGE));
+        settings.destroy();
     });
 });
 

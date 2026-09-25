@@ -217,11 +217,16 @@ describe('Palette text contrast (WCAG-AA)', () => {
         ])
     ];
 
-    /** Every block a selector opens, merged in file order. */
+    /**
+     * Every block a selector opens at the start of a line, merged in file
+     * order. The anchor keeps `.dark-theme` from also matching the
+     * `[data-palette="..."].dark-theme` blocks, which would otherwise
+     * overwrite Coastal dark with Broadsheet dark.
+     */
     function allDeclarationsOf(selector) {
         const escaped = selector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
         const declarations = new Map();
-        for (const block of css.matchAll(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, 'gu'))) {
+        for (const block of css.matchAll(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]+)\\}`, 'gu'))) {
             for (const match of block[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/gu)) {
                 declarations.set(match[1], match[2].trim());
             }
@@ -268,6 +273,16 @@ describe('Palette text contrast (WCAG-AA)', () => {
         return value;
     }
 
+    it('reads Coastal Teal dark from its own .dark-theme block, not a palette dark block', () => {
+        const ownBlock = css.match(/^\.dark-theme\s*\{([^}]+)\}/mu)?.[1] || '';
+        const own = ownBlock.match(/--bg-surface\s*:\s*([^;]+);/u)?.[1].trim();
+        const broadsheet = declarationsOf(selectorFor('broadsheet', 'dark')).get('--bg-surface');
+
+        expect(own).toMatch(/^#[0-9A-Fa-f]{6}$/u);
+        expect(own).not.toBe(broadsheet);
+        expect(allDeclarationsOf('.dark-theme').get('--bg-surface')).toBe(own);
+    });
+
     it.each(FORMS)('$name keeps its filled-control labels at 4.5:1', ({ name, selector }) => {
         for (const [label, fill] of FILL_PAIRS) {
             const ratio = contrastRatio(hexOf(selector, label), hexOf(selector, fill));
@@ -285,6 +300,13 @@ describe('Palette text contrast (WCAG-AA)', () => {
             const ratio = contrastRatio(link, hexOf(selector, ground));
             expect(ratio, `--text-link ${link} on ${ground} in ${name}`).toBeGreaterThanOrEqual(floor);
         }
+    });
+
+    // The gear's one-time New marker is a text-free --accent dot on
+    // --bg-surface, so it owes the WCAG 1.4.11 non-text floor of 3:1.
+    it.each(FORMS)('$name keeps the gear New dot at 3:1 on --bg-surface', ({ name, selector }) => {
+        const ratio = contrastRatio(hexOf(selector, '--accent'), hexOf(selector, '--bg-surface'));
+        expect(ratio, `--accent on --bg-surface in ${name}`).toBeGreaterThanOrEqual(3);
     });
 
     it('paints the link roles from --text-link, not the accent-2 fill token', () => {

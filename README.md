@@ -9,8 +9,11 @@ surface, Microsoft sign-in, and no application backend.
 
 - **Microsoft sign-in** — a single-tenant Microsoft Entra SPA uses full-page
   redirects and an MSAL-managed session cache.
-- **Two Transcription Models** — Azure Whisper and MAI-Transcribe 1.5, each with
-  its own manually configured Target URI.
+- **Four Transcription Models** — Azure Whisper, MAI-Transcribe 2 (the default,
+  in public preview), MAI-Transcribe 1.5, and Azure GPT Transcribe. Each Azure
+  resource has one manually configured Target URI; MAI-Transcribe 2 and 1.5
+  call the same Speech resource and share one Target URI, and both offer a
+  Clean or Verbatim transcription style.
 - **Two Audio Sources** — record with the microphone or choose local audio with
   **Upload audio**. Selected Audio is reviewed locally and is sent only after an
   explicit **Transcribe** action.
@@ -20,8 +23,9 @@ surface, Microsoft sign-in, and no application backend.
 - **Transcript continuity** — transcriptions append with dividers, autosave to
   the browser, and support Grab, Restore, and Clear.
 - **Unified settings surface** — a header gear opens quick settings (model,
-  noise cancellation, theme); the full settings modal (Ctrl+,) adds search,
-  microphone, Target URI, and sign-out paths. Every change applies instantly.
+  transcription style, noise cancellation, theme); the full settings modal
+  (Ctrl+,) adds search, microphone, Target URI, and sign-out paths. Every
+  change applies instantly.
 - **Accessible interaction** — fixed hit targets, visible focus, WCAG-AA status
   colours, proportional confirmation, and complete reduced-motion behavior.
 
@@ -85,7 +89,8 @@ and applicable service terms.
   HTTPS Target URI known privately.
 - External Azure RBAC assignments at the individual resources:
   - `Cognitive Services OpenAI User` for the Whisper resource.
-  - `Cognitive Services Speech User` for the MAI-Transcribe 1.5 resource.
+  - `Cognitive Services Speech User` for the MAI-Transcribe resource, which
+    serves both MAI-Transcribe 2 and MAI-Transcribe 1.5.
 
 Whisper Transcribe diagnoses missing access but never creates or changes RBAC.
 The complete human-gated setup and release procedure is in the
@@ -120,10 +125,13 @@ used by `.github/workflows/pages.yml`.
 
 After sign-in, open **All settings…** from the header gear (or press Ctrl+,):
 
-1. Under **Model**, select Azure Whisper or MAI-Transcribe 1.5.
-2. Under **Connection**, enter both manual HTTPS Target URIs. Each field
-   validates as you type and persists only while it holds a valid HTTPS URI;
-   there is no save step.
+1. Under **Model**, select Azure Whisper, MAI-Transcribe 2, MAI-Transcribe
+   1.5, or Azure GPT Transcribe. For either MAI-Transcribe model, choose a
+   Clean or Verbatim transcription style.
+2. Under **Connection**, enter the manual HTTPS Target URI for each resource
+   you use. MAI-Transcribe 2 and 1.5 share the single MAI-Transcribe Target
+   URI row, so one entry serves both. Each field validates as you type and
+   persists only while it holds a valid HTTPS URI; there is no save step.
 3. When the app reports HTTP 403, follow the **View Azure setup** action it
    offers. Access must be assigned outside the application.
 
@@ -196,7 +204,7 @@ HTTP 429 and selected 5xx responses use bounded retries; authentication and
 authorization failures do not retry.
 
 See [ADR-0001](docs/adr/0001-adopt-vite-and-msal-browser.md) for the packaging
-decision and [CONTEXT.md](CONTEXT.md) for canonical domain language.
+decision and [GLOSSARY.md](GLOSSARY.md) for canonical domain language.
 
 ## Deployment
 

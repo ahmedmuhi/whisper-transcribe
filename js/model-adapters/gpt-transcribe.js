@@ -27,7 +27,7 @@ export const gptTranscribeModelAdapter = Object.freeze({
     id: MODEL_TYPES.GPT_TRANSCRIBE,
     label: GPT_TRANSCRIBE_LABEL,
     optionLabel: GPT_TRANSCRIBE_LABEL,
-    uiOrder: 3,
+    uiOrder: 4,
     scope: COGNITIVE_SERVICES_SCOPE,
     storageKeys: Object.freeze({
         uri: STORAGE_KEYS.GPT_TRANSCRIBE_URI

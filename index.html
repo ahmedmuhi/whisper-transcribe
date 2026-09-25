@@ -59,16 +59,24 @@
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
+                <span id="quick-settings-new-pill" class="new-model-pill new-model-pill--gear" aria-hidden="true" hidden></span>
             </button>
             <span id="user-badge" class="user-badge" role="img" hidden></span>
         </span>
     </header>
 
-    <!-- Quick settings popover: the three controls changed most often, plus a way
-         through to everything else. -->
+    <!-- Quick settings popover: the controls changed most often (the transcription
+         style shows only for models that take one), plus a way through to
+         everything else. -->
     <div id="quick-settings" class="quick-settings" role="dialog" aria-label="Quick settings" hidden>
-        <label class="quick-settings-field" for="model-select">Model
+        <label class="quick-settings-field" for="model-select"><span>Model<span id="quick-model-new-pill" class="new-model-pill" aria-hidden="true" hidden>New</span></span>
             <select id="model-select"></select>
+        </label>
+        <label class="quick-settings-field" id="quick-transcribe-style-field" for="quick-transcribe-style-select" hidden>Transcription style
+            <select id="quick-transcribe-style-select">
+                <option value="readability">Clean</option>
+                <option value="verbatim">Verbatim</option>
+            </select>
         </label>
         <label class="quick-settings-switch" for="quick-noise-toggle">
             <span>Noise cancellation</span>
@@ -295,7 +303,7 @@
                 <div class="settings-row" data-settings-row="model" data-category="model"
                      data-keywords="transcription model azure whisper mai">
                     <div class="settings-row-copy">
-                        <label class="settings-row-title" for="settings-model-select">Transcription model<span class="settings-row-chip" aria-hidden="true">Model</span></label>
+                        <label class="settings-row-title" for="settings-model-select">Transcription model<span id="settings-model-new-pill" class="new-model-pill" aria-hidden="true" hidden>New</span><span class="settings-row-chip" aria-hidden="true">Model</span></label>
                         <p class="settings-row-subtitle">The Azure model used for recordings and uploads</p>
                     </div>
                     <div class="settings-row-control">
@@ -303,14 +311,17 @@
                     </div>
                 </div>
 
-                <div class="settings-row" id="verbatim-setting" data-settings-row="verbatim" data-category="model"
-                     data-keywords="verbatim filler words false starts mai transcribe" hidden>
+                <div class="settings-row" id="transcribe-style-setting" data-settings-row="transcribeStyle" data-category="model"
+                     data-keywords="transcription style clean verbatim filler words false starts mai transcribe" hidden>
                     <div class="settings-row-copy">
-                        <label class="settings-row-title" for="verbatim-toggle">Verbatim transcription<span class="settings-row-chip" aria-hidden="true">Model</span></label>
-                        <p class="settings-row-subtitle">Keep filler words and false starts · MAI-Transcribe 1.5 only</p>
+                        <label class="settings-row-title" for="transcribe-style-select">Transcription style<span class="settings-row-chip" aria-hidden="true">Model</span></label>
+                        <p class="settings-row-subtitle">Clean removes filler words and false starts · Verbatim keeps them · MAI-Transcribe only</p>
                     </div>
                     <div class="settings-row-control">
-                        <input type="checkbox" id="verbatim-toggle" role="switch">
+                        <select id="transcribe-style-select">
+                            <option value="readability">Clean</option>
+                            <option value="verbatim">Verbatim</option>
+                        </select>
                     </div>
                 </div>
 

@@ -28,9 +28,11 @@ plus eight smaller accessibility, typography, and copy findings.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
-> Note: this directory (`plans/`, executor handoff plans) is distinct from the
-> pre-existing `plan/` directory (design documents like `2.0-design.md`). Do
-> not merge them.
+> Layout: live plans (TODO, IN PROGRESS, IN REVIEW, BLOCKED) sit in this
+> directory. Finished plans (DONE, REVERTED) move to `archive/` with a header
+> stamp and keep their number; this table stays the single status index for
+> both. The design and decision log is `docs/design-log.md`; pre-2.0 planning
+> history is under `docs/archive/pre-2.0/`.
 
 > Selection note: the deep-audit run executed non-interactively, so per the
 > skill's default the top 5 findings by leverage were planned (003–007). The
@@ -76,7 +78,7 @@ and update your row when done.
 | 033 | [Implement authentication-safe recording recovery and the unified User menu](https://github.com/ahmedmuhi/whisper-transcribe/issues/116) | P1 | L | 032 | DONE (local `ee3b20a`, `7740c94`, `fbc356d`, plus independent fixes `dfb8182` and `5873231`; build, lint, 37 test files / 444 tests with coverage, Knip, high-audit, three bounded size budgets, 8 deterministic Chromium scenarios, scope, privacy, and production-fixture scans passed; no live mutations) |
 | 034 | [Add Selected Audio upload, validation, review, and transcription](https://github.com/ahmedmuhi/whisper-transcribe/issues/117) | P1 | L | 033 | DONE (local `db14a57`, `4a98cf9`, `4582660`, `a396a68`, `a601d98`, `e07a5ac`, `47a339c`, `a827a84`, `30dee12`, `d120552`; independent review fixed protected OS drags, stale/ABA model validation, and focus continuity; 40 test files / 513 tests with 93.25/82.99/93.95/93.25 coverage; build, lint, Knip, production Knip, high-audit, exact 19,997/54,881/129-B size budgets, 11 deterministic Chromium scenarios including desktop + 390 px, diff, privacy, storage/event-history, and artifact scans passed; the minimal User-menu/logout and bootstrap-fixture scope seams were required to enforce the shared navigation-safety boundary; only the known low-severity development-server `esbuild` advisory remains; no live mutations) |
 | 035 | [Migrate the live two-model Azure contract to a least-privilege GitHub OIDC identity](https://github.com/ahmedmuhi/whisper-transcribe/issues/118) | P1 | L | 032 | DONE (repository implementation and every separately approved external stage completed. A dedicated single-tenant workload identity has one federation restricted to the protected `live-azure` environment, no client secret/certificate/API permission, exactly the two intended individual-resource data-plane roles, and no subscription/resource-group, management, RBAC-write, key, or configuration authority. The corrected pre-role probe validated the token contract before accepting two genuine body-blind Azure denials. Candidate `0a9ad0c253ae` then passed exactly one Whisper and one MAI transcription with the harmless fixture word, one POST per model, no retries, key fallback, artifacts, traces, screenshots, video, endpoint/token/audio/response-body logging, or broadened permission. The legacy MAI API-key environment secret was deleted without reading it; OIDC and Target URI configurations remain. Final verification: production and guarded live builds passed; the production bundle excludes provider/token markers; 42 files / 537 tests and all unchanged coverage thresholds passed; lint, Knip, production Knip, high-severity audit, all three size budgets, YAML parse, 11 deterministic Chromium cases, four-case live listing, absent-input four-case safe skip, and diff checks passed. The known low-severity development-server `esbuild` advisory remains; the previously observed missing-favicon request is regression-tested and resolved before candidate freeze. Sanitized operational evidence is recorded on issue 118. Azure local authentication and resource configuration were not changed.) |
-| 036 | [Reconcile keyless documentation and add the sanitized operator runbook](https://github.com/ahmedmuhi/whisper-transcribe/issues/119) | P1 | L | 031–035 | DONE (documentation-only implementation independently reconciled against the final source and primary references; the agreed `CONTEXT.md` glossary was preserved byte-for-byte, active README/executor/design/API/FSM/ADR guidance was corrected, and the public-safe 16-stage operator runbook was added. Clean install/build, lint, 41 files / 523 tests with 93.25/82.99/93.95/93.25 coverage, both Knip gates, high-severity audit, exact 20 kB/54.88 kB/129-B size budgets, 11 deterministic Chromium cases, Markdown links, stale-term classification, sanitization, scope, and diff checks passed. The sole known low-severity development-server `esbuild` advisory remains. No live test or external configuration/resource/browser mutation occurred.) |
+| 036 | [Reconcile keyless documentation and add the sanitized operator runbook](https://github.com/ahmedmuhi/whisper-transcribe/issues/119) | P1 | L | 031–035 | DONE (documentation-only implementation independently reconciled against the final source and primary references; the agreed `GLOSSARY.md` glossary was preserved byte-for-byte, active README/executor/design/API/FSM/ADR guidance was corrected, and the public-safe 16-stage operator runbook was added. Clean install/build, lint, 41 files / 523 tests with 93.25/82.99/93.95/93.25 coverage, both Knip gates, high-severity audit, exact 20 kB/54.88 kB/129-B size budgets, 11 deterministic Chromium cases, Markdown links, stale-term classification, sanitization, scope, and diff checks passed. The sole known low-severity development-server `esbuild` advisory remains. No live test or external configuration/resource/browser mutation occurred.) |
 | 037 | [Qualify one immutable keyless release candidate across CI, Pages, and the accepted browser matrix](https://github.com/ahmedmuhi/whisper-transcribe/issues/120) | P1 | L | 031–036 | DONE (`keyless-rc-03` at `95fd3f4`; exact-SHA CI, reproducible build, Pages deployment, five accepted real-auth sessions, 10/10 accepted browser/origin/model transcription cells, four corrected browser-readable no-audio 401 boundaries, protected two-model OIDC, final five-axis review, sanitized ledger audit, merge via PR #123, and post-merge `main` CI/Pages deployment passed. Safari-local was explicitly not applicable; resource enforcement completed in Plan 038.) |
 | 038 | [Enforce Azure key rejection one resource at a time and retire every legacy key](https://github.com/ahmedmuhi/whisper-transcribe/issues/121) | P1 | L | 037 | DONE (`keyless-rc-03`; both resources finished with `disableLocalAuth=true`; same-key baselines reached media validation before post-enforcement HTTP 403; signed-in User and protected OIDC bearer paths passed; the sole owner explicitly waived the planned 24-hour wait after accepted Windows/macOS use; provider-required per-resource unlock/Key1+Key2 rotation/re-lock completed without reading replacement values; legacy CI key secret absent; migration forward-only.) |
 | 039 | Share the MSAL sign-in session across same-browser tabs | P1 | S/M | — | IN PROGRESS (implementation `ff83c47` independently reviewed; focused 28 tests, 540-test coverage, build, lint, dependency, high-audit, size, and 11-browser-scenario gates passed; awaiting PR/CI, Pages deployment, and production two-tab acceptance) |
@@ -91,8 +93,27 @@ and update your row when done.
 | 053 | Drive model UI from the adapter registry; per-model upload limits at selection time | P1 | M | 051, 052 | DONE (merged via PR #135, 2026-08-12; selects, Connection URI rows, and ready/tooLarge panels generate from the registry, unknown-panel fallback added, MAI pre-decode OOM trap closed by selection-time gates; application budget 20.5→22 kB as an explicit maintainer-approved decision after the first executor correctly STOPPED at 50 bytes of headroom) |
 | 054 | Add the gpt-transcribe model adapter | P1 | S | 052, 053 | DONE (merged via PR #135, 2026-08-12; third adapter registered, 710 tests / 12 browser specs green, adapter 100% statement coverage; language field deliberately omitted pending live verification; guarded live-contract case skips until the operator provisions the protected Target URI) |
 | 055 | Add four selectable colour palettes and the Appearance Palette row | P2 | M | — | IN REVIEW (implemented on `feature/055-palette-themes`, merged with post-#134/#135 main; Coastal untouched, registry-driven Connection/Model UI preserved. Maintainer rulings 2026-08-12: AA corrections accepted — Organic light `--accent` `#9E5220`, Industry light `--accent-warm` `#55708C`, per-palette `--text-link` token, all pinned by contrast gates; size budgets accepted in principle, application stays at main's 22 kB, authentication set by the size-contract measurement on the merged result; the shared-constants bleed into the auth chunk is a known measurement flaw and a vendor-only MSAL budget is planned separately, not in this branch) |
+| 056 | [Add MAI-Transcribe 2 alongside 1.5, with a Clean/Verbatim style dropdown](https://github.com/ahmedmuhi/whisper-transcribe/issues/141) | P1 | M | — | DONE (merged to main 2026-09-25; see the MAI-Transcribe 2 note below) |
+| 057 | [Show a one-time "New" notice for a newly added model](https://github.com/ahmedmuhi/whisper-transcribe/issues/142) | P2 | S/M | 056 | DONE (merged to main 2026-09-25; see the MAI-Transcribe 2 note below) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
+
+> **2026-09-25 MAI-Transcribe 2 @ `bdf23f9` (plans 056–057).** Generated through
+> the focused Improve `plan` workflow after a grilling session with the User;
+> every decision recorded in the plans' "Decisions already made" sections was
+> settled with the User and must not be re-opened by an executor. Facts come
+> from Microsoft Learn (MAI-Transcribe page dated 2026-09-22, the
+> `transcriptions:transcribe` 2025-10-15 REST reference, and the LLM speech
+> region table) plus the User's Foundry playground sample. Key facts: same route
+> and api-version as 1.5; the style lives at `enhancedMode.modelOptions.transcribeStyle`
+> and defaults to verbatim, so 2 always sends "clean" or "verbatim"; the
+> endpoint limit is under 250 MB / 2 hours, now applied to both MAI models.
+> Deferred by decision: diarization, timestamps, keyword biasing, forced locale.
+> Size ruling (2026-09-25): the first 056 run STOPPED correctly at 22.54 kB of
+> 22.5 kB; the User raised the `application` budget to 23.5 kB once for both
+> plans. Execute 056 then 057 on one branch; nothing is pushed and the live contract
+> is not run without the User's approval.
+> Outcome: both plans shipped on `advisor/056-057-mai-transcribe-2` (gear marker ruled to a dot; Coastal-dark palette test helper anchored); the User runs the live contract and the Pages hand test.
 
 > **2026-08-12 design handoff @ `c4a13bb`.** Plan 055 is not an audit finding:
 > it implements the "Palette themes (Appearance settings)" design handoff —
@@ -490,7 +511,7 @@ New from the deep audit (2026-06-11, `50164c9`):
   any log call (events carry `hasApiKey` booleans, not values). Documenting it
   (backlog DX item) beats restricting it; keep "no secrets in debug logs" as
   review discipline.
-- **knip `plan/**` ignore is stale**: refuted — `plan/` exists (design docs).
+- **knip `plan/**` ignore is stale**: refuted at the time — `plan/` held design docs. (The directory was folded into `docs/` on 2026-08-23 and the ignore removed.)
   The worker-entry false positive was real and is fixed in plan 003.
 - **Hidden-tab/battery and other micro-perf smells** (event-bus listener
   re-sort on subscribe, per-sample `setInt16` loop, textarea `+=` append):

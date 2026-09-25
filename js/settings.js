@@ -46,7 +46,7 @@ const URI_BADGE_STATES = Object.freeze({
 });
 
 /**
- * Builds one Connection row per adapter from its `uri` metadata. The row shape
+ * Builds one Connection row per stored Target URI from adapter `uri` metadata. The row shape
  * matches what `SettingsSurface` searches and filters generically, so the
  * generated markup must keep `data-settings-row`, `data-category`, and
  * `data-keywords`. Rows are created node by node: no innerHTML with values.
@@ -55,9 +55,12 @@ export function renderConnectionRows(container = document.querySelector?.(SETTIN
     if (!container) return;
     container.querySelectorAll?.(`[data-category="${CONNECTION_CATEGORY}"]`)
         ?.forEach((row) => row.remove());
+    // Adapters that share a stored Target URI share one row.
+    const rendered = new Set();
     for (const adapter of listModelAdapters(registry)) {
         const meta = adapter.uri;
-        if (!meta?.inputId) continue;
+        if (!meta?.inputId || rendered.has(adapter.storageKeys?.uri)) continue;
+        rendered.add(adapter.storageKeys?.uri);
         container.appendChild(createConnectionRow(meta));
     }
 }
@@ -132,8 +135,10 @@ export class Settings {
         this.recordingEnvironmentSelect = document.getElementById(ID.RECORDING_ENVIRONMENT);
         this.noiseToggle = document.getElementById(ID.NOISE_TOGGLE);
         this.quickNoiseToggle = document.getElementById(ID.QUICK_NOISE_TOGGLE);
-        this.verbatimSetting = document.getElementById(ID.VERBATIM_SETTING);
-        this.verbatimToggle = document.getElementById(ID.VERBATIM_TOGGLE);
+        this.transcribeStyleSetting = document.getElementById(ID.TRANSCRIBE_STYLE_SETTING);
+        this.transcribeStyleSelect = document.getElementById(ID.TRANSCRIBE_STYLE_SELECT);
+        this.quickTranscribeStyleField = document.getElementById(ID.QUICK_TRANSCRIBE_STYLE_FIELD);
+        this.quickTranscribeStyleSelect = document.getElementById(ID.QUICK_TRANSCRIBE_STYLE_SELECT);
         this.inputDeviceSelect = document.getElementById(ID.INPUT_DEVICE);
         this.themeModeInputs = Array.from(document.querySelectorAll?.(
             'input[name="theme-mode"], input[name="theme-mode-quick"]'
@@ -144,7 +149,7 @@ export class Settings {
         );
         this._storageHandler = (event) => {
             if (event.key === STORAGE_KEYS.MAI_TRANSCRIBE_STYLE || event.key === null) {
-                this.loadVerbatimToggle();
+                this.loadTranscribeStyle();
             }
             if (event.key === STORAGE_KEYS.THEME_PALETTE || event.key === null) {
                 this.loadThemePalette();
@@ -156,23 +161,32 @@ export class Settings {
                     palette: this._getStoredThemePalette()
                 });
             }
+            if (event.key === STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS || event.key === null) {
+                // Another tab acknowledged (or cleared storage): only the gear
+                // marker follows; this load's in-surface pills stay as they are.
+                this.surface?.refreshNewModelMarker?.();
+            }
         };
 
         this.init();
     }
 
     init() {
+        // Computed once per page load: the in-surface pills and option suffix
+        // stay for this load even after the User acknowledges the notice.
+        this.newModelIdsThisLoad = new Set(this.getUnacknowledgedNewModels());
         this._renderModelOptions();
+        this._renderNewModelPills();
         renderConnectionRows(undefined, this.adapterRegistry);
         this._resolveUriFields();
         this.loadSavedModel();
         this.loadTargetUris();
         this.loadNoiseToggle();
-        this.loadVerbatimToggle();
+        this.loadTranscribeStyle();
         this.loadThemeMode();
         this.loadThemePalette();
         this.setupEventListeners();
-        this.updateVerbatimVisibility();
+        this.updateTranscribeStyleVisibility();
         this.renderUriBadges();
         this._offPermissionGranted = eventBus.on(
             APP_EVENTS.PERMISSION_GRANTED,
@@ -209,10 +223,11 @@ export class Settings {
             : DEFAULT_MAI_TRANSCRIBE_STYLE;
     }
 
-    loadVerbatimToggle() {
-        if (this.verbatimToggle) {
-            this.verbatimToggle.checked = this._getTranscribeStyle() === MAI_TRANSCRIBE_STYLES.VERBATIM;
-        }
+    /** Keeps the modal select and the popover select showing one style. */
+    loadTranscribeStyle() {
+        const style = this._getTranscribeStyle();
+        if (this.transcribeStyleSelect) this.transcribeStyleSelect.value = style;
+        if (this.quickTranscribeStyleSelect) this.quickTranscribeStyleSelect.value = style;
     }
 
     loadThemeMode() {
@@ -349,25 +364,99 @@ export class Settings {
             for (const adapter of listModelAdapters(this.adapterRegistry)) {
                 const option = document.createElement('option');
                 option.value = adapter.id;
-                option.textContent = adapter.optionLabel || adapter.label || adapter.id;
+                const text = adapter.optionLabel || adapter.label || adapter.id;
+                option.textContent = this.newModelIdsThisLoad?.has(adapter.id)
+                    ? `${text}${MESSAGES.NEW_MODEL_OPTION_SUFFIX}`
+                    : text;
                 select.appendChild(option);
             }
         });
     }
 
-    /** Maps every registered adapter to its Target URI input and badge. */
+    /** Shows the Model row pills while this page load has an unacknowledged new model. */
+    _renderNewModelPills() {
+        const visible = this.newModelIdsThisLoad.size > 0;
+        [ID.QUICK_MODEL_NEW_PILL, ID.SETTINGS_MODEL_NEW_PILL].forEach((id) => {
+            const pill = document.getElementById(id);
+            if (pill) pill.hidden = !visible;
+        });
+    }
+
+    /**
+     * Reads the acknowledged new-model ids; anything unreadable counts as none.
+     *
+     * @returns {string[]} Acknowledged adapter ids.
+     */
+    _readAcknowledgedNewModels() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS));
+            return Array.isArray(parsed)
+                ? parsed.filter((id) => typeof id === 'string')
+                : [];
+        } catch {
+            return [];
+        }
+    }
+
+    /** @returns {string[]} Ids of adapters that opt in with announceAsNew. */
+    _getAnnouncedModelIds() {
+        return listModelAdapters(this.adapterRegistry)
+            .filter((adapter) => adapter.announceAsNew === true)
+            .map((adapter) => adapter.id);
+    }
+
+    /**
+     * Lists the announced models the User has not yet acknowledged.
+     *
+     * @returns {string[]} Unacknowledged adapter ids.
+     */
+    getUnacknowledgedNewModels() {
+        const acknowledged = new Set(this._readAcknowledgedNewModels());
+        return this._getAnnouncedModelIds().filter((id) => !acknowledged.has(id));
+    }
+
+    /**
+     * Records every announced model as acknowledged. Idempotent.
+     *
+     * @returns {boolean} Whether the stored list changed.
+     */
+    acknowledgeNewModels() {
+        const stored = this._readAcknowledgedNewModels();
+        const merged = [...new Set([...stored, ...this._getAnnouncedModelIds()])];
+        const next = JSON.stringify(merged);
+        try {
+            if (merged.length === 0
+                || localStorage.getItem(STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS) === next) {
+                return false;
+            }
+            localStorage.setItem(STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS, next);
+        } catch (error) {
+            logger.warn('New-model acknowledgement could not be stored', error?.name);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Maps each stored Target URI to its input and badge, keyed by the id of the
+     * first adapter (in presentation order) that uses that storage key.
+     */
     _resolveUriFields() {
         this.uriFields = new Map();
+        const resolved = new Set();
         for (const adapter of listModelAdapters(this.adapterRegistry)) {
             const meta = adapter.uri;
-            if (!meta?.inputId) continue;
+            if (!meta?.inputId || resolved.has(adapter.storageKeys?.uri)) continue;
+            resolved.add(adapter.storageKeys?.uri);
             this.uriFields.set(adapter.id, {
                 input: document.getElementById(meta.inputId),
                 badge: document.getElementById(meta.badgeId)
             });
         }
         const whisper = this.uriFields.get(MODEL_TYPES.WHISPER);
-        const mai = this.uriFields.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        const maiModel = Array.from(this.uriFields.keys())
+            .find((model) => this._getUriStorageKey(model) === STORAGE_KEYS.MAI_TRANSCRIBE_URI);
+        const mai = this.uriFields.get(maiModel);
         this.whisperUriInput = whisper?.input || null;
         this.whisperUriBadge = whisper?.badge || null;
         this.maiTranscribeUriInput = mai?.input || null;
@@ -404,13 +493,12 @@ export class Settings {
             });
         });
 
-        this.verbatimToggle?.addEventListener('change', () => {
-            localStorage.setItem(
-                STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
-                this.verbatimToggle.checked
-                    ? MAI_TRANSCRIBE_STYLES.VERBATIM
-                    : MAI_TRANSCRIBE_STYLES.READABILITY
-            );
+        [this.transcribeStyleSelect, this.quickTranscribeStyleSelect].forEach((select) => {
+            select?.addEventListener('change', () => {
+                if (!Object.values(MAI_TRANSCRIBE_STYLES).includes(select.value)) return;
+                localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, select.value);
+                this.loadTranscribeStyle();
+            });
         });
 
         this.inputDeviceSelect?.addEventListener('change', () => {
@@ -468,7 +556,7 @@ export class Settings {
             eventBus.emit(APP_EVENTS.SETTINGS_UPDATED);
         }
 
-        this.updateVerbatimVisibility();
+        this.updateTranscribeStyleVisibility();
         this.renderUriBadges();
     }
 
@@ -524,18 +612,21 @@ export class Settings {
     }
 
     /**
-     * The verbatim switch is MAI-Transcribe 1.5 only; Whisper never sends the field.
-     * The surface owns row visibility once it is wired, so it re-runs its category
-     * and search filter — showing the row here directly would leak it into whatever
-     * category the modal happens to be on.
+     * The transcription style belongs to adapters that declare
+     * `supportsTranscribeStyle`; Whisper and GPT Transcribe never send it. The
+     * popover field is set here because the surface never filters the popover.
+     * The surface owns modal row visibility once it is wired, so it re-runs its
+     * category and search filter — showing the row here directly would leak it
+     * into whatever category the modal happens to be on.
      */
-    updateVerbatimVisibility() {
+    updateTranscribeStyleVisibility() {
+        if (this.quickTranscribeStyleField) this.quickTranscribeStyleField.hidden = !this.supportsTranscribeStyle();
         if (this.surface?.refreshRows) {
             this.surface.refreshRows();
             return;
         }
-        if (this.verbatimSetting) {
-            this.verbatimSetting.hidden = !this._isMaiModel(this.getCurrentModel());
+        if (this.transcribeStyleSetting) {
+            this.transcribeStyleSetting.hidden = !this.supportsTranscribeStyle();
         }
     }
 
@@ -555,7 +646,10 @@ export class Settings {
 
     _getUriBadgeState(uri, model) {
         if (!uri) {
-            return model === this.getCurrentModel() ? URI_BADGE_STATES.REQUIRED : URI_BADGE_STATES.UNSET;
+            // A shared row is required whenever the active model stores its URI there.
+            return this._getUriStorageKey(model) === this._getUriStorageKey(this.getCurrentModel())
+                ? URI_BADGE_STATES.REQUIRED
+                : URI_BADGE_STATES.UNSET;
         }
         const error = this._validateUri(uri);
         if (error === MESSAGES.URI_MUST_BE_HTTPS) return URI_BADGE_STATES.NOT_HTTPS;
@@ -574,8 +668,13 @@ export class Settings {
         this.surface?.closeModal?.();
     }
 
+    /** @returns {string|undefined} The model's Target URI storage key, without throwing. */
+    _getUriStorageKey(model) {
+        return this.adapterRegistry.get(model)?.storageKeys?.uri;
+    }
+
     _getTargetUriStorageKey(model) {
-        const uriStorageKey = this.adapterRegistry.get(model)?.storageKeys?.uri;
+        const uriStorageKey = this._getUriStorageKey(model);
         if (typeof uriStorageKey !== 'string' || !uriStorageKey.trim()) {
             throw new Error(`Target URI storage metadata is missing for model "${model}"`);
         }
@@ -621,14 +720,18 @@ export class Settings {
             model,
             uri: localStorage.getItem(this._getTargetUriStorageKey(model))
         };
-        if (this._isMaiModel(model)) {
+        if (this.supportsTranscribeStyle(model)) {
             config.transcribeStyle = this._getTranscribeStyle();
         }
         return config;
     }
 
-    _isMaiModel(model) {
-        return model === MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+    /**
+     * @param {string} [model] Model to check; defaults to the current model.
+     * @returns {boolean} Whether the model's adapter takes a transcription style.
+     */
+    supportsTranscribeStyle(model = this.getCurrentModel()) {
+        return this.adapterRegistry.get(model)?.supportsTranscribeStyle === true;
     }
 
     checkInitialSettings() {

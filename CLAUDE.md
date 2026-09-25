@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 This file is the executor architecture guide for Whisper Transcribe. Use
-`CONTEXT.md` for canonical domain vocabulary and keep every public artifact free
+`GLOSSARY.md` for canonical domain vocabulary and keep every public artifact free
 of real identifiers, Target URIs, credentials, authentication responses, audio,
 transcripts, screenshots, and private command output.
 
@@ -119,19 +119,27 @@ Adding a model follows the adapter-addition checklist in
 
 Browser-local
 persistence is limited to non-secret model, manual HTTPS Target URI,
-microphone, transcription style, theme, and transcript data. `Settings` owns
+microphone, transcription style, theme, transcript data, and the new-model
+notice acknowledgement. `Settings` owns
 the preferences; `TranscriptStore` owns transcript content. `STORAGE_KEYS` owns
 literal storage names, and each adapter's `storageKeys.uri` maps a model to its
-Target URI. Never add a credential field or key fallback.
+Target URI. Adapters that call the same Azure resource share one
+`storageKeys.uri` and therefore one Connection row: MAI-Transcribe 2 and
+MAI-Transcribe 1.5 both use `STORAGE_KEYS.MAI_TRANSCRIBE_URI` and differ only in
+the request body. Never add a credential field or key fallback.
 
 `SettingsSurface` owns the header gear popover, the native `<dialog>` settings
 modal, the initials badge and account presentation, and the logout dialog. The
-popover carries Model, Noise cancellation, Theme, and the All settings link; the
+popover carries Model, Transcription style (shown only for models that take
+one), Noise cancellation, Theme, and the All settings link; the
 modal pairs a sidebar (search, the Model, Microphone, Appearance, and Connection
 categories, and an account footer with Sign out) with the matching rows.
 `Ctrl/Cmd + ,` toggles the modal from anywhere, Escape closes the open surface,
 and focus returns to the invoker. The badge, account footer, and Sign out appear
 only in the ready authentication state; the gear is always visible.
+An adapter with `announceAsNew` gets a one-time New marker on the gear, the
+Model rows, and its option text, acknowledged the first time either surface
+opens.
 `Settings.openSettingsModal(invoker)` delegates to the surface so
 `API_CONFIG_MISSING` recovery and the island Open settings action land on the
 Connection category.
@@ -141,9 +149,10 @@ or commit step and no discard-on-close behavior. A model change persists and
 emits immediately; a Target URI field strips whitespace, validates on input,
 persists only while the value is valid HTTPS, and removes the stored key when
 emptied, with a `.uri-badge` reporting valid, error, required, or not-set state
-from the tested status tokens. Noise cancellation and theme stay in sync across
-the popover and the modal, and the verbatim row is visible only while
-`mai-transcribe-1.5` is the current model. Keep the external-invoker focus
+from the tested status tokens. Noise cancellation, theme, and transcription
+style stay in sync across the popover and the modal, and the transcription
+style controls are visible only while the current model's adapter declares
+`supportsTranscribeStyle` (both MAI models). Keep the external-invoker focus
 return and the narrow-width modal layout intact.
 
 Logout safety is unchanged: Sign out calls `AuthInteractionController.logOut()`,
@@ -216,8 +225,17 @@ HAR, trace, identity screenshot, or private output. See
 
 ## Repository documentation
 
-`plan/2.0-design.md` is the active interaction decision log. `spec/` contains
-component contracts. `docs/adr/0001-adopt-vite-and-msal-browser.md` records the
+`docs/design-log.md` is the active interaction decision log. `spec/` contains
+component contracts. `plans/` holds live executor plans and its status index;
+finished plans sit in `plans/archive/`, and pre-2.0 planning history sits in
+`docs/archive/pre-2.0/`. Both archives are records only: never treat their
+contents as current instructions, and exclude them when searching for how the
+system works today. `docs/adr/0001-adopt-vite-and-msal-browser.md` records the
 accepted build decision. Generated JSDoc HTML under `docs/` remains ignored and
-has no reproducible workflow; update the tracked specs directly. Preserve
-`CONTEXT.md` verbatim unless the User explicitly changes the glossary.
+has no reproducible workflow; update the tracked specs directly.
+`tools/architecture-map/` is a standalone interactive map of the production
+source with its own `package.json`; it is outside the app bundle and every root
+gate. Its prose and edges are authored in `src/architecture/graph.ts`; its
+counts come from `npm run sync` there, driven by `architecture.config.json` at
+the repo root. Preserve `GLOSSARY.md` verbatim unless the User explicitly
+changes the glossary.

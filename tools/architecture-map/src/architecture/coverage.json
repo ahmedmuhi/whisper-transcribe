@@ -1,0 +1,22 @@
+{
+  "$note": "Every production source file must be claimed exactly once. Patterns are relative to the repository root. Outside-world nodes (entra, azure, storage) own no files and are not listed.",
+  "boot": { "owns": ["js/main.js", "js/legacy-credential-cleanup.js", "index.html", "vite.config.js"] },
+  "spine": { "owns": ["js/constants.js", "js/event-bus.js"] },
+  "authsvc": { "owns": ["js/authentication-service.js", "js/authentication-config.js"] },
+  "tokens": { "owns": ["js/token-provider.js"] },
+  "authguard": { "owns": ["js/auth-interaction-controller.js"] },
+  "callback": { "owns": ["auth/redirect.html"] },
+  "mic": { "owns": ["js/audio-handler.js", "js/permission-manager.js"] },
+  "fsm": { "owns": ["js/recording-state-machine.js"] },
+  "picker": { "owns": ["js/selected-audio-controller.js"] },
+  "encode": { "owns": ["js/audio-converter.js", "js/audio-converter.worker.js", "js/wav-encoder.js"] },
+  "viz": { "owns": ["js/visualization.js"] },
+  "client": { "owns": ["js/api-client.js"] },
+  "adapters": { "owns": ["js/model-adapters/**"] },
+  "settings": { "owns": ["js/settings.js"] },
+  "surface": { "owns": ["js/settings-surface.js"] },
+  "store": { "owns": ["js/transcript-store.js"] },
+  "ui": { "owns": ["js/ui.js", "js/status-helper.js"] },
+  "diag": { "owns": ["js/logger.js", "js/error-handler.js"] },
+  "styles": { "owns": ["css/styles.css"] }
+}
