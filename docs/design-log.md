@@ -229,3 +229,37 @@ logout outright, and an Unsent Recording must be downloaded and then explicitly
 continued, or explicitly discarded. Download still does not navigate. Principles
 1 and 4 survive the rewrite intact, and any path that signs out while audio is
 at risk is a release blocker.
+
+## MAI-Transcribe 2 alongside 1.5 (2026-09-25)
+
+MAI-Transcribe 2 arrived in public preview as a more accurate, faster model with
+automatic language detection. It is added next to MAI-Transcribe 1.5, not in
+place of it, and it becomes the model a browser with no saved choice starts on.
+Implementation detail is in `plans/056-add-mai-transcribe-2.md`.
+
+**The new model is additive.** While 2 is in preview, 1.5 stays registered and
+selectable as a comparison and a fallback. A saved model choice is never
+rewritten; only a browser that has never stored one lands on 2. Retiring 1.5
+later means removing its adapter and resetting saved values to the default, and
+nothing else, because the shared controls key off storage and capability, not
+model ids.
+
+**The style is always explicit for 2.** The MAI-Transcribe 2 request always
+carries `modelOptions.transcribeStyle`, `"clean"` or `"verbatim"`, and has no
+`task` field, which is the shape the Foundry playground generates. Sending the
+style every time means the request says what the User chose rather than relying
+on a preview model's unstated default, so a default change on the service side
+cannot silently change the transcript.
+
+**1.5's Clean still omits the field.** Microsoft documents only `"verbatim"` as
+a style for 1.5, and 1.5's default output is already the readable style, so
+Clean on 1.5 sends no style field and its request stays byte-for-byte what it
+was. The reason is written beside the code so it does not read as an accident.
+One shared preference drives both models: the stored `'readability'` value is
+labelled Clean in the UI, so no storage migration was needed.
+
+**The Target URI is shared.** Both MAI models call the same Speech resource
+route and differ only inside the request body, so both adapters declare the same
+`storageKeys.uri` and the Connection category renders one MAI-Transcribe Target
+URI row. The User pastes nothing new, and a second row holding a copy of the
+same URI would only invite the two copies to drift apart.

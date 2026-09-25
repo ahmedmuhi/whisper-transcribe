@@ -122,11 +122,15 @@ persistence is limited to non-secret model, manual HTTPS Target URI,
 microphone, transcription style, theme, and transcript data. `Settings` owns
 the preferences; `TranscriptStore` owns transcript content. `STORAGE_KEYS` owns
 literal storage names, and each adapter's `storageKeys.uri` maps a model to its
-Target URI. Never add a credential field or key fallback.
+Target URI. Adapters that call the same Azure resource share one
+`storageKeys.uri` and therefore one Connection row: MAI-Transcribe 2 and
+MAI-Transcribe 1.5 both use `STORAGE_KEYS.MAI_TRANSCRIBE_URI` and differ only in
+the request body. Never add a credential field or key fallback.
 
 `SettingsSurface` owns the header gear popover, the native `<dialog>` settings
 modal, the initials badge and account presentation, and the logout dialog. The
-popover carries Model, Noise cancellation, Theme, and the All settings link; the
+popover carries Model, Transcription style (shown only for models that take
+one), Noise cancellation, Theme, and the All settings link; the
 modal pairs a sidebar (search, the Model, Microphone, Appearance, and Connection
 categories, and an account footer with Sign out) with the matching rows.
 `Ctrl/Cmd + ,` toggles the modal from anywhere, Escape closes the open surface,
@@ -141,9 +145,10 @@ or commit step and no discard-on-close behavior. A model change persists and
 emits immediately; a Target URI field strips whitespace, validates on input,
 persists only while the value is valid HTTPS, and removes the stored key when
 emptied, with a `.uri-badge` reporting valid, error, required, or not-set state
-from the tested status tokens. Noise cancellation and theme stay in sync across
-the popover and the modal, and the verbatim row is visible only while
-`mai-transcribe-1.5` is the current model. Keep the external-invoker focus
+from the tested status tokens. Noise cancellation, theme, and transcription
+style stay in sync across the popover and the modal, and the transcription
+style controls are visible only while the current model's adapter declares
+`supportsTranscribeStyle` (both MAI models). Keep the external-invoker focus
 return and the narrow-width modal layout intact.
 
 Logout safety is unchanged: Sign out calls `AuthInteractionController.logOut()`,
