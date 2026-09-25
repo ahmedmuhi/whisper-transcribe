@@ -65,6 +65,7 @@ test('desktop settings surface carries identity, categories, and instant apply',
     const gear = await openQuickSettings(page);
     await expect(page.locator('#model-select option')).toHaveText([
         'Azure Whisper',
+        'MAI-Transcribe 2',
         'MAI-Transcribe 1.5',
         'Azure GPT Transcribe'
     ]);
@@ -84,8 +85,8 @@ test('desktop settings surface carries identity, categories, and instant apply',
     await expect(page.locator('#settings-account-name')).toHaveText('Browser Fixture');
     await expect(page.locator('#settings-sign-out')).toBeVisible();
     await expect(page.locator('#save-settings')).toHaveCount(0);
-    // Verbatim belongs to MAI-Transcribe 1.5 only.
-    await expect(page.locator('#verbatim-setting')).toBeHidden();
+    // The transcription style belongs to the MAI-Transcribe models; hidden for Whisper.
+    await expect(page.locator('#transcribe-style-setting')).toBeHidden();
 
     await page.locator('[data-settings-category="microphone"]').click();
     await expect(page.locator('#settings-heading')).toHaveText('Microphone');

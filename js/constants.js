@@ -92,15 +92,27 @@ export const RECORDING_ENVIRONMENTS = {
 };
 
 /**
- * MAI-Transcribe 1.5 transcription styles. READABILITY is the default and is a
- * sentinel meaning "omit transcribeStyle entirely", which is how Microsoft's
- * readability-optimized default is selected. Only VERBATIM is ever sent.
+ * Stored transcription style preference, shared by both MAI-Transcribe models.
+ * READABILITY is the default and is shown to the User as "Clean". MAI-Transcribe
+ * 1.5 omits transcribeStyle for READABILITY (its default is already the readable
+ * style) and sends only VERBATIM; MAI-Transcribe 2 always sends a value, mapped
+ * through MAI_TRANSCRIBE_2_STYLE_VALUES.
  * @constant {Object} MAI_TRANSCRIBE_STYLES
  */
 export const MAI_TRANSCRIBE_STYLES = {
   READABILITY: 'readability',
   VERBATIM: 'verbatim'
 };
+
+/**
+ * The literal MAI-Transcribe 2 expects inside enhancedMode.modelOptions for
+ * each stored style. 2 defaults to verbatim, so the value is always sent.
+ * @constant {Object<string, string>} MAI_TRANSCRIBE_2_STYLE_VALUES
+ */
+export const MAI_TRANSCRIBE_2_STYLE_VALUES = Object.freeze({
+  [MAI_TRANSCRIBE_STYLES.READABILITY]: 'clean',
+  [MAI_TRANSCRIBE_STYLES.VERBATIM]: 'verbatim'
+});
 
 /** @constant {string} DEFAULT_MAI_TRANSCRIBE_STYLE @default 'readability' */
 export const DEFAULT_MAI_TRANSCRIBE_STYLE = MAI_TRANSCRIBE_STYLES.READABILITY;
@@ -117,7 +129,8 @@ export const API_PARAMS = {
   LANGUAGE:        'language',
   MAI_AUDIO_FIELD:    'audio',
   MAI_DEFINITION_FIELD: 'definition',
-  MAI_TRANSCRIBE_STYLE_FIELD: 'transcribeStyle'
+  MAI_TRANSCRIBE_STYLE_FIELD: 'transcribeStyle',
+  MAI_MODEL_OPTIONS_FIELD: 'modelOptions'
 };
 
 /**
@@ -131,6 +144,8 @@ export const MODEL_TYPES = {
   WHISPER:           'whisper',
   MAI_TRANSCRIBE_1_5: 'mai-transcribe-1.5',
   MAI_TRANSCRIBE_1_5_API_MODEL: 'mai-transcribe-1.5',
+  MAI_TRANSCRIBE_2: 'mai-transcribe-2',
+  MAI_TRANSCRIBE_2_API_MODEL: 'mai-transcribe-2',
   GPT_TRANSCRIBE:    'gpt-transcribe'
 };
 
@@ -139,12 +154,15 @@ export const MODEL_TYPES = {
  *
  * Azure OpenAI Whisper: https://learn.microsoft.com/azure/foundry/openai/whisper-quickstart
  * Azure MAI-Transcribe: https://learn.microsoft.com/azure/ai-services/speech-service/mai-transcribe
+ *   and the Speech REST reference
+ *   https://learn.microsoft.com/rest/api/speechtotext/transcriptions/transcribe
+ *   (audio shorter than 2 hours and smaller than 250 MB; shared by MAI-Transcribe 2 and 1.5)
  * Azure OpenAI GPT Transcribe: https://learn.microsoft.com/azure/ai-foundry/openai/whisper-quickstart
  *   (the same Azure OpenAI audio quickstart documents the 25 MB inline upload
  *   ceiling for every model on the `/audio/transcriptions` route)
  */
 export const WHISPER_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-export const MAI_TRANSCRIBE_MAX_UPLOAD_BYTES = (300 * 1024 * 1024) - 1;
+export const MAI_TRANSCRIBE_MAX_UPLOAD_BYTES = (250 * 1024 * 1024) - 1;
 export const GPT_TRANSCRIBE_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 /** Stable input-validation code for model upload-size failures. */
@@ -161,7 +179,7 @@ export const AUDIO_FORMAT_UNSUPPORTED_ERROR_CODE = 'audio-format-unsupported';
  *
  * @constant {string} DEFAULT_MODEL_TYPE
  */
-export const DEFAULT_MODEL_TYPE = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+export const DEFAULT_MODEL_TYPE = MODEL_TYPES.MAI_TRANSCRIBE_2;
 
 /** Safe authentication states exposed across module boundaries. */
 export const AUTHENTICATION_STATES = Object.freeze({
@@ -262,6 +280,10 @@ export const CONTENT_TYPES = {
  * @property {string} QUICK_SETTINGS - Quick-settings popover container
  * @property {string} USER_BADGE - Header initials badge for the signed-in account
  * @property {string} QUICK_NOISE_TOGGLE - Noise cancellation switch inside the popover
+ * @property {string} QUICK_TRANSCRIBE_STYLE_FIELD - Popover field wrapping the transcription style select
+ * @property {string} QUICK_TRANSCRIBE_STYLE_SELECT - Transcription style select inside the popover
+ * @property {string} TRANSCRIBE_STYLE_SETTING - Settings modal row holding the transcription style select
+ * @property {string} TRANSCRIBE_STYLE_SELECT - Transcription style select in the settings modal
  * @property {string} OPEN_ALL_SETTINGS - Popover link that opens the settings modal
  * @property {string} SETTINGS_MODAL - Settings dialog element
  * @property {string} SETTINGS_SEARCH - Settings search field
@@ -343,8 +365,10 @@ export const ID = Object.freeze({
   NOISE_TOGGLE: 'noise-toggle',
   PALETTE_LABEL: 'palette-label',
   PALETTE_GRID: 'palette-grid',
-  VERBATIM_SETTING: 'verbatim-setting',
-  VERBATIM_TOGGLE: 'verbatim-toggle',
+  TRANSCRIBE_STYLE_SETTING: 'transcribe-style-setting',
+  TRANSCRIBE_STYLE_SELECT: 'transcribe-style-select',
+  QUICK_TRANSCRIBE_STYLE_FIELD: 'quick-transcribe-style-field',
+  QUICK_TRANSCRIBE_STYLE_SELECT: 'quick-transcribe-style-select',
   INPUT_DEVICE: 'input-device',
   VISUALIZER: 'visualizer',
   VISUALIZER_CONTAINER: 'visualizer-container',

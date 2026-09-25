@@ -8,8 +8,7 @@ import {
     AUTHENTICATION_STATES,
     AUTH_RECOVERY_STATES,
     ID,
-    MESSAGES,
-    MODEL_TYPES
+    MESSAGES
 } from './constants.js';
 import { APP_EVENTS, eventBus } from './event-bus.js';
 
@@ -342,10 +341,10 @@ export class SettingsSurface {
         }
     }
 
-    /** The verbatim row belongs to MAI-Transcribe 1.5 only, search included. */
+    /** The transcription style row shows only for models that take a style, search included. */
     _isRowAllowed(row) {
-        if (row.dataset.settingsRow !== 'verbatim') return true;
-        return this.settings?.getCurrentModel?.() === MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        if (row.dataset.settingsRow !== 'transcribeStyle') return true;
+        return this.settings?.supportsTranscribeStyle?.() === true;
     }
 
     /* -------------------------------------------------------------- log out */

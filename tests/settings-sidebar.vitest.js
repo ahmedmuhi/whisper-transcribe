@@ -1,6 +1,6 @@
 /**
  * @fileoverview Settings modal sidebar behavior: category navigation, search
- * filtering, category chips, the no-results empty state, and verbatim gating.
+ * filtering, category chips, the no-results empty state, and transcription style gating.
  * The sidebar is owned by SettingsSurface; preference persistence is not.
  */
 
@@ -60,6 +60,10 @@ describe('Settings modal sidebar', () => {
             authInteractionController: { logOut: vi.fn() },
             settings: {
                 getCurrentModel: () => currentModel,
+                supportsTranscribeStyle: vi.fn(() => [
+                    MODEL_TYPES.MAI_TRANSCRIBE_2,
+                    MODEL_TYPES.MAI_TRANSCRIBE_1_5
+                ].includes(currentModel)),
                 populateDeviceList: vi.fn().mockResolvedValue(undefined)
             }
         });
@@ -151,8 +155,8 @@ describe('Settings modal sidebar', () => {
         expect(rowsShowingChips()).toEqual([]);
     });
 
-    it('hides the verbatim row while Whisper is the active model', () => {
-        expect(document.getElementById(ID.VERBATIM_SETTING).hidden).toBe(true);
+    it('hides the transcription style row while Whisper is the active model', () => {
+        expect(document.getElementById(ID.TRANSCRIBE_STYLE_SETTING).hidden).toBe(true);
 
         search('verbatim');
 
@@ -160,31 +164,52 @@ describe('Settings modal sidebar', () => {
         expect(document.getElementById(ID.SETTINGS_NO_RESULTS).hidden).toBe(false);
     });
 
-    it('shows the verbatim row for MAI-Transcribe 1.5 in the Model category and in search', () => {
-        currentModel = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+    it.each([
+        [MODEL_TYPES.MAI_TRANSCRIBE_2],
+        [MODEL_TYPES.MAI_TRANSCRIBE_1_5]
+    ])('shows the transcription style row for %s in the Model category and in search', (model) => {
+        currentModel = model;
         surface.refreshRows();
 
-        expect(visibleRows()).toEqual(['model', 'verbatim']);
+        expect(visibleRows()).toEqual(['model', 'transcribeStyle']);
 
         search('filler words');
 
-        expect(visibleRows()).toEqual(['verbatim']);
+        expect(visibleRows()).toEqual(['transcribeStyle']);
         expect(document.getElementById(ID.SETTINGS_NO_RESULTS).hidden).toBe(true);
         expect(
-            document.querySelector('[data-settings-row="verbatim"] .settings-row-chip').hidden
+            document.querySelector('[data-settings-row="transcribeStyle"] .settings-row-chip').hidden
         ).toBe(false);
+
+        for (const query of ['verbatim', 'clean']) {
+            search(query);
+            expect(visibleRows()).toEqual(['transcribeStyle']);
+        }
     });
 
-    it('re-hides the verbatim row when the model switches back to Whisper', () => {
-        currentModel = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+    it.each([
+        [MODEL_TYPES.WHISPER],
+        [MODEL_TYPES.GPT_TRANSCRIBE]
+    ])('keeps the transcription style row out of search while %s is current', (model) => {
+        currentModel = model;
         surface.refreshRows();
-        expect(visibleRows()).toContain('verbatim');
+
+        for (const query of ['verbatim', 'clean']) {
+            search(query);
+            expect(visibleRows()).not.toContain('transcribeStyle');
+        }
+    });
+
+    it('re-hides the transcription style row when the model switches back to Whisper', () => {
+        currentModel = MODEL_TYPES.MAI_TRANSCRIBE_2;
+        surface.refreshRows();
+        expect(visibleRows()).toContain('transcribeStyle');
 
         currentModel = MODEL_TYPES.WHISPER;
         surface.refreshRows();
 
         expect(visibleRows()).toEqual(['model']);
-        expect(document.getElementById(ID.VERBATIM_SETTING).hidden).toBe(true);
+        expect(document.getElementById(ID.TRANSCRIBE_STYLE_SETTING).hidden).toBe(true);
     });
 
     it('resets the search field and honours the requested category when the modal opens', () => {

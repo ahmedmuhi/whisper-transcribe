@@ -73,7 +73,8 @@ const requiredElementIds = [
     ID.WHISPER_URI, ID.WHISPER_URI_BADGE,
     ID.MAI_TRANSCRIBE_URI, ID.MAI_URI_BADGE,
     ID.NOISE_TOGGLE, ID.QUICK_NOISE_TOGGLE, ID.RECORDING_ENVIRONMENT,
-    ID.VERBATIM_SETTING, ID.VERBATIM_TOGGLE, ID.INPUT_DEVICE,
+    ID.TRANSCRIBE_STYLE_SETTING, ID.TRANSCRIBE_STYLE_SELECT,
+    ID.QUICK_TRANSCRIBE_STYLE_FIELD, ID.QUICK_TRANSCRIBE_STYLE_SELECT, ID.INPUT_DEVICE,
     ID.GRAB_TEXT_BUTTON, ID.TRANSCRIPT, ID.TIMER, ID.SPINNER_CONTAINER
 ].filter(Boolean);
 
@@ -342,23 +343,28 @@ describe('Settings instant apply: model changes', () => {
         expect(storageState.get(STORAGE_KEYS.MODEL)).toBe(MODEL_TYPES.WHISPER);
     });
 
-    test('the verbatim row follows the model, and the surface owns it once wired', () => {
-        const verbatimRow = mockElements.get(ID.VERBATIM_SETTING);
+    test('the transcription style row follows the model, and the surface owns it once wired', () => {
+        const styleRow = mockElements.get(ID.TRANSCRIBE_STYLE_SETTING);
+        const quickField = mockElements.get(ID.QUICK_TRANSCRIBE_STYLE_FIELD);
 
         selectModel(mockElements.get(ID.MODEL_SELECT), MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-        expect(verbatimRow.hidden).toBe(false);
+        expect(styleRow.hidden).toBe(false);
+        expect(quickField.hidden).toBe(false);
 
         selectModel(mockElements.get(ID.MODEL_SELECT), MODEL_TYPES.WHISPER);
-        expect(verbatimRow.hidden).toBe(true);
+        expect(styleRow.hidden).toBe(true);
+        expect(quickField.hidden).toBe(true);
 
         // With a surface attached, row visibility is re-derived by its filter so
-        // the row cannot leak into an unrelated category.
+        // the row cannot leak into an unrelated category; the popover field is
+        // still Settings-owned because the surface never filters the popover.
         const surface = { refreshRows: vi.fn() };
         settings.setSurface(surface);
-        selectModel(mockElements.get(ID.MODEL_SELECT), MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        selectModel(mockElements.get(ID.MODEL_SELECT), MODEL_TYPES.MAI_TRANSCRIBE_2);
 
         expect(surface.refreshRows).toHaveBeenCalledOnce();
-        expect(verbatimRow.hidden).toBe(true);
+        expect(styleRow.hidden).toBe(true);
+        expect(quickField.hidden).toBe(false);
     });
 
     test('the draft/commit API is gone', () => {

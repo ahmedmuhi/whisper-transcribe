@@ -67,17 +67,21 @@ describe('AzureAPIClient configuration validation', () => {
         );
     });
 
-    it('passes the MAI-Transcribe style through the explicit allow-list', () => {
+    it.each([
+        ['mai-transcribe-1.5', 'verbatim'],
+        ['mai-transcribe-2', 'verbatim'],
+        ['mai-transcribe-2', 'readability']
+    ])('passes the %s style %s through the explicit allow-list', (model, transcribeStyle) => {
         mockSettings.getModelConfig.mockReturnValue({
-            model: 'mai-transcribe-1.5',
+            model,
             uri: 'https://mai-transcribe.invalid/transcribe',
-            transcribeStyle: 'verbatim'
+            transcribeStyle
         });
 
         expect(apiClient.validateConfig()).toEqual({
-            model: 'mai-transcribe-1.5',
+            model,
             uri: 'https://mai-transcribe.invalid/transcribe',
-            transcribeStyle: 'verbatim'
+            transcribeStyle
         });
     });
 
