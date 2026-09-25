@@ -613,7 +613,6 @@ export const MESSAGES = {
   REQUEST_TIMED_OUT: 'The request timed out. Check your connection and try again.',
 
   // New-model notice (one-time marker for an adapter with announceAsNew)
-  NEW_MODEL_PILL_TEXT: 'New',
   NEW_MODEL_OPTION_SUFFIX: ' · New',
   QUICK_SETTINGS_LABEL: 'Quick settings',
   QUICK_SETTINGS_NEW_MODEL_LABEL: 'Quick settings, new model available',
