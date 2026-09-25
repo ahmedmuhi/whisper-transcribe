@@ -263,3 +263,24 @@ route and differ only inside the request body, so both adapters declare the same
 `storageKeys.uri` and the Connection category renders one MAI-Transcribe Target
 URI row. The User pastes nothing new, and a second row holding a copy of the
 same URI would only invite the two copies to drift apart.
+
+## One-time New marker for new models (2026-09-25)
+
+An existing User would only find MAI-Transcribe 2 by opening the Model dropdown,
+so a newly added model gets a small "New" marker: a pill on the header gear, a
+pill beside the Model row in the popover and in the settings modal, and a
+` · New` suffix on its dropdown option, because a native `<option>` can hold
+only text. Implementation detail is in `plans/057-one-time-new-model-notice.md`.
+
+**Opening either surface acknowledges it.** The first time the User opens the
+quick-settings popover or the settings modal, the model is recorded as seen in
+browser-local storage. The gear pill hides at once, because its only job is to
+say "look in here" and the User has just looked. The pills inside the surfaces
+and the option suffix stay for the rest of that page load, so the User actually
+sees what was new in the surface they opened, including when they go on from the
+popover to All settings. On the next load nothing shows.
+
+**Acknowledgement is per model id.** An adapter opts in with `announceAsNew`,
+and the stored value is the list of ids already seen. The next model to set the
+flag shows the notice again, even to a User who acknowledged MAI-Transcribe 2,
+without anyone having to reset a single "seen the notice" switch.

@@ -39,6 +39,7 @@ export const STATUS_TYPE_CLASSES = ['status--error', 'status--success'];
  * @property {string} GPT_TRANSCRIBE_URI - Key for storing the GPT Transcribe Target URI
  * @property {string} THEME_MODE - Key for storing user's preferred theme mode
  * @property {string} THEME_PALETTE - Key for storing user's preferred colour palette
+ * @property {string} ACKNOWLEDGED_NEW_MODELS - Key for the JSON array of new-model ids whose one-time notice the User has seen
  */
 export const STORAGE_KEYS = {
   MODEL:                'transcription_model',
@@ -50,7 +51,8 @@ export const STORAGE_KEYS = {
   THEME_PALETTE:        'themePalette',
   RECORDING_ENVIRONMENT: 'recording_environment',
   INPUT_DEVICE:          'input_device',
-  TRANSCRIPT_RECORD:     'transcript_record'
+  TRANSCRIPT_RECORD:     'transcript_record',
+  ACKNOWLEDGED_NEW_MODELS: 'acknowledged_new_models'
 };
 
 /**
@@ -278,6 +280,9 @@ export const CONTENT_TYPES = {
  * @property {string} SPINNER_CONTAINER - Loading spinner container
  * @property {string} QUICK_SETTINGS_BUTTON - Header gear button opening the quick-settings popover
  * @property {string} QUICK_SETTINGS - Quick-settings popover container
+ * @property {string} QUICK_SETTINGS_NEW_PILL - One-time New pill on the header gear button
+ * @property {string} QUICK_MODEL_NEW_PILL - One-time New pill beside the popover Model label
+ * @property {string} SETTINGS_MODEL_NEW_PILL - One-time New pill beside the settings modal Model row title
  * @property {string} USER_BADGE - Header initials badge for the signed-in account
  * @property {string} QUICK_NOISE_TOGGLE - Noise cancellation switch inside the popover
  * @property {string} QUICK_TRANSCRIBE_STYLE_FIELD - Popover field wrapping the transcription style select
@@ -342,6 +347,9 @@ export const ID = Object.freeze({
   TIMER: 'timer',
   QUICK_SETTINGS_BUTTON: 'quick-settings-button',
   QUICK_SETTINGS: 'quick-settings',
+  QUICK_SETTINGS_NEW_PILL: 'quick-settings-new-pill',
+  QUICK_MODEL_NEW_PILL: 'quick-model-new-pill',
+  SETTINGS_MODEL_NEW_PILL: 'settings-model-new-pill',
   USER_BADGE: 'user-badge',
   QUICK_NOISE_TOGGLE: 'quick-noise-toggle',
   OPEN_ALL_SETTINGS: 'open-all-settings',
@@ -603,6 +611,12 @@ export const MESSAGES = {
   CHECK_INTERNET_CONNECTION: 'Check your internet connection and try again.',
   RETRY_TRANSCRIPTION: 'Retry transcription',
   REQUEST_TIMED_OUT: 'The request timed out. Check your connection and try again.',
+
+  // New-model notice (one-time marker for an adapter with announceAsNew)
+  NEW_MODEL_PILL_TEXT: 'New',
+  NEW_MODEL_OPTION_SUFFIX: ' · New',
+  QUICK_SETTINGS_LABEL: 'Quick settings',
+  QUICK_SETTINGS_NEW_MODEL_LABEL: 'Quick settings, new model available',
 };
 
 /**

@@ -161,13 +161,22 @@ export class Settings {
                     palette: this._getStoredThemePalette()
                 });
             }
+            if (event.key === STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS || event.key === null) {
+                // Another tab acknowledged (or cleared storage): only the gear
+                // marker follows; this load's in-surface pills stay as they are.
+                this.surface?.refreshNewModelMarker?.();
+            }
         };
 
         this.init();
     }
 
     init() {
+        // Computed once per page load: the in-surface pills and option suffix
+        // stay for this load even after the User acknowledges the notice.
+        this.newModelIdsThisLoad = new Set(this.getUnacknowledgedNewModels());
         this._renderModelOptions();
+        this._renderNewModelPills();
         renderConnectionRows(undefined, this.adapterRegistry);
         this._resolveUriFields();
         this.loadSavedModel();
@@ -355,10 +364,77 @@ export class Settings {
             for (const adapter of listModelAdapters(this.adapterRegistry)) {
                 const option = document.createElement('option');
                 option.value = adapter.id;
-                option.textContent = adapter.optionLabel || adapter.label || adapter.id;
+                const text = adapter.optionLabel || adapter.label || adapter.id;
+                option.textContent = this.newModelIdsThisLoad?.has(adapter.id)
+                    ? `${text}${MESSAGES.NEW_MODEL_OPTION_SUFFIX}`
+                    : text;
                 select.appendChild(option);
             }
         });
+    }
+
+    /** Shows the Model row pills while this page load has an unacknowledged new model. */
+    _renderNewModelPills() {
+        const visible = this.newModelIdsThisLoad.size > 0;
+        [ID.QUICK_MODEL_NEW_PILL, ID.SETTINGS_MODEL_NEW_PILL].forEach((id) => {
+            const pill = document.getElementById(id);
+            if (pill) pill.hidden = !visible;
+        });
+    }
+
+    /**
+     * Reads the acknowledged new-model ids; anything unreadable counts as none.
+     *
+     * @returns {string[]} Acknowledged adapter ids.
+     */
+    _readAcknowledgedNewModels() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS));
+            return Array.isArray(parsed)
+                ? parsed.filter((id) => typeof id === 'string')
+                : [];
+        } catch {
+            return [];
+        }
+    }
+
+    /** @returns {string[]} Ids of adapters that opt in with announceAsNew. */
+    _getAnnouncedModelIds() {
+        return listModelAdapters(this.adapterRegistry)
+            .filter((adapter) => adapter.announceAsNew === true)
+            .map((adapter) => adapter.id);
+    }
+
+    /**
+     * Lists the announced models the User has not yet acknowledged.
+     *
+     * @returns {string[]} Unacknowledged adapter ids.
+     */
+    getUnacknowledgedNewModels() {
+        const acknowledged = new Set(this._readAcknowledgedNewModels());
+        return this._getAnnouncedModelIds().filter((id) => !acknowledged.has(id));
+    }
+
+    /**
+     * Records every announced model as acknowledged. Idempotent.
+     *
+     * @returns {boolean} Whether the stored list changed.
+     */
+    acknowledgeNewModels() {
+        const stored = this._readAcknowledgedNewModels();
+        const merged = [...new Set([...stored, ...this._getAnnouncedModelIds()])];
+        const next = JSON.stringify(merged);
+        try {
+            if (merged.length === 0
+                || localStorage.getItem(STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS) === next) {
+                return false;
+            }
+            localStorage.setItem(STORAGE_KEYS.ACKNOWLEDGED_NEW_MODELS, next);
+        } catch (error) {
+            logger.warn('New-model acknowledgement could not be stored', error?.name);
+            return false;
+        }
+        return true;
     }
 
     /**

@@ -29,6 +29,8 @@ async function openScenario(page, { scenario = 'ready', configured = true } = {}
     await page.addInitScript(({ authScenario, endpoint, hasConfiguration }) => {
         sessionStorage.setItem('browser_test_auth_scenario', authScenario);
         localStorage.setItem('transcription_model', 'whisper');
+        // The one-time New notice is covered by new-model-notice.spec.js.
+        localStorage.setItem('acknowledged_new_models', '["mai-transcribe-2"]');
         if (hasConfiguration) localStorage.setItem('whisper_uri', endpoint);
         else localStorage.removeItem('whisper_uri');
         globalThis.__browserTestMicCalls = 0;

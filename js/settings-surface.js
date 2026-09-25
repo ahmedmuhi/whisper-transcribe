@@ -86,6 +86,7 @@ export class SettingsSurface {
         this.settings = settings;
 
         this.gearButton = document.getElementById(ID.QUICK_SETTINGS_BUTTON);
+        this.gearNewPill = document.getElementById(ID.QUICK_SETTINGS_NEW_PILL);
         this.popover = document.getElementById(ID.QUICK_SETTINGS);
         this.openAllSettingsButton = document.getElementById(ID.OPEN_ALL_SETTINGS);
         this.userBadge = document.getElementById(ID.USER_BADGE);
@@ -154,6 +155,7 @@ export class SettingsSurface {
         ));
 
         this.selectCategory(this.activeCategory);
+        this.refreshNewModelMarker();
         this.updateAuthenticationState(
             this.authenticationService?.getState?.() || AUTHENTICATION_STATES.UNINITIALIZED
         );
@@ -223,6 +225,7 @@ export class SettingsSurface {
 
     openPopover() {
         if (!this.popover) return;
+        this._acknowledgeNewModels();
         this.popoverOpen = true;
         this.popover.hidden = false;
         this.gearButton?.setAttribute?.('aria-expanded', 'true');
@@ -235,6 +238,27 @@ export class SettingsSurface {
         if (this.popover) this.popover.hidden = true;
         this.gearButton?.setAttribute?.('aria-expanded', 'false');
         if (restoreFocus) this.gearButton?.focus?.();
+    }
+
+    /* ------------------------------------------------------ new-model notice */
+
+    /**
+     * Shows the gear's New pill and names it in the gear's accessible label while
+     * an announced model is unacknowledged; otherwise restores the plain gear.
+     */
+    refreshNewModelMarker() {
+        const pending = this.settings?.getUnacknowledgedNewModels?.().length > 0;
+        if (this.gearNewPill) this.gearNewPill.hidden = !pending;
+        this.gearButton?.setAttribute?.(
+            'aria-label',
+            pending ? MESSAGES.QUICK_SETTINGS_NEW_MODEL_LABEL : MESSAGES.QUICK_SETTINGS_LABEL
+        );
+    }
+
+    /** Opening either surface counts as the User having seen the new model. */
+    _acknowledgeNewModels() {
+        this.settings?.acknowledgeNewModels?.();
+        this.refreshNewModelMarker();
     }
 
     /* ----------------------------------------------------------------- modal */
@@ -252,6 +276,7 @@ export class SettingsSurface {
      */
     openModal({ category, invoker = null } = {}) {
         if (!this.modal) return;
+        this._acknowledgeNewModels();
         this.closePopover({ restoreFocus: false });
         this.modalInvoker = invoker || this.modalInvoker || this.gearButton;
         if (this.searchInput) this.searchInput.value = '';

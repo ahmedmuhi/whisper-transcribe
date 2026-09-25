@@ -32,13 +32,16 @@ function createMaiTranscribeModelAdapter({
     buildEnhancedMode,
     uploadLimitLabel,
     uploadLimitVerdict,
-    uri
+    uri,
+    announceAsNew = false
 }) {
     return Object.freeze({
         id,
         label,
         optionLabel,
         uiOrder,
+        // Only an announced model carries the flag, so other adapter shapes stay unchanged.
+        ...(announceAsNew ? { announceAsNew: true } : {}),
         supportsTranscribeStyle: true,
         scope: COGNITIVE_SERVICES_SCOPE,
         storageKeys: Object.freeze({
@@ -113,6 +116,7 @@ export const maiTranscribe2ModelAdapter = createMaiTranscribeModelAdapter({
     label: 'Azure MAI-Transcribe 2',
     optionLabel: 'MAI-Transcribe 2',
     uiOrder: 2,
+    announceAsNew: true,
     buildEnhancedMode(transcribeStyle) {
         // MAI-Transcribe 2 defaults to verbatim, so the style is always explicit.
         // hasOwn, not `??`: an inherited name such as 'toString' must not select a value.

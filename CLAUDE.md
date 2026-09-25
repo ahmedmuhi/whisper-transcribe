@@ -119,7 +119,8 @@ Adding a model follows the adapter-addition checklist in
 
 Browser-local
 persistence is limited to non-secret model, manual HTTPS Target URI,
-microphone, transcription style, theme, and transcript data. `Settings` owns
+microphone, transcription style, theme, transcript data, and the new-model
+notice acknowledgement. `Settings` owns
 the preferences; `TranscriptStore` owns transcript content. `STORAGE_KEYS` owns
 literal storage names, and each adapter's `storageKeys.uri` maps a model to its
 Target URI. Adapters that call the same Azure resource share one
@@ -136,6 +137,9 @@ categories, and an account footer with Sign out) with the matching rows.
 `Ctrl/Cmd + ,` toggles the modal from anywhere, Escape closes the open surface,
 and focus returns to the invoker. The badge, account footer, and Sign out appear
 only in the ready authentication state; the gear is always visible.
+An adapter with `announceAsNew` gets a one-time New marker on the gear, the
+Model rows, and its option text, acknowledged the first time either surface
+opens.
 `Settings.openSettingsModal(invoker)` delegates to the surface so
 `API_CONFIG_MISSING` recovery and the island Open settings action land on the
 Connection category.

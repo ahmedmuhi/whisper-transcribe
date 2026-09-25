@@ -1819,6 +1819,29 @@ input[type="checkbox"][role="switch"]:disabled {
     vertical-align: middle;
 }
 
+/* One-time marker for a newly added model; the tested on-accent pair keeps AA in every palette. */
+.new-model-pill {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+    vertical-align: baseline;
+}
+
+/* Sits on the gear's corner without changing the button's box or hit target. */
+.new-model-pill--gear {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    margin-left: 0;
+    pointer-events: none;
+}
+
 .settings-row select,
 .settings-row input[type="url"] {
     width: 260px;
