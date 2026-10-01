@@ -145,14 +145,18 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5).storageKeys).toEqual({
             uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
         });
+        expect(modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_2).storageKeys).toEqual({
+            uri: STORAGE_KEYS.MAI_TRANSCRIBE_URI
+        });
         expect(modelAdapterRegistry.get(MODEL_TYPES.GPT_TRANSCRIBE).storageKeys).toEqual({
             uri: STORAGE_KEYS.GPT_TRANSCRIBE_URI
         });
-        expect(modelAdapterRegistry.size).toBe(3);
+        expect(modelAdapterRegistry.size).toBe(4);
     });
 
     it.each([
         [MODEL_TYPES.WHISPER],
+        [MODEL_TYPES.MAI_TRANSCRIBE_2],
         [MODEL_TYPES.MAI_TRANSCRIBE_1_5],
         [MODEL_TYPES.GPT_TRANSCRIBE]
     ])('resolves the real registered scope for %s without a stub', (model) => {
@@ -161,6 +165,24 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(apiClient.getScopeForModel(model)).toBe(COGNITIVE_SERVICES_SCOPE);
         expect(apiClient.getScopeForModel(model))
             .toBe('https://cognitiveservices.azure.com/.default');
+    });
+
+    it('lets both MAI adapters share one Target URI row and declare a transcription style', () => {
+        const mai2 = modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_2);
+        const mai15 = modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+
+        for (const adapter of [mai2, mai15]) {
+            expect(adapter.storageKeys.uri).toBe(STORAGE_KEYS.MAI_TRANSCRIBE_URI);
+            expect(adapter.supportsTranscribeStyle).toBe(true);
+        }
+        expect(mai2.uri).toBe(mai15.uri);
+        expect(mai2).toMatchObject({
+            label: 'Azure MAI-Transcribe 2',
+            optionLabel: 'MAI-Transcribe 2',
+            uiOrder: 2
+        });
+        expect(modelAdapterRegistry.get(MODEL_TYPES.WHISPER).supportsTranscribeStyle).toBeUndefined();
+        expect(modelAdapterRegistry.get(MODEL_TYPES.GPT_TRANSCRIBE).supportsTranscribeStyle).toBeUndefined();
     });
 
     it('refuses to resolve a scope for an unregistered model', () => {
@@ -492,6 +514,89 @@ describe('AzureAPIClient model adapter registry', () => {
         });
     });
 
+    it('omits transcribeStyle for an unknown MAI-Transcribe 1.5 style', async () => {
+        const apiClient = createApiClient(createSettings(
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5,
+            { transcribeStyle: 'bogus' }
+        ));
+        mockJsonResponse({ combinedPhrases: [{ text: 'Output.' }], phrases: [] });
+
+        await apiClient.transcribe(new Blob(['captured audio'], { type: 'audio/mp4' }));
+
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_1_5_API_MODEL,
+                task: 'transcribe'
+            }
+        });
+    });
+
+    it('sends an explicit clean style for MAI-Transcribe 2 when no style is supplied', async () => {
+        const apiClient = createApiClient(createSettings(MODEL_TYPES.MAI_TRANSCRIBE_2));
+        const onProgress = vi.fn();
+        const audioBlob = new Blob(['captured audio'], { type: 'audio/mp4' });
+        mockJsonResponse({
+            durationMilliseconds: 1000,
+            combinedPhrases: [{ text: 'MAI 2 output.' }],
+            phrases: []
+        });
+
+        await expect(apiClient.transcribe(audioBlob, onProgress)).resolves.toBe('MAI 2 output.');
+
+        expect(getFetchOptions().headers).toEqual({ Authorization: `Bearer ${FAKE_TOKEN}` });
+        expect(getFormEntry(API_PARAMS.MAI_AUDIO_FIELD)).toEqual({
+            key: API_PARAMS.MAI_AUDIO_FIELD,
+            value: expect.objectContaining({ type: 'audio/wav' }),
+            filename: DEFAULT_WAV_FILENAME
+        });
+        expect(JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: 'mai-transcribe-2',
+                modelOptions: { transcribeStyle: 'clean' }
+            }
+        });
+        expect(getFormEntry(API_PARAMS.FILE)).toBeUndefined();
+        expect(onProgress).toHaveBeenCalledWith(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
+    });
+
+    it.each([
+        [MAI_TRANSCRIBE_STYLES.READABILITY, 'clean'],
+        [MAI_TRANSCRIBE_STYLES.VERBATIM, 'verbatim'],
+        ['bogus', 'clean'],
+        ['toString', 'clean']
+    ])('maps stored style %s to MAI-Transcribe 2 transcribeStyle %s', async (stored, expected) => {
+        const apiClient = createApiClient(createSettings(
+            MODEL_TYPES.MAI_TRANSCRIBE_2,
+            { transcribeStyle: stored }
+        ));
+        mockJsonResponse({ combinedPhrases: [{ text: 'Output.' }], phrases: [] });
+
+        await apiClient.transcribe(new Blob(['captured audio'], { type: 'audio/mp4' }));
+
+        const definition = JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value);
+        expect(definition.enhancedMode.modelOptions).toEqual({ transcribeStyle: expected });
+    });
+
+    it('sends no task, diarization, phrase list, or locales for MAI-Transcribe 2', async () => {
+        const apiClient = createApiClient(createSettings(
+            MODEL_TYPES.MAI_TRANSCRIBE_2,
+            { transcribeStyle: MAI_TRANSCRIBE_STYLES.VERBATIM }
+        ));
+        mockJsonResponse({ combinedPhrases: [{ text: 'Output.' }], phrases: [] });
+
+        await apiClient.transcribe(new Blob(['captured audio'], { type: 'audio/mp4' }));
+
+        const definition = JSON.parse(getFormEntry(API_PARAMS.MAI_DEFINITION_FIELD).value);
+        expect(Object.keys(definition)).toEqual(['enhancedMode']);
+        expect(definition.enhancedMode).not.toHaveProperty('task');
+        expect(definition.enhancedMode).not.toHaveProperty('transcribeStyle');
+        for (const field of ['diarization', 'phraseList', 'locales']) {
+            expect(definition).not.toHaveProperty(field);
+        }
+    });
+
     it('ignores transcribeStyle for Whisper requests', async () => {
         const apiClient = createApiClient(createSettings(
             MODEL_TYPES.WHISPER,
@@ -524,7 +629,7 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
-    it('accepts MAI audio at the strict less-than-300-MB boundary after conversion', async () => {
+    it('accepts MAI audio at the strict less-than-250-MB boundary after conversion', async () => {
         const apiClient = createApiClient(createSettings(MODEL_TYPES.MAI_TRANSCRIBE_1_5));
         const sourceBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1);
         const wavBlob = createBlobWithStubbedSize(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES, 'audio/wav');
@@ -615,11 +720,33 @@ describe('AzureAPIClient model adapter registry', () => {
         await expect(apiClient.transcribe(sourceBlob)).rejects.toMatchObject({
             code: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
             retryable: false,
-            message: formatAudioUploadLimitMessage('Azure MAI-Transcribe 1.5', 'under 300 MB')
+            message: formatAudioUploadLimitMessage('Azure MAI-Transcribe 1.5', 'under 250 MB')
         });
 
         expect(convertToWav).toHaveBeenCalledWith(sourceBlob);
         expect(globalThis.FormData).not.toHaveBeenCalled();
+        expect(tokenProvider.getToken).not.toHaveBeenCalled();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('rejects an oversized MAI-Transcribe 2 WAV with the under 250 MB message', async () => {
+        const tokenProvider = createTokenProvider();
+        const apiClient = new AzureAPIClient(
+            createSettings(MODEL_TYPES.MAI_TRANSCRIBE_2),
+            tokenProvider
+        );
+        const sourceBlob = createBlobWithStubbedSize(1);
+        convertToWav.mockResolvedValueOnce(createBlobWithStubbedSize(
+            MAI_TRANSCRIBE_MAX_UPLOAD_BYTES + 1,
+            'audio/wav'
+        ));
+
+        await expect(apiClient.transcribe(sourceBlob)).rejects.toMatchObject({
+            code: AUDIO_UPLOAD_LIMIT_ERROR_CODE,
+            retryable: false,
+            message: formatAudioUploadLimitMessage('Azure MAI-Transcribe 2', 'under 250 MB')
+        });
+        expect(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES).toBe((250 * 1024 * 1024) - 1);
         expect(tokenProvider.getToken).not.toHaveBeenCalled();
         expect(globalThis.fetch).not.toHaveBeenCalled();
     });

@@ -36,6 +36,12 @@ function installSettingsDom() {
             <option value="${MODEL_TYPES.WHISPER}">Azure Whisper</option>
             <option value="${MODEL_TYPES.MAI_TRANSCRIBE_1_5}">MAI-Transcribe 1.5</option>
         </select>
+        <label id="${ID.QUICK_TRANSCRIBE_STYLE_FIELD}" hidden>
+            <select id="${ID.QUICK_TRANSCRIBE_STYLE_SELECT}">
+                <option value="readability">Clean</option>
+                <option value="verbatim">Verbatim</option>
+            </select>
+        </label>
         <input id="${ID.QUICK_NOISE_TOGGLE}" type="checkbox" role="switch">
         <input type="radio" name="theme-mode-quick" value="auto">
         <input type="radio" name="theme-mode-quick" value="light">
@@ -47,8 +53,11 @@ function installSettingsDom() {
                     <option value="${MODEL_TYPES.MAI_TRANSCRIBE_1_5}">MAI-Transcribe 1.5</option>
                 </select>
             </div>
-            <div class="settings-row" id="${ID.VERBATIM_SETTING}" data-settings-row="verbatim" data-category="model">
-                <input id="${ID.VERBATIM_TOGGLE}" type="checkbox" role="switch">
+            <div class="settings-row" id="${ID.TRANSCRIBE_STYLE_SETTING}" data-settings-row="transcribeStyle" data-category="model">
+                <select id="${ID.TRANSCRIBE_STYLE_SELECT}">
+                    <option value="readability">Clean</option>
+                    <option value="verbatim">Verbatim</option>
+                </select>
             </div>
             <div class="settings-row" data-settings-row="device" data-category="microphone">
                 <select id="${ID.INPUT_DEVICE}">
@@ -483,22 +492,54 @@ describe('Microphone and transcription preferences apply instantly', () => {
         settings.destroy();
     });
 
-    it('persists verbatim transcription immediately when the switch changes', () => {
+    it('persists verbatim transcription immediately when the style select changes', () => {
         const settings = new Settings();
 
-        settings.verbatimToggle.checked = true;
-        settings.verbatimToggle.dispatchEvent(new Event('change'));
+        settings.transcribeStyleSelect.value = MAI_TRANSCRIBE_STYLES.VERBATIM;
+        settings.transcribeStyleSelect.dispatchEvent(new Event('change'));
         expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
             .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
 
-        settings.verbatimToggle.checked = false;
-        settings.verbatimToggle.dispatchEvent(new Event('change'));
+        settings.transcribeStyleSelect.value = MAI_TRANSCRIBE_STYLES.READABILITY;
+        settings.transcribeStyleSelect.dispatchEvent(new Event('change'));
         expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
             .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
         settings.destroy();
     });
 
-    it('hydrates stored verbatim transcription into the switch and MAI configuration', () => {
+    it('keeps the popover and modal style selects in sync in both directions', () => {
+        const settings = new Settings();
+
+        settings.quickTranscribeStyleSelect.value = MAI_TRANSCRIBE_STYLES.VERBATIM;
+        settings.quickTranscribeStyleSelect.dispatchEvent(new Event('change'));
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
+            .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+
+        settings.transcribeStyleSelect.value = MAI_TRANSCRIBE_STYLES.READABILITY;
+        settings.transcribeStyleSelect.dispatchEvent(new Event('change'));
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
+            .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        expect(settings.quickTranscribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        settings.destroy();
+    });
+
+    it('ignores a style select value outside the stored style enum', () => {
+        localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, MAI_TRANSCRIBE_STYLES.VERBATIM);
+        const settings = new Settings();
+        const bogus = document.createElement('option');
+        bogus.value = 'bogus';
+        settings.quickTranscribeStyleSelect.append(bogus);
+
+        settings.quickTranscribeStyleSelect.value = 'bogus';
+        settings.quickTranscribeStyleSelect.dispatchEvent(new Event('change'));
+
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
+            .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+        settings.destroy();
+    });
+
+    it('hydrates stored verbatim transcription into both selects and MAI configuration', () => {
         localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
         localStorage.setItem(
             STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
@@ -506,7 +547,8 @@ describe('Microphone and transcription preferences apply instantly', () => {
         );
         const settings = new Settings();
 
-        expect(settings.verbatimToggle.checked).toBe(true);
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+        expect(settings.quickTranscribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
         expect(settings.getModelConfig().transcribeStyle)
             .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
         settings.destroy();
@@ -523,14 +565,16 @@ describe('Microphone and transcription preferences apply instantly', () => {
             MAI_TRANSCRIBE_STYLES.VERBATIM
         );
         dispatchStyleChange();
-        expect(settings.verbatimToggle.checked).toBe(true);
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+        expect(settings.quickTranscribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
 
         localStorage.setItem(
             STORAGE_KEYS.MAI_TRANSCRIBE_STYLE,
             MAI_TRANSCRIBE_STYLES.READABILITY
         );
         dispatchStyleChange();
-        expect(settings.verbatimToggle.checked).toBe(false);
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        expect(settings.quickTranscribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
 
         settings.destroy();
         localStorage.setItem(
@@ -538,7 +582,8 @@ describe('Microphone and transcription preferences apply instantly', () => {
             MAI_TRANSCRIBE_STYLES.VERBATIM
         );
         dispatchStyleChange();
-        expect(settings.verbatimToggle.checked).toBe(false);
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        expect(settings.quickTranscribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
     });
 
     it('fails closed to readability for an unknown stored transcription style', () => {
@@ -546,7 +591,7 @@ describe('Microphone and transcription preferences apply instantly', () => {
         localStorage.setItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE, 'VERBATIM ');
         const settings = new Settings();
 
-        expect(settings.verbatimToggle.checked).toBe(false);
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
         expect(settings.getModelConfig().transcribeStyle)
             .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
         settings.destroy();
@@ -635,6 +680,11 @@ describe('Settings adapter metadata and initial configuration', () => {
     it.each([
         [MODEL_TYPES.WHISPER, STORAGE_KEYS.WHISPER_URI, {}],
         [
+            MODEL_TYPES.MAI_TRANSCRIBE_2,
+            STORAGE_KEYS.MAI_TRANSCRIBE_URI,
+            { transcribeStyle: DEFAULT_MAI_TRANSCRIBE_STYLE }
+        ],
+        [
             MODEL_TYPES.MAI_TRANSCRIBE_1_5,
             STORAGE_KEYS.MAI_TRANSCRIBE_URI,
             { transcribeStyle: DEFAULT_MAI_TRANSCRIBE_STYLE }
@@ -667,6 +717,72 @@ describe('Settings adapter metadata and initial configuration', () => {
             type: 'info'
         });
         expect(settings.getCurrentModel()).toBe(DEFAULT_MODEL_TYPE);
+        settings.destroy();
+    });
+});
+
+describe('MAI-Transcribe 2 default and the shared MAI Target URI', () => {
+    it('starts on MAI-Transcribe 2 with empty storage and writes no model', () => {
+        const settings = new Settings();
+
+        expect(settings.getCurrentModel()).toBe(MODEL_TYPES.MAI_TRANSCRIBE_2);
+        expect(localStorage.getItem(STORAGE_KEYS.MODEL)).toBeNull();
+        settings.destroy();
+    });
+
+    it('keeps a saved MAI-Transcribe 1.5 choice after construction', () => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        const settings = new Settings();
+
+        expect(settings.getCurrentModel()).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        expect(localStorage.getItem(STORAGE_KEYS.MODEL)).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        settings.destroy();
+    });
+
+    it('stores the shared MAI row value once and serves it to both MAI models', () => {
+        const settings = new Settings();
+
+        typeUri(settings.maiTranscribeUriInput, 'https://mai.invalid/transcribe');
+        expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_URI))
+            .toBe('https://mai.invalid/transcribe');
+
+        for (const model of [MODEL_TYPES.MAI_TRANSCRIBE_2, MODEL_TYPES.MAI_TRANSCRIBE_1_5]) {
+            settings.settingsModelSelect.value = model;
+            settings.settingsModelSelect.dispatchEvent(new Event('change'));
+            expect(settings.getModelConfig().uri).toBe('https://mai.invalid/transcribe');
+        }
+        settings.destroy();
+    });
+
+    it.each([
+        [MODEL_TYPES.MAI_TRANSCRIBE_2, BADGE.REQUIRED],
+        [MODEL_TYPES.MAI_TRANSCRIBE_1_5, BADGE.REQUIRED],
+        [MODEL_TYPES.WHISPER, BADGE.UNSET]
+    ])('labels the empty shared MAI row for %s', (model, expectedState) => {
+        localStorage.setItem(STORAGE_KEYS.MODEL, model);
+        const settings = new Settings();
+
+        expectBadge(ID.MAI_URI_BADGE, expectedState);
+        settings.destroy();
+    });
+
+    it('shows the popover style field only while a MAI model is current', () => {
+        const settings = new Settings();
+        const field = document.getElementById(ID.QUICK_TRANSCRIBE_STYLE_FIELD);
+        const select = (model) => {
+            settings.modelSelect.value = model;
+            settings.modelSelect.dispatchEvent(new Event('change'));
+        };
+
+        expect(field.hidden).toBe(false);
+        select(MODEL_TYPES.WHISPER);
+        expect(field.hidden).toBe(true);
+        select(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        expect(field.hidden).toBe(false);
+        select(MODEL_TYPES.GPT_TRANSCRIBE);
+        expect(field.hidden).toBe(true);
+        select(MODEL_TYPES.MAI_TRANSCRIBE_2);
+        expect(field.hidden).toBe(false);
         settings.destroy();
     });
 });

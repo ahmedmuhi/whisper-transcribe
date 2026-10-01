@@ -126,7 +126,7 @@ Existing contracts that must remain true:
   MSAL clears its own cache and completes provider logout.
 - Targeted legacy API-key cleanup still removes only the two retired key names
   without reading their values or clearing non-secret settings.
-- `CONTEXT.md` is domain vocabulary and remains byte-for-byte unchanged.
+- `GLOSSARY.md` is domain vocabulary and remains byte-for-byte unchanged.
 
 ## Commands you will need
 
@@ -173,7 +173,7 @@ target, not an expected production edit.
 - CSP expansion or an unrelated XSS-hardening project. If an executable HTML
   injection sink is discovered, STOP and report it rather than broadening this
   focused change silently.
-- Modifying `CONTEXT.md`, reducing quality thresholds, or updating dependencies.
+- Modifying `GLOSSARY.md`, reducing quality thresholds, or updating dependencies.
 
 ## Git workflow
 
@@ -253,18 +253,18 @@ when the existing Microsoft session permits it, without promising that Entra
 will never require interaction.
 
 Do not describe encrypted localStorage as safe from XSS. Do not alter domain
-terminology in `CONTEXT.md`.
+terminology in `GLOSSARY.md`.
 
 **Verify**:
 
 ```bash
 rg -n "sessionStorage|localStorage|temporaryCacheLocation|cross-tab|new tab" \
   README.md CLAUDE.md spec/spec-design-api-client.md docs/adr/0002-share-msal-cache-across-tabs.md
-git diff --exit-code -- CONTEXT.md
+git diff --exit-code -- GLOSSARY.md
 ```
 
 Expected: active documents consistently name MSAL-owned `localStorage`, the ADR
-explicitly keeps temporary storage at its default, and `CONTEXT.md` has no diff.
+explicitly keeps temporary storage at its default, and `GLOSSARY.md` has no diff.
 
 ### Step 4: Run the full repository gates and review the artifact boundary
 
@@ -336,7 +336,7 @@ No audio or Azure transcription request is required for this cache-only change.
 - [ ] Deterministic tests cover shared-cache startup, safe interaction fallback,
       logout, targeted legacy cleanup, and token/event non-leakage.
 - [ ] README, CLAUDE guidance, API design spec, and ADR 0002 agree on the
-      security/UX trade-off; `CONTEXT.md` is unchanged.
+      security/UX trade-off; `GLOSSARY.md` is unchanged.
 - [ ] Build, lint, coverage, dependency, high-severity audit, size, and browser
       gates all pass without relaxed thresholds.
 - [ ] Independent review approves the exact diff.

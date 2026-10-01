@@ -25,14 +25,23 @@ function installSettingsDom() {
     document.body.innerHTML = `
         <div id="${ID.STATUS}"></div>
         <select id="${ID.MODEL_SELECT}">${modelOptions()}</select>
+        <label id="${ID.QUICK_TRANSCRIBE_STYLE_FIELD}" hidden>
+            <select id="${ID.QUICK_TRANSCRIBE_STYLE_SELECT}">
+                <option value="readability">Clean</option>
+                <option value="verbatim">Verbatim</option>
+            </select>
+        </label>
         <input type="checkbox" id="${ID.QUICK_NOISE_TOGGLE}" role="switch">
         <input type="radio" name="theme-mode-quick" value="auto">
         <input type="radio" name="theme-mode-quick" value="light">
         <input type="radio" name="theme-mode-quick" value="dark">
         <dialog id="${ID.SETTINGS_MODAL}">
             <select id="${ID.SETTINGS_MODEL_SELECT}">${modelOptions()}</select>
-            <div id="${ID.VERBATIM_SETTING}" class="settings-row" data-settings-row="verbatim">
-                <input type="checkbox" id="${ID.VERBATIM_TOGGLE}" role="switch">
+            <div id="${ID.TRANSCRIBE_STYLE_SETTING}" class="settings-row" data-settings-row="transcribeStyle">
+                <select id="${ID.TRANSCRIBE_STYLE_SELECT}">
+                    <option value="readability">Clean</option>
+                    <option value="verbatim">Verbatim</option>
+                </select>
             </div>
             <select id="${ID.INPUT_DEVICE}"><option value="">System default</option></select>
             <input type="checkbox" id="${ID.NOISE_TOGGLE}" role="switch">
@@ -81,7 +90,8 @@ describe('Settings DOM caching', () => {
         expect(getElementById).toHaveBeenCalled();
 
         getElementById.mockClear();
-        settings.updateVerbatimVisibility();
+        settings.updateTranscribeStyleVisibility();
+        settings.loadTranscribeStyle();
         settings.loadTargetUris();
         settings.loadThemeMode();
         settings.loadNoiseToggle();
@@ -132,10 +142,10 @@ describe('Settings instant-apply surface', () => {
 });
 
 describe('Settings model defaults', () => {
-    it('defaults to MAI-Transcribe 1.5 when no model is saved', () => {
+    it('defaults to MAI-Transcribe 2 when no model is saved', () => {
         const settings = new Settings();
-        expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-        expect(settings.settingsModelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_2);
+        expect(settings.settingsModelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_2);
         settings.destroy();
     });
 
@@ -145,8 +155,8 @@ describe('Settings model defaults', () => {
 
         const settings = new Settings();
 
-        expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
-        expect(setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_1_5);
+        expect(settings.modelSelect.value).toBe(MODEL_TYPES.MAI_TRANSCRIBE_2);
+        expect(setItem).toHaveBeenCalledWith(STORAGE_KEYS.MODEL, MODEL_TYPES.MAI_TRANSCRIBE_2);
         settings.destroy();
     });
 });
@@ -217,7 +227,7 @@ describe('Settings instant model change', () => {
         expect(localStorage.getItem(STORAGE_KEYS.MODEL)).toBe(MODEL_TYPES.MAI_TRANSCRIBE_1_5);
     });
 
-    it('refreshes verbatim visibility through the surface when one is connected', () => {
+    it('refreshes transcription style visibility through the surface when one is connected', () => {
         const surface = { refreshRows: vi.fn() };
         settings.setSurface(surface);
 
@@ -225,35 +235,53 @@ describe('Settings instant model change', () => {
         fire(settings.modelSelect, 'change');
 
         expect(surface.refreshRows).toHaveBeenCalled();
-        expect(settings.verbatimSetting.hidden).toBe(false);
+        expect(settings.transcribeStyleSetting.hidden).toBe(false);
+        // The surface never filters the popover, so Settings still hides that field.
+        expect(settings.quickTranscribeStyleField.hidden).toBe(true);
     });
 });
 
-describe('Settings MAI verbatim visibility', () => {
-    it('shows the verbatim row only for MAI-Transcribe 1.5', () => {
+describe('Settings MAI transcription style visibility', () => {
+    it.each([
+        [MODEL_TYPES.WHISPER, false],
+        [MODEL_TYPES.MAI_TRANSCRIBE_2, true],
+        [MODEL_TYPES.MAI_TRANSCRIBE_1_5, true],
+        [MODEL_TYPES.GPT_TRANSCRIBE, false]
+    ])('shows the style row and popover field for %s: %s', (model, visible) => {
         const settings = new Settings();
 
-        settings.modelSelect.value = MODEL_TYPES.WHISPER;
-        settings.updateVerbatimVisibility();
-        expect(settings.verbatimSetting.hidden).toBe(true);
-
-        settings.modelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
-        settings.updateVerbatimVisibility();
-        expect(settings.verbatimSetting.hidden).toBe(false);
+        settings.modelSelect.value = model;
+        settings.updateTranscribeStyleVisibility();
+        expect(settings.supportsTranscribeStyle()).toBe(visible);
+        expect(settings.transcribeStyleSetting.hidden).toBe(!visible);
+        expect(settings.quickTranscribeStyleField.hidden).toBe(!visible);
         settings.destroy();
     });
 
-    it('persists the verbatim choice the moment the switch is flipped', () => {
+    it('adds transcribeStyle to the configuration only for models that take one', () => {
         const settings = new Settings();
 
-        settings.verbatimToggle.checked = true;
-        fire(settings.verbatimToggle, 'change');
+        expect(settings.supportsTranscribeStyle('unknown-model')).toBe(false);
+        settings.modelSelect.value = MODEL_TYPES.GPT_TRANSCRIBE;
+        expect(settings.getModelConfig()).not.toHaveProperty('transcribeStyle');
+        settings.modelSelect.value = MODEL_TYPES.MAI_TRANSCRIBE_2;
+        expect(settings.getModelConfig().transcribeStyle).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
+        settings.destroy();
+    });
+
+    it('persists the style the moment either select changes', () => {
+        const settings = new Settings();
+
+        settings.transcribeStyleSelect.value = MAI_TRANSCRIBE_STYLES.VERBATIM;
+        fire(settings.transcribeStyleSelect, 'change');
         expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
             .toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
         expect(settings.getModelConfig().transcribeStyle).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
+        expect(settings.quickTranscribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.VERBATIM);
 
-        settings.verbatimToggle.checked = false;
-        fire(settings.verbatimToggle, 'change');
+        settings.quickTranscribeStyleSelect.value = MAI_TRANSCRIBE_STYLES.READABILITY;
+        fire(settings.quickTranscribeStyleSelect, 'change');
+        expect(settings.transcribeStyleSelect.value).toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
         expect(localStorage.getItem(STORAGE_KEYS.MAI_TRANSCRIBE_STYLE))
             .toBe(MAI_TRANSCRIBE_STYLES.READABILITY);
         settings.destroy();

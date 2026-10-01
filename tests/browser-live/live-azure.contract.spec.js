@@ -34,6 +34,13 @@ const modelCases = Object.freeze([
         storageName: 'mai_transcribe_uri'
     }),
     Object.freeze({
+        label: 'MAI-Transcribe 2',
+        model: 'mai-transcribe-2',
+        targetName: 'AZURE_MAI_TRANSCRIBE_TARGET_URI',
+        hostnameSuffix: '.cognitiveservices.azure.com',
+        storageName: 'mai_transcribe_uri'
+    }),
+    Object.freeze({
         label: 'Azure GPT Transcribe',
         model: 'gpt-transcribe',
         targetName: 'AZURE_GPT_TRANSCRIBE_TARGET_URI',

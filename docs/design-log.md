@@ -1,0 +1,286 @@
+# Whisper Transcribe 2.0 — Design & Decision Log
+
+This is the record of what 2.0 became and why. The original
+`2.0-readiness-assessment*` documents in `archive/pre-2.0/` framed 2.0 as a
+reliability release. During the grill-me stress test that framing was rejected:
+2.0 is interaction-and-experience-led. Reliability and security work ride along
+where they protect that experience.
+
+The later keyless and Selected Audio work extends this active design without
+rewriting the archived history.
+
+## The reframe
+
+> 2.0 is about how the app feels to use, not a reliability checklist.
+
+Everything below follows from that. A reliability or security boundary belongs
+in the release when it prevents lost audio, a silent hang, an unsafe navigation,
+or an ambiguous action.
+
+## System principles (the non-negotiables)
+
+1. **Proportional challenge.** Never a rote "are you sure?". Challenge the User
+   only in proportion to what is actually at stake, and name what is at risk.
+2. **Hit-target safety.** Decorative motion must never animate a button's
+   geometry. The recording breath uses box-shadow and opacity only.
+3. **Single recording truth.** Microphone controls render from one recording FSM
+   state, not from scattered per-button events.
+4. **Explicit network intent.** Choosing a local file is review, not upload.
+   Redirects, logout, and Azure submission all require a visible User action.
+5. **One Audio Source.** A microphone recording and Selected Audio cannot be
+   active together; their separate state owners meet at one safety boundary.
+6. **Narrow security ownership.** MSAL, bearer construction, model request
+   formation, and external Azure authorization each have one owner. UI modules
+   do not acquire tokens or change RBAC.
+
+## What shipped, by phase
+
+| Phase | Delivered |
+|---|---|
+| 1 | `TranscriptStore` seam (one swappable localStorage slot) plus transcript autosave/restore |
+| 2 | Grab / Restore / Clear actions; new transcriptions append with dividers |
+| 3 | FSM `CONFIRMING_DISCARD` state plus discard events |
+| 4 | Control-morph markup plus `renderControls` single-source-of-truth refactor |
+| 5 | Proportional-confirm discard dialog with focus restoration and fallback behavior |
+| 6 | Dynamic Island motion, reduced-motion gating, focus-visible, and WCAG-AA status colours |
+| 7 | Transcription request timeout via `AbortController` |
+| 8 | WAV encode moved to a Web Worker with a synchronous fallback |
+| 9 | Honest test cleanup and focused tooling gates |
+| 10 | MIT license, version 2.0.0, and the original interaction-led documentation |
+| 11 | Vite multi-page packaging, dedicated MSAL redirect bridge, and Actions Pages artifact |
+| 12 | Single-tenant Microsoft sign-in, bearer-only Azure requests, and remove-only legacy cleanup |
+| 13 | Authentication-safe Unsent Recording recovery and the unified User menu |
+| 14 | Variant B Selected Audio review, validation, and explicit transcription |
+| 15 | Coastal Teal / Rust palette and type, gear quick settings, searchable settings modal, floating control pill |
+
+## Core interaction decisions
+
+### Dynamic Island, not a spring library
+
+The cluster morphs via FLIP (measure → reshape → animate the delta) using
+`element.animate()` with a settle ease. The container animates; the buttons
+never do. Overlapping morphs cancel the in-flight animation before measuring so
+a fast state change cannot seed the next morph from a mid-tween size. The
+recording breath pulses an inset ring so the cluster's `overflow: hidden` does
+not clip it.
+
+Vite is now the static build boundary and MSAL Browser is the one production
+dependency. That packaging decision does not introduce a UI framework: the
+interaction system remains vanilla JavaScript and native browser APIs.
+
+### Success colour is teal, not mint
+
+Status needs an AA-contrast success hue distinct from the lavender accent and
+red error. The chosen desaturated teal stays in the lavender/navy family and is
+enforced by `tests/status-tokens.vitest.js`.
+
+### Grab stays the hero; Restore is the safety net
+
+Grab lifts text to the clipboard and empties the field. Restore brings back the
+last grabbed content if the clipboard is overwritten. Clear remains the
+explicit empty action.
+
+### Discard is proportional
+
+Under approximately ten seconds, a microphone recording discards immediately.
+A substantial recording gets one named-stakes dialog. An Unsent Recording is
+always named because a redirect or logout would otherwise destroy valuable
+memory-only audio.
+
+### Reduced motion is honoured in two layers, once each
+
+One JavaScript gate controls WAAPI morph/arrival motion and one CSS media query
+controls keyframes. Layout and state remain correct; only motion is removed.
+
+## Variant A — authentication in the contextual island
+
+Authentication is part of Audio Source readiness, not a separate destination.
+The existing control island presents the current context:
+
+| Condition | Island presentation | Allowed next action |
+|---|---|---|
+| Checking | `Checking sign-in…` | Wait; recording and Upload audio are unavailable |
+| Signed out | Microsoft sign-in explanation | **Continue with Microsoft** |
+| Interaction required | Explicit recovery copy | **Continue with Microsoft** using a full-page redirect |
+| Ready and configured | Idle recording controls | **Start recording** or **Upload audio** |
+| Target URI missing/invalid | Configuration guidance | **Open settings** in the User menu |
+| HTTP 401 with Unsent Recording | Recovery choices | **Download recording**, then Continue; or explicitly discard and sign in |
+| HTTP 403 with Unsent Recording | Azure access guidance | **View Azure setup**; never change RBAC in the app |
+
+The callback is `/auth/redirect.html`. No sign-in or logout navigation starts
+while active audio makes leaving unsafe. Download does not navigate; after it is
+initiated the User still chooses Continue. Discard uses the existing accessible
+dialog. There is no automatic redirect or automatic loss.
+
+## Unified User menu
+
+> Superseded on 2026-08-11 by "Settings surfaces, not an account menu" below.
+> Kept as the record of what phase 13 shipped.
+
+When authentication is ready, an initials-only launcher opens one User menu.
+The launcher itself reveals no full identity. Inside the menu, normalized
+account presentation sits beside nested views for:
+
+- Transcription Model;
+- microphone input and noise cancellation;
+- appearance and both manual Target URIs;
+- Azure setup help;
+- logout and Unsent Recording recovery.
+
+On wide layouts, root and detail can remain adjacent. At narrow widths the
+detail replaces the root and an explicit Back action restores it. Draft Settings
+changes remain draft-only until **Save changes**; leaving the detail discards
+the draft and restores focus to the invoking control.
+
+## Variant B — Selected Audio review before submission
+
+Idle readiness exposes two equal Audio Source actions: **Start recording** and
+**Upload audio**. Upload audio opens the native picker. A supported drop on the
+transcript workspace enters the same flow.
+
+`SelectedAudioController` owns these states separately from the microphone FSM:
+
+| State | User-visible meaning | Network behavior |
+|---|---|---|
+| `idle` | No local file is selected | None |
+| `checking` | Format, size, and optional duration are being inspected | None |
+| `ready` | The file is held for the selected Transcription Model | None until **Transcribe** |
+| `unsupported` | Format/decoding cannot be accepted | None; Choose another or Remove |
+| `tooLarge` | The selected model limit is exceeded | None; Choose another or Remove |
+| `transcribing` | The explicit Azure submission is in progress | One shared API-client path |
+| `failed` | The same file is retained for recovery | Explicit Retry or Remove |
+
+The Selected Audio workspace names the file and shows safe display metadata,
+but the `File` itself remains private memory owned by the controller. While it
+exists, microphone controls are unavailable. While a microphone source is
+active or an Unsent Recording needs recovery, selection is unavailable.
+
+## Completion convergence
+
+Microphone capture and Selected Audio intentionally have different preparation
+states and one completion route:
+
+```text
+microphone RecordingStateMachine ─┐
+                                  ├─ AzureAPIClient ─ UI_TRANSCRIPTION_READY
+SelectedAudioController ──────────┘                     │
+                                                        └─ append + TranscriptStore autosave
+```
+
+The adapter selected by the Transcription Model builds the request. The shared
+API client owns the bearer header, HTTPS gate, timeout, error classification,
+and bounded retries. On success, both sources append through the same event and
+return to the ready idle experience.
+
+## Process that paid off
+
+Each slice used feature → adversarial verification → simplify → commit. The
+verification passes caught bugs that green unit tests missed: a retry button
+vanishing in ERROR, a discard dead-end when `showModal` was unavailable, an
+uncancelled overlapping morph, unsafe authentication navigation, protected OS
+drags, stale model validation, and focus discontinuity. The test suite now pins
+the interaction boundaries rather than only checking that constants exist.
+
+## Superseded deferments
+
+The original 2.0 log deferred Microsoft sign-in. That deferment is superseded:
+single-tenant Entra authentication is now part of the active design. The
+current application remains browser-only and Bring-your-own Azure; hosted
+transcription, shared resources, resource discovery, multi-tenant sign-in, and
+a sync service are not current commitments. Topic analysis may be explored only
+if it preserves those ownership and privacy boundaries.
+
+## Settings surfaces, not an account menu (2026-08-11)
+
+The accepted Claude Design mock "Whisper App" replaces the phase 13 User menu.
+Identity and configuration stop sharing one launcher: a gear opens settings, and
+the initials badge becomes a plain identity marker with nothing behind it.
+Frequency decides depth. Model, noise cancellation, and theme sit in a small
+popover under the gear; everything reachable from `All settings…` or `Ctrl ,`
+lives in one modal with a category sidebar and keyword search, so a setting
+cannot become unfindable by being nested one level too deep. The gear stays
+visible while signed out, because Target URI recovery has to be reachable before
+sign-in. Implementation detail is in `plans/041-adopt-mock-ui-redesign.md`.
+
+Three consequences worth stating as decisions:
+
+**Settings apply instantly; draft and commit are gone.** The app had been
+running two persistence idioms side by side, immediate for noise cancellation,
+theme, input device, and verbatim, draft-and-save for the model and the Target
+URIs. The draft layer existed to keep a half-typed Target URI out of a request.
+A narrower rule does that better: a URI field persists only while the value
+parses as HTTPS, an emptied field removes the stored key, and a live status
+badge says which of those is true. Nothing partial ever reaches storage, so
+there is nothing to roll back, and "Save changes" no longer has a job.
+
+**The recording surface only appears while there is audio.** The visualizer
+strip and its mono caption render for RECORDING, PAUSED, and STOPPING and are
+absent otherwise, and the control cluster loses its card chrome and floats as a
+pill. Idle means transcript and controls, nothing else. The pill still morphs
+through FLIP and still animates only the container, so hit-target safety
+(principle 2) is unaffected.
+
+**Logout safety keeps its own surface.** Deleting the User menu would have
+deleted the markup that hosted Unsent Recording protection, so that conversation
+moves to a dedicated logout dialog that no other surface owns.
+`AuthInteractionController` remains the sole navigation-safety coordinator and
+its four results are unchanged: an active recording or Selected Audio blocks
+logout outright, and an Unsent Recording must be downloaded and then explicitly
+continued, or explicitly discarded. Download still does not navigate. Principles
+1 and 4 survive the rewrite intact, and any path that signs out while audio is
+at risk is a release blocker.
+
+## MAI-Transcribe 2 alongside 1.5 (2026-09-25)
+
+MAI-Transcribe 2 arrived in public preview as a more accurate, faster model with
+automatic language detection. It is added next to MAI-Transcribe 1.5, not in
+place of it, and it becomes the model a browser with no saved choice starts on.
+Implementation detail is in `plans/056-add-mai-transcribe-2.md`.
+
+**The new model is additive.** While 2 is in preview, 1.5 stays registered and
+selectable as a comparison and a fallback. A saved model choice is never
+rewritten; only a browser that has never stored one lands on 2. Retiring 1.5
+later means removing its adapter and resetting saved values to the default, and
+nothing else, because the shared controls key off storage and capability, not
+model ids.
+
+**The style is always explicit for 2.** The MAI-Transcribe 2 request always
+carries `modelOptions.transcribeStyle`, `"clean"` or `"verbatim"`, and has no
+`task` field, which is the shape the Foundry playground generates. Sending the
+style every time means the request says what the User chose rather than relying
+on a preview model's unstated default, so a default change on the service side
+cannot silently change the transcript.
+
+**1.5's Clean still omits the field.** Microsoft documents only `"verbatim"` as
+a style for 1.5, and 1.5's default output is already the readable style, so
+Clean on 1.5 sends no style field and its request stays byte-for-byte what it
+was. The reason is written beside the code so it does not read as an accident.
+One shared preference drives both models: the stored `'readability'` value is
+labelled Clean in the UI, so no storage migration was needed.
+
+**The Target URI is shared.** Both MAI models call the same Speech resource
+route and differ only inside the request body, so both adapters declare the same
+`storageKeys.uri` and the Connection category renders one MAI-Transcribe Target
+URI row. The User pastes nothing new, and a second row holding a copy of the
+same URI would only invite the two copies to drift apart.
+
+## One-time New marker for new models (2026-09-25)
+
+An existing User would only find MAI-Transcribe 2 by opening the Model dropdown,
+so a newly added model gets a small "New" marker: a pill on the header gear, a
+pill beside the Model row in the popover and in the settings modal, and a
+` · New` suffix on its dropdown option, because a native `<option>` can hold
+only text. Implementation detail is in `plans/057-one-time-new-model-notice.md`.
+
+**Opening either surface acknowledges it.** The first time the User opens the
+quick-settings popover or the settings modal, the model is recorded as seen in
+browser-local storage. The gear pill hides at once, because its only job is to
+say "look in here" and the User has just looked. The pills inside the surfaces
+and the option suffix stay for the rest of that page load, so the User actually
+sees what was new in the surface they opened, including when they go on from the
+popover to All settings. On the next load nothing shows.
+
+**Acknowledgement is per model id.** An adapter opts in with `announceAsNew`,
+and the stored value is the list of ids already seen. The next model to set the
+flag shows the notice again, even to a User who acknowledged MAI-Transcribe 2,
+without anyone having to reset a single "seen the notice" switch.

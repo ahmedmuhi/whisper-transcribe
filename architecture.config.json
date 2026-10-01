@@ -1,0 +1,7 @@
+{
+  "$note": "Config for tools/architecture-map/scripts/architecture-sync.mjs, run from the repository root. The map itself lives in tools/architecture-map/ and is not part of the app bundle.",
+  "coverage": "tools/architecture-map/src/architecture/coverage.json",
+  "output": "tools/architecture-map/src/architecture/measured.generated.ts",
+  "sources": ["js/**/*.js", "auth/**/*.html", "index.html", "css/**/*.css", "vite.config.js"],
+  "ignore": []
+}

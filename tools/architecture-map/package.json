@@ -1,0 +1,25 @@
+{
+  "name": "whisper-transcribe-architecture-map",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Standalone isometric architecture map of Whisper Transcribe. Not part of the app bundle.",
+  "scripts": {
+    "sync": "cd ../.. && node tools/architecture-map/scripts/architecture-sync.mjs",
+    "sync:check": "cd ../.. && node tools/architecture-map/scripts/architecture-sync.mjs --check",
+    "dev": "vite --host 127.0.0.1 --port 4180 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4181 --strictPort",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "typescript": "^7.0.0",
+    "vite": "^8.2.0"
+  },
+  "engines": { "node": ">=22.12.0" }
+}

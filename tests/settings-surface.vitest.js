@@ -174,6 +174,10 @@ function createSurfaceHarness({
     };
     const settings = {
         getCurrentModel: vi.fn(() => model),
+        supportsTranscribeStyle: vi.fn(() => [
+            MODEL_TYPES.MAI_TRANSCRIBE_2,
+            MODEL_TYPES.MAI_TRANSCRIBE_1_5
+        ].includes(model)),
         populateDeviceList: vi.fn().mockResolvedValue(undefined)
     };
 
@@ -345,18 +349,17 @@ describe('Settings surface', () => {
             expect(visibleRows()).toEqual(['device', 'noise']);
         });
 
-        it('shows the verbatim row only while MAI-Transcribe 1.5 is the current model', () => {
-            const { surface } = createSurfaceHarness({ model: MODEL_TYPES.WHISPER });
+        it.each([
+            [MODEL_TYPES.WHISPER, false],
+            [MODEL_TYPES.MAI_TRANSCRIBE_2, true],
+            [MODEL_TYPES.MAI_TRANSCRIBE_1_5, true],
+            [MODEL_TYPES.GPT_TRANSCRIBE, false]
+        ])('shows the transcription style row for %s: %s', (model, visible) => {
+            const { surface } = createSurfaceHarness({ model });
             surface.openModal({ category: 'model' });
-            expect(row('verbatim').hidden).toBe(true);
-            expect(visibleRows()).toEqual(['model']);
 
-            openSurfaces.pop().destroy();
-            const mai = createSurfaceHarness({ model: MODEL_TYPES.MAI_TRANSCRIBE_1_5 });
-            mai.surface.openModal({ category: 'model' });
-
-            expect(row('verbatim').hidden).toBe(false);
-            expect(visibleRows()).toEqual(['model', 'verbatim']);
+            expect(row('transcribeStyle').hidden).toBe(!visible);
+            expect(visibleRows()).toEqual(visible ? ['model', 'transcribeStyle'] : ['model']);
         });
     });
 
@@ -375,13 +378,13 @@ describe('Settings surface', () => {
             expect(row('whisperUri').querySelector('.settings-row-chip').hidden).toBe(false);
         });
 
-        it('keeps the verbatim row out of results while Whisper is the current model', () => {
+        it('keeps the transcription style row out of results while Whisper is the current model', () => {
             const { surface } = createSurfaceHarness({ model: MODEL_TYPES.WHISPER });
             surface.openModal({ category: 'model' });
 
             typeSearch('verbatim');
 
-            expect(row('verbatim').hidden).toBe(true);
+            expect(row('transcribeStyle').hidden).toBe(true);
             expect(visibleRows()).toEqual([]);
             expect(document.getElementById('settings-no-results').textContent)
                 .toBe('No settings match "verbatim"');
