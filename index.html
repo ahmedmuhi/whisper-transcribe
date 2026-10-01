@@ -2,6 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'self' https://fonts.googleapis.com;
+        style-src-attr 'unsafe-inline';
+        font-src https://fonts.gstatic.com;
+        img-src 'self' data:;
+        media-src blob:;
+        worker-src 'self';
+        connect-src 'self' https://login.microsoftonline.com https://*.cognitiveservices.azure.com https://*.openai.azure.com https://*.services.ai.azure.com https://*.api.cognitive.microsoft.com;
+        frame-src 'self' https://login.microsoftonline.com;
+        base-uri 'none';
+        form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech to Text</title>
     <link rel="icon" href="data:,">
