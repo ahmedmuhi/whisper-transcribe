@@ -60,6 +60,12 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
         });
     });
 
+    await page.addInitScript(() => {
+        globalThis.__cspViolations = [];
+        globalThis.document.addEventListener('securitypolicyviolation', event => {
+            globalThis.__cspViolations.push(`${event.violatedDirective} ${event.blockedURI}`);
+        });
+    });
     await page.goto('/');
     const primary = page.locator('#primary-action');
     const transcript = page.locator('#transcript');
@@ -174,6 +180,7 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
     expect(observationsAfterReload.postCount).toBe(1);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
+    expect(await page.evaluate(() => globalThis.__cspViolations)).toEqual([]);
 });
 
 async function fetchObservations() {
