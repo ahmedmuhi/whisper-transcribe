@@ -5,30 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech to Text</title>
     <link rel="icon" href="data:,">
-    <script>
-        (function () {
-            try {
-                // Key must match STORAGE_KEYS.THEME_MODE in js/constants.js
-                const themeMode = localStorage.getItem('themeMode') || 'auto';
-                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const isDark = themeMode === 'dark' || (themeMode === 'auto' && prefersDark);
-
-                document.documentElement.classList.toggle('dark-theme', isDark);
-                document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-
-                // Key and values must match STORAGE_KEYS.THEME_PALETTE and
-                // THEME_PALETTES in js/constants.js
-                const palettes = ['coastal', 'organic', 'industry', 'broadsheet'];
-                const storedPalette = localStorage.getItem('themePalette');
-                document.documentElement.setAttribute(
-                    'data-palette',
-                    palettes.indexOf(storedPalette) >= 0 ? storedPalette : 'coastal'
-                );
-            } catch {
-                // If storage access fails, keep auto behavior from CSS/JS defaults.
-            }
-        })();
-    </script>
+    <script vite-ignore src="theme-bootstrap.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
