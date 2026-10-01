@@ -170,6 +170,9 @@ test('records, converts, transcribes, and restores a transcript', async ({ page 
     );
     expect(securityObservations.retainedLegacyValues).toEqual([]);
     expect(securityObservations.cachedAuthEntries).toEqual([]);
+    // The init script resets this list on reload, so check the recording,
+    // Worker, and transcription half of the run before reloading.
+    expect(await page.evaluate(() => globalThis.__cspViolations)).toEqual([]);
 
     await page.reload();
     await expect(primary).toBeEnabled();
