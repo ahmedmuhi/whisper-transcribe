@@ -95,6 +95,7 @@ and update your row when done.
 | 055 | Add four selectable colour palettes and the Appearance Palette row | P2 | M | — | IN REVIEW (implemented on `feature/055-palette-themes`, merged with post-#134/#135 main; Coastal untouched, registry-driven Connection/Model UI preserved. Maintainer rulings 2026-08-12: AA corrections accepted — Organic light `--accent` `#9E5220`, Industry light `--accent-warm` `#55708C`, per-palette `--text-link` token, all pinned by contrast gates; size budgets accepted in principle, application stays at main's 22 kB, authentication set by the size-contract measurement on the merged result; the shared-constants bleed into the auth chunk is a known measurement flaw and a vendor-only MSAL budget is planned separately, not in this branch) |
 | 056 | [Add MAI-Transcribe 2 alongside 1.5, with a Clean/Verbatim style dropdown](https://github.com/ahmedmuhi/whisper-transcribe/issues/141) | P1 | M | — | DONE (merged to main 2026-09-25; see the MAI-Transcribe 2 note below) |
 | 057 | [Show a one-time "New" notice for a newly added model](https://github.com/ahmedmuhi/whisper-transcribe/issues/142) | P2 | S/M | 056 | DONE (merged to main 2026-09-25; see the MAI-Transcribe 2 note below) |
+| 058 | [Ship a Content-Security-Policy on both HTML entries and correct the runbook's stale MSAL cache sentence](058-add-content-security-policy-and-fix-runbook-cache-claim.md) | P1 | M | — | IN REVIEW (PR #144; deterministic gates green; awaiting operator CSP verification, Step 10) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -478,6 +479,7 @@ From the quick audit (2026-06-11, `3a83f9c`):
   operator chose not to plan it in this round. No XSS sink exists today
   (`textContent`/textarea throughout). Revisit if any HTML-injection surface
   is ever added. (Not rejected on merit — deferred by selection.)
+  **Superseded 2026-10-02: promoted to Plan 058.**
 - **`navigator.clipboard.writeText` called without a secure-context guard**
   (`js/ui.js:846`): the app already requires a secure context for
   `getUserMedia`, so the broken-clipboard environment cannot record.
@@ -548,7 +550,8 @@ Fresh deep audit (2026-07-12, `559124e`):
   impact and changing font metrics risks the interaction-led visual design.
 - **Content Security Policy**: remains worthwhile defense-in-depth but deferred,
   as recorded above; no executable HTML injection sink or compromised asset path
-  was found in the current tree.
+  was found in the current tree. **Superseded 2026-10-02: promoted to Plan 058**
+  after ADR-0002 placed MSAL tokens in `localStorage`.
 - **`.editorconfig`**: optional polish. The broadened lint plan has a concrete
   gate benefit; editor defaults do not currently explain a production or test
   failure.

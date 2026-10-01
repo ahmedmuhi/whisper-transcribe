@@ -42,6 +42,21 @@ describe('Vite build contract', () => {
         expect(indexBuild).toContain('<link rel="icon" href="data:,">');
     });
 
+    it('ships the Content-Security-Policy and the theme script without browser-test hosts', () => {
+        execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
+
+        const indexBuild = readFileSync(path.join(distDirectory, 'index.html'), 'utf8');
+        const redirectBuild = readFileSync(path.join(distDirectory, 'auth/redirect.html'), 'utf8');
+
+        for (const build of [indexBuild, redirectBuild]) {
+            expect(build).toContain('Content-Security-Policy');
+            expect(build).not.toContain('127.0.0.1');
+            expect(build).not.toContain('target.invalid');
+        }
+        expect(existsSync(path.join(distDirectory, 'theme-bootstrap.js'))).toBe(true);
+        expect(indexBuild).toContain('src="theme-bootstrap.js"');
+    });
+
     it('emits separate application and redirect-bridge entries without application code in the bridge', () => {
         execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
 

@@ -321,16 +321,16 @@ describe('Palette text contrast (WCAG-AA)', () => {
 
 describe('Anti-FOUC bootstrap script', () => {
     /**
-     * The inline script in index.html paints the palette before any module
+     * public/theme-bootstrap.js paints the palette before any module
      * loads, so it cannot import js/constants.js and has to repeat the key and
      * the palette list. This guard is what stops the copy from drifting: a
      * fifth palette added to THEME_PALETTES alone would otherwise flash Coastal
      * on every reload, with nothing reporting it.
      */
-    const inlineScript = indexSource.match(/<script>([\s\S]*?)<\/script>/u)?.[1] || '';
+    const bootstrapScript = readFileSync('public/theme-bootstrap.js', 'utf8');
 
     it('repeats THEME_PALETTES exactly', () => {
-        const listed = inlineScript
+        const listed = bootstrapScript
             .match(/const palettes = \[([^\]]*)\]/u)?.[1]
             .split(',')
             .map((entry) => entry.trim().replace(/^'|'$/gu, ''));
@@ -339,12 +339,16 @@ describe('Anti-FOUC bootstrap script', () => {
     });
 
     it('reads the storage keys STORAGE_KEYS declares', () => {
-        expect(inlineScript).toContain(`localStorage.getItem('${STORAGE_KEYS.THEME_PALETTE}')`);
-        expect(inlineScript).toContain(`localStorage.getItem('${STORAGE_KEYS.THEME_MODE}')`);
+        expect(bootstrapScript).toContain(`localStorage.getItem('${STORAGE_KEYS.THEME_PALETTE}')`);
+        expect(bootstrapScript).toContain(`localStorage.getItem('${STORAGE_KEYS.THEME_MODE}')`);
+    });
+
+    it('is loaded from index.html as a blocking classic script', () => {
+        expect(indexSource).toMatch(/<script vite-ignore src="theme-bootstrap\.js"><\/script>/u);
     });
 
     it('falls back to the default palette', () => {
-        expect(inlineScript).toContain(`'${DEFAULT_THEME_PALETTE}'`);
+        expect(bootstrapScript).toContain(`'${DEFAULT_THEME_PALETTE}'`);
     });
 
     it('gives every palette card swatches matching that palette\'s own tokens', () => {

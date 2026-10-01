@@ -12,8 +12,11 @@ const liveContractAuthenticationPath = resolve(
     'tests/browser-live/oidc-authentication-factory.js'
 );
 
+const browserTestConnectSources = 'https://127.0.0.1:4174 https://target.invalid';
+
 export default defineConfig(({ mode }) => ({
     base: mode === 'pages' ? '/whisper-transcribe/' : '/',
+    plugins: [browserTestContentSecurityPolicy(mode)],
     resolve: {
         alias: authenticationAliasForMode(mode)
     },
@@ -48,4 +51,20 @@ function authenticationAliasForMode(mode) {
     return replacement
         ? [{ find: /^\.\/authentication-service\.js$/, replacement }]
         : [];
+}
+
+/**
+ * The deterministic Chromium suite sends transcription requests to a local
+ * HTTPS stub and to a reserved .invalid host. Those destinations are added to
+ * connect-src only in browser-test mode and never reach a production bundle.
+ */
+function browserTestContentSecurityPolicy(mode) {
+    return {
+        name: 'browser-test-content-security-policy',
+        transformIndexHtml(html) {
+            return mode === 'browser-test'
+                ? html.replace("connect-src 'self'", `connect-src 'self' ${browserTestConnectSources}`)
+                : html;
+        }
+    };
 }

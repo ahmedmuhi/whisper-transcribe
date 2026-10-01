@@ -71,6 +71,13 @@ Only one Audio Source can be active at a time.
   with Microsoft** action when the Microsoft session permits it. Application
   modules never read that cache or persist, emit, or log access tokens; genuine
   interaction-required conditions still use the full-page sign-in flow.
+- The pages ship a Content-Security-Policy that allows scripts only from the
+  application's own origin. Network requests are allowed only to Microsoft
+  sign-in and to Azure hosts matching `*.cognitiveservices.azure.com`,
+  `*.openai.azure.com`, `*.services.ai.azure.com`, and
+  `*.api.cognitive.microsoft.com`. A Target URI on any other host passes the
+  HTTPS check in Settings but is blocked by the browser when a transcription is
+  sent.
 - Transcript content, model choice, manual Target URIs, microphone preference,
   and theme are non-secret browser-local settings stored in `localStorage`.
 - Startup performs a targeted, remove-only cleanup of the two historical

@@ -156,8 +156,11 @@ them in source, `.env.example`, the Pages build variables, a public issue, or an
 evidence artifact.
 
 `AuthenticationService` derives `/auth/redirect.html`, uses full-page redirects,
-and configures MSAL's cache in `sessionStorage`. The callback must remain a
-separate Vite entry and run only `broadcastResponseToMainFrame`.
+and configures MSAL's cache in `localStorage` so that a new same-origin tab can
+discover the shared account (see
+`docs/adr/0002-share-msal-cache-across-tabs.md`). MSAL's temporary OAuth
+artifacts remain tab-scoped under its default behaviour. The callback must
+remain a separate Vite entry and run only `broadcastResponseToMainFrame`.
 
 Verify both callback responses without beginning sign-in:
 
@@ -167,6 +170,13 @@ Verify both callback responses without beginning sign-in:
   redirect bridge from communicating with the main frame;
 - no application bootstrap, Azure call, storage read, source map, or test/live
   authentication provider in the production artifact.
+
+Both HTML entries carry a Content-Security-Policy meta tag because GitHub Pages
+cannot send response headers. The callback policy allows only same-origin
+scripts. The redirect bridge communicates with the main frame through a
+`BroadcastChannel`, which the policy does not restrict. An operator who verifies
+the callback should confirm that the browser console shows no
+Content-Security-Policy violation.
 
 Record only pass/fail for these header checks. Never record an authentication
 URL or response. See the [MSAL redirect bridge
