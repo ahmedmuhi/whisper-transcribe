@@ -58,6 +58,12 @@ Azure, read storage, expose authentication failures, or receive
 `Cross-Origin-Opener-Policy` or frame-blocking headers. Any MSAL upgrade requires
 bridge, built-output, browser, size, and artifact-boundary regression testing.
 
+Both HTML entries carry a Content-Security-Policy meta tag that is pinned by
+`tests/content-security-policy.vitest.js`, and the policy allows scripts only
+from the application's own origin. The anti-flash theme script lives in
+`public/theme-bootstrap.js` and must stay a blocking classic script, so no
+inline script may be added to `index.html`.
+
 Production authentication is the real `AuthenticationService`. Vite aliases it
 only in `browser-test` and `live-contract` modes. The deterministic fake and OIDC
 factory are build-time test seams and must never appear in a production bundle.
