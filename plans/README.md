@@ -25,6 +25,11 @@ Plan 046 was generated through the focused Improve `plan` workflow on
 full-mode review of the whole app UI: two WCAG blockers (invisible focus
 rings on the main controls, `--text-muted` text failing AA in both themes)
 plus eight smaller accessibility, typography, and copy findings.
+Plan 056 was generated through the focused Improve `plan` workflow on
+2026-09-20 at commit `683c4b5` from two findings of that date: the missing
+Content-Security-Policy, which earlier audits deferred and which is promoted
+now because ADR-0002 moved the MSAL cache into `localStorage`, and a stale
+`sessionStorage` sentence in the operator runbook. No wider audit was run.
 Each executor: read the plan fully before starting, honor its STOP conditions,
 and update your row when done.
 
@@ -91,6 +96,7 @@ and update your row when done.
 | 053 | Drive model UI from the adapter registry; per-model upload limits at selection time | P1 | M | 051, 052 | DONE (merged via PR #135, 2026-08-12; selects, Connection URI rows, and ready/tooLarge panels generate from the registry, unknown-panel fallback added, MAI pre-decode OOM trap closed by selection-time gates; application budget 20.5→22 kB as an explicit maintainer-approved decision after the first executor correctly STOPPED at 50 bytes of headroom) |
 | 054 | Add the gpt-transcribe model adapter | P1 | S | 052, 053 | DONE (merged via PR #135, 2026-08-12; third adapter registered, 710 tests / 12 browser specs green, adapter 100% statement coverage; language field deliberately omitted pending live verification; guarded live-contract case skips until the operator provisions the protected Target URI) |
 | 055 | Add four selectable colour palettes and the Appearance Palette row | P2 | M | — | IN REVIEW (implemented on `feature/055-palette-themes`, merged with post-#134/#135 main; Coastal untouched, registry-driven Connection/Model UI preserved. Maintainer rulings 2026-08-12: AA corrections accepted — Organic light `--accent` `#9E5220`, Industry light `--accent-warm` `#55708C`, per-palette `--text-link` token, all pinned by contrast gates; size budgets accepted in principle, application stays at main's 22 kB, authentication set by the size-contract measurement on the merged result; the shared-constants bleed into the auth chunk is a known measurement flaw and a vendor-only MSAL budget is planned separately, not in this branch) |
+| 056 | Ship a Content-Security-Policy on both HTML entries and correct the runbook's stale MSAL cache sentence | P1 | M | — | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -457,6 +463,7 @@ From the quick audit (2026-06-11, `3a83f9c`):
   operator chose not to plan it in this round. No XSS sink exists today
   (`textContent`/textarea throughout). Revisit if any HTML-injection surface
   is ever added. (Not rejected on merit — deferred by selection.)
+  **Superseded 2026-09-20: promoted to Plan 056.**
 - **`navigator.clipboard.writeText` called without a secure-context guard**
   (`js/ui.js:846`): the app already requires a secure context for
   `getUserMedia`, so the broken-clipboard environment cannot record.
@@ -527,7 +534,8 @@ Fresh deep audit (2026-07-12, `559124e`):
   impact and changing font metrics risks the interaction-led visual design.
 - **Content Security Policy**: remains worthwhile defense-in-depth but deferred,
   as recorded above; no executable HTML injection sink or compromised asset path
-  was found in the current tree.
+  was found in the current tree. **Superseded 2026-09-20: promoted to Plan 056**
+  after ADR-0002 placed MSAL tokens in `localStorage`.
 - **`.editorconfig`**: optional polish. The broadened lint plan has a concrete
   gate benefit; editor defaults do not currently explain a production or test
   failure.
