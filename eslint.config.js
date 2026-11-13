@@ -32,6 +32,12 @@ export default [
         rules: projectRules
     },
     {
+        files: ['js/*.worklet.js'],
+        languageOptions: {
+            globals: globals.audioWorklet
+        }
+    },
+    {
         files: [
             'tests/**/*.vitest.js',
             'tests/helpers/**/*.js',

@@ -3,15 +3,16 @@
  * Recording Piece can be sent as WAV without the whole-file conversion.
  *
  * The AudioContext runs at the piece sample rate, so the browser resamples the
- * microphone stream. The worklet node downmixes to one channel and copies each
- * render quantum to the main thread, where the samples stay in memory only.
+ * microphone stream. The worklet node downmixes to one channel, and its
+ * processor (js/pcm-capture.worklet.js) copies each render quantum to the main
+ * thread, where the samples stay in memory only.
  */
 
 import { RECORDING_PIECE_SAMPLE_RATE } from './constants.js';
 import { encodeWav } from './wav-encoder.js';
 
+// Must match the name registered in js/pcm-capture.worklet.js.
 const PROCESSOR_NAME = 'pcm-capture';
-const PROCESSOR_SOURCE = `registerProcessor('${PROCESSOR_NAME}',class extends AudioWorkletProcessor{process([i]){i[0]&&this.port.postMessage(i[0].slice());return true}})`;
 
 /**
  * Starts capturing the stream. Rejects when the browser cannot run the capture,
@@ -28,8 +29,8 @@ export async function startPcmCapture(stream) {
     let paused = false;
 
     try {
-        const moduleUrl = URL.createObjectURL(new Blob([PROCESSOR_SOURCE], { type: 'text/javascript' }));
-        await context.audioWorklet.addModule(moduleUrl).finally(() => URL.revokeObjectURL(moduleUrl));
+        // A same-origin file emitted by the build, so a `script-src 'self'` policy allows it.
+        await context.audioWorklet.addModule(new URL('./pcm-capture.worklet.js', import.meta.url));
         // No outputs: the node is a sink, so nothing reaches the speakers.
         const node = new AudioWorkletNode(context, PROCESSOR_NAME, {
             numberOfOutputs: 0,

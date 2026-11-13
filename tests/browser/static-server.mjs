@@ -39,7 +39,8 @@ function freshObservations() {
         preflightHeaders: {},
         postHeaders: {},
         postBodyBase64: '',
-        captureError: null
+        captureError: null,
+        workletPaths: []
     };
 }
 
@@ -69,6 +70,8 @@ const appServer = http.createServer((request, response) => {
         return;
     }
 
+    // Worklet module fetches are not visible to Playwright, so the server records them.
+    if (requestUrl.pathname.includes('.worklet')) apiObservations.workletPaths.push(requestUrl.pathname);
     const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
     const decodedPath = decodeURIComponent(pathname);
     const filePath = path.resolve(distDirectory, `.${decodedPath}`);

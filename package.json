@@ -48,7 +48,8 @@
         "dist/assets/constants-*.js",
         "dist/assets/visualization-*.js",
         "dist/assets/modulepreload-polyfill-*.js",
-        "dist/assets/audio-converter.worker-*.js"
+        "dist/assets/audio-converter.worker-*.js",
+        "dist/assets/pcm-capture.worklet-*.js"
       ],
       "limit": "26 kB"
     },

@@ -162,12 +162,13 @@ const AUTHORED: readonly Authored[] = [
       'attempt, and a late event from an abandoned recording must not tear down a newer one. The ' +
       'state machine stays in INITIALIZING until recorder.start() actually returns, so a mic that ' +
       'fails to open never shows a recording UI. The uncompressed capture is an AudioWorklet whose ' +
-      'processor source is loaded from a Blob URL, so it needs no extra asset path in the Pages build, ' +
-      'and a browser that cannot run it simply keeps the whole-file path.',
+      'processor is a same-origin file the build emits, never a blob: or data: URL, so a ' +
+      "script-src 'self' policy allows it; a browser that cannot run it simply keeps the whole-file path.",
     files: [
       'js/audio-handler.js',
       'js/permission-manager.js',
       'js/pcm-capture.js',
+      'js/pcm-capture.worklet.js',
       'js/recording-piece-joiner.js',
     ],
     stack: ['MediaRecorder', 'getUserMedia', 'Permissions API', 'AudioWorklet'],

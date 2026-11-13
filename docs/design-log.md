@@ -292,11 +292,18 @@ model that declares Recording Pieces is captured a second time, uncompressed,
 beside MediaRecorder, and sent at Finish as one Recording Piece. There is no
 cutting during recording yet.
 
-**The capture is an AudioWorklet loaded from a Blob URL.** The processor is a
-one-line source string in `js/pcm-capture.js`, so it ships inside the
-application bundle and needs no separately emitted asset whose path would change
-between the normal and Pages builds. The AudioContext runs at 16 kHz, so the
-browser does the resampling, and the worklet node downmixes to one channel.
+**The capture is an AudioWorklet loaded from a same-origin file.** The
+processor lives in `js/pcm-capture.worklet.js`, and `js/pcm-capture.js` loads it
+with `new URL(..., import.meta.url)`, the way the audio-converter worker is
+loaded, so the build emits it under `assets/` with the right base path in both
+the normal and Pages builds. A first version loaded it from a Blob URL. It was
+changed before merge because a `script-src 'self'` Content Security Policy
+refuses a blob: or data: worklet module, and since the capture falls back
+silently to the whole-file path, such a policy would have switched Recording
+Pieces off with no error. For the same reason `vite.config.js` keeps worklet
+files from being inlined as data: URLs, and the build test fails if the worklet
+is ever loaded any other way. The AudioContext runs at 16 kHz, so the browser
+does the resampling, and the worklet node downmixes to one channel.
 
 **The capture is optional, the recorder is not.** MediaRecorder keeps running
 unchanged and remains the whole-recording copy. A browser that cannot start the

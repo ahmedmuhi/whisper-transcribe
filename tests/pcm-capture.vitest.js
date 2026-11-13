@@ -29,6 +29,7 @@ describe('uncompressed microphone capture', () => {
         const wav = await readWav(await capture.finish());
 
         expect(audio.contexts[0].sampleRate).toBe(RECORDING_PIECE_SAMPLE_RATE);
+        expect(audio.contexts[0].audioWorklet.addModule).toHaveBeenCalledTimes(1);
         expect(audio.nodes[0].stream).toBe(STREAM);
         expect(wav).toEqual({
             channels: 1,
@@ -37,6 +38,15 @@ describe('uncompressed microphone capture', () => {
             samples: [0, 0x7FFF, -0x8000]
         });
         expect(audio.contexts[0].state).toBe('closed');
+    });
+
+    it('loads its processor from the same-origin module file, never a blob: or data: URL', async () => {
+        await startPcmCapture(STREAM);
+
+        const [moduleUrl] = audio.contexts[0].audioWorklet.addModule.mock.calls[0];
+        const { protocol, pathname } = new URL(String(moduleUrl));
+        expect(['blob:', 'data:']).not.toContain(protocol);
+        expect(pathname).toMatch(/\/js\/pcm-capture\.worklet\.js$/);
     });
 
     it('does not capture paused time', async () => {

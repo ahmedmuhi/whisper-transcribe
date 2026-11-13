@@ -86,6 +86,11 @@ test('records MAI-Transcribe 2 as one Recording Piece with no conversion step', 
     expect(statusTexts.join('\n')).not.toContain('Converting audio format');
     expect(statusTexts).toContain('Transcription complete');
     expect(workers.filter(url => /audio-converter\.worker/.test(url))).toEqual([]);
+    // The processor came from the app's own origin, as a file, not a blob: or data: URL.
+    const observations = await (await fetch(`${appOrigin}/__browser-test__/api-observations`)).json();
+    expect(observations.workletPaths).toEqual([
+        expect.stringMatching(/^\/assets\/pcm-capture\.worklet-[^/]+\.js$/)
+    ]);
 
     const storedTranscript = JSON.parse(await page.evaluate(() => localStorage.getItem('transcript_record')));
     expect(storedTranscript.text).toBe('Browser piece transcript.');

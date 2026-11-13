@@ -3,6 +3,7 @@
   "entry": [
     "js/main.js",
     "js/*.worker.js",
+    "js/*.worklet.js",
     "auth/redirect.html"
   ],
   "project": [

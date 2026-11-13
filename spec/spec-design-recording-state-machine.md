@@ -61,7 +61,7 @@ transcript storage implementation.
 |---|---|
 | Microphone lifecycle state and legal transitions | `RecordingStateMachine` |
 | MediaRecorder, stream, chunks, Unsent Recording, retry Blob | `AudioHandler` |
-| Uncompressed 16 kHz capture for a Recording Piece | `startPcmCapture()` in `js/pcm-capture.js`, started and released by `AudioHandler` |
+| Uncompressed 16 kHz capture for a Recording Piece | `startPcmCapture()` in `js/pcm-capture.js`, with its processor in the same-origin `js/pcm-capture.worklet.js`, started and released by `AudioHandler` |
 | One memory-only local File and its validation/transcription state | `SelectedAudioController` |
 | Authentication state and token readiness | `AuthenticationService` |
 | Redirect/logout recovery choices | `AuthInteractionController` |

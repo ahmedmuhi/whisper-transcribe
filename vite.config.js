@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => ({
         alias: authenticationAliasForMode(mode)
     },
     build: {
+        // AudioWorklet modules must stay same-origin files: a data: URL is refused
+        // by a `script-src 'self'` Content Security Policy.
+        assetsInlineLimit: (filePath) => (filePath.endsWith('.worklet.js') ? false : undefined),
         rollupOptions: {
             input: {
                 main: resolve(projectRoot, 'index.html'),

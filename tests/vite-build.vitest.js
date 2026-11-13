@@ -66,23 +66,27 @@ describe('Vite build contract', () => {
     });
 
     it.each([
-        ['production', []],
-        ['Pages', ['--', '--mode', 'pages']]
-    ])('ships the uncompressed capture in the %s application bundle and never in the redirect bridge', (_label, modeArguments) => {
+        ['production', [], '/'],
+        ['Pages', ['--', '--mode', 'pages'], '/whisper-transcribe/']
+    ])('emits the capture worklet as a same-origin %s asset the application loads by path, never the redirect bridge', (_label, modeArguments, base) => {
         execFileSync('npm', ['run', 'build', ...modeArguments], { cwd: repoRoot, stdio: 'pipe' });
 
         const assetsDirectory = path.join(distDirectory, 'assets');
-        const assetNames = readdirSync(assetsDirectory).filter(assetName => assetName.endsWith('.js'));
-        const shipsCapture = assetName => readFileSync(path.join(assetsDirectory, assetName), 'utf8')
-            .includes('extends AudioWorkletProcessor');
+        const scripts = readdirSync(assetsDirectory).filter(assetName => assetName.endsWith('.js'));
+        const read = assetName => readFileSync(path.join(assetsDirectory, assetName), 'utf8');
+        const worklets = scripts.filter(assetName => read(assetName).includes('extends AudioWorkletProcessor'));
+        const mainBundle = read(scripts.find(assetName => /^main-[^/]+\.js$/.test(assetName)));
+        const moduleUrls = [...mainBundle.matchAll(/addModule\(new URL\(`([^`]*)`/g)].map(match => match[1]);
         const redirectBuild = readFileSync(path.join(distDirectory, 'auth/redirect.html'), 'utf8');
         const redirectAssets = [...redirectBuild.matchAll(/assets\/([^"]+\.js)/g)].map(match => match[1]);
 
-        expect(assetNames.filter(shipsCapture)).toEqual([
-            expect.stringMatching(/^main-[^/]+\.js$/)
-        ]);
+        expect(worklets).toEqual([expect.stringMatching(/^pcm-capture\.worklet-[^/]+\.js$/)]);
+        // A blob: or data: worklet module is refused by a `script-src 'self'` policy.
+        expect(moduleUrls).toEqual([`${base}assets/${worklets[0]}`]);
+        expect(mainBundle).not.toContain('data:text/javascript');
+        expect(mainBundle).not.toContain('extends AudioWorkletProcessor');
         expect(redirectAssets.length).toBeGreaterThan(0);
-        expect(redirectAssets.filter(shipsCapture)).toEqual([]);
+        expect(redirectAssets.some(assetName => read(assetName).includes('pcm-capture'))).toBe(false);
         expect(redirectBuild).not.toContain('pcm-capture');
     });
 
