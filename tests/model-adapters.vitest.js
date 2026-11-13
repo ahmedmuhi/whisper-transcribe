@@ -14,7 +14,9 @@ import {
     GPT_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MAI_TRANSCRIBE_STYLES,
+    MAI_WORD_TIMESTAMPS,
     MESSAGES,
+    MODEL_CAPABILITIES,
     MODEL_TYPES,
     STORAGE_KEYS,
     WHISPER_MAX_UPLOAD_BYTES
@@ -749,5 +751,88 @@ describe('AzureAPIClient model adapter registry', () => {
         expect(MAI_TRANSCRIBE_MAX_UPLOAD_BYTES).toBe((250 * 1024 * 1024) - 1);
         expect(tokenProvider.getToken).not.toHaveBeenCalled();
         expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+});
+
+describe('Recording Piece requests', () => {
+    const PIECE_MODEL_OPTIONS = API_PARAMS.MAI_MODEL_OPTIONS_FIELD;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        globalThis.FormData = vi.fn(function FakeFormData() { return new TestFormData(); });
+    });
+
+    function pieceEntry(request, name) {
+        return request.body.appended.find(entry => entry.key === name);
+    }
+
+    it('lets only MAI-Transcribe 2 declare the Recording Pieces capability', () => {
+        const capable = Array.from(modelAdapterRegistry.values())
+            .filter(adapter => adapter[MODEL_CAPABILITIES.RECORDING_PIECES] === true)
+            .map(adapter => adapter.id);
+
+        expect(capable).toEqual([MODEL_TYPES.MAI_TRANSCRIBE_2]);
+        for (const adapter of modelAdapterRegistry.values()) {
+            if (adapter.id !== MODEL_TYPES.MAI_TRANSCRIBE_2) {
+                expect(adapter).not.toHaveProperty(MODEL_CAPABILITIES.RECORDING_PIECES);
+                expect(adapter).not.toHaveProperty('buildPieceRequest');
+                expect(adapter).not.toHaveProperty('parsePieceResponse');
+            }
+        }
+    });
+
+    it.each([
+        [MAI_TRANSCRIBE_STYLES.READABILITY, 'clean'],
+        [MAI_TRANSCRIBE_STYLES.VERBATIM, 'verbatim'],
+        [undefined, 'clean']
+    ])('sends an encoded WAV piece asking for word timestamps with style %s', async (stored, expected) => {
+        const adapter = modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_2);
+        const wavPiece = new Blob(['encoded piece'], { type: 'audio/wav' });
+
+        const request = await adapter.buildPieceRequest(wavPiece, { transcribeStyle: stored });
+
+        expect(pieceEntry(request, API_PARAMS.MAI_AUDIO_FIELD)).toEqual({
+            key: API_PARAMS.MAI_AUDIO_FIELD,
+            value: wavPiece,
+            filename: DEFAULT_WAV_FILENAME
+        });
+        expect(JSON.parse(pieceEntry(request, API_PARAMS.MAI_DEFINITION_FIELD).value)).toEqual({
+            enhancedMode: {
+                enabled: true,
+                model: MODEL_TYPES.MAI_TRANSCRIBE_2_API_MODEL,
+                [PIECE_MODEL_OPTIONS]: {
+                    [API_PARAMS.MAI_TRANSCRIBE_STYLE_FIELD]: expected,
+                    [API_PARAMS.MAI_TIMESTAMPS_FIELD]: MAI_WORD_TIMESTAMPS
+                }
+            }
+        });
+        expect(request.body.appended).toHaveLength(2);
+        expect(request.statusMessage).toBe(MESSAGES.SENDING_TO_MAI_TRANSCRIBE);
+        expect(convertToWav).not.toHaveBeenCalled();
+    });
+
+    it('parses the piece response into timed words', () => {
+        const adapter = modelAdapterRegistry.get(MODEL_TYPES.MAI_TRANSCRIBE_2);
+
+        expect(adapter.parsePieceResponse({
+            combinedPhrases: [{ text: 'Velvet otters. Hum.' }],
+            phrases: [
+                {
+                    text: 'Velvet otters.',
+                    words: [
+                        { text: 'Velvet', offsetMilliseconds: 120, durationMilliseconds: 300 },
+                        { text: 'otters.', offsetMilliseconds: 440, durationMilliseconds: 360 }
+                    ]
+                },
+                {
+                    text: 'Hum.',
+                    words: [{ text: 'Hum.', offsetMilliseconds: 1200, durationMilliseconds: 200 }]
+                }
+            ]
+        })).toEqual([
+            { text: 'Velvet', offsetMs: 120, durationMs: 300 },
+            { text: 'otters.', offsetMs: 440, durationMs: 360 },
+            { text: 'Hum.', offsetMs: 1200, durationMs: 200 }
+        ]);
     });
 });

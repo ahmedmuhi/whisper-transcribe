@@ -132,8 +132,30 @@ export const API_PARAMS = {
   MAI_AUDIO_FIELD:    'audio',
   MAI_DEFINITION_FIELD: 'definition',
   MAI_TRANSCRIBE_STYLE_FIELD: 'transcribeStyle',
-  MAI_MODEL_OPTIONS_FIELD: 'modelOptions'
+  MAI_MODEL_OPTIONS_FIELD: 'modelOptions',
+  MAI_TIMESTAMPS_FIELD: 'timestamps'
 };
+
+/**
+ * The `modelOptions.timestamps` value that makes MAI-Transcribe 2 return
+ * `phrases[].words[]` with `offsetMilliseconds` and `durationMilliseconds`.
+ * Only a Recording Piece request sends it.
+ *
+ * @constant {string} MAI_WORD_TIMESTAMPS
+ */
+export const MAI_WORD_TIMESTAMPS = 'word';
+
+/**
+ * Optional capability flags a model adapter may declare. An adapter declaring
+ * RECORDING_PIECES also provides `buildPieceRequest(wavBlob, config)` and
+ * `parsePieceResponse(data)`, so microphone recordings may be transcribed in
+ * Recording Pieces.
+ *
+ * @constant {Object<string, string>} MODEL_CAPABILITIES
+ */
+export const MODEL_CAPABILITIES = Object.freeze({
+  RECORDING_PIECES: 'supportsRecordingPieces'
+});
 
 /**
  * Supported transcription model types for Azure Speech Services.

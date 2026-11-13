@@ -115,7 +115,9 @@ supported models. Every registered adapter declares: an immutable `id`, `label`,
 `storageKeys.uri`, a `buildRequest` returning `{ body, statusMessage }`, and a
 `parseResponse`. Registry insertion order carries no production semantics.
 Adding a model follows the adapter-addition checklist in
-`spec/spec-design-api-client.md`.
+`spec/spec-design-api-client.md`. An adapter may also declare
+`MODEL_CAPABILITIES.RECORDING_PIECES` with `buildPieceRequest` and
+`parsePieceResponse`; only MAI-Transcribe 2 does.
 
 Browser-local
 persistence is limited to non-secret model, manual HTTPS Target URI,

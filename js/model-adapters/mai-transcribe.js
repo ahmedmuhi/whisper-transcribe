@@ -14,7 +14,9 @@ import {
     MAI_TRANSCRIBE_2_STYLE_VALUES,
     MAI_TRANSCRIBE_MAX_UPLOAD_BYTES,
     MAI_TRANSCRIBE_STYLES,
+    MAI_WORD_TIMESTAMPS,
     MESSAGES,
+    MODEL_CAPABILITIES,
     MODEL_TYPES,
     STORAGE_KEYS,
     SUPPORTED_AUDIO_FORMATS_LABEL,
@@ -22,7 +24,17 @@ import {
 } from '../constants.js';
 import { COGNITIVE_SERVICES_SCOPE } from '../authentication-config.js';
 import { convertToWav } from '../audio-converter.js';
-import { parseMaiTranscribeResponse } from './response-parsers.js';
+import { parseMaiTranscribeResponse, parseMaiTranscribeWords } from './response-parsers.js';
+
+function buildMaiRequest(wavBlob, enhancedMode) {
+    const formData = new FormData();
+    formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
+    formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
+    return {
+        body: formData,
+        statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
+    };
+}
 
 function createMaiTranscribeModelAdapter({
     id,
@@ -33,7 +45,8 @@ function createMaiTranscribeModelAdapter({
     uploadLimitLabel,
     uploadLimitVerdict,
     uri,
-    announceAsNew = false
+    announceAsNew = false,
+    supportsRecordingPieces = false
 }) {
     return Object.freeze({
         id,
@@ -42,6 +55,23 @@ function createMaiTranscribeModelAdapter({
         uiOrder,
         // Only an announced model carries the flag, so other adapter shapes stay unchanged.
         ...(announceAsNew ? { announceAsNew: true } : {}),
+        // Likewise only a capable model carries the Recording Pieces capability and its piece methods.
+        ...(supportsRecordingPieces ? {
+            [MODEL_CAPABILITIES.RECORDING_PIECES]: true,
+            buildPieceRequest(wavBlob, config) {
+                // A piece is already 16 kHz mono WAV and far below the upload limit,
+                // so it skips the whole-file conversion and size checks.
+                const enhancedMode = buildEnhancedMode(config?.transcribeStyle);
+                return buildMaiRequest(wavBlob, {
+                    ...enhancedMode,
+                    [API_PARAMS.MAI_MODEL_OPTIONS_FIELD]: {
+                        ...enhancedMode[API_PARAMS.MAI_MODEL_OPTIONS_FIELD],
+                        [API_PARAMS.MAI_TIMESTAMPS_FIELD]: MAI_WORD_TIMESTAMPS
+                    }
+                });
+            },
+            parsePieceResponse: parseMaiTranscribeWords
+        } : {}),
         supportsTranscribeStyle: true,
         scope: COGNITIVE_SERVICES_SCOPE,
         storageKeys: Object.freeze({
@@ -86,15 +116,7 @@ function createMaiTranscribeModelAdapter({
                 throw error;
             }
 
-            const formData = new FormData();
-            formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
-            const enhancedMode = buildEnhancedMode(config?.transcribeStyle);
-            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
-
-            return {
-                body: formData,
-                statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
-            };
+            return buildMaiRequest(wavBlob, buildEnhancedMode(config?.transcribeStyle));
         },
         parseResponse: parseMaiTranscribeResponse
     });
@@ -117,6 +139,7 @@ export const maiTranscribe2ModelAdapter = createMaiTranscribeModelAdapter({
     optionLabel: 'MAI-Transcribe 2',
     uiOrder: 2,
     announceAsNew: true,
+    supportsRecordingPieces: true,
     buildEnhancedMode(transcribeStyle) {
         // MAI-Transcribe 2 defaults to verbatim, so the style is always explicit.
         // hasOwn, not `??`: an inherited name such as 'toString' must not select a value.
