@@ -284,3 +284,47 @@ popover to All settings. On the next load nothing shows.
 and the stored value is the list of ids already seen. The next model to set the
 flag shows the notice again, even to a User who acknowledged MAI-Transcribe 2,
 without anyone having to reset a single "seen the notice" switch.
+
+## A finished MAI-Transcribe 2 recording skips the conversion wait (2026-11-13)
+
+This is the first step of spec #156, ticket #159. A microphone recording for a
+model that declares Recording Pieces is captured a second time, uncompressed,
+beside MediaRecorder, and sent at Finish as one Recording Piece. There is no
+cutting during recording yet.
+
+**The capture is an AudioWorklet loaded from a same-origin file.** The
+processor lives in `js/pcm-capture.worklet.js`, and `js/pcm-capture.js` loads it
+with `new URL(..., import.meta.url)`, the way the audio-converter worker is
+loaded, so the build emits it under `assets/` with the right base path in both
+the normal and Pages builds. A first version loaded it from a Blob URL. It was
+changed before merge because a `script-src 'self'` Content Security Policy
+refuses a blob: or data: worklet module, and since the capture falls back
+silently to the whole-file path, such a policy would have switched Recording
+Pieces off with no error. For the same reason `vite.config.js` keeps worklet
+files from being inlined as data: URLs, and the build test fails if the worklet
+is ever loaded any other way. The AudioContext runs at 16 kHz, so the browser
+does the resampling, and the worklet node downmixes to one channel.
+
+**The capture is optional, the recorder is not.** MediaRecorder keeps running
+unchanged and remains the whole-recording copy. Every way the capture can fall
+short leads to the whole recording being sent through the conversion path, with
+nothing shown, because the owner does not watch the app while dictating and
+nothing here may depend on him noticing a message: a browser that cannot prepare
+the capture, a context that is not running after the click resumes it, a
+capture shorter than the recorded time by more than a named tolerance (500 ms),
+and a piece that fails after the client's retries. The length check exists
+because an empty-capture check alone misses a capture that stops halfway, which
+would return half a transcript, report success, and discard the compressed copy
+that held everything. From the fallback on, today's Unsent Recording rules apply.
+
+**No start-up delay.** The AudioContext and worklet are prepared when the page
+loads and wait suspended, so the click only connects the stream and resumes the
+context, before the recorder starts. Measured in Chromium with the fake
+microphone, from the record click to `MediaRecorder.start()`: main took a median
+of 16.4 ms for later recordings and 58 ms for the first; this branch took 18.2 ms
+and 29 ms. Loading the worklet at the click instead had cost about 7 ms per
+recording and 13 ms on the first.
+
+**The application budget is 26 kB.** The capture took the bundle to about
+23.9 kB against the old 23.5 kB limit. The owner raised the limit to 26 kB once
+for all of tickets #159 to #162, on issue #156.

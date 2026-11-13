@@ -65,6 +65,31 @@ describe('Vite build contract', () => {
         expect(redirectSource).not.toMatch(/js\/main|AudioHandler|AzureAPIClient|localStorage|microphone/);
     });
 
+    it.each([
+        ['production', [], '/'],
+        ['Pages', ['--', '--mode', 'pages'], '/whisper-transcribe/']
+    ])('emits the capture worklet as a same-origin %s asset the application loads by path, never the redirect bridge', (_label, modeArguments, base) => {
+        execFileSync('npm', ['run', 'build', ...modeArguments], { cwd: repoRoot, stdio: 'pipe' });
+
+        const assetsDirectory = path.join(distDirectory, 'assets');
+        const scripts = readdirSync(assetsDirectory).filter(assetName => assetName.endsWith('.js'));
+        const read = assetName => readFileSync(path.join(assetsDirectory, assetName), 'utf8');
+        const worklets = scripts.filter(assetName => read(assetName).includes('extends AudioWorkletProcessor'));
+        const mainBundle = read(scripts.find(assetName => /^main-[^/]+\.js$/.test(assetName)));
+        const moduleUrls = [...mainBundle.matchAll(/addModule\(new URL\(`([^`]*)`/g)].map(match => match[1]);
+        const redirectBuild = readFileSync(path.join(distDirectory, 'auth/redirect.html'), 'utf8');
+        const redirectAssets = [...redirectBuild.matchAll(/assets\/([^"]+\.js)/g)].map(match => match[1]);
+
+        expect(worklets).toEqual([expect.stringMatching(/^pcm-capture\.worklet-[^/]+\.js$/)]);
+        // A blob: or data: worklet module is refused by a `script-src 'self'` policy.
+        expect(moduleUrls).toEqual([`${base}assets/${worklets[0]}`]);
+        expect(mainBundle).not.toContain('data:text/javascript');
+        expect(mainBundle).not.toContain('extends AudioWorkletProcessor');
+        expect(redirectAssets.length).toBeGreaterThan(0);
+        expect(redirectAssets.some(assetName => read(assetName).includes('pcm-capture'))).toBe(false);
+        expect(redirectBuild).not.toContain('pcm-capture');
+    });
+
     it('builds before invoking the supported live-browser configuration', () => {
         const { scripts } = JSON.parse(readFileSync(packagePath, 'utf8'));
 
@@ -82,7 +107,7 @@ describe('Vite build contract', () => {
         const authenticationBudget = budgets.find(budget => budget.name === 'authentication runtime');
         const redirectBudget = budgets.find(budget => budget.name === 'redirect bridge');
 
-        expect(applicationBudget.limit).toBe('23.5 kB');
+        expect(applicationBudget.limit).toBe('26 kB');
         expect(redirectBudget.limit).toBe('5 kB');
         expect(authenticationBudget).toBeDefined();
 

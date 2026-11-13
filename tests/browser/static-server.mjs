@@ -18,6 +18,18 @@ const transcriptionPath = '/speechtotext/transcriptions:transcribe';
 const allowedOrigin = 'http://127.0.0.1:4173';
 const maxPostBytes = 5 * 1024 * 1024;
 
+const pieceTranscript = {
+    combinedPhrases: [{ text: 'Browser piece transcript.' }],
+    phrases: [{
+        text: 'Browser piece transcript.',
+        words: [
+            { text: 'Browser', offsetMilliseconds: 80, durationMilliseconds: 320 },
+            { text: 'piece', offsetMilliseconds: 440, durationMilliseconds: 280 },
+            { text: 'transcript.', offsetMilliseconds: 760, durationMilliseconds: 520 }
+        ]
+    }]
+};
+
 let apiObservations = freshObservations();
 
 function freshObservations() {
@@ -27,7 +39,8 @@ function freshObservations() {
         preflightHeaders: {},
         postHeaders: {},
         postBodyBase64: '',
-        captureError: null
+        captureError: null,
+        workletPaths: []
     };
 }
 
@@ -57,6 +70,8 @@ const appServer = http.createServer((request, response) => {
         return;
     }
 
+    // Worklet module fetches are not visible to Playwright, so the server records them.
+    if (requestUrl.pathname.includes('.worklet')) apiObservations.workletPaths.push(requestUrl.pathname);
     const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
     const decodedPath = decodeURIComponent(pathname);
     const filePath = path.resolve(distDirectory, `.${decodedPath}`);
@@ -135,15 +150,16 @@ const apiServer = https.createServer(createCertificate(), (request, response) =>
             response.end('Payload too large');
             return;
         }
-        apiObservations.postBodyBase64 = Buffer.concat(chunks).toString('base64');
+        const body = Buffer.concat(chunks);
+        apiObservations.postBodyBase64 = body.toString('base64');
         response.writeHead(200, {
             ...corsHeaders(),
             'Content-Type': 'application/json'
         });
-        response.end(JSON.stringify({
-            combinedPhrases: [{ text: 'Browser smoke transcript' }],
-            phrases: []
-        }));
+        // A Recording Piece asks for word timestamps; the whole-file path does not.
+        response.end(JSON.stringify(body.includes('"timestamps":"word"')
+            ? pieceTranscript
+            : { combinedPhrases: [{ text: 'Browser smoke transcript' }], phrases: [] }));
     });
     request.on('error', error => {
         apiObservations.captureError = error.message;

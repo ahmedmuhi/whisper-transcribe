@@ -151,17 +151,29 @@ const AUTHORED: readonly Authored[] = [
     group: 'audio',
     whatItDoes:
       'Runs a microphone recording from end to end: asks for the mic, starts a MediaRecorder, ticks ' +
-      'the timer, then hands the finished audio to the transcription client. If that send fails it ' +
-      'keeps the audio as an [[Unsent Recording]] so the User can retry or download it instead of ' +
-      'losing it.',
+      'the timer, then hands the finished audio to the transcription client. For a model that takes ' +
+      '[[Recording Pieces]] it also captures uncompressed 16 kHz audio beside the recorder and sends ' +
+      'that as one WAV piece, with no conversion wait, falling back to the whole recording if the ' +
+      'piece fails. If that send fails it keeps the audio as an [[Unsent Recording]] so the User can ' +
+      'retry or download it instead of losing it.',
     howItsBuilt:
       'Each attempt lives in its own session object with failureHandled and stopEventHandled flags ' +
       'rather than in instance fields, because MediaRecorder can fire stop and error for the same ' +
       'attempt, and a late event from an abandoned recording must not tear down a newer one. The ' +
       'state machine stays in INITIALIZING until recorder.start() actually returns, so a mic that ' +
-      'fails to open never shows a recording UI.',
-    files: ['js/audio-handler.js', 'js/permission-manager.js'],
-    stack: ['MediaRecorder', 'getUserMedia', 'Permissions API'],
+      'fails to open never shows a recording UI. The uncompressed capture is an AudioWorklet whose ' +
+      'processor is a same-origin file the build emits, never a blob: or data: URL, so a ' +
+      "script-src 'self' policy allows it. It is prepared at page load and only resumed at the click, " +
+      'so it adds no start-up delay, and a capture that cannot run or comes up shorter than the ' +
+      'recording is never sent: the whole recording is.',
+    files: [
+      'js/audio-handler.js',
+      'js/permission-manager.js',
+      'js/pcm-capture.js',
+      'js/pcm-capture.worklet.js',
+      'js/recording-piece-joiner.js',
+    ],
+    stack: ['MediaRecorder', 'getUserMedia', 'Permissions API', 'AudioWorklet'],
   },
   {
     id: 'fsm',
@@ -247,7 +259,8 @@ const AUTHORED: readonly Authored[] = [
     whatItDoes:
       'Takes an audio blob, checks the User has a usable Target URI, asks the current Transcription ' +
       'Model’s adapter to build the request body, then posts it to Azure with a bearer token and ' +
-      'hands back plain text. It is the only module in the app that ever writes an Authorization header.',
+      'hands back plain text, or, for a Recording Piece, the timed words. It is the only module in the ' +
+      'app that ever writes an Authorization header.',
     howItsBuilt:
       'The token is fetched as late as possible, right before the fetch, and lives only in a ' +
       'request-local options object that nothing outside the [[bounded retry loop]] can see. The ' +

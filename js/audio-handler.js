@@ -11,8 +11,12 @@ import {
     MESSAGES,
     TIMER_CONFIG,
     DISCARD_CONFIRM_MIN_MS,
+    MODEL_CAPABILITIES,
     getWhisperFilename
 } from './constants.js';
+import { modelAdapterRegistry } from './model-adapters/index.js';
+import { preparePcmCapture } from './pcm-capture.js';
+import { joinRecordingPieces } from './recording-piece-joiner.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -66,6 +70,9 @@ export class AudioHandler {
         this.pendingRetryDownloadInitiated = false;
         this.activeStream = null;
         this._activeRecordingSession = null;
+        this.pieceCapture = null;
+        // Prepared now, while it may sit suspended, so starting a recording only resumes it.
+        this.pcmCapture = preparePcmCapture();
 
         this.permissionManager = new PermissionManager();
         
@@ -258,6 +265,8 @@ export class AudioHandler {
                 return;
             }
 
+            this.pieceCapture = await this._startPieceCapture(stream, validatedConfig.model);
+
             // Keep the FSM in INITIALIZING until MediaRecorder.start() succeeds.
             const session = this.startRecording(stream);
 
@@ -300,6 +309,28 @@ export class AudioHandler {
         return false;
     }
 
+    /**
+     * Starts the prepared uncompressed capture beside MediaRecorder when the
+     * model takes Recording Pieces. It starts before the recorder, so it misses
+     * no speech. A capture that is unavailable or whose audio context the
+     * browser will not run leaves the recording on the whole-file path, with
+     * nothing shown to the User.
+     *
+     * @private
+     * @param {MediaStream} stream - Microphone stream
+     * @param {string} model - Transcription Model identifier
+     * @returns {Promise<Object|null>} The capture, or null for the whole-file path
+     */
+    async _startPieceCapture(stream, model) {
+        if (!modelAdapterRegistry.get(model)?.[MODEL_CAPABILITIES.RECORDING_PIECES]) return null;
+        try {
+            if (await this.pcmCapture.start(stream)) return this.pcmCapture;
+        } catch (error) {
+            logger.child('AudioHandler').warn('Uncompressed capture unavailable.', error?.name);
+        }
+        return null;
+    }
+
     _getAuthenticationReadinessMessage(state) {
         if (state === AUTHENTICATION_STATES.SIGNED_OUT) {
             return MESSAGES.AUTHENTICATION_SIGN_IN_REQUIRED;
@@ -326,6 +357,8 @@ export class AudioHandler {
 
         const session = this._activeRecordingSession;
         this.markVisualizationStopped(session);
+        // The capture stops listening with the timer, so its length matches the recorded time.
+        this.pieceCapture?.pause();
 
         // Stop the timer immediately when stopping
         clearInterval(this.timerInterval);
@@ -540,6 +573,7 @@ export class AudioHandler {
     async togglePause() {
         if (this.stateMachine.canPause()) {
             this.mediaRecorder.pause();
+            this.pieceCapture?.pause();
             clearInterval(this.timerInterval);
             this.timerInterval = null;
             await this.stateMachine.transitionTo(RECORDING_STATES.PAUSED);
@@ -548,6 +582,7 @@ export class AudioHandler {
             const pausedTime = this.getTimerMilliseconds();
             this.recordingStartTime = Date.now() - pausedTime;
             this.mediaRecorder.resume();
+            this.pieceCapture?.resume();
             this.startTimer();
             eventBus.emit(APP_EVENTS.RECORDING_RESUMED);
             await this.stateMachine.transitionTo(RECORDING_STATES.RECORDING);
@@ -680,7 +715,10 @@ export class AudioHandler {
         this.pendingRetryBlob = audioBlob;
         this.pendingRetryDownloadInitiated = false;
 
-        const result = await this.sendToAzureAPI(audioBlob);
+        const pieceCapture = this.pieceCapture;
+        this.pieceCapture = null;
+        const result = (pieceCapture && await this._sendRecordingPiece(pieceCapture))
+            || await this.sendToAzureAPI(audioBlob);
         this.stopStreamTracks(stream);
         this.audioChunks.length = 0;
 
@@ -737,29 +775,53 @@ export class AudioHandler {
             || errorCode === API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED;
     }
     
+    /**
+     * Sends the uncompressed capture as a single Recording Piece. The compressed
+     * recording stays the Unsent Recording until a transcript is delivered.
+     *
+     * @private
+     * @param {Object} pieceCapture - Capture started with the recording
+     * @returns {Promise<{success: true}|null>} Success, or null to send the whole recording
+     */
+    async _sendRecordingPiece(pieceCapture) {
+        try {
+            const words = await this.apiClient.transcribePiece(
+                await pieceCapture.finish(),
+                (message) => this._emitProgress(message)
+            );
+            this._deliverTranscript(joinRecordingPieces([{ startMs: 0, words }], []));
+            return { success: true };
+        } catch (error) {
+            logger.child('AudioHandler').warn('Recording Piece failed; sending the whole recording.', error?.name);
+            return null;
+        } finally {
+            pieceCapture.release();
+        }
+    }
+
+    _emitProgress(message) {
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, { message, type: 'info' });
+    }
+
+    _deliverTranscript(text) {
+        eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, { text });
+        eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
+            message: MESSAGES.TRANSCRIPTION_COMPLETE,
+            type: 'success',
+            temporary: true
+        });
+    }
+
     async sendToAzureAPI(audioBlob) {
         try {
             if (typeof navigator !== 'undefined' && navigator.onLine === false) {
                 throw new Error(MESSAGES.CHECK_INTERNET_CONNECTION);
             }
 
-            const transcriptionText = await this.apiClient.transcribe(audioBlob, (statusMessage) => {
-                eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                    message: statusMessage,
-                    type: 'info'
-                });
-            });
-
-            eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, {
-                text: transcriptionText
-            });
-
-            eventBus.emit(APP_EVENTS.UI_STATUS_UPDATE, {
-                message: MESSAGES.TRANSCRIPTION_COMPLETE,
-                type: 'success',
-                temporary: true
-            });
-
+            this._deliverTranscript(await this.apiClient.transcribe(
+                audioBlob,
+                (message) => this._emitProgress(message)
+            ));
             return { success: true };
 
         } catch (error) {
@@ -796,7 +858,9 @@ export class AudioHandler {
 
         // Visualization cleanup is now handled by UI via event
 
-        // Clear recording state
+        // Clear recording state, including any uncompressed capture
+        this.pieceCapture?.release();
+        this.pieceCapture = null;
         this.audioChunks.length = 0;
         this.recordingStartTime = null;
         this.mediaRecorder = null;
