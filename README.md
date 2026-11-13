@@ -183,7 +183,7 @@ check before push.
 
 ## Architecture
 
-- Vite `8.1.5` builds a multi-page static artifact from `index.html` and
+- Vite `8.3.8` builds a multi-page static artifact from `index.html` and
   `auth/redirect.html`; production stays browser-only and uses no UI framework.
 - Exactly pinned `@azure/msal-browser` `5.17.1` is the sole production
   dependency. Vite and the test tools are build-time dependencies.

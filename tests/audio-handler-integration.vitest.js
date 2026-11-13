@@ -106,7 +106,7 @@ describe('AudioHandler Integration', () => {
     };
     
     // Mock MediaRecorder constructor
-    global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+    global.MediaRecorder = vi.fn(function FakeMediaRecorder() { return mockMediaRecorder; });
     
     // Mock stream
     trackStopSpy = vi.fn();

@@ -124,7 +124,7 @@ describe('AzureAPIClient model adapter registry', () => {
         vi.clearAllMocks();
         applyDomSpies();
         globalThis.fetch = vi.fn();
-        globalThis.FormData = vi.fn(() => new TestFormData());
+        globalThis.FormData = vi.fn(function FakeFormData() { return new TestFormData(); });
         eventBusEmitSpy = vi.spyOn(eventBus, 'emit');
     });
 

@@ -55,7 +55,7 @@ global.webkitAudioContext = MockAudioContext;
 // Mock VisualizationController module using ESM mocking
 const mockController = { start: vi.fn(), stop: vi.fn() };
 vi.mock('../js/visualization.js', () => ({
-  VisualizationController: vi.fn(() => mockController)
+  VisualizationController: vi.fn(function FakeVisualizationController() { return mockController; })
 }));
 
 // Load the mocked module to avoid "Must use import" errors when the UI lazily
