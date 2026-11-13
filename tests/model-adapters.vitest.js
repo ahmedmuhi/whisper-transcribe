@@ -759,7 +759,7 @@ describe('Recording Piece requests', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        globalThis.FormData = vi.fn(() => new TestFormData());
+        globalThis.FormData = vi.fn(function FakeFormData() { return new TestFormData(); });
     });
 
     function pieceEntry(request, name) {

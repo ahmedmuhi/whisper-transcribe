@@ -37,8 +37,11 @@ describe('response parsers', () => {
             .toThrow(MESSAGES.UNKNOWN_API_RESPONSE);
     });
 
-    it('returns no words for a silent piece', () => {
-        expect(parseMaiTranscribeWords({ combinedPhrases: [], phrases: [] })).toEqual([]);
+    it.each([
+        ['empty combined phrases', { combinedPhrases: [], phrases: [] }],
+        ['no combined phrases', { phrases: [] }]
+    ])('returns no words for a silent piece with %s', (_name, response) => {
+        expect(parseMaiTranscribeWords(response)).toEqual([]);
     });
 
     it.each([
