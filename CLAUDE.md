@@ -12,7 +12,7 @@ transcripts, screenshots, and private command output.
 
 Whisper Transcribe is a Vite-built, browser-only vanilla JavaScript SPA. It has
 no UI framework, backend, runtime server, or key fallback. Exactly pinned
-`@azure/msal-browser` `5.17.1` is the sole production dependency; Vite `8.1.5`
+`@azure/msal-browser` `5.17.1` is the sole production dependency; Vite `8.3.8`
 and all test tools are development dependencies. Node.js `>=22.12.0` is required;
 CI uses Node.js 24.
 

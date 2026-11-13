@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     API_ERROR_CODES,
     AUDIO_SAFETY_STATES,
+    AUTHENTICATION_STATES,
     AUTH_PRESENTATION_STATES,
     AUTH_RECOVERY_STATES,
     MESSAGES
@@ -613,6 +614,147 @@ describe('authentication island presentation', () => {
 
         expect(settings.openSettingsModal).toHaveBeenCalledTimes(1);
         expect(settings.openSettingsModal).toHaveBeenCalledWith(ui.authPrimaryAction);
+    });
+
+    it.each([
+        [AUTHENTICATION_STATES.UNINITIALIZED, MESSAGES.AUTH_CHECKING],
+        [AUTHENTICATION_STATES.INITIALIZING, MESSAGES.AUTH_CHECKING],
+        [AUTHENTICATION_STATES.SIGNED_OUT, MESSAGES.AUTH_SIGN_IN_TITLE],
+        [AUTHENTICATION_STATES.INTERACTION_REQUIRED, MESSAGES.AUTH_SIGN_IN_TITLE],
+        [AUTHENTICATION_STATES.CONFIGURATION_ERROR, MESSAGES.AUTH_FAILED_TITLE],
+        [AUTHENTICATION_STATES.NETWORK_ERROR, MESSAGES.AUTH_FAILED_TITLE],
+        [AUTHENTICATION_STATES.AUTHENTICATION_ERROR, MESSAGES.AUTH_FAILED_TITLE],
+        ['unrecognised-state', MESSAGES.AUTH_FAILED_TITLE]
+    ])('shows the matching sign-in island when authentication reports %s', (state, title) => {
+        const { ui } = createIslandHarness();
+        ui.setupEventBusListeners();
+
+        eventBus.emit(APP_EVENTS.AUTHENTICATION_STATE_CHANGED, { state });
+
+        expect(ui.authContext.hidden).toBe(false);
+        expect(ui.authContextTitle.textContent).toBe(title);
+        expect(ui.primaryAction.hidden).toBe(true);
+    });
+
+    it('starts on the sign-in island when the app boots signed out', () => {
+        const ui = new UI({ authenticationState: AUTHENTICATION_STATES.SIGNED_OUT });
+        ui._setReady(true);
+
+        expect(ui.authContext.hidden).toBe(false);
+        expect(ui.authContextTitle.textContent).toBe(MESSAGES.AUTH_SIGN_IN_TITLE);
+        expect(ui.authPrimaryAction.textContent).toBe(MESSAGES.AUTH_CONTINUE);
+        expect(ui.primaryAction.hidden).toBe(true);
+    });
+
+    it('offers Start recording once authentication reports ready', () => {
+        const { ui } = createIslandHarness();
+        ui.setupEventBusListeners();
+
+        eventBus.emit(APP_EVENTS.AUTHENTICATION_STATE_CHANGED, { state: AUTHENTICATION_STATES.READY });
+
+        expect(ui.authContext.hidden).toBe(true);
+        expect(ui.primaryAction.hidden).toBe(false);
+        expect(ui.primaryAction.textContent).toBe('Start recording');
+    });
+
+    it('downloads an Unsent Recording, then continues to sign in only when asked', async () => {
+        const { ui, authInteractionController } = createIslandHarness({
+            recoveryState: AUDIO_SAFETY_STATES.UNSENT
+        });
+        ui.setupEventListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED);
+        authInteractionController.getRecoveryState
+            .mockReturnValue({ state: AUTH_RECOVERY_STATES.DOWNLOADED });
+
+        expect(ui.authPrimaryAction.textContent).toBe(MESSAGES.AUTH_DOWNLOAD_RECORDING);
+        ui.authPrimaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => {
+            expect(ui.authPrimaryAction.textContent).toBe(MESSAGES.AUTH_CONTINUE);
+        });
+
+        expect(authInteractionController.downloadUnsentRecording).toHaveBeenCalledTimes(1);
+        expect(authInteractionController.continueAfterDownload).not.toHaveBeenCalled();
+        expect(ui.authSecondaryAction.textContent).toBe(MESSAGES.AUTH_DISCARD_AND_SIGN_IN);
+
+        ui.authPrimaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.waitFor(() => {
+            expect(authInteractionController.continueAfterDownload)
+                .toHaveBeenCalledWith({ interactionRequired: true });
+        });
+    });
+
+    it('discards an Unsent Recording and signs in from the secondary island action', async () => {
+        const { ui, authInteractionController } = createIslandHarness({
+            recoveryState: AUDIO_SAFETY_STATES.UNSENT
+        });
+        ui.setupEventListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED);
+
+        expect(ui.authSecondaryAction.textContent).toBe(MESSAGES.AUTH_DISCARD_AND_SIGN_IN);
+        ui.authSecondaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        await vi.waitFor(() => {
+            expect(authInteractionController.discardUnsentAndContinue)
+                .toHaveBeenCalledWith({ interactionRequired: true });
+        });
+        expect(authInteractionController.downloadUnsentRecording).not.toHaveBeenCalled();
+    });
+
+    it('asks the User to finish an active recording before signing in again', () => {
+        const { ui } = createIslandHarness({ recoveryState: AUDIO_SAFETY_STATES.ACTIVE });
+
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED);
+
+        expect(ui.authContextTitle.textContent).toBe('Finish the recording first');
+        expect(ui.authContextBody.textContent)
+            .toBe('Microsoft sign in cannot continue while recording audio.');
+        expect(ui.authPrimaryAction.hidden).toBe(true);
+        expect(ui.authSecondaryAction.hidden).toBe(true);
+    });
+
+    it('opens the Azure setup help from the 403 island', () => {
+        const { ui, openHelp } = createIslandHarness();
+        ui.setupEventListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.AUTHORIZATION_DENIED);
+
+        expect(ui.authPrimaryAction.textContent).toBe(MESSAGES.VIEW_AZURE_SETUP);
+        ui.authPrimaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(openHelp).toHaveBeenCalledTimes(1);
+    });
+
+    it('tells the User when the Unsent Recording download could not start', async () => {
+        const { ui, authInteractionController } = createIslandHarness({
+            recoveryState: AUDIO_SAFETY_STATES.UNSENT
+        });
+        authInteractionController.downloadUnsentRecording
+            .mockResolvedValueOnce({ state: AUTH_RECOVERY_STATES.BLOCKED });
+        ui.setupEventListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED);
+
+        ui.authPrimaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        await vi.waitFor(() => {
+            expect(ui.statusElement.textContent).toBe(MESSAGES.RECORDING_DOWNLOAD_FAILED);
+        });
+        expect(ui.authPrimaryAction.textContent).toBe(MESSAGES.AUTH_DOWNLOAD_RECORDING);
+    });
+
+    it('shows a safe error when discarding the Unsent Recording fails', async () => {
+        const { ui, authInteractionController } = createIslandHarness({
+            recoveryState: AUDIO_SAFETY_STATES.UNSENT
+        });
+        authInteractionController.discardUnsentAndContinue
+            .mockRejectedValueOnce(new Error('discard failed'));
+        ui.setupEventListeners();
+        ui.setAuthenticationPresentation(AUTH_PRESENTATION_STATES.INTERACTION_REQUIRED);
+
+        ui.authSecondaryAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        await vi.waitFor(() => {
+            expect(ui.statusElement.textContent).toBe(MESSAGES.AUTHENTICATION_ACTION_FAILED);
+        });
+        expect(ui.statusElement.textContent).not.toContain('discard failed');
     });
 
     it('uses keyless Target URI wording for missing model configuration', () => {
