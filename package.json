@@ -50,7 +50,7 @@
         "dist/assets/modulepreload-polyfill-*.js",
         "dist/assets/audio-converter.worker-*.js"
       ],
-      "limit": "23.5 kB"
+      "limit": "26 kB"
     },
     {
       "name": "authentication runtime",

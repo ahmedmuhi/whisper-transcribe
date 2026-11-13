@@ -6,7 +6,7 @@
   "tokens": { "owns": ["js/token-provider.js"] },
   "authguard": { "owns": ["js/auth-interaction-controller.js"] },
   "callback": { "owns": ["auth/redirect.html"] },
-  "mic": { "owns": ["js/audio-handler.js", "js/permission-manager.js"] },
+  "mic": { "owns": ["js/audio-handler.js", "js/permission-manager.js", "js/pcm-capture.js", "js/recording-piece-joiner.js"] },
   "fsm": { "owns": ["js/recording-state-machine.js"] },
   "picker": { "owns": ["js/selected-audio-controller.js"] },
   "encode": { "owns": ["js/audio-converter.js", "js/audio-converter.worker.js", "js/wav-encoder.js"] },

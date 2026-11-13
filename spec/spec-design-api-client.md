@@ -186,6 +186,14 @@ values send `"clean"`. It sends no `task`, `diarization`, `phraseList`,
 `locales`, or timestamp options. Whisper and GPT Transcribe never receive a MAI
 definition.
 
+`transcribePiece(wavBlob, onProgress)` follows the same order for one Recording
+Piece, using the adapter's `buildPieceRequest()` and `parsePieceResponse()` in
+place of `buildRequest()` and `parseResponse()`, and returns the piece's timed
+words. It shares the token, header, timeout, and retry path with `transcribe()`.
+It does not call `_handleApiError()` and emits neither `API_REQUEST_SUCCESS`
+nor `API_REQUEST_ERROR`: a failed piece is not an application error, because
+the caller falls back to sending the whole recording through `transcribe()`.
+
 The client acquires one token per transcription call. The same local request
 options may be reused only within that call's bounded retry loop. The token MUST
 NOT be copied to a client property, adapter, Settings, application-managed
@@ -243,6 +251,7 @@ model. They never contain a response body or token.
 class AzureAPIClient {
     constructor(settings, tokenProvider, adapterRegistry = modelAdapterRegistry)
     transcribe(audioBlob, onProgress?): Promise<string>
+    transcribePiece(wavBlob, onProgress?): Promise<{ text, offsetMs, durationMs }[]>
     validateConfig(): { model: string, uri: string, transcribeStyle?: string }
     getScopeForModel(model): string
     parseResponse(data): string

@@ -54,31 +54,9 @@ export class AzureAPIClient {
 
         try {
             const { body, statusMessage } = await adapter.buildRequest(audioBlob, config, onProgress);
-            if (onProgress) {
-                onProgress(statusMessage);
-            }
-
-            eventBus.emit(APP_EVENTS.API_REQUEST_START, {
-                model: config.model,
-                message: statusMessage
-            });
-
-            // Keep the access token request-local and acquire it as late as possible.
-            // The same local request options are reused only by this bounded retry loop.
-            const accessToken = await this.tokenProvider.getToken(adapter.scope);
-            const requestOptions = {
-                method: HTTP_METHODS.POST,
-                headers: { Authorization: `Bearer ${accessToken}` },
-                body
-            };
-
-            const data = await this._fetchWithRetry(config.uri, requestOptions, onProgress, async (response) => {
-                if (!response.ok) {
-                    throw await this._createApiError(response, config.model);
-                }
-                return this._readResponseData(response);
-            });
-            const transcription = adapter.parseResponse(data);
+            const transcription = adapter.parseResponse(
+                await this._post(config, adapter, body, statusMessage, onProgress)
+            );
 
             eventBus.emit(APP_EVENTS.API_REQUEST_SUCCESS, {
                 model: config.model,
@@ -91,6 +69,64 @@ export class AzureAPIClient {
             this._handleApiError(error, error.apiContext);
             throw error;
         }
+    }
+
+    /**
+     * Transcribes one Recording Piece, an already-encoded WAV, into timed words.
+     * A failure is the caller's to handle: it is not reported as an application
+     * error, because the caller falls back to sending the whole recording.
+     *
+     * @async
+     * @param {Blob} wavBlob - 16 kHz mono 16-bit WAV of the piece
+     * @param {Function} [onProgress] - Progress callback for status updates
+     * @returns {Promise<{text: string, offsetMs: number, durationMs: number}[]>} Words in spoken order
+     * @throws {Error} When the model has no Recording Pieces capability or the request fails
+     */
+    async transcribePiece(wavBlob, onProgress) {
+        const config = this.validateConfig();
+        const adapter = this._getModelAdapter(config.model);
+        const { body, statusMessage } = adapter.buildPieceRequest(wavBlob, config);
+        return adapter.parsePieceResponse(
+            await this._post(config, adapter, body, statusMessage, onProgress)
+        );
+    }
+
+    /**
+     * Sends one built request body and returns the parsed response data.
+     *
+     * @private
+     * @param {{uri: string, model: string}} config - Validated configuration
+     * @param {Object} adapter - Model adapter declaring the token scope
+     * @param {FormData} body - Request body built by the adapter
+     * @param {string} statusMessage - Status shown while the request is sent
+     * @param {Function} [onProgress] - Progress callback for status updates
+     * @returns {Promise<string|Object>} Response data
+     */
+    async _post(config, adapter, body, statusMessage, onProgress) {
+        if (onProgress) {
+            onProgress(statusMessage);
+        }
+
+        eventBus.emit(APP_EVENTS.API_REQUEST_START, {
+            model: config.model,
+            message: statusMessage
+        });
+
+        // Keep the access token request-local and acquire it as late as possible.
+        // The same local request options are reused only by this bounded retry loop.
+        const accessToken = await this.tokenProvider.getToken(adapter.scope);
+        const requestOptions = {
+            method: HTTP_METHODS.POST,
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body
+        };
+
+        return this._fetchWithRetry(config.uri, requestOptions, onProgress, async (response) => {
+            if (!response.ok) {
+                throw await this._createApiError(response, config.model);
+            }
+            return this._readResponseData(response);
+        });
     }
     
     /**

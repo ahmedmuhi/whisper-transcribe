@@ -65,6 +65,27 @@ describe('Vite build contract', () => {
         expect(redirectSource).not.toMatch(/js\/main|AudioHandler|AzureAPIClient|localStorage|microphone/);
     });
 
+    it.each([
+        ['production', []],
+        ['Pages', ['--', '--mode', 'pages']]
+    ])('ships the uncompressed capture in the %s application bundle and never in the redirect bridge', (_label, modeArguments) => {
+        execFileSync('npm', ['run', 'build', ...modeArguments], { cwd: repoRoot, stdio: 'pipe' });
+
+        const assetsDirectory = path.join(distDirectory, 'assets');
+        const assetNames = readdirSync(assetsDirectory).filter(assetName => assetName.endsWith('.js'));
+        const shipsCapture = assetName => readFileSync(path.join(assetsDirectory, assetName), 'utf8')
+            .includes('extends AudioWorkletProcessor');
+        const redirectBuild = readFileSync(path.join(distDirectory, 'auth/redirect.html'), 'utf8');
+        const redirectAssets = [...redirectBuild.matchAll(/assets\/([^"]+\.js)/g)].map(match => match[1]);
+
+        expect(assetNames.filter(shipsCapture)).toEqual([
+            expect.stringMatching(/^main-[^/]+\.js$/)
+        ]);
+        expect(redirectAssets.length).toBeGreaterThan(0);
+        expect(redirectAssets.filter(shipsCapture)).toEqual([]);
+        expect(redirectBuild).not.toContain('pcm-capture');
+    });
+
     it('builds before invoking the supported live-browser configuration', () => {
         const { scripts } = JSON.parse(readFileSync(packagePath, 'utf8'));
 
@@ -82,7 +103,7 @@ describe('Vite build contract', () => {
         const authenticationBudget = budgets.find(budget => budget.name === 'authentication runtime');
         const redirectBudget = budgets.find(budget => budget.name === 'redirect bridge');
 
-        expect(applicationBudget.limit).toBe('23.5 kB');
+        expect(applicationBudget.limit).toBe('26 kB');
         expect(redirectBudget.limit).toBe('5 kB');
         expect(authenticationBudget).toBeDefined();
 

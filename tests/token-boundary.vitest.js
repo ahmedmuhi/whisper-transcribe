@@ -111,6 +111,59 @@ describe('request-local bearer boundary', () => {
         expect(JSON.stringify(client)).not.toContain(FAKE_TOKEN);
     });
 
+    it('keeps the Recording Piece path credential-blind with one bearer header added just before fetch', async () => {
+        const callOrder = [];
+        const settings = {
+            getModelConfig: vi.fn(() => ({
+                model: 'fake-model',
+                uri: 'https://target.invalid/transcribe'
+            }))
+        };
+        const words = [{ text: 'Fake.', offsetMs: 0, durationMs: 100 }];
+        const adapter = Object.freeze({
+            id: 'fake-model',
+            label: 'Fake Model',
+            scope: COGNITIVE_SERVICES_SCOPE,
+            storageKeys: Object.freeze({ uri: 'fake_uri' }),
+            buildRequest: vi.fn(),
+            parseResponse: vi.fn(),
+            buildPieceRequest: vi.fn(() => {
+                callOrder.push('build');
+                return { body: 'fake-piece-body', statusMessage: 'Sending fake piece...' };
+            }),
+            parsePieceResponse: vi.fn(() => words)
+        });
+        const tokenProvider = Object.freeze({
+            getToken: vi.fn(async (scope) => {
+                callOrder.push('token');
+                expect(scope).toBe(COGNITIVE_SERVICES_SCOPE);
+                return FAKE_TOKEN;
+            })
+        });
+        const client = new AzureAPIClient(settings, tokenProvider, new Map([[adapter.id, adapter]]));
+        globalThis.fetch.mockImplementation(async (_uri, options) => {
+            callOrder.push('fetch');
+            expect(options.headers).toEqual({ Authorization: `Bearer ${FAKE_TOKEN}` });
+            return {
+                ok: true,
+                status: 200,
+                headers: { get: vi.fn().mockReturnValue('application/json') },
+                json: vi.fn().mockResolvedValue({ phrases: [] })
+            };
+        });
+
+        await expect(client.transcribePiece(new Blob(['fake wav']))).resolves.toBe(words);
+
+        expect(callOrder).toEqual(['build', 'token', 'fetch']);
+        expect(tokenProvider.getToken).toHaveBeenCalledTimes(1);
+        expect(adapter.buildPieceRequest.mock.calls.flat()).not.toContain(FAKE_TOKEN);
+        expect(adapter.parsePieceResponse.mock.calls.flat()).not.toContain(FAKE_TOKEN);
+        expect(adapter.buildRequest).not.toHaveBeenCalled();
+        expect(JSON.stringify(eventBusEmitSpy.mock.calls)).not.toContain(FAKE_TOKEN);
+        expect(JSON.stringify(loggerSpies)).not.toContain(FAKE_TOKEN);
+        expect(JSON.stringify(client)).not.toContain(FAKE_TOKEN);
+    });
+
     it('reuses one request-local token across bounded transient retries', async () => {
         const settings = {
             getModelConfig: vi.fn(() => ({

@@ -61,6 +61,7 @@ transcript storage implementation.
 |---|---|
 | Microphone lifecycle state and legal transitions | `RecordingStateMachine` |
 | MediaRecorder, stream, chunks, Unsent Recording, retry Blob | `AudioHandler` |
+| Uncompressed 16 kHz capture for a Recording Piece | `startPcmCapture()` in `js/pcm-capture.js`, started and released by `AudioHandler` |
 | One memory-only local File and its validation/transcription state | `SelectedAudioController` |
 | Authentication state and token readiness | `AuthenticationService` |
 | Redirect/logout recovery choices | `AuthInteractionController` |
@@ -198,6 +199,20 @@ and assigns it to `pendingRetryBlob` before calling Azure. That Blob is the
 Unsent Recording. It remains in application memory during `PROCESSING` and after
 a failed submission.
 
+When the model that was selected at the start of the recording declares
+`MODEL_CAPABILITIES.RECORDING_PIECES`, `AudioHandler` also runs an uncompressed
+capture of the same stream beside MediaRecorder, as 16 kHz mono samples held in
+memory only. Pause and resume pause and resume it, so paused time is not
+captured. On entering `PROCESSING`, `AudioHandler` first sends that capture as
+one Recording Piece, a WAV, through `AzureAPIClient.transcribePiece()`, with no
+conversion step, and rebuilds the transcript from the returned words. If the
+piece fails after the client's own retries, the MediaRecorder Blob is sent
+through the whole-file `transcribe()` path, conversion included, and the rules
+below apply to that attempt. If the browser cannot start the capture, the
+recording keeps the whole-file path. Cleanup, including a confirmed discard,
+releases the capture. Retry of an Unsent Recording always sends the whole
+recording. The state machine and its transition table are unchanged.
+
 On success, `AudioHandler` clears the Blob, clears recovery metadata, empties
 chunks, and transitions `PROCESSING -> IDLE`.
 
@@ -331,6 +346,11 @@ Primary deterministic coverage includes:
 - `tests/auth-recovery.vitest.js` and `tests/discard-flow.vitest.js` — Unsent
   Recording download/discard/navigation safety;
 - `tests/audio-source-coordination.vitest.js` — one active Audio Source;
+- `tests/pcm-capture.vitest.js` and `tests/recording-piece-send.vitest.js` — the
+  uncompressed capture, the single Recording Piece, its whole-file fallback,
+  Unsent Recording recovery after both fail, and discard release;
+- `tests/browser/recording-pieces.spec.js` — built-browser capture from the fake
+  microphone sent as one WAV piece with no conversion status;
 - `tests/selected-audio.vitest.js` and `tests/selected-audio-ui.vitest.js` —
   memory-only File state, model revalidation, explicit Transcribe, and recovery;
 - `tests/browser/auth-menu-recovery.spec.js` — built-browser checking, 401, 403,

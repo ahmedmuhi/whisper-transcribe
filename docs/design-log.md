@@ -284,3 +284,27 @@ popover to All settings. On the next load nothing shows.
 and the stored value is the list of ids already seen. The next model to set the
 flag shows the notice again, even to a User who acknowledged MAI-Transcribe 2,
 without anyone having to reset a single "seen the notice" switch.
+
+## A finished MAI-Transcribe 2 recording skips the conversion wait (2026-11-13)
+
+This is the first step of spec #156, ticket #159. A microphone recording for a
+model that declares Recording Pieces is captured a second time, uncompressed,
+beside MediaRecorder, and sent at Finish as one Recording Piece. There is no
+cutting during recording yet.
+
+**The capture is an AudioWorklet loaded from a Blob URL.** The processor is a
+one-line source string in `js/pcm-capture.js`, so it ships inside the
+application bundle and needs no separately emitted asset whose path would change
+between the normal and Pages builds. The AudioContext runs at 16 kHz, so the
+browser does the resampling, and the worklet node downmixes to one channel.
+
+**The capture is optional, the recorder is not.** MediaRecorder keeps running
+unchanged and remains the whole-recording copy. A browser that cannot start the
+capture keeps today's whole-file path without telling the User anything, and a
+piece that fails after the client's retries is not reported either: the whole
+recording is sent through the conversion path, and from there today's Unsent
+Recording rules apply.
+
+**The application budget is 26 kB.** The capture took the bundle to about
+23.9 kB against the old 23.5 kB limit. The owner raised the limit to 26 kB once
+for all of tickets #159 to #162, on issue #156.
