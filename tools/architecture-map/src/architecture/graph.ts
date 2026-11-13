@@ -163,7 +163,9 @@ const AUTHORED: readonly Authored[] = [
       'state machine stays in INITIALIZING until recorder.start() actually returns, so a mic that ' +
       'fails to open never shows a recording UI. The uncompressed capture is an AudioWorklet whose ' +
       'processor is a same-origin file the build emits, never a blob: or data: URL, so a ' +
-      "script-src 'self' policy allows it; a browser that cannot run it simply keeps the whole-file path.",
+      "script-src 'self' policy allows it. It is prepared at page load and only resumed at the click, " +
+      'so it adds no start-up delay, and a capture that cannot run or comes up shorter than the ' +
+      'recording is never sent: the whole recording is.',
     files: [
       'js/audio-handler.js',
       'js/permission-manager.js',

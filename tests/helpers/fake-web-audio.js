@@ -1,31 +1,46 @@
 /**
  * @fileoverview A stand-in for the AudioContext and AudioWorkletNode the
- * uncompressed capture uses. Happy DOM has no audio worklet, so tests play
- * samples into the capture through `speak()`.
+ * uncompressed capture uses, with a clock. Happy DOM has no audio worklet, so
+ * tests play samples into the capture through `speak()`, which also moves the
+ * clock on by the length of those samples, as real time would.
  */
 
 import { vi } from 'vitest';
+
+const SAMPLE_RATE = 16000;
 
 export function installFakeWebAudio() {
     const audio = {
         contexts: [],
         nodes: [],
         addModuleError: null,
-        /** Delivers samples the way the worklet would, while the context is open. */
+        refuseResume: false,
+        now: 1000,
+        /** Delivers samples the way the worklet would while the context runs. */
         speak(samples) {
+            audio.now += (samples.length / SAMPLE_RATE) * 1000;
             const node = audio.nodes.at(-1);
-            if (node && node.context.state !== 'closed') {
+            if (node && node.context.state === 'running' && node.source) {
                 node.port.onmessage?.({ data: Float32Array.from(samples) });
             }
+        },
+        /** Lets time pass with nothing reaching the capture, as when it stops partway. */
+        passTime(ms) {
+            audio.now += ms;
         }
     };
+
+    vi.spyOn(globalThis.performance, 'now').mockImplementation(() => audio.now);
 
     globalThis.AudioContext = class FakeAudioContext {
         constructor(options) {
             this.sampleRate = options?.sampleRate;
-            this.state = 'running';
-            this.close = vi.fn(async () => {
-                this.state = 'closed';
+            this.state = 'suspended';
+            this.resume = vi.fn(async () => {
+                if (!audio.refuseResume) this.state = 'running';
+            });
+            this.suspend = vi.fn(async () => {
+                this.state = 'suspended';
             });
             this.audioWorklet = {
                 addModule: vi.fn(async () => {
@@ -36,7 +51,14 @@ export function installFakeWebAudio() {
         }
 
         createMediaStreamSource(stream) {
-            return { connect: vi.fn((node) => { node.stream = stream; }) };
+            const source = {
+                stream,
+                connect: vi.fn((node) => { node.source = source; }),
+                disconnect: vi.fn(() => {
+                    for (const node of audio.nodes) if (node.source === source) node.source = null;
+                })
+            };
+            return source;
         }
     };
 
@@ -45,6 +67,7 @@ export function installFakeWebAudio() {
             this.context = context;
             this.name = name;
             this.options = options;
+            this.source = null;
             this.port = { onmessage: null };
             audio.nodes.push(this);
         }

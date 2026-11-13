@@ -306,11 +306,24 @@ is ever loaded any other way. The AudioContext runs at 16 kHz, so the browser
 does the resampling, and the worklet node downmixes to one channel.
 
 **The capture is optional, the recorder is not.** MediaRecorder keeps running
-unchanged and remains the whole-recording copy. A browser that cannot start the
-capture keeps today's whole-file path without telling the User anything, and a
-piece that fails after the client's retries is not reported either: the whole
-recording is sent through the conversion path, and from there today's Unsent
-Recording rules apply.
+unchanged and remains the whole-recording copy. Every way the capture can fall
+short leads to the whole recording being sent through the conversion path, with
+nothing shown, because the owner does not watch the app while dictating and
+nothing here may depend on him noticing a message: a browser that cannot prepare
+the capture, a context that is not running after the click resumes it, a
+capture shorter than the recorded time by more than a named tolerance (500 ms),
+and a piece that fails after the client's retries. The length check exists
+because an empty-capture check alone misses a capture that stops halfway, which
+would return half a transcript, report success, and discard the compressed copy
+that held everything. From the fallback on, today's Unsent Recording rules apply.
+
+**No start-up delay.** The AudioContext and worklet are prepared when the page
+loads and wait suspended, so the click only connects the stream and resumes the
+context, before the recorder starts. Measured in Chromium with the fake
+microphone, from the record click to `MediaRecorder.start()`: main took a median
+of 16.4 ms for later recordings and 58 ms for the first; this branch took 18.2 ms
+and 29 ms. Loading the worklet at the click instead had cost about 7 ms per
+recording and 13 ms on the first.
 
 **The application budget is 26 kB.** The capture took the bundle to about
 23.9 kB against the old 23.5 kB limit. The owner raised the limit to 26 kB once

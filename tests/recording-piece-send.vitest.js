@@ -177,7 +177,44 @@ describe('sending a microphone recording as one Recording Piece', () => {
         expect(transcriptsShown()).toEqual(['Hello, world. It is me.']);
         expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
         expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
-        expect(audio.contexts[0].state).toBe('closed');
+        expect(audio.contexts[0].state).toBe('suspended');
+    });
+
+    it('starts the capture before the recorder, so no speech is missing from it', async () => {
+        await startRecording();
+
+        expect(audio.contexts[0].resume.mock.invocationCallOrder[0])
+            .toBeLessThan(globalThis.MediaRecorder.mock.invocationCallOrder[0]);
+    });
+
+    it('sends the whole recording when the capture stopped partway, instead of half a transcript', async () => {
+        globalThis.fetch.mockResolvedValueOnce(respond(200, WHOLE_RESPONSE));
+
+        await startRecording();
+        audio.speak(new Array(16000).fill(0.25));
+        audio.passTime(20_000);
+        await finishRecording();
+
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+        expect(sentDefinition(0).enhancedMode.modelOptions).toEqual({ transcribeStyle: 'clean' });
+        expect(convertToWav).toHaveBeenCalledTimes(1);
+        expect(transcriptsShown()).toEqual(['Whole recording text.']);
+        expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+    });
+
+    it('records on the whole-file path, showing nothing, when the browser will not let the capture run', async () => {
+        audio.refuseResume = true;
+        globalThis.fetch.mockResolvedValueOnce(respond(200, WHOLE_RESPONSE));
+
+        await startRecording();
+        audio.speak([0.5]);
+        await finishRecording();
+
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+        expect(convertToWav).toHaveBeenCalledTimes(1);
+        expect(transcriptsShown()).toEqual(['Whole recording text.']);
+        expect(eventsOf(APP_EVENTS.ERROR_OCCURRED)).toEqual([]);
+        expect(statusMessages().filter(message => /capture|piece/i.test(message))).toEqual([]);
     });
 
     it('leaves paused time out of the piece', async () => {
@@ -236,8 +273,11 @@ describe('sending a microphone recording as one Recording Piece', () => {
         expect(transcriptsShown()).toEqual([]);
 
         const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:unsent');
+        // Happy DOM would otherwise navigate the test window to the blob: address.
+        const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
         expect(audioHandler.downloadUnsentRecording()).toBe(true);
         expect(createObjectURL.mock.calls[0][0].type).toBe('audio/webm');
+        expect(click).toHaveBeenCalledTimes(1);
 
         eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
         await vi.waitFor(() => expect(transcriptsShown()).toEqual(['Whole recording text.']));
@@ -285,7 +325,8 @@ describe('sending a microphone recording as one Recording Piece', () => {
         await Promise.all(recorderHandlers.stop.map(handler => handler()));
 
         expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
-        expect(audio.contexts[0].state).toBe('closed');
+        expect(audio.nodes[0].source).toBeNull();
+        expect(audio.contexts[0].state).toBe('suspended');
         expect(globalThis.fetch).not.toHaveBeenCalled();
         expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
     });
@@ -302,7 +343,7 @@ describe('sending a microphone recording as one Recording Piece', () => {
         expect(sentDefinition(0).enhancedMode.model).toBe('mai-transcribe-1.5');
         expect(convertToWav).toHaveBeenCalledTimes(1);
         expect(transcriptsShown()).toEqual(['Whole recording text.']);
-        expect(audio.contexts[0].state).toBe('closed');
+        expect(audio.nodes[0].source).toBeNull();
     });
 
     it('keeps MAI-Transcribe 1.5 on the whole-file path with no uncompressed capture', async () => {
@@ -312,7 +353,8 @@ describe('sending a microphone recording as one Recording Piece', () => {
         await startRecording();
         await finishRecording();
 
-        expect(audio.contexts).toEqual([]);
+        expect(audio.contexts[0].resume).not.toHaveBeenCalled();
+        expect(audio.nodes[0].source).toBeNull();
         expect(convertToWav).toHaveBeenCalledTimes(1);
         expect(transcriptsShown()).toEqual(['Whole recording text.']);
     });

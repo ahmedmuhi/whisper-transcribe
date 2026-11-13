@@ -15,7 +15,7 @@ import {
     getWhisperFilename
 } from './constants.js';
 import { modelAdapterRegistry } from './model-adapters/index.js';
-import { startPcmCapture } from './pcm-capture.js';
+import { preparePcmCapture } from './pcm-capture.js';
 import { joinRecordingPieces } from './recording-piece-joiner.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
@@ -71,6 +71,8 @@ export class AudioHandler {
         this.activeStream = null;
         this._activeRecordingSession = null;
         this.pieceCapture = null;
+        // Prepared now, while it may sit suspended, so starting a recording only resumes it.
+        this.pcmCapture = preparePcmCapture();
 
         this.permissionManager = new PermissionManager();
         
@@ -308,9 +310,11 @@ export class AudioHandler {
     }
 
     /**
-     * Starts the uncompressed capture beside MediaRecorder when the model takes
-     * Recording Pieces. A capture the browser cannot run leaves the recording on
-     * the whole-file path.
+     * Starts the prepared uncompressed capture beside MediaRecorder when the
+     * model takes Recording Pieces. It starts before the recorder, so it misses
+     * no speech. A capture that is unavailable or whose audio context the
+     * browser will not run leaves the recording on the whole-file path, with
+     * nothing shown to the User.
      *
      * @private
      * @param {MediaStream} stream - Microphone stream
@@ -320,11 +324,11 @@ export class AudioHandler {
     async _startPieceCapture(stream, model) {
         if (!modelAdapterRegistry.get(model)?.[MODEL_CAPABILITIES.RECORDING_PIECES]) return null;
         try {
-            return await startPcmCapture(stream);
+            if (await this.pcmCapture.start(stream)) return this.pcmCapture;
         } catch (error) {
             logger.child('AudioHandler').warn('Uncompressed capture unavailable.', error?.name);
-            return null;
         }
+        return null;
     }
 
     _getAuthenticationReadinessMessage(state) {
@@ -353,6 +357,8 @@ export class AudioHandler {
 
         const session = this._activeRecordingSession;
         this.markVisualizationStopped(session);
+        // The capture stops listening with the timer, so its length matches the recorded time.
+        this.pieceCapture?.pause();
 
         // Stop the timer immediately when stopping
         clearInterval(this.timerInterval);

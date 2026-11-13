@@ -775,3 +775,12 @@ export const DISCARD_CONFIRM_MIN_MS = 10000;
  * @constant {number} RECORDING_PIECE_SAMPLE_RATE
  */
 export const RECORDING_PIECE_SAMPLE_RATE = 16000;
+
+/**
+ * How much shorter than the recorded time (paused time excluded) the
+ * uncompressed capture may be before it counts as incomplete. A shorter capture
+ * is not sent; the whole recording is sent instead.
+ *
+ * @constant {number} RECORDING_PIECE_SHORTFALL_TOLERANCE_MS
+ */
+export const RECORDING_PIECE_SHORTFALL_TOLERANCE_MS = 500;
