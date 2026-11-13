@@ -29,16 +29,8 @@ const loggerSpies = vi.hoisted(() => ({
 global.fetch = vi.fn();
 
 // Mock FormData
-global.FormData = vi.fn(() => ({
-    append: vi.fn()
-}));
-
-// Mock URL constructor
-global.URL = vi.fn((url) => {
-    if (!url.startsWith('http')) {
-        throw new Error('Invalid URL');
-    }
-    return { href: url, protocol: url.startsWith('https') ? 'https:' : 'http:' };
+global.FormData = vi.fn(function FakeFormData() {
+    return { append: vi.fn() };
 });
 
 vi.mock('../js/audio-converter.js', () => ({

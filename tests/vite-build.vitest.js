@@ -123,8 +123,8 @@ describe('Vite build contract', () => {
             projectNode: packageData.engines.node,
             lockedProjectNode: lockedProject.engines.node
         }).toEqual({
-            projectVite: '8.1.5',
-            lockedVite: '8.1.5',
+            projectVite: '8.3.8',
+            lockedVite: '8.3.8',
             viteNode: '^20.19.0 || >=22.12.0',
             projectNode: '>=22.12.0',
             lockedProjectNode: '>=22.12.0'

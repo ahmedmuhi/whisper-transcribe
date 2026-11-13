@@ -310,6 +310,14 @@ describe('UI Event Bus Communication', () => {
             expect(emitSpy).not.toHaveBeenCalledWith(APP_EVENTS.DISCARD_KEPT);
         });
 
+        it('names the unrecoverable audio when the recording has no duration label', () => {
+            ui.discardDialog.showModal = vi.fn();
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '' });
+            expect(ui.discardDialogBody.textContent)
+                .toBe('The audio has not been transcribed and cannot be recovered.');
+            expect(ui.discardDialog.showModal).toHaveBeenCalled();
+        });
+
         it('falls back to Keep (never strands the FSM) when showModal is unavailable', () => {
             // The applyDomSpies dialog stub has no showModal — the unsupported path.
             const emitSpy = vi.spyOn(eventBus, 'emit');
