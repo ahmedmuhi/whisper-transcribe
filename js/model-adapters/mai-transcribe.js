@@ -26,6 +26,16 @@ import { COGNITIVE_SERVICES_SCOPE } from '../authentication-config.js';
 import { convertToWav } from '../audio-converter.js';
 import { parseMaiTranscribeResponse, parseMaiTranscribeWords } from './response-parsers.js';
 
+function buildMaiRequest(wavBlob, enhancedMode) {
+    const formData = new FormData();
+    formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
+    formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
+    return {
+        body: formData,
+        statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
+    };
+}
+
 function createMaiTranscribeModelAdapter({
     id,
     label,
@@ -52,17 +62,13 @@ function createMaiTranscribeModelAdapter({
                 // A piece is already 16 kHz mono WAV and far below the upload limit,
                 // so it skips the whole-file conversion and size checks.
                 const enhancedMode = buildEnhancedMode(config?.transcribeStyle);
-                enhancedMode[API_PARAMS.MAI_MODEL_OPTIONS_FIELD] = {
-                    ...enhancedMode[API_PARAMS.MAI_MODEL_OPTIONS_FIELD],
-                    [API_PARAMS.MAI_TIMESTAMPS_FIELD]: MAI_WORD_TIMESTAMPS
-                };
-                const formData = new FormData();
-                formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
-                formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
-                return {
-                    body: formData,
-                    statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
-                };
+                return buildMaiRequest(wavBlob, {
+                    ...enhancedMode,
+                    [API_PARAMS.MAI_MODEL_OPTIONS_FIELD]: {
+                        ...enhancedMode[API_PARAMS.MAI_MODEL_OPTIONS_FIELD],
+                        [API_PARAMS.MAI_TIMESTAMPS_FIELD]: MAI_WORD_TIMESTAMPS
+                    }
+                });
             },
             parsePieceResponse: parseMaiTranscribeWords
         } : {}),
@@ -110,15 +116,7 @@ function createMaiTranscribeModelAdapter({
                 throw error;
             }
 
-            const formData = new FormData();
-            formData.append(API_PARAMS.MAI_AUDIO_FIELD, wavBlob, DEFAULT_WAV_FILENAME);
-            const enhancedMode = buildEnhancedMode(config?.transcribeStyle);
-            formData.append(API_PARAMS.MAI_DEFINITION_FIELD, JSON.stringify({ enhancedMode }));
-
-            return {
-                body: formData,
-                statusMessage: MESSAGES.SENDING_TO_MAI_TRANSCRIBE
-            };
+            return buildMaiRequest(wavBlob, buildEnhancedMode(config?.transcribeStyle));
         },
         parseResponse: parseMaiTranscribeResponse
     });

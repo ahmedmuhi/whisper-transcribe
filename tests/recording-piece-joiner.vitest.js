@@ -78,6 +78,23 @@ describe('joinRecordingPieces', () => {
         expect(joinRecordingPieces(pieces, [2000, 3500])).toBe('Before after.');
     });
 
+    it('does not let a neighbour fill the gap left by an empty piece', () => {
+        // The first piece heard "Late" just after the cut, but only the empty second piece may supply it.
+        const pieces = [
+            { startMs: 0, words: [word('Early', 1500), word('Late', 2100)] },
+            { startMs: 1500, words: [] }
+        ];
+
+        expect(joinRecordingPieces(pieces, [2000])).toBe('Early');
+    });
+
+    it('gives a word whose midpoint is exactly on the cut to the later piece', () => {
+        const first = { startMs: 0, words: [word('Pebble', 1800)] };
+        const second = { startMs: 1500, words: [word('pebble', 300)] };
+
+        expect(joinRecordingPieces([first, second], [2000])).toBe('pebble');
+    });
+
     it('preserves punctuation and capitals exactly as each word carries them', () => {
         const words = [word('“Señor', 0), word('O’Brien,”', 500), word('she', 1000), word('said;', 1400), word('NASA!', 1900)];
 
