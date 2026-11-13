@@ -167,7 +167,7 @@ class MockMediaRecorder {
 
 // Define browser mocks using Object.defineProperty for ES6 compatibility
 Object.defineProperty(global, 'MediaRecorder', {
-  value: vi.fn((stream) => new MockMediaRecorder(stream)),
+  value: vi.fn(function FakeMediaRecorder(stream) { return new MockMediaRecorder(stream); }),
   writable: true,
   configurable: true
 });
@@ -850,7 +850,7 @@ describe('Error Recovery Scenarios', () => {
         }),
         state: 'inactive'
       };
-      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+      global.MediaRecorder = vi.fn(function FakeMediaRecorder() { return mockMediaRecorder; });
 
       mockApiClient.transcribe.mockRejectedValueOnce(new Error('Network failure'));
 
@@ -901,7 +901,7 @@ describe('Error Recovery Scenarios', () => {
         }),
         state: 'inactive'
       };
-      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+      global.MediaRecorder = vi.fn(function FakeMediaRecorder() { return mockMediaRecorder; });
 
       const authenticationError = new Error(MESSAGES.AUTHENTICATION_REQUIRED);
       authenticationError.code = API_ERROR_CODES.AUTHENTICATION_REQUIRED;
@@ -942,7 +942,7 @@ describe('Error Recovery Scenarios', () => {
         }),
         state: 'inactive'
       };
-      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+      global.MediaRecorder = vi.fn(function FakeMediaRecorder() { return mockMediaRecorder; });
 
       mockApiClient.transcribe.mockRejectedValueOnce(
         new Error('API error 422: The audio format is not supported')
@@ -1028,7 +1028,7 @@ describe('Error Recovery Scenarios', () => {
         addEventListener: vi.fn(),
         state: 'inactive'
       };
-      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+      global.MediaRecorder = vi.fn(function FakeMediaRecorder() { return mockMediaRecorder; });
 
       await audioHandler.startRecordingFlow();
 
@@ -1067,7 +1067,7 @@ describe('Error Recovery Scenarios', () => {
         addEventListener: vi.fn(),
         state: 'inactive'
       };
-      global.MediaRecorder = vi.fn(() => mockMediaRecorder);
+      global.MediaRecorder = vi.fn(function FakeMediaRecorder() { return mockMediaRecorder; });
 
       mockApiClient.validateConfig.mockImplementationOnce(() => ({
         model: 'whisper',

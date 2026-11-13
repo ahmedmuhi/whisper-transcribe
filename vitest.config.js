@@ -20,8 +20,7 @@ export default defineConfig({
         functions: 70,
         lines: 85
       },
-      clean: true,
-      all: true
+      clean: true
     },
     reporter: ['verbose'],
     globals: true

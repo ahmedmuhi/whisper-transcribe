@@ -31,16 +31,18 @@ const mockStart = vi.fn();
 
 const originalOfflineAudioContext = global.OfflineAudioContext;
 
-global.OfflineAudioContext = vi.fn().mockImplementation((_channels, _length, _sampleRate) => ({
-    decodeAudioData: mockDecodeAudioData,
-    createBufferSource: () => ({
-        buffer: null,
-        connect: mockConnect,
-        start: mockStart
-    }),
-    destination: {},
-    startRendering: mockStartRendering
-}));
+global.OfflineAudioContext = vi.fn().mockImplementation(function FakeOfflineAudioContext() {
+    return {
+        decodeAudioData: mockDecodeAudioData,
+        createBufferSource: () => ({
+            buffer: null,
+            connect: mockConnect,
+            start: mockStart
+        }),
+        destination: {},
+        startRendering: mockStartRendering
+    };
+});
 
 let convertToWav;
 
@@ -411,7 +413,7 @@ describe('Audio Converter — Web Worker offload', () => {
     });
 
     it('should fall back to the synchronous encode when Worker construction throws', async () => {
-        global.Worker = vi.fn().mockImplementation(() => {
+        global.Worker = vi.fn().mockImplementation(function FakeWorker() {
             throw new Error('Worker unavailable');
         });
 
