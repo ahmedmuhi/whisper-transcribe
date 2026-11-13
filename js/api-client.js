@@ -80,7 +80,7 @@ export class AzureAPIClient {
      * @param {Blob} wavBlob - 16 kHz mono 16-bit WAV of the piece
      * @param {Function} [onProgress] - Progress callback for status updates
      * @returns {Promise<{text: string, offsetMs: number, durationMs: number}[]>} Words in spoken order
-     * @throws {Error} When the model has no Recording Pieces capability or the request fails
+     * @throws {Error} When the request fails, or when the model now selected cannot build a piece request
      */
     async transcribePiece(wavBlob, onProgress) {
         const config = this.validateConfig();

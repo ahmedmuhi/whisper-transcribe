@@ -52,6 +52,13 @@ describe('uncompressed microphone capture', () => {
         expect(samples).toEqual([Math.trunc(0.5 * 0x7FFF), -0x4000]);
     });
 
+    it('rejects at finish when it heard nothing, so an empty piece never passes for silence', async () => {
+        const capture = await startPcmCapture(STREAM);
+
+        await expect(capture.finish()).rejects.toThrow('The uncompressed capture is empty.');
+        expect(audio.contexts[0].state).toBe('closed');
+    });
+
     it('stops listening to the microphone on release, once', async () => {
         const capture = await startPcmCapture(STREAM);
         audio.speak([0.5]);

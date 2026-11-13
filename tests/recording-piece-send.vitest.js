@@ -261,6 +261,18 @@ describe('sending a microphone recording as one Recording Piece', () => {
         expect(transcriptsShown()).toEqual(['Whole recording text.']);
     });
 
+    it('sends the whole recording when the capture heard nothing, rather than an empty piece', async () => {
+        globalThis.fetch.mockResolvedValueOnce(respond(200, WHOLE_RESPONSE));
+
+        await startRecording();
+        await finishRecording();
+
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+        expect(sentDefinition(0).enhancedMode.modelOptions).toEqual({ transcribeStyle: 'clean' });
+        expect(convertToWav).toHaveBeenCalledTimes(1);
+        expect(transcriptsShown()).toEqual(['Whole recording text.']);
+    });
+
     it('releases the uncompressed capture and sends nothing when a discard is confirmed', async () => {
         await startRecording();
         audio.speak([0.5]);
@@ -276,6 +288,21 @@ describe('sending a microphone recording as one Recording Piece', () => {
         expect(audio.contexts[0].state).toBe('closed');
         expect(globalThis.fetch).not.toHaveBeenCalled();
         expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+    });
+
+    it('sends the whole recording to the newly selected model when the User switches away from MAI-Transcribe 2 mid-recording', async () => {
+        globalThis.fetch.mockResolvedValueOnce(respond(200, WHOLE_RESPONSE));
+
+        await startRecording();
+        audio.speak([0.5]);
+        config.model = MODEL_TYPES.MAI_TRANSCRIBE_1_5;
+        await finishRecording();
+
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+        expect(sentDefinition(0).enhancedMode.model).toBe('mai-transcribe-1.5');
+        expect(convertToWav).toHaveBeenCalledTimes(1);
+        expect(transcriptsShown()).toEqual(['Whole recording text.']);
+        expect(audio.contexts[0].state).toBe('closed');
     });
 
     it('keeps MAI-Transcribe 1.5 on the whole-file path with no uncompressed capture', async () => {

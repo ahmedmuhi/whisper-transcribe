@@ -48,7 +48,7 @@ export async function startPcmCapture(stream) {
     return {
         pause() { paused = true; },
         resume() { paused = false; },
-        /** Stops capturing and returns everything captured as one WAV Blob. */
+        /** Stops capturing and returns everything captured as one WAV Blob; rejects when nothing was captured. */
         async finish() {
             await close();
             const samples = new Float32Array(chunks.reduce((length, chunk) => length + chunk.length, 0));
@@ -57,6 +57,9 @@ export async function startPcmCapture(stream) {
                 return offset + chunk.length;
             }, 0);
             chunks.length = 0;
+            // A context the browser kept suspended hears nothing; an empty piece would
+            // pass for silence, so the caller must send the whole recording instead.
+            if (samples.length === 0) throw new Error('The uncompressed capture is empty.');
             return new Blob([encodeWav(samples, RECORDING_PIECE_SAMPLE_RATE, 16)], { type: 'audio/wav' });
         },
         /** Stops capturing and drops the captured audio. */
