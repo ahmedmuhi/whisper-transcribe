@@ -32,8 +32,12 @@ export function parseMaiTranscribeResponse(data) {
     throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
 }
 
+function hasText(value) {
+    return typeof value === 'string' && value.trim() !== '';
+}
+
 function isTimedWord(word) {
-    return typeof word?.text === 'string'
+    return hasText(word?.text)
         && Number.isFinite(word.offsetMilliseconds)
         && Number.isFinite(word.durationMilliseconds);
 }
@@ -50,8 +54,12 @@ export function parseMaiTranscribeWords(data) {
         throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
     }
 
-    return data.phrases.flatMap((phrase) => {
+    const words = data.phrases.flatMap((phrase) => {
         if (!Array.isArray(phrase?.words) || !phrase.words.every(isTimedWord)) {
+            throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
+        }
+        // Recognised text with no timed words would silently drop part of the transcript.
+        if (phrase.words.length === 0 && hasText(phrase.text)) {
             throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
         }
         return phrase.words.map(word => ({
@@ -60,4 +68,10 @@ export function parseMaiTranscribeWords(data) {
             durationMs: word.durationMilliseconds
         }));
     });
+
+    const combinedPhrases = Array.isArray(data.combinedPhrases) ? data.combinedPhrases : [];
+    if (words.length === 0 && combinedPhrases.some(phrase => hasText(phrase?.text))) {
+        throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
+    }
+    return words;
 }
