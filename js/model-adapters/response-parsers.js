@@ -31,3 +31,33 @@ export function parseMaiTranscribeResponse(data) {
 
     throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
 }
+
+function isTimedWord(word) {
+    return typeof word?.text === 'string'
+        && Number.isFinite(word.offsetMilliseconds)
+        && Number.isFinite(word.durationMilliseconds);
+}
+
+/**
+ * Reads the words of a MAI-Transcribe response that was asked for word
+ * timestamps. Each word keeps its display text, punctuation included.
+ *
+ * @param {object} data Parsed JSON response.
+ * @returns {{ text: string, offsetMs: number, durationMs: number }[]} Words in spoken order.
+ */
+export function parseMaiTranscribeWords(data) {
+    if (!Array.isArray(data?.phrases)) {
+        throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
+    }
+
+    return data.phrases.flatMap((phrase) => {
+        if (!Array.isArray(phrase?.words) || !phrase.words.every(isTimedWord)) {
+            throw new Error(MESSAGES.UNKNOWN_API_RESPONSE);
+        }
+        return phrase.words.map(word => ({
+            text: word.text,
+            offsetMs: word.offsetMilliseconds,
+            durationMs: word.durationMilliseconds
+        }));
+    });
+}

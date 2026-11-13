@@ -31,3 +31,11 @@ _Avoid_: Input Device, Transcription Model, Target URI
 **Selected Audio**:
 An Audio Source chosen from a User's device and held locally for review before transcription. It has not yet been sent to Azure.
 _Avoid_: Uploaded audio, pending upload
+
+**Recording Piece**:
+A slice of a microphone recording sent for transcription while recording continues.
+_Avoid_: Chunk, segment
+
+**Partial Transcript**:
+The text of the Recording Pieces transcribed so far, shown while a recording is still in progress or finishing.
+_Avoid_: Interim result, draft transcript
