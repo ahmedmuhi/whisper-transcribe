@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+You are the owner and long-term maintainer of this codebase, and its design is
+up to you.
+
 This file is the executor architecture guide for Whisper Transcribe. Use
 `GLOSSARY.md` for canonical domain vocabulary and keep every public artifact free
 of real identifiers, Target URIs, credentials, authentication responses, audio,
