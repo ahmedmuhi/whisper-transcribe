@@ -1523,10 +1523,12 @@ export class UI {
 
     /**
      * Persists the current transcript text to the single-slot store (the seam that
-     * later swaps localStorage for a backend). Empty text clears the recovery slot.
+     * later swaps localStorage for a backend). Empty text clears the recovery slot,
+     * but a box holding only the Partial Transcript saves nothing and leaves the
+     * stored transcript as it was.
      *
      * @method persistTranscript
-     * @returns {boolean} True when the transcript store reports success.
+     * @returns {boolean} True when the transcript store reports success, or when there was nothing to save.
      */
     persistTranscript() {
         if (!this.transcriptStore || !this.transcriptElement) return false;

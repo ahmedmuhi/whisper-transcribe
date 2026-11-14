@@ -700,7 +700,7 @@ describe('sending a microphone recording in Recording Pieces', () => {
                     apiClient: audioHandler.apiClient,
                     recordingSafety: audioHandler
                 }),
-                getScope: () => 'https://cognitiveservices.azure.com/.default',
+                getScope: () => 'https://service.invalid/.default',
                 confirmDiscard: vi.fn().mockResolvedValue(true)
             });
             const redirects = () => Object.values(authenticationService).flatMap(spy => spy.mock.calls);
@@ -876,6 +876,7 @@ describe('sending a microphone recording in Recording Pieces', () => {
 
         it('blocks sign-out and sign-in redirects in every recorder state in which a piece or the whole recording can be in flight', async () => {
             const { redirects, requestEveryRedirect } = navigationSafety();
+            // Sign-out, sign-in and the interaction-required sign-in, each refused as active audio.
             const blocked = [AUDIO_SAFETY_STATES.ACTIVE, AUDIO_SAFETY_STATES.ACTIVE, AUDIO_SAFETY_STATES.ACTIVE];
             const answers = {};
             const ask = async (label) => {
@@ -885,11 +886,14 @@ describe('sending a microphone recording in Recording Pieces', () => {
             await startRecording();
             await speakSeconds(61);
             await ask('recording, a piece in flight');
-            await audioHandler.togglePause();
-            await ask('paused, a piece in flight');
             audioHandler.currentTimerDisplay = '01:01';
             await audioHandler.requestDiscard();
-            await ask('asking before discard, a piece in flight');
+            await ask('asking before discard from Recording, a piece in flight');
+            await audioHandler.keepRecording();
+            await audioHandler.togglePause();
+            await ask('paused, a piece in flight');
+            await audioHandler.requestDiscard();
+            await ask('asking before discard from Paused, a piece in flight');
             await audioHandler.keepRecording();
             await audioHandler.togglePause();
             await uploads[0].reply(FIRST_PIECE);
@@ -921,7 +925,12 @@ describe('sending a microphone recording in Recording Pieces', () => {
                     sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
                     states: blocked
                 },
-                'asking before discard, a piece in flight': {
+                'asking before discard from Recording, a piece in flight': {
+                    recorder: RECORDING_STATES.CONFIRMING_DISCARD,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
+                    states: blocked
+                },
+                'asking before discard from Paused, a piece in flight': {
                     recorder: RECORDING_STATES.CONFIRMING_DISCARD,
                     sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
                     states: blocked
