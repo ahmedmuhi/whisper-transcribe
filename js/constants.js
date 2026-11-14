@@ -615,6 +615,8 @@ export const MESSAGES = {
   TEXT_GRAB_SUCCESS: 'Grabbed to clipboard',
   TEXT_GRAB_FAILED: 'Failed to grab text',
   NO_TEXT_TO_GRAB: 'No text to grab',
+  NOTHING_TO_GRAB_YET: 'Nothing to grab yet. The transcript is still coming in.',
+  DISCARD_RECORDING_AND_TEXT: 'The recording and the text shown so far will be removed and cannot be recovered.',
   TRANSCRIPT_RESTORED: 'Transcript restored',
   
   // Permission Instructions

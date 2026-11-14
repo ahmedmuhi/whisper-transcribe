@@ -138,6 +138,7 @@ export class UI {
     #dragRegistered = false;
     // The Partial Transcript as last placed at the end of the box, divider included.
     #partialSegment = '';
+    #partialText = '';
 
     /**
      * Creates a new UI controller instance and resolves DOM references.
@@ -416,6 +417,7 @@ export class UI {
             // The finished transcript replaces the Partial Transcript.
             this.transcriptElement.value = this.#withoutPartialTranscript(this.transcriptElement.value);
             this.#partialSegment = '';
+            this.#partialText = '';
             this.displayTranscription(data.text);
             this.hideSpinner();
         });
@@ -1263,9 +1265,13 @@ export class UI {
      */
     openDiscardDialog(durationLabel) {
         if (this.discardDialogBody) {
-            this.discardDialogBody.textContent = durationLabel
-                ? `Discard ${durationLabel} of recording?`
+            // Discard removes the text shown so far too, so the dialog names it.
+            const stakes = this.#partialSegment
+                ? MESSAGES.DISCARD_RECORDING_AND_TEXT
                 : 'The audio has not been transcribed and cannot be recovered.';
+            this.discardDialogBody.textContent = durationLabel
+                ? `Discard ${durationLabel} of recording?${this.#partialSegment ? ` ${stakes}` : ''}`
+                : stakes;
         }
         // If the modal cannot be presented (no native <dialog> support, or showModal
         // throws), never strand the FSM in CONFIRMING_DISCARD with a live recorder —
@@ -1454,9 +1460,8 @@ export class UI {
     #showPartialTranscript(text) {
         const box = this.transcriptElement;
         const { selectionStart, selectionEnd, scrollTop } = box;
-        const kept = this.#withoutPartialTranscript(box.value);
-        this.#partialSegment = text && (kept ? TRANSCRIPT_SEGMENT_DIVIDER : '') + text;
-        box.value = kept + this.#partialSegment;
+        this.#partialText = text;
+        this.#placePartialAfter(this.#withoutPartialTranscript(box.value));
         if (document.activeElement === box) {
             // The User is editing: their caret and view stay where they were.
             box.selectionStart = selectionStart;
@@ -1466,6 +1471,19 @@ export class UI {
             box.scrollTop = box.scrollHeight;
         }
         this.updateRestoreAffordance();
+    }
+
+    /**
+     * Fills the box with the finished text followed by the Partial Transcript,
+     * placed as a finished transcript would be: after a divider only when
+     * finished text comes before it.
+     *
+     * @param {string} finished
+     * @returns {void}
+     */
+    #placePartialAfter(finished) {
+        this.#partialSegment = this.#partialText && (finished ? TRANSCRIPT_SEGMENT_DIVIDER : '') + this.#partialText;
+        this.transcriptElement.value = finished + this.#partialSegment;
     }
 
     /**
@@ -1513,12 +1531,7 @@ export class UI {
     persistTranscript() {
         if (!this.transcriptStore || !this.transcriptElement) return false;
 
-        const value = this.transcriptElement.value;
-        const text = this.#withoutPartialTranscript(value);
-        // A box holding only the Partial Transcript has nothing to save, and must
-        // not clear the transcript saved before it.
-        if (value && !text) return true;
-        const persisted = this.transcriptStore.save(text);
+        const persisted = this.transcriptStore.save(this.#withoutPartialTranscript(this.transcriptElement.value));
         if (persisted) {
             this._autosaveFailureNotified = false;
             return true;
@@ -1566,15 +1579,17 @@ export class UI {
     /**
      * Grab — copy the transcript to the clipboard and clear the box. The record is
      * persisted FIRST, so the words survive a clipboard failure or later clobber,
-     * and remain recoverable via Restore.
+     * and remain recoverable via Restore. Grab takes only finished text: a
+     * Partial Transcript belongs to the recording in progress and stays in the box.
      *
      * @method grabTranscript
      * @returns {Promise<boolean>} Resolves true when the text reached the clipboard.
      */
     grabTranscript() {
-        const text = this.transcriptElement.value;
+        const boxText = this.transcriptElement.value;
+        const text = this.#withoutPartialTranscript(boxText);
         if (!text) {
-            this._emitStatus(MESSAGES.NO_TEXT_TO_GRAB, 'error');
+            this._emitStatus(boxText ? MESSAGES.NOTHING_TO_GRAB_YET : MESSAGES.NO_TEXT_TO_GRAB, 'error');
             return Promise.resolve(false);
         }
         const persisted = this.persistTranscript();
@@ -1586,7 +1601,7 @@ export class UI {
                 }
                 clearTimeout(this._autosaveTimer);
                 this._autosaveTimer = null;
-                this.transcriptElement.value = '';
+                this.#placePartialAfter('');
                 this.updateRestoreAffordance();
                 this._emitStatus(MESSAGES.TEXT_GRAB_SUCCESS, 'success');
                 return true;

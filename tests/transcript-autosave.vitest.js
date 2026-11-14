@@ -277,13 +277,75 @@ describe('the Partial Transcript in the transcript box', () => {
         expect(store.load()?.text).toBe('Earlier dictation, edited.');
     });
 
-    it('keeps the transcript saved earlier when only the Partial Transcript is in the box', () => {
-        store.save('Saved earlier.');
-        showPartial('Hello, world.');
+    describe('Grab during a recording', () => {
+        let writeText;
 
-        expect(ui.persistTranscript()).toBe(true);
+        beforeEach(() => {
+            writeText = vi.fn(() => Promise.resolve());
+            vi.stubGlobal('navigator', { clipboard: { writeText } });
+        });
 
-        expect(store.load()?.text).toBe('Saved earlier.');
+        afterEach(() => {
+            vi.unstubAllGlobals();
+        });
+
+        it('copies and saves only the finished text, leaving the text so far in the box to keep growing', async () => {
+            ui.transcriptElement.value = 'Earlier dictation.';
+            showPartial('Hello, world.');
+
+            await expect(ui.grabTranscript()).resolves.toBe(true);
+
+            expect(writeText).toHaveBeenCalledWith('Earlier dictation.');
+            expect(store.load()?.text).toBe('Earlier dictation.');
+            expect(ui.transcriptElement.value).toBe('Hello, world.');
+
+            showPartial('Hello, world. It is');
+            expect(ui.transcriptElement.value).toBe('Hello, world. It is');
+            eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, { text: 'Hello, world. It is me.' });
+            expect(ui.transcriptElement.value).toBe('Hello, world. It is me.');
+            expect(store.load()?.text).toBe('Hello, world. It is me.');
+        });
+
+        it('does nothing but say so when the box holds only the text so far', async () => {
+            store.save('Saved earlier.');
+            showPartial('Hello, world.');
+            const statusSpy = vi.spyOn(eventBus, 'emit');
+
+            await expect(ui.grabTranscript()).resolves.toBe(false);
+
+            expect(writeText).not.toHaveBeenCalled();
+            expect(ui.transcriptElement.value).toBe('Hello, world.');
+            expect(store.load()?.text).toBe('Saved earlier.');
+            expect(statusSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: MESSAGES.NOTHING_TO_GRAB_YET, type: 'error', temporary: true
+            });
+        });
+    });
+
+    describe('the discard dialog', () => {
+        beforeEach(() => {
+            ui.discardDialog.showModal = vi.fn();
+        });
+
+        it('says the text shown so far will be removed too when it is showing', () => {
+            showPartial('Hello, world.');
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '24:31' });
+            expect(ui.discardDialogBody.textContent)
+                .toBe(`Discard 24:31 of recording? ${MESSAGES.DISCARD_RECORDING_AND_TEXT}`);
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '' });
+            expect(ui.discardDialogBody.textContent).toBe(MESSAGES.DISCARD_RECORDING_AND_TEXT);
+        });
+
+        it('keeps today\'s wording when no text is showing', () => {
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '24:31' });
+            expect(ui.discardDialogBody.textContent).toBe('Discard 24:31 of recording?');
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '' });
+            expect(ui.discardDialogBody.textContent)
+                .toBe('The audio has not been transcribed and cannot be recovered.');
+        });
     });
 
     it('leaves the caret and view alone while the User is editing the box', () => {
