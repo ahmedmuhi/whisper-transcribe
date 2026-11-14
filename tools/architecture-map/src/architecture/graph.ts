@@ -154,8 +154,8 @@ const AUTHORED: readonly Authored[] = [
       'the timer, then hands the finished audio to the transcription client. For a model that takes ' +
       '[[Recording Pieces]] it also captures uncompressed 16 kHz audio beside the recorder, cuts a WAV ' +
       'piece every 60 seconds and sends the pieces one at a time while the User keeps talking, so the ' +
-      '[[Partial Transcript]] fills the box as they come back and Finish only waits for the last ' +
-      'short piece. A failed piece is silent: the whole recording is sent at Finish instead. If that ' +
+      '[[Partial Transcript]] fills the box as they come back and Finish waits only for the last ' +
+      'short piece and any piece still queued. A failed piece is silent: the whole recording is sent at Finish instead. If that ' +
       'send fails it keeps the audio as an [[Unsent Recording]] so the User can retry or download it ' +
       'instead of losing it.',
     howItsBuilt:
@@ -166,8 +166,9 @@ const AUTHORED: readonly Authored[] = [
       'fails to open never shows a recording UI. The uncompressed capture is an AudioWorklet whose ' +
       'processor is a same-origin file the build emits, never a blob: or data: URL, so a ' +
       "script-src 'self' policy allows it. It is prepared at page load and only resumed at the click, " +
-      'so it adds no start-up delay, and a capture that cannot run or comes up shorter than the ' +
-      'recording is never sent: the whole recording is. [[RecordingPieceSender]] is a small state ' +
+      'so it adds no start-up delay. A capture that cannot run is never used, and when the capture ' +
+      'at Finish is more than 500 ms shorter than the recording its final piece is not sent: any ' +
+      'piece in flight is aborted and the whole recording is sent instead. [[RecordingPieceSender]] is a small state ' +
       'owner of its own beside the recording state machine: it holds the pieces in order, the one ' +
       'upload in flight with its abort signal, and the Partial Transcript, and it never sees a token. ' +
       'Neighbouring pieces share 1.5 seconds around each cut, and the joiner keeps each word from ' +

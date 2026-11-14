@@ -360,8 +360,10 @@ there is.
 **The Partial Transcript belongs to the recording in progress.** Grab, Restore,
 and the saved transcript deal only with finished text. Grab leaves the Partial
 Transcript in the box, and with nothing else there it says there is nothing to
-grab yet. A box holding only the Partial Transcript saves nothing, so typing and
-deleting during a recording cannot clear the previously saved transcript.
+grab yet. A box holding only the Partial Transcript saves nothing, so typing a
+few words and deleting them again during a recording does not clear the
+previously saved transcript. Once the User edits the Partial Transcript itself,
+it is their text and is saved like any other.
 
 **Discard means discard.** Confirming a discard aborts the upload in flight and
 removes the Partial Transcript with the recording. The confirmation stays

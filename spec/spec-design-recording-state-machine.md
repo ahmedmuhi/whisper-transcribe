@@ -251,8 +251,8 @@ or logout:
 - `SAFE` permits the requested redirect.
 
 Downloading marks only that the browser download lifecycle was initiated; it
-does not discard the Blob or navigate. No module automatically redirects,
-uploads, logs out, or discards an Audio Source.
+does not discard the Blob or navigate. No navigation-safety path automatically
+redirects, uploads, logs out, or discards an Audio Source.
 
 ## 8. Recording Pieces and background sending
 
@@ -297,7 +297,10 @@ has been cut.
 Finish cuts the final piece at once, whatever its length. The capture rejects
 the final piece, and the whole recording is sent instead, when the capture is
 shorter than the recorded time by more than
-`RECORDING_PIECE_SHORTFALL_TOLERANCE_MS`, including an empty capture.
+`RECORDING_PIECE_SHORTFALL_TOLERANCE_MS` (500 ms), including an empty capture.
+The check runs only at Finish, so earlier pieces may already have been sent;
+sending the whole recording aborts any piece still in flight and drops the
+pieces' words, and only the whole recording's result is shown.
 
 The deterministic browser build shortens the tunables to 3 seconds and
 0.4 seconds through its compile-time authentication double, so a test recording
@@ -327,7 +330,11 @@ never saved: Grab copies and clears only the finished text and leaves the Partia
 Transcript in the box, and a Grab when the box holds only the Partial Transcript
 changes nothing and reports `MESSAGES.NOTHING_TO_GRAB_YET`. A save while the box
 holds only the Partial Transcript, including the debounced save after typing,
-saves nothing and leaves the stored transcript untouched. Restore is offered
+saves nothing and leaves the stored transcript untouched. These guards recognise
+the Partial Transcript only while it is unchanged at the end of the box: once the
+User edits it, it is the User's text and is saved and grabbed like any other,
+and a box the User empties completely clears the stored transcript as it does
+today. Restore is offered
 only while the box is empty, so it is hidden while a Partial Transcript shows,
 and it brings back only the saved finished transcript. Grab, Restore, and the
 saved transcript deal only with finished transcripts.
@@ -434,8 +441,10 @@ statuses.
 Pieces are sent only while the recorder is `RECORDING`, `PAUSED`,
 `CONFIRMING_DISCARD`, `STOPPING`, or `PROCESSING`, all of which already make
 `getAudioSafetyState()` return `ACTIVE` or `UNSENT`. `AuthInteractionController`
-remains the only navigation-safety coordinator, and nothing in this path
-redirects, logs out, uploads, or discards automatically.
+remains the only navigation-safety coordinator, and navigation safety never
+redirects, logs out, uploads, or discards automatically. The only automatic
+uploads are the Recording Pieces themselves and the whole-recording fallback in
+§8.5.
 
 ### 8.8 Rules that must always hold
 
