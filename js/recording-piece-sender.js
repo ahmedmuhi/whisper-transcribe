@@ -101,12 +101,19 @@ export class RecordingPieceSender {
      * @returns {void}
      */
     discard() {
-        this.#drop();
-        this.#state = STATES.NOTHING_TO_SEND;
+        this.#end();
         if (this.#partialShown) {
             this.#partialShown = false;
             this.#onPartialTranscript('');
         }
+    }
+
+    /** Drops everything and returns to Nothing to send, handing Finish its result if it waits. */
+    #end(transcript = null) {
+        const finish = this.#finish;
+        this.#drop();
+        this.#state = STATES.NOTHING_TO_SEND;
+        finish?.(transcript);
     }
 
     #drop() {
@@ -144,11 +151,8 @@ export class RecordingPieceSender {
         if (this.#waiting.length > 0) {
             this.#sendNext();
         } else if (this.#finish) {
-            const finish = this.#finish;
-            this.#drop();
-            this.#state = STATES.NOTHING_TO_SEND;
             this.#partialShown = false;
-            finish(text);
+            this.#end(text);
             return;
         } else {
             this.#state = STATES.CAUGHT_UP;
@@ -158,13 +162,11 @@ export class RecordingPieceSender {
     }
 
     #pieceFailed() {
-        const finish = this.#finish;
-        this.#drop();
-        if (finish) {
-            this.#state = STATES.NOTHING_TO_SEND;
-            finish(null);
+        if (this.#finish) {
+            this.#end();
             return;
         }
+        this.#drop();
         this.#state = STATES.PIECES_STOPPED;
         this.#onPiecesStopped();
     }

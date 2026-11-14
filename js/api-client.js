@@ -331,6 +331,7 @@ export class AzureAPIClient {
         if (onProgress) {
             onProgress(`${reason.progress} Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
         }
+        signal.throwIfAborted();
         await Promise.race([this._sleep(delayMs), rejectWhenAborted(signal)]);
     }
 
