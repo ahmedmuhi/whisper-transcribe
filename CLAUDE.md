@@ -186,7 +186,23 @@ failed microphone submission. `AuthInteractionController` is the sole
 redirect/logout navigation-safety coordinator: active audio blocks navigation;
 Selected Audio must be removed; an Unsent Recording must be downloaded then
 explicitly continued, or explicitly discarded through the proportional dialog.
-There is no automatic redirect, logout, upload, or discard.
+Navigation safety never redirects, logs out, uploads, or discards automatically.
+
+Recording Pieces, for a model whose adapter declares
+`MODEL_CAPABILITIES.RECORDING_PIECES`: `preparePcmCapture()` in
+`js/pcm-capture.js` (processor in `js/pcm-capture.worklet.js`) owns the
+uncompressed capture beside MediaRecorder and cuts pieces by
+`RECORDING_PIECE_TUNABLES`. `RecordingPieceSender` owns the pieces of the current
+recording, their order, the single upload in flight, the Partial Transcript, and
+`BACKGROUND_SENDING_STATES`; it sends only through
+`AzureAPIClient.transcribePiece()`, which stays the only bearer-header owner, and
+never sees a token. `joinRecordingPieces()` builds the text from timed words.
+`AudioHandler` drives both; its MediaRecorder Blob is the whole recording, sent
+through the whole-file path when a piece fails or the capture falls short, and
+kept as the Unsent Recording until a transcript is delivered. `UI` shows the
+Partial Transcript and never saves or grabs it. The recorder's transition table
+does not change for pieces. The contract is §8 of
+`spec/spec-design-recording-state-machine.md`.
 
 ## Event, transcript, and UI conventions
 

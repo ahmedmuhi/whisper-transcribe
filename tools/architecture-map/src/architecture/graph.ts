@@ -152,10 +152,12 @@ const AUTHORED: readonly Authored[] = [
     whatItDoes:
       'Runs a microphone recording from end to end: asks for the mic, starts a MediaRecorder, ticks ' +
       'the timer, then hands the finished audio to the transcription client. For a model that takes ' +
-      '[[Recording Pieces]] it also captures uncompressed 16 kHz audio beside the recorder and sends ' +
-      'that as one WAV piece, with no conversion wait, falling back to the whole recording if the ' +
-      'piece fails. If that send fails it keeps the audio as an [[Unsent Recording]] so the User can ' +
-      'retry or download it instead of losing it.',
+      '[[Recording Pieces]] it also captures uncompressed 16 kHz audio beside the recorder, cuts a WAV ' +
+      'piece every 60 seconds and sends the pieces one at a time while the User keeps talking, so the ' +
+      '[[Partial Transcript]] fills the box as they come back and Finish waits only for the last ' +
+      'short piece and any piece still queued. A failed piece is silent: the whole recording is sent at Finish instead. If that ' +
+      'send fails it keeps the audio as an [[Unsent Recording]] so the User can retry or download it ' +
+      'instead of losing it.',
     howItsBuilt:
       'Each attempt lives in its own session object with failureHandled and stopEventHandled flags ' +
       'rather than in instance fields, because MediaRecorder can fire stop and error for the same ' +
@@ -164,14 +166,20 @@ const AUTHORED: readonly Authored[] = [
       'fails to open never shows a recording UI. The uncompressed capture is an AudioWorklet whose ' +
       'processor is a same-origin file the build emits, never a blob: or data: URL, so a ' +
       "script-src 'self' policy allows it. It is prepared at page load and only resumed at the click, " +
-      'so it adds no start-up delay, and a capture that cannot run or comes up shorter than the ' +
-      'recording is never sent: the whole recording is.',
+      'so it adds no start-up delay. A capture that cannot run is never used, and when the capture ' +
+      'at Finish is more than 500 ms shorter than the recording its final piece is not sent: any ' +
+      'piece in flight is aborted and the whole recording is sent instead. [[RecordingPieceSender]] is a small state ' +
+      'owner of its own beside the recording state machine: it holds the pieces in order, the one ' +
+      'upload in flight with its abort signal, and the Partial Transcript, and it never sees a token. ' +
+      'Neighbouring pieces share 1.5 seconds around each cut, and the joiner keeps each word from ' +
+      'the piece its midpoint falls in, so text is never compared between pieces.',
     files: [
       'js/audio-handler.js',
       'js/permission-manager.js',
       'js/pcm-capture.js',
       'js/pcm-capture.worklet.js',
       'js/recording-piece-joiner.js',
+      'js/recording-piece-sender.js',
     ],
     stack: ['MediaRecorder', 'getUserMedia', 'Permissions API', 'AudioWorklet'],
   },
@@ -518,6 +526,8 @@ export const EDGES: readonly ArchEdge[] = [
   { id: 'viz-styles', from: 'viz', to: 'styles', kind: 'data', label: '--visualizer-bar token', flowIds: [] },
   { id: 'mic-client', from: 'mic', to: 'client', kind: 'call', label: 'recorded audio Blob', flowIds: ['record'] },
   { id: 'mic-ui', from: 'mic', to: 'ui', kind: 'call', label: 'UI_TRANSCRIPTION_READY', flowIds: ['record'] },
+  { id: 'mic-client-piece', from: 'mic', to: 'client', kind: 'call', label: 'transcribePiece(WAV piece, abort signal)', flowIds: [] },
+  { id: 'mic-ui-partial', from: 'mic', to: 'ui', kind: 'call', label: 'UI_PARTIAL_TRANSCRIPT_CHANGED', flowIds: [] },
 
   // selected audio
   { id: 'ui-picker', from: 'ui', to: 'picker', kind: 'call', label: 'chosen File, explicit Transcribe', flowIds: ['fileIn'] },
@@ -527,7 +537,7 @@ export const EDGES: readonly ArchEdge[] = [
 
   // transcribing
   { id: 'client-settings', from: 'client', to: 'settings', kind: 'data', label: 'getModelConfig()', flowIds: ['settings'] },
-  { id: 'client-adapters', from: 'client', to: 'adapters', kind: 'call', label: 'buildRequest, parseResponse', flowIds: ['record', 'settings'] },
+  { id: 'client-adapters', from: 'client', to: 'adapters', kind: 'call', label: 'buildRequest, parseResponse, and their piece forms', flowIds: ['record', 'settings'] },
   { id: 'adapters-encode', from: 'adapters', to: 'encode', kind: 'call', label: 'WebM Blob to 16 kHz WAV', flowIds: ['record'] },
   { id: 'client-tokens', from: 'client', to: 'tokens', kind: 'call', label: 'getToken(scope)', flowIds: ['record'] },
   { id: 'client-azure', from: 'client', to: 'azure', kind: 'call', label: 'multipart audio and bearer token', flowIds: ['record', 'fileIn', 'retry'] },
