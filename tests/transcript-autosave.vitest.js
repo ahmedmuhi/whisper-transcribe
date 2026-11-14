@@ -277,6 +277,21 @@ describe('the Partial Transcript in the transcript box', () => {
         expect(store.load()?.text).toBe('Earlier dictation, edited.');
     });
 
+    it('keeps the transcript saved earlier when the User types and deletes while the box holds only the text so far', () => {
+        store.save('Saved earlier.');
+        showPartial('Hello, world.');
+        ui.transcriptElement.value = 'Hello, world. Hm';
+        ui.transcriptElement.value = 'Hello, world.';
+
+        expect(ui.persistTranscript()).toBe(true);
+
+        // The recording is discarded, emptying the box, and Restore brings the earlier transcript back.
+        showPartial('');
+        expect(ui.transcriptElement.value).toBe('');
+        ui.restoreTranscript();
+        expect(ui.transcriptElement.value).toBe('Saved earlier.');
+    });
+
     describe('Grab during a recording', () => {
         let writeText;
 

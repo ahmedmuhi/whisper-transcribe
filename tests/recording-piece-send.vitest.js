@@ -11,7 +11,9 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    API_ERROR_CODES,
     AUDIO_SAFETY_STATES,
+    AUTH_RECOVERY_STATES,
     AUTHENTICATION_STATES,
     BACKGROUND_SENDING_STATES,
     MESSAGES,
@@ -85,10 +87,14 @@ function respond(status, data) {
 
 let AudioHandler;
 let AzureAPIClient;
+let AuthInteractionController;
+let SelectedAudioController;
 
 beforeAll(async () => {
     ({ AudioHandler } = await import('../js/audio-handler.js'));
     ({ AzureAPIClient } = await import('../js/api-client.js'));
+    ({ AuthInteractionController } = await import('../js/auth-interaction-controller.js'));
+    ({ SelectedAudioController } = await import('../js/selected-audio-controller.js'));
 });
 
 describe('sending a microphone recording in Recording Pieces', () => {
@@ -118,7 +124,7 @@ describe('sending a microphone recording in Recording Pieces', () => {
             uploads.push({
                 request,
                 reply: async (data) => { resolve(respond(200, data)); await flush(); },
-                fail: async () => { resolve(respond(400, { error: { message: 'Rejected' } })); await flush(); }
+                fail: async (status = 400) => { resolve(respond(status, { error: { message: 'Rejected' } })); await flush(); }
             });
         }));
     }
@@ -677,6 +683,340 @@ describe('sending a microphone recording in Recording Pieces', () => {
             expect(audioHandler.discardUnsentRecording()).toBe(true);
 
             expect(partialTranscripts()).toEqual(['One, two three', '']);
+        });
+
+        /** Sign-in and sign-out wired as the app wires them, with the redirects recorded. */
+        function navigationSafety() {
+            const authenticationService = {
+                signInRedirect: vi.fn(),
+                acquireTokenRedirect: vi.fn(),
+                signOutRedirect: vi.fn()
+            };
+            const controller = new AuthInteractionController({
+                authenticationService,
+                audioSafety: new SelectedAudioController({
+                    settings: audioHandler.settings,
+                    authenticationReadiness: audioHandler.authenticationReadiness,
+                    apiClient: audioHandler.apiClient,
+                    recordingSafety: audioHandler
+                }),
+                getScope: () => 'https://cognitiveservices.azure.com/.default',
+                confirmDiscard: vi.fn().mockResolvedValue(true)
+            });
+            const redirects = () => Object.values(authenticationService).flatMap(spy => spy.mock.calls);
+            /** Asks for every redirect and returns what each answered. */
+            const requestEveryRedirect = async () => [
+                await controller.logOut(),
+                await controller.continueWithMicrosoft(),
+                await controller.continueWithMicrosoft({ interactionRequired: true })
+            ].map(({ state }) => state);
+            return { controller, redirects, requestEveryRedirect };
+        }
+
+        /** Downloads the Unsent Recording and returns the audio handed to the browser. */
+        function downloadedRecording() {
+            const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:unsent');
+            // Happy DOM would otherwise navigate the test window to the blob: address.
+            vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+            const downloaded = audioHandler.downloadUnsentRecording();
+            const recording = downloaded ? createObjectURL.mock.calls.at(-1)[0] : null;
+            createObjectURL.mockRestore();
+            return recording;
+        }
+
+        it('ends a failed final piece in the complete transcript when the whole recording comes back', async () => {
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].reply(FIRST_PIECE);
+            await speakSeconds(5);
+
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            await uploads[1].fail();
+            await vi.waitFor(() => expect(uploads).toHaveLength(3));
+            expect(await uploads[2].request.body.get('audio').text()).toBe('converted whole recording');
+            await uploads[2].reply(WHOLE_RESPONSE);
+            await finishing;
+
+            expect(transcriptsShown()).toEqual(['Whole recording text.']);
+            expect(eventsOf(APP_EVENTS.API_REQUEST_ERROR)).toEqual([]);
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+            expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+        });
+
+        it('ends a failed final piece in an Unsent Recording when the whole recording fails too, and Retry sends the whole recording', async () => {
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].reply(FIRST_PIECE);
+            await speakSeconds(5);
+
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            await uploads[1].fail();
+            await vi.waitFor(() => expect(uploads).toHaveLength(3));
+            await uploads[2].fail();
+            await finishing;
+
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR);
+            expect(eventsOf(APP_EVENTS.RECORDING_STATE_CHANGED).at(-1)).toMatchObject({
+                newState: RECORDING_STATES.ERROR,
+                canRetry: true
+            });
+            expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.UNSENT);
+            expect(transcriptsShown()).toEqual([]);
+
+            eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+            await vi.waitFor(() => expect(uploads).toHaveLength(4));
+            expect(await uploads[3].request.body.get('audio').text()).toBe('converted whole recording');
+            expect(JSON.parse(uploads[3].request.body.get('definition')).enhancedMode.modelOptions)
+                .toEqual({ transcribeStyle: 'clean' });
+            await uploads[3].reply(WHOLE_RESPONSE);
+
+            await vi.waitFor(() => expect(transcriptsShown()).toEqual(['Whole recording text.']));
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+            expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+        });
+
+        it('cuts no piece during a pause of any length, nor brings the next cut forward for it', async () => {
+            await startRecording();
+            await speakSeconds(50);
+            await audioHandler.togglePause();
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.PAUSED);
+            // Half an hour paused, with the microphone still delivering sound the whole time.
+            audio.passTime(30 * 60_000);
+            await speakSeconds(120);
+            expect(uploads).toHaveLength(0);
+
+            await audioHandler.togglePause();
+            await speakSeconds(10);
+            expect(uploads).toHaveLength(0);
+            await speakSeconds(1);
+
+            expect(uploads).toHaveLength(1);
+            expect(await uploadedSeconds(0)).toBe(60.75);
+        });
+
+        it('finishes from Paused as from Recording, sending only the final piece', async () => {
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].reply(FIRST_PIECE);
+            await speakSeconds(5);
+            await audioHandler.togglePause();
+            audio.passTime(10 * 60_000);
+
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            expect(await uploadedSeconds(1)).toBe(6.75);
+            expect(statusMessages().at(-1)).toBe(MESSAGES.FINISHING_TRANSCRIPT);
+            await uploads[1].reply(SECOND_PIECE);
+            await finishing;
+
+            expect(transcriptsShown()).toEqual(['One, two three four.']);
+            expect(convertToWav).not.toHaveBeenCalled();
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+        });
+
+        it('discards from Paused as from Recording, aborting the upload in flight and removing the Partial Transcript', async () => {
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].reply(FIRST_PIECE);
+            await speakSeconds(60);
+            await audioHandler.togglePause();
+
+            audioHandler.currentTimerDisplay = '02:01';
+            await audioHandler.requestDiscard();
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.CONFIRMING_DISCARD);
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRMED);
+            await vi.waitFor(() => expect(recorderHandlers.stop).toHaveLength(1));
+            await Promise.all(recorderHandlers.stop.map(handler => handler()));
+
+            expect(uploads[1].request.signal.aborted).toBe(true);
+            expect(partialTranscripts()).toEqual(['One, two three', '']);
+            expect(sendingState()).toBe(BACKGROUND_SENDING_STATES.NOTHING_TO_SEND);
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE);
+            expect(transcriptsShown()).toEqual([]);
+        });
+
+        it.each([
+            [401, API_ERROR_CODES.AUTHENTICATION_REQUIRED],
+            [403, API_ERROR_CODES.AZURE_AUTHORIZATION_DENIED]
+        ])('treats a %i on a piece as a failed piece: recording goes on, nothing is shown, nothing navigates, and the existing recovery applies at Finish', async (status, code) => {
+            const { redirects } = navigationSafety();
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].fail(status);
+
+            expect(uploads).toHaveLength(1);
+            expect(sendingState()).toBe(BACKGROUND_SENDING_STATES.PIECES_STOPPED);
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+            expect(statusMessages()).toEqual([MESSAGES.INITIALIZING_MICROPHONE, MESSAGES.RECORDING_IN_PROGRESS]);
+            expect(eventsOf(APP_EVENTS.API_REQUEST_ERROR)).toEqual([]);
+            expect(eventsOf(APP_EVENTS.AUTHENTICATION_STATE_CHANGED)).toEqual([]);
+            expect(eventsOf(APP_EVENTS.ERROR_OCCURRED)).toEqual([]);
+            await speakSeconds(61);
+            expect(uploads).toHaveLength(1);
+
+            // At Finish the whole recording meets the same failure and becomes an Unsent Recording.
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            await uploads[1].fail(status);
+            await finishing;
+
+            expect(eventsOf(APP_EVENTS.API_REQUEST_ERROR)).toEqual([expect.objectContaining({ status, code })]);
+            expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.UNSENT);
+            expect(eventsOf(APP_EVENTS.RECORDING_STATE_CHANGED).at(-1)).toMatchObject({
+                newState: RECORDING_STATES.ERROR,
+                canRetry: false
+            });
+            await audioHandler.toggleRecording();
+            expect(statusMessages().at(-1)).toBe(MESSAGES.UNSENT_RECORDING_REQUIRES_RECOVERY);
+            expect(redirects()).toEqual([]);
+            expect(uploads).toHaveLength(2);
+        });
+
+        it('blocks sign-out and sign-in redirects in every recorder state in which a piece or the whole recording can be in flight', async () => {
+            const { redirects, requestEveryRedirect } = navigationSafety();
+            const blocked = [AUDIO_SAFETY_STATES.ACTIVE, AUDIO_SAFETY_STATES.ACTIVE, AUDIO_SAFETY_STATES.ACTIVE];
+            const answers = {};
+            const ask = async (label) => {
+                answers[label] = { recorder: audioHandler.stateMachine.getState(), sending: sendingState(), states: await requestEveryRedirect() };
+            };
+
+            await startRecording();
+            await speakSeconds(61);
+            await ask('recording, a piece in flight');
+            await audioHandler.togglePause();
+            await ask('paused, a piece in flight');
+            audioHandler.currentTimerDisplay = '01:01';
+            await audioHandler.requestDiscard();
+            await ask('asking before discard, a piece in flight');
+            await audioHandler.keepRecording();
+            await audioHandler.togglePause();
+            await uploads[0].reply(FIRST_PIECE);
+            await speakSeconds(5);
+
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            await ask('finishing, the final piece in flight');
+            await uploads[1].fail();
+            await vi.waitFor(() => expect(uploads).toHaveLength(3));
+            await ask('finishing, the whole recording in flight');
+            await uploads[2].fail();
+            await finishing;
+
+            eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+            await vi.waitFor(() => expect(uploads).toHaveLength(4));
+            await ask('retrying, the whole recording in flight');
+            await uploads[3].reply(WHOLE_RESPONSE);
+            await vi.waitFor(() => expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE));
+
+            expect(answers).toEqual({
+                'recording, a piece in flight': {
+                    recorder: RECORDING_STATES.RECORDING,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
+                    states: blocked
+                },
+                'paused, a piece in flight': {
+                    recorder: RECORDING_STATES.PAUSED,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
+                    states: blocked
+                },
+                'asking before discard, a piece in flight': {
+                    recorder: RECORDING_STATES.CONFIRMING_DISCARD,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
+                    states: blocked
+                },
+                'finishing, the final piece in flight': {
+                    recorder: RECORDING_STATES.PROCESSING,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_PIECE,
+                    states: blocked
+                },
+                'finishing, the whole recording in flight': {
+                    recorder: RECORDING_STATES.PROCESSING,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_WHOLE_RECORDING,
+                    states: blocked
+                },
+                'retrying, the whole recording in flight': {
+                    recorder: RECORDING_STATES.PROCESSING,
+                    sending: BACKGROUND_SENDING_STATES.SENDING_WHOLE_RECORDING,
+                    states: blocked
+                }
+            });
+            expect(redirects()).toEqual([]);
+        });
+
+        it('rule 2: keeps the whole recording until the transcript is complete or the User discards', async () => {
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].fail();
+            expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.ACTIVE);
+
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            await uploads[1].fail();
+            await finishing;
+            const kept = downloadedRecording();
+            expect(kept.type).toBe('audio/webm');
+            expect(await kept.text()).toBe('compressed recording');
+
+            // A failed Retry still keeps it.
+            eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+            await vi.waitFor(() => expect(uploads).toHaveLength(3));
+            await uploads[2].fail();
+            await vi.waitFor(() => expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.ERROR));
+            expect(await downloadedRecording().text()).toBe('compressed recording');
+
+            // Released once the complete transcript is delivered.
+            eventBus.emit(APP_EVENTS.RETRY_BUTTON_CLICKED);
+            await vi.waitFor(() => expect(uploads).toHaveLength(4));
+            await uploads[3].reply(WHOLE_RESPONSE);
+            await vi.waitFor(() => expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.IDLE));
+            expect(transcriptsShown()).toEqual(['Whole recording text.']);
+            expect(downloadedRecording()).toBeNull();
+
+            // And released when the User discards an Unsent Recording.
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[4].fail();
+            const finishingAgain = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(6));
+            await uploads[5].fail();
+            await finishingAgain;
+            expect(await downloadedRecording().text()).toBe('compressed recording');
+            expect(audioHandler.discardUnsentRecording()).toBe(true);
+            expect(downloadedRecording()).toBeNull();
+        });
+
+        it('rule 4: sign-out never leaves a recording, an upload or an unsent copy behind', async () => {
+            const { controller, redirects } = navigationSafety();
+            await startRecording();
+            await speakSeconds(61);
+            await uploads[0].reply(FIRST_PIECE);
+            await speakSeconds(5);
+
+            // Blocked while recording, with nothing torn down.
+            expect((await controller.logOut()).state).toBe(AUDIO_SAFETY_STATES.ACTIVE);
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+
+            const finishing = finishRecording();
+            await vi.waitFor(() => expect(uploads).toHaveLength(2));
+            await uploads[1].fail();
+            await vi.waitFor(() => expect(uploads).toHaveLength(3));
+            await uploads[2].fail();
+            await finishing;
+
+            // Blocked while an Unsent Recording is kept.
+            expect((await controller.logOut()).state).toBe(AUDIO_SAFETY_STATES.UNSENT);
+            expect(redirects()).toEqual([]);
+
+            // Signing out means discarding it first, and then nothing is left.
+            expect((await controller.discardUnsentAndLogOut()).state).toBe(AUTH_RECOVERY_STATES.NAVIGATING);
+            expect(redirects()).toHaveLength(1);
+            expect(audioHandler.getAudioSafetyState()).toBe(AUDIO_SAFETY_STATES.SAFE);
+            expect(sendingState()).toBe(BACKGROUND_SENDING_STATES.NOTHING_TO_SEND);
+            expect(downloadedRecording()).toBeNull();
+            expect(partialTranscripts().at(-1)).toBe('');
+            expect(uploads).toHaveLength(3);
         });
 
         it('keeps piece audio and word lists out of events, logs and storage', async () => {

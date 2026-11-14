@@ -1531,7 +1531,12 @@ export class UI {
     persistTranscript() {
         if (!this.transcriptStore || !this.transcriptElement) return false;
 
-        const persisted = this.transcriptStore.save(this.#withoutPartialTranscript(this.transcriptElement.value));
+        const value = this.transcriptElement.value;
+        const text = this.#withoutPartialTranscript(value);
+        // A box holding only the Partial Transcript has nothing to save, and must
+        // not clear the transcript saved before it.
+        if (value && !text) return true;
+        const persisted = this.transcriptStore.save(text);
         if (persisted) {
             this._autosaveFailureNotified = false;
             return true;
