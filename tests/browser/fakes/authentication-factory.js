@@ -2,10 +2,14 @@
  * @fileoverview Compile-time-only authentication double for browser smoke builds.
  */
 
-import { AUTHENTICATION_STATES } from '../../../js/constants.js';
+import { AUTHENTICATION_STATES, RECORDING_PIECE_TUNABLES } from '../../../js/constants.js';
 import { APP_EVENTS, eventBus } from '../../../js/event-bus.js';
 
 const BROWSER_TEST_TOKEN = 'deterministic-test-token';
+
+// Recording Pieces of 3 seconds, so a browser test records past a cut within seconds.
+RECORDING_PIECE_TUNABLES.PIECE_MS = 3_000;
+RECORDING_PIECE_TUNABLES.OVERLAP_MS = 400;
 
 eventBus.setHistoryEnabled(true);
 globalThis.__browserTestEventHistoryIsPrivate = () => {

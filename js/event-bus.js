@@ -227,6 +227,7 @@ export const eventBus = new EventBus();
  * 
  * @property {string} UI_STATUS_UPDATE - Emitted when UI status message should be updated
  * @property {string} UI_TRANSCRIPTION_READY - Emitted when transcription is ready for display
+ * @property {string} UI_PARTIAL_TRANSCRIPT_CHANGED - Emitted with the Partial Transcript text; empty text removes it
  * @property {string} UI_THEME_CHANGED - Emitted when UI theme is switched
  * @property {string} UI_SETTINGS_OPENED - Emitted when settings modal is opened
  * @property {string} UI_SETTINGS_CLOSED - Emitted when settings modal is closed
@@ -288,6 +289,7 @@ export const APP_EVENTS = {
     // UI events
     UI_STATUS_UPDATE: 'ui:statusUpdate',
     UI_TRANSCRIPTION_READY: 'ui:transcriptionReady',
+    UI_PARTIAL_TRANSCRIPT_CHANGED: 'ui:partialTranscriptChanged',
     UI_THEME_CHANGED: 'ui:themeChanged',
     UI_SETTINGS_OPENED: 'ui:settingsOpened',
     UI_SETTINGS_CLOSED: 'ui:settingsClosed',

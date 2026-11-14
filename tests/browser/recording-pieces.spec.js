@@ -1,7 +1,9 @@
 /**
  * @fileoverview Real-browser path for a model that takes Recording Pieces: the
- * fake microphone is captured uncompressed and sent as one WAV piece, with no
+ * fake microphone is captured uncompressed and sent as WAV pieces, with no
  * conversion step, and the transcript is rebuilt from the returned words.
+ * The browser-test build shortens pieces to 3 seconds with 0.4 seconds of
+ * overlap (tests/browser/fakes/authentication-factory.js).
  */
 
 import { expect, test } from '@playwright/test';
@@ -10,7 +12,7 @@ const appOrigin = 'http://127.0.0.1:4173';
 const endpoint = 'https://127.0.0.1:4174/speechtotext/transcriptions:transcribe?api-version=2025-10-15';
 const fakeToken = 'deterministic-test-token';
 
-test('records MAI-Transcribe 2 as one Recording Piece with no conversion step', async ({ page }) => {
+async function openApp(page) {
     await page.addInitScript(({ transcriptionEndpoint }) => {
         localStorage.setItem('transcription_model', 'mai-transcribe-2');
         localStorage.setItem('mai_transcribe_uri', transcriptionEndpoint);
@@ -51,6 +53,11 @@ test('records MAI-Transcribe 2 as one Recording Piece with no conversion step', 
     const transcript = page.locator('#transcript');
     await expect(primary).toBeEnabled();
     await expect(transcript).toHaveValue('');
+    return { primary, transcript, posts, workers, pageErrors, consoleErrors };
+}
+
+test('records MAI-Transcribe 2 as one Recording Piece with no conversion step', async ({ page }) => {
+    const { primary, transcript, posts, workers, pageErrors, consoleErrors } = await openApp(page);
 
     await primary.click();
     await expect(primary).toContainText('Done');
@@ -94,6 +101,43 @@ test('records MAI-Transcribe 2 as one Recording Piece with no conversion step', 
 
     const storedTranscript = JSON.parse(await page.evaluate(() => localStorage.getItem('transcript_record')));
     expect(storedTranscript.text).toBe('Browser piece transcript.');
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
+});
+
+test('records MAI-Transcribe 2 past a cut and shows the joined transcript, the text arriving while the User speaks', async ({ page }) => {
+    const { primary, transcript, posts, pageErrors, consoleErrors } = await openApp(page);
+
+    await primary.click();
+    await expect(primary).toContainText('Done');
+    // The first piece is sent once the audio runs half the overlap past the 3-second cut.
+    await expect.poll(() => posts.length, { timeout: 8_000 }).toBe(1);
+    await expect(transcript).toHaveValue('Browser piece transcript.');
+    await expect(primary).toContainText('Done');
+    expect(await page.evaluate(() => localStorage.getItem('transcript_record'))).toBeNull();
+
+    await page.waitForTimeout(1_500);
+    await primary.click();
+
+    await expect(transcript).toHaveValue('Browser piece transcript. Browser piece transcript.');
+    await expect(primary).toContainText('Start recording');
+    expect(posts).toHaveLength(2);
+    for (const post of posts) {
+        expect(post.headers().authorization).toBe(`Bearer ${fakeToken}`);
+        const form = await new Response(post.postDataBuffer(), {
+            headers: { 'content-type': post.headers()['content-type'] }
+        }).formData();
+        expect(JSON.parse(form.get('definition')).enhancedMode.modelOptions.timestamps).toBe('word');
+        expect(form.get('audio').type).toBe('audio/wav');
+    }
+
+    const statusTexts = await page.evaluate(() => globalThis.__statusTexts);
+    expect(statusTexts.join('\n')).not.toContain('Converting audio format');
+    expect(statusTexts).toContain('Finishing transcript...');
+    expect(statusTexts).toContain('Transcription complete');
+    const storedTranscript = JSON.parse(await page.evaluate(() => localStorage.getItem('transcript_record')));
+    expect(storedTranscript.text).toBe('Browser piece transcript. Browser piece transcript.');
+    expect(await page.evaluate(() => globalThis.__browserTestEventHistoryIsPrivate())).toBe(true);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
 });

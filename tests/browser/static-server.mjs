@@ -18,17 +18,27 @@ const transcriptionPath = '/speechtotext/transcriptions:transcribe';
 const allowedOrigin = 'http://127.0.0.1:4173';
 const maxPostBytes = 5 * 1024 * 1024;
 
-const pieceTranscript = {
-    combinedPhrases: [{ text: 'Browser piece transcript.' }],
-    phrases: [{
-        text: 'Browser piece transcript.',
-        words: [
-            { text: 'Browser', offsetMilliseconds: 80, durationMilliseconds: 320 },
-            { text: 'piece', offsetMilliseconds: 440, durationMilliseconds: 280 },
-            { text: 'transcript.', offsetMilliseconds: 760, durationMilliseconds: 520 }
-        ]
-    }]
-};
+/**
+ * Every Recording Piece hears the same three words, placed around the middle
+ * of its audio, so that they survive the joiner's cuts in every piece. The
+ * piece's length is read from its WAV header (16 kHz mono 16-bit, so 32 bytes
+ * per millisecond).
+ */
+function pieceTranscript(body) {
+    const wavStart = body.indexOf('RIFF');
+    const middleMs = Math.round(body.readUInt32LE(wavStart + 40) / 32 / 2);
+    return {
+        combinedPhrases: [{ text: 'Browser piece transcript.' }],
+        phrases: [{
+            text: 'Browser piece transcript.',
+            words: [
+                { text: 'Browser', offsetMilliseconds: middleMs - 450, durationMilliseconds: 300 },
+                { text: 'piece', offsetMilliseconds: middleMs - 150, durationMilliseconds: 300 },
+                { text: 'transcript.', offsetMilliseconds: middleMs + 150, durationMilliseconds: 300 }
+            ]
+        }]
+    };
+}
 
 let apiObservations = freshObservations();
 
@@ -158,7 +168,7 @@ const apiServer = https.createServer(createCertificate(), (request, response) =>
         });
         // A Recording Piece asks for word timestamps; the whole-file path does not.
         response.end(JSON.stringify(body.includes('"timestamps":"word"')
-            ? pieceTranscript
+            ? pieceTranscript(body)
             : { combinedPhrases: [{ text: 'Browser smoke transcript' }], phrases: [] }));
     });
     request.on('error', error => {

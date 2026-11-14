@@ -13,6 +13,10 @@ const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 const RETRY_BACKOFF_SCHEDULE_MS = [2000, 4000, 8000, 16000, 32000];
 const MAX_RETRY_AFTER_MS = 60_000;
 
+const rejectWhenAborted = (signal) => new Promise((_, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+});
+
 /**
  * Azure Speech Services API client for transcribing audio to text.
  * Supports registered transcription model adapters.
@@ -76,18 +80,20 @@ export class AzureAPIClient {
      * A failure is the caller's to handle: it is not reported as an application
      * error, because the caller falls back to sending the whole recording.
      *
+     * The piece is sent in the background, so no progress is reported.
+     *
      * @async
      * @param {Blob} wavBlob - 16 kHz mono 16-bit WAV of the piece
-     * @param {Function} [onProgress] - Progress callback for status updates
+     * @param {AbortSignal} signal - Aborts the request, its retries and their backoff
      * @returns {Promise<{text: string, offsetMs: number, durationMs: number}[]>} Words in spoken order
-     * @throws {Error} When the request fails, or when the model now selected cannot build a piece request
+     * @throws {Error} When the request fails or is aborted, or when the model now selected cannot build a piece request
      */
-    async transcribePiece(wavBlob, onProgress) {
+    async transcribePiece(wavBlob, signal) {
         const config = this.validateConfig();
         const adapter = this._getModelAdapter(config.model);
         const { body, statusMessage } = adapter.buildPieceRequest(wavBlob, config);
         return adapter.parsePieceResponse(
-            await this._post(config, adapter, body, statusMessage, onProgress)
+            await this._post(config, adapter, body, statusMessage, undefined, signal)
         );
     }
 
@@ -100,9 +106,10 @@ export class AzureAPIClient {
      * @param {FormData} body - Request body built by the adapter
      * @param {string} statusMessage - Status shown while the request is sent
      * @param {Function} [onProgress] - Progress callback for status updates
+     * @param {AbortSignal} [signal] - Aborts the request, its retries and their backoff
      * @returns {Promise<string|Object>} Response data
      */
-    async _post(config, adapter, body, statusMessage, onProgress) {
+    async _post(config, adapter, body, statusMessage, onProgress, signal = new AbortController().signal) {
         if (onProgress) {
             onProgress(statusMessage);
         }
@@ -126,7 +133,7 @@ export class AzureAPIClient {
                 throw await this._createApiError(response, config.model);
             }
             return this._readResponseData(response);
-        });
+        }, signal);
     }
     
     /**
@@ -194,7 +201,7 @@ export class AzureAPIClient {
             : response.text();
     }
 
-    async _fetchWithRetry(uri, options, onProgress, handleResponse) {
+    async _fetchWithRetry(uri, options, onProgress, handleResponse, signal) {
         // Overall deadline across all attempts and backoff sleeps. A single
         // in-flight attempt still gets its full per-attempt timeout window; this
         // only stops piling more attempts/sleeps past the deadline.
@@ -203,8 +210,8 @@ export class AzureAPIClient {
             let response;
 
             try {
-                const attemptResult = await this._fetchWithTimeout(async (signal) => {
-                    response = await fetch(uri, { ...options, signal });
+                const attemptResult = await this._fetchWithTimeout(async (attemptSignal) => {
+                    response = await fetch(uri, { ...options, signal: attemptSignal });
 
                     // Past the deadline, treat this attempt as final so the real
                     // API error (e.g. the 429 message) surfaces, not a vague timeout.
@@ -220,7 +227,7 @@ export class AzureAPIClient {
                     // Consume the error body to release the connection before retrying.
                     await this._consumeRetryBody(response);
                     return { shouldRetry: true };
-                });
+                }, signal);
 
                 if (!attemptResult.shouldRetry) {
                     return attemptResult.value;
@@ -230,7 +237,8 @@ export class AzureAPIClient {
                 // else propagates. On the final attempt or past the deadline, surface
                 // a friendly timeout error so the caller routes the FSM to ERROR
                 // (never stuck PROCESSING).
-                if (error?.name !== 'AbortError') {
+                // An abort by the caller is never retried.
+                if (error?.name !== 'AbortError' || signal.aborted) {
                     throw error;
                 }
                 if (attempt === MAX_TRANSCRIPTION_RETRIES || this._now() >= deadline) {
@@ -240,14 +248,14 @@ export class AzureAPIClient {
                 await this._retryAfter(this._getRetryDelayMs(null, attempt), attempt, {
                     log: `Transcription request timed out after ${timeoutSec}s.`,
                     progress: 'Request timed out.'
-                }, onProgress, deadline);
+                }, onProgress, deadline, signal);
                 continue;
             }
 
             await this._retryAfter(this._getRetryDelayMs(response, attempt), attempt, {
                 log: `Transient API response ${response.status}.`,
                 progress: `Azure returned ${response.status}.`
-            }, onProgress, deadline);
+            }, onProgress, deadline, signal);
         }
         // The loop has no other terminal return; guarantee the function never
         // resolves undefined by throwing the friendly timeout error here.
@@ -261,15 +269,16 @@ export class AzureAPIClient {
      *
      * @private
      * @param {Function} operation - Attempt operation that receives an abort signal
+     * @param {AbortSignal} signal - The caller's abort signal, followed by the attempt
      * @returns {Promise<*>} Operation result
-     * @throws {Error} AbortError on timeout, or the underlying fetch error
+     * @throws {Error} AbortError on timeout or caller abort, or the underlying fetch error
      */
-    async _fetchWithTimeout(operation) {
+    async _fetchWithTimeout(operation, signal) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), TRANSCRIPTION_TIMEOUT_MS);
 
         try {
-            return await operation(controller.signal);
+            return await operation(AbortSignal.any([controller.signal, signal]));
         } finally {
             clearTimeout(timeoutId);
         }
@@ -305,10 +314,11 @@ export class AzureAPIClient {
      * @param {{log: string, progress: string}} reason - Reason prefixes for the log + progress lines
      * @param {Function} [onProgress] - Optional progress callback
      * @param {number} deadline - Absolute time (ms) past which no further sleep may run
+     * @param {AbortSignal} signal - Ends the backoff early when the caller aborts
      * @returns {Promise<void>}
      * @throws {Error} Friendly timeout error if the backoff would end past the deadline
      */
-    async _retryAfter(delayMs, attempt, reason, onProgress, deadline) {
+    async _retryAfter(delayMs, attempt, reason, onProgress, deadline, signal) {
         // Don't start a backoff that would end past the overall deadline.
         if (this._now() + delayMs >= deadline) {
             throw this._createTimeoutError();
@@ -321,7 +331,7 @@ export class AzureAPIClient {
         if (onProgress) {
             onProgress(`${reason.progress} Retrying in ${waitSec}s (${attempt + 1}/${MAX_TRANSCRIPTION_RETRIES})...`);
         }
-        await this._sleep(delayMs);
+        await Promise.race([this._sleep(delayMs), rejectWhenAborted(signal)]);
     }
 
     /**

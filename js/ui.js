@@ -136,6 +136,8 @@ export class UI {
     #selectedMetadata;
     #replaceOnPick = false;
     #dragRegistered = false;
+    // The Partial Transcript as last placed at the end of the box, divider included.
+    #partialSegment = '';
 
     /**
      * Creates a new UI controller instance and resolves DOM references.
@@ -411,9 +413,14 @@ export class UI {
         });
 
         eventBus.on(APP_EVENTS.UI_TRANSCRIPTION_READY, (data) => {
+            // The finished transcript replaces the Partial Transcript.
+            this.transcriptElement.value = this.#withoutPartialTranscript(this.transcriptElement.value);
+            this.#partialSegment = '';
             this.displayTranscription(data.text);
             this.hideSpinner();
         });
+
+        eventBus.on(APP_EVENTS.UI_PARTIAL_TRANSCRIPT_CHANGED, ({ text }) => this.#showPartialTranscript(text));
 
         eventBus.on(APP_EVENTS.SELECTED_AUDIO_STATE_CHANGED, (snapshot) => {
             const previousState = this.#selectedSnapshot?.state;
@@ -1438,6 +1445,35 @@ export class UI {
     }
 
     /**
+     * Shows the Partial Transcript where a finished transcript would be placed,
+     * replacing the one shown before. Empty text removes it. It is never saved.
+     *
+     * @param {string} text
+     * @returns {void}
+     */
+    #showPartialTranscript(text) {
+        const box = this.transcriptElement;
+        const kept = this.#withoutPartialTranscript(box.value);
+        this.#partialSegment = text && (kept ? TRANSCRIPT_SEGMENT_DIVIDER : '') + text;
+        box.value = kept + this.#partialSegment;
+        box.scrollTop = box.scrollHeight;
+        this.updateRestoreAffordance();
+    }
+
+    /**
+     * Removes the Partial Transcript from text taken from the box. If the User
+     * has edited it, the box is left as it is, so no typed word is lost.
+     *
+     * @param {string} value
+     * @returns {string}
+     */
+    #withoutPartialTranscript(value) {
+        return this.#partialSegment && value.endsWith(this.#partialSegment)
+            ? value.slice(0, -this.#partialSegment.length)
+            : value;
+    }
+
+    /**
      * Plays the one-shot text-arrival animation on the transcript box. Retriggers
      * cleanly on each landing by toggling the class off then on across a frame.
      * No-op under reduced motion or without the box.
@@ -1469,7 +1505,7 @@ export class UI {
     persistTranscript() {
         if (!this.transcriptStore || !this.transcriptElement) return false;
 
-        const persisted = this.transcriptStore.save(this.transcriptElement.value);
+        const persisted = this.transcriptStore.save(this.#withoutPartialTranscript(this.transcriptElement.value));
         if (persisted) {
             this._autosaveFailureNotified = false;
             return true;

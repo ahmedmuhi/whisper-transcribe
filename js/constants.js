@@ -587,6 +587,7 @@ export const MESSAGES = {
   RECORDING_CANCELLED: 'Recording cancelled',
   FINISHING_RECORDING: 'Finishing...',
   PROCESSING_AUDIO: 'Processing audio...',
+  FINISHING_TRANSCRIPT: 'Finishing transcript...',
   INITIALIZING_MICROPHONE: 'Initializing microphone...',
 
   // Control labels (guided morph — the primary button morphs by state)
@@ -784,3 +785,30 @@ export const RECORDING_PIECE_SAMPLE_RATE = 16000;
  * @constant {number} RECORDING_PIECE_SHORTFALL_TOLERANCE_MS
  */
 export const RECORDING_PIECE_SHORTFALL_TOLERANCE_MS = 500;
+
+/**
+ * Recording Piece tunables: a cut is made every PIECE_MS of recorded audio, and
+ * neighbouring pieces share OVERLAP_MS of audio centred on the cut. Not frozen:
+ * the deterministic browser build shortens them through its compile-time
+ * authentication double, so a test recording passes a cut within seconds.
+ *
+ * @constant {{PIECE_MS: number, OVERLAP_MS: number}} RECORDING_PIECE_TUNABLES
+ */
+export const RECORDING_PIECE_TUNABLES = {
+  PIECE_MS: 60_000,
+  OVERLAP_MS: 1_500
+};
+
+/**
+ * States of background sending, which runs beside the recorder for a
+ * recording sent in Recording Pieces.
+ *
+ * @constant {Object<string, string>} BACKGROUND_SENDING_STATES
+ */
+export const BACKGROUND_SENDING_STATES = Object.freeze({
+  NOTHING_TO_SEND: 'nothing-to-send',
+  SENDING_PIECE: 'sending-piece',
+  CAUGHT_UP: 'caught-up',
+  PIECES_STOPPED: 'pieces-stopped',
+  SENDING_WHOLE_RECORDING: 'sending-whole-recording'
+});

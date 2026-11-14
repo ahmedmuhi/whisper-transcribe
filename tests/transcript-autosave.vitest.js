@@ -216,3 +216,73 @@ describe('Transcript autosave + restore wiring', () => {
         }
     });
 });
+
+describe('the Partial Transcript in the transcript box', () => {
+    let ui;
+    let store;
+    const DIVIDER = '\n\n──────────\n\n';
+    const showPartial = (text) => eventBus.emit(APP_EVENTS.UI_PARTIAL_TRANSCRIPT_CHANGED, { text });
+
+    beforeEach(() => {
+        applyDomSpies();
+        ui = new UI();
+        store = new TranscriptStore(makeStorage(), 'tk');
+        ui.transcriptStore = store;
+        ui.setupEventBusListeners();
+        ui.transcriptElement.value = '';
+    });
+
+    afterEach(() => {
+        resetEventBus();
+    });
+
+    it('fills an empty box, is replaced by each newer Partial Transcript, and is never saved', () => {
+        showPartial('Hello,');
+        expect(ui.transcriptElement.value).toBe('Hello,');
+
+        showPartial('Hello, world.');
+        expect(ui.transcriptElement.value).toBe('Hello, world.');
+        expect(store.load()).toBeNull();
+    });
+
+    it('goes below earlier text with the divider, and the finished transcript replaces it and alone is saved', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+
+        showPartial('Hello,');
+        showPartial('Hello, world.');
+        expect(ui.transcriptElement.value).toBe(`Earlier dictation.${DIVIDER}Hello, world.`);
+        expect(store.load()).toBeNull();
+
+        eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, { text: 'Hello, world. It is me.' });
+        expect(ui.transcriptElement.value).toBe(`Earlier dictation.${DIVIDER}Hello, world. It is me.`);
+        expect(store.load()?.text).toBe(`Earlier dictation.${DIVIDER}Hello, world. It is me.`);
+    });
+
+    it('is removed by an empty Partial Transcript, leaving the earlier text as it was', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+        showPartial('Hello, world.');
+
+        showPartial('');
+
+        expect(ui.transcriptElement.value).toBe('Earlier dictation.');
+    });
+
+    it('is left out when the User types elsewhere in the box and autosave runs', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+        showPartial('Hello, world.');
+        ui.transcriptElement.value = `Earlier dictation, edited.${DIVIDER}Hello, world.`;
+
+        ui.persistTranscript();
+
+        expect(store.load()?.text).toBe('Earlier dictation, edited.');
+    });
+
+    it('keeps words the User typed into it, placing the newer Partial Transcript after them', () => {
+        showPartial('Hello, world.');
+        ui.transcriptElement.value = 'Hello, world. Typed by hand.';
+
+        showPartial('Hello, world. It is me.');
+
+        expect(ui.transcriptElement.value).toBe(`Hello, world. Typed by hand.${DIVIDER}Hello, world. It is me.`);
+    });
+});

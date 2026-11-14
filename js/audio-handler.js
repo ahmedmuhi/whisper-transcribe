@@ -16,7 +16,7 @@ import {
 } from './constants.js';
 import { modelAdapterRegistry } from './model-adapters/index.js';
 import { preparePcmCapture } from './pcm-capture.js';
-import { joinRecordingPieces } from './recording-piece-joiner.js';
+import { RecordingPieceSender } from './recording-piece-sender.js';
 import { PermissionManager } from './permission-manager.js';
 import { RecordingStateMachine } from './recording-state-machine.js';
 import { eventBus, APP_EVENTS } from './event-bus.js';
@@ -73,6 +73,16 @@ export class AudioHandler {
         this.pieceCapture = null;
         // Prepared now, while it may sit suspended, so starting a recording only resumes it.
         this.pcmCapture = preparePcmCapture();
+        this.pieceSender = new RecordingPieceSender({
+            transcribePiece: (audio, signal) => this.apiClient.transcribePiece(audio, signal),
+            onPartialTranscript: (text) => eventBus.emit(APP_EVENTS.UI_PARTIAL_TRANSCRIPT_CHANGED, { text }),
+            onPiecesStopped: () => {
+                // Recording continues; the whole recording is sent at Finish.
+                logger.child('AudioHandler').warn('Recording Piece failed; pieces stopped.');
+                this.pcmCapture.release();
+                this.pieceCapture = null;
+            }
+        });
 
         this.permissionManager = new PermissionManager();
         
@@ -163,6 +173,7 @@ export class AudioHandler {
         this.pendingRetryBlob = null;
         this.pendingTranscriptionErrorCode = null;
         this.pendingRetryDownloadInitiated = false;
+        this.pieceSender.discard();
         return true;
     }
     
@@ -226,6 +237,8 @@ export class AudioHandler {
             this.pendingRetryBlob = null;
             this.pendingTranscriptionErrorCode = null;
             this.pendingRetryDownloadInitiated = false;
+            // A new recording replaces an Unsent Recording, and with it any Partial Transcript.
+            this.pieceSender.discard();
             
             // Transition to initializing
             await this.stateMachine.transitionTo(RECORDING_STATES.INITIALIZING);
@@ -324,7 +337,7 @@ export class AudioHandler {
     async _startPieceCapture(stream, model) {
         if (!modelAdapterRegistry.get(model)?.[MODEL_CAPABILITIES.RECORDING_PIECES]) return null;
         try {
-            if (await this.pcmCapture.start(stream)) return this.pcmCapture;
+            if (await this.pcmCapture.start(stream, piece => this.pieceSender.add(piece))) return this.pcmCapture;
         } catch (error) {
             logger.child('AudioHandler').warn('Uncompressed capture unavailable.', error?.name);
         }
@@ -530,6 +543,7 @@ export class AudioHandler {
 
         this.stopVisualization(session);
         this.stopStreamTracks(session?.stream || this.activeStream);
+        this.pieceSender.discard();
         this.cleanup();
 
         const errorMessage = error?.message || error?.toString() || 'Unknown error';
@@ -612,6 +626,7 @@ export class AudioHandler {
      * @returns {Promise<void>}
      */
     async _teardownToCancelling() {
+        this.pieceSender.discard();
         await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
         this.safeStopRecorder();
     }
@@ -717,8 +732,14 @@ export class AudioHandler {
 
         const pieceCapture = this.pieceCapture;
         this.pieceCapture = null;
-        const result = (pieceCapture && await this._sendRecordingPiece(pieceCapture))
-            || await this.sendToAzureAPI(audioBlob);
+        const transcript = pieceCapture ? await this._finishRecordingPieces(pieceCapture) : null;
+        let result;
+        if (transcript === null) {
+            result = await this.pieceSender.sendWholeRecording(() => this.sendToAzureAPI(audioBlob));
+        } else {
+            this._deliverTranscript(transcript);
+            result = { success: true };
+        }
         this.stopStreamTracks(stream);
         this.audioChunks.length = 0;
 
@@ -747,7 +768,7 @@ export class AudioHandler {
             return;
         }
 
-        const result = await this.sendToAzureAPI(retryBlob);
+        const result = await this.pieceSender.sendWholeRecording(() => this.sendToAzureAPI(retryBlob));
         if (result.success) {
             this.pendingRetryBlob = null;
             this.pendingTranscriptionErrorCode = null;
@@ -776,27 +797,26 @@ export class AudioHandler {
     }
     
     /**
-     * Sends the uncompressed capture as a single Recording Piece. The compressed
-     * recording stays the Unsent Recording until a transcript is delivered.
+     * Cuts the final piece at once, whatever its length, and waits for every
+     * piece still outstanding. The compressed recording stays the Unsent
+     * Recording until a transcript is delivered.
      *
      * @private
      * @param {Object} pieceCapture - Capture started with the recording
-     * @returns {Promise<{success: true}|null>} Success, or null to send the whole recording
+     * @returns {Promise<string|null>} The complete transcript, or null to send the whole recording
      */
-    async _sendRecordingPiece(pieceCapture) {
+    async _finishRecordingPieces(pieceCapture) {
+        this._emitProgress(MESSAGES.FINISHING_TRANSCRIPT);
+        let finalPiece;
         try {
-            const words = await this.apiClient.transcribePiece(
-                await pieceCapture.finish(),
-                (message) => this._emitProgress(message)
-            );
-            this._deliverTranscript(joinRecordingPieces([{ startMs: 0, words }], []));
-            return { success: true };
+            finalPiece = await pieceCapture.finish();
         } catch (error) {
-            logger.child('AudioHandler').warn('Recording Piece failed; sending the whole recording.', error?.name);
+            logger.child('AudioHandler').warn('Uncompressed capture incomplete; sending the whole recording.', error?.name);
             return null;
         } finally {
             pieceCapture.release();
         }
+        return this.pieceSender.finish(finalPiece);
     }
 
     _emitProgress(message) {

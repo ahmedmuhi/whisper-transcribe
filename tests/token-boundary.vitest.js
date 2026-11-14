@@ -164,6 +164,54 @@ describe('request-local bearer boundary', () => {
         expect(JSON.stringify(client)).not.toContain(FAKE_TOKEN);
     });
 
+    it('keeps background sending of Recording Pieces credential-blind, with a fresh token for each piece', async () => {
+        const { RecordingPieceSender } = await import('../js/recording-piece-sender.js');
+        const settings = {
+            getModelConfig: vi.fn(() => ({ model: 'fake-model', uri: 'https://target.invalid/transcribe' }))
+        };
+        const adapter = Object.freeze({
+            id: 'fake-model',
+            label: 'Fake Model',
+            scope: COGNITIVE_SERVICES_SCOPE,
+            storageKeys: Object.freeze({ uri: 'fake_uri' }),
+            buildRequest: vi.fn(),
+            parseResponse: vi.fn(),
+            buildPieceRequest: vi.fn(() => ({ body: 'fake-piece-body', statusMessage: 'Sending fake piece...' })),
+            parsePieceResponse: vi.fn(() => [{ text: 'Fake.', offsetMs: 1_000, durationMs: 100 }])
+        });
+        const tokenProvider = Object.freeze({ getToken: vi.fn(async () => FAKE_TOKEN) });
+        const client = new AzureAPIClient(settings, tokenProvider, new Map([[adapter.id, adapter]]));
+        globalThis.fetch.mockImplementation(async (_uri, options) => {
+            expect(options.headers).toEqual({ Authorization: `Bearer ${FAKE_TOKEN}` });
+            return {
+                ok: true,
+                status: 200,
+                headers: { get: vi.fn().mockReturnValue('application/json') },
+                json: vi.fn().mockResolvedValue({ phrases: [] })
+            };
+        });
+        const transcribePiece = vi.fn((audio, signal) => client.transcribePiece(audio, signal));
+        const partials = [];
+        const sender = new RecordingPieceSender({
+            transcribePiece,
+            onPartialTranscript: (text) => partials.push(text),
+            onPiecesStopped: vi.fn()
+        });
+
+        sender.add({ audio: new Blob(['fake piece']), startMs: 0, cutMs: 60_000 });
+        await vi.waitFor(() => expect(partials).toEqual(['Fake.']));
+        const transcript = await sender.finish({ audio: new Blob(['fake final piece']), startMs: 59_250, cutMs: null });
+
+        expect(transcript).toBe('Fake. Fake.');
+        expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+        expect(tokenProvider.getToken).toHaveBeenCalledTimes(2);
+        expect(transcribePiece.mock.calls.flat()).not.toContain(FAKE_TOKEN);
+        expect(adapter.buildPieceRequest.mock.calls.flat()).not.toContain(FAKE_TOKEN);
+        expect(JSON.stringify([partials, transcript, sender, sender.getState()])).not.toContain(FAKE_TOKEN);
+        expect(JSON.stringify(eventBusEmitSpy.mock.calls)).not.toContain(FAKE_TOKEN);
+        expect(JSON.stringify(loggerSpies)).not.toContain(FAKE_TOKEN);
+    });
+
     it('reuses one request-local token across bounded transient retries', async () => {
         const settings = {
             getModelConfig: vi.fn(() => ({
