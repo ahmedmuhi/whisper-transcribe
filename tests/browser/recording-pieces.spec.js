@@ -141,3 +141,41 @@ test('records MAI-Transcribe 2 past a cut and shows the joined transcript, the t
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
 });
+
+test('records MAI-Transcribe 2 through a failed piece and the whole recording delivers the transcript', async ({ page }) => {
+    const { primary, transcript, posts, pageErrors, consoleErrors } = await openApp(page);
+    expect((await fetch(`${appOrigin}/__browser-test__/fail-pieces`, { method: 'POST' })).ok).toBe(true);
+
+    await primary.click();
+    await expect(primary).toContainText('Done');
+    await expect.poll(() => posts.length, { timeout: 8_000 }).toBe(1);
+    // Recording goes on past the next cut, with no piece sent and nothing shown.
+    await page.waitForTimeout(4_000);
+    expect(posts).toHaveLength(1);
+    await expect(primary).toContainText('Done');
+    await expect(transcript).toHaveValue('');
+    await primary.click();
+
+    await expect(transcript).toHaveValue('Browser smoke transcript');
+    await expect(primary).toContainText('Start recording');
+    expect(posts).toHaveLength(2);
+    const forms = await Promise.all(posts.map(post => new Response(post.postDataBuffer(), {
+        headers: { 'content-type': post.headers()['content-type'] }
+    }).formData()));
+    expect(JSON.parse(forms[0].get('definition')).enhancedMode.modelOptions.timestamps).toBe('word');
+    expect(JSON.parse(forms[1].get('definition')).enhancedMode.modelOptions).toEqual({ transcribeStyle: 'clean' });
+    for (const post of posts) expect(post.headers().authorization).toBe(`Bearer ${fakeToken}`);
+
+    const statusTexts = await page.evaluate(() => globalThis.__statusTexts);
+    expect(statusTexts.join('\n')).toContain('Converting audio format');
+    expect(statusTexts).toContain('Transcription complete');
+    expect(statusTexts.join('\n')).not.toMatch(/piece|rejected/i);
+    const storedTranscript = JSON.parse(await page.evaluate(() => localStorage.getItem('transcript_record')));
+    expect(storedTranscript.text).toBe('Browser smoke transcript');
+    expect(pageErrors).toEqual([]);
+    // Only the rejected piece is logged: by the browser, and by the client as its status alone.
+    expect(consoleErrors).toEqual([
+        expect.stringMatching(/^Failed to load resource: the server responded with a status of 400/),
+        expect.stringMatching(/ERROR\[AzureAPIClient\]: API error 400$/)
+    ]);
+});

@@ -41,6 +41,8 @@ function pieceTranscript(body) {
 }
 
 let apiObservations = freshObservations();
+// When set, every Recording Piece is rejected, so the whole-recording fallback has to deliver.
+let failPieces = false;
 
 function freshObservations() {
     return {
@@ -67,6 +69,12 @@ const appServer = http.createServer((request, response) => {
 
     if (request.method === 'POST' && requestUrl.pathname === '/__browser-test__/reset') {
         apiObservations = freshObservations();
+        failPieces = false;
+        sendJson(response, 200, { ok: true });
+        return;
+    }
+    if (request.method === 'POST' && requestUrl.pathname === '/__browser-test__/fail-pieces') {
+        failPieces = true;
         sendJson(response, 200, { ok: true });
         return;
     }
@@ -162,12 +170,18 @@ const apiServer = https.createServer(createCertificate(), (request, response) =>
         }
         const body = Buffer.concat(chunks);
         apiObservations.postBodyBase64 = body.toString('base64');
+        // A Recording Piece asks for word timestamps; the whole-file path does not.
+        const isPiece = body.includes('"timestamps":"word"');
+        if (isPiece && failPieces) {
+            response.writeHead(400, { ...corsHeaders(), 'Content-Type': 'application/json' });
+            response.end(JSON.stringify({ error: { message: 'Recording Piece rejected by the stub' } }));
+            return;
+        }
         response.writeHead(200, {
             ...corsHeaders(),
             'Content-Type': 'application/json'
         });
-        // A Recording Piece asks for word timestamps; the whole-file path does not.
-        response.end(JSON.stringify(body.includes('"timestamps":"word"')
+        response.end(JSON.stringify(isPiece
             ? pieceTranscript(body)
             : { combinedPhrases: [{ text: 'Browser smoke transcript' }], phrases: [] }));
     });
