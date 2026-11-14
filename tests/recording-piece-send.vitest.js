@@ -616,6 +616,33 @@ describe('sending a microphone recording in Recording Pieces', () => {
             expect(partialTranscripts().at(-1)).toBe('three four.');
         });
 
+        it('cuts no new piece from audio still arriving after a discard is confirmed', async () => {
+            await startRecording();
+            await speakSeconds(30);
+            audioHandler.currentTimerDisplay = '00:30';
+            await audioHandler.requestDiscard();
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRMED);
+            await vi.waitFor(() => expect(recorderHandlers.stop).toHaveLength(1));
+
+            // The recorder has not reported its stop yet, and the worklet still delivers audio.
+            await speakSeconds(31);
+
+            expect(uploads).toHaveLength(0);
+            expect(sendingState()).toBe(BACKGROUND_SENDING_STATES.NOTHING_TO_SEND);
+        });
+
+        it('stops pieces without opening Settings when the Target URI is cleared mid-recording', async () => {
+            await startRecording();
+            config.uri = '';
+            await speakSeconds(61);
+
+            expect(uploads).toHaveLength(0);
+            expect(sendingState()).toBe(BACKGROUND_SENDING_STATES.PIECES_STOPPED);
+            expect(eventsOf(APP_EVENTS.API_CONFIG_MISSING)).toEqual([]);
+            expect(audioHandler.settings.openSettingsModal).not.toHaveBeenCalled();
+            expect(audioHandler.stateMachine.getState()).toBe(RECORDING_STATES.RECORDING);
+        });
+
         it('a discard during a retry backoff sends nothing more', async () => {
             vi.spyOn(audioHandler.apiClient, '_sleep').mockReturnValue(new Promise(() => {}));
             globalThis.fetch.mockResolvedValueOnce(respond(503, { error: { message: 'Busy' } }));

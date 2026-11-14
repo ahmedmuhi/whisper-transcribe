@@ -89,7 +89,8 @@ export class AzureAPIClient {
      * @throws {Error} When the request fails or is aborted, or when the model now selected cannot build a piece request
      */
     async transcribePiece(wavBlob, signal) {
-        const config = this.validateConfig();
+        // A background piece never opens Settings: a missing Target URI just fails the piece.
+        const config = this._readConfig();
         const adapter = this._getModelAdapter(config.model);
         const { body, statusMessage } = adapter.buildPieceRequest(wavBlob, config);
         return adapter.parsePieceResponse(
@@ -489,13 +490,30 @@ export class AzureAPIClient {
     }
     
     /**
-     * Validates the API client configuration for required URI and model settings.
+     * Validates the API client configuration for required URI and model settings,
+     * and reports a missing or invalid Target URI so Settings can open.
      * 
      * @method validateConfig
      * @returns {{uri: string, model: string, transcribeStyle?: string}} Validated configuration object
      * @throws {Error} When Target URI is missing or invalid
      */
     validateConfig() {
+        try {
+            return this._readConfig();
+        } catch (error) {
+            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, error.configMissing);
+            throw error;
+        }
+    }
+
+    /**
+     * Reads and validates the configuration without reporting a problem.
+     *
+     * @private
+     * @returns {{uri: string, model: string, transcribeStyle?: string}} Validated configuration object
+     * @throws {Error} When Target URI is missing or invalid, carrying `configMissing`
+     */
+    _readConfig() {
         const config = this.settings.getModelConfig();
         const normalizedConfig = {
             model: config.model,
@@ -506,11 +524,12 @@ export class AzureAPIClient {
         if (config.transcribeStyle) {
             normalizedConfig.transcribeStyle = config.transcribeStyle;
         }
+        const invalid = (message, missing) => Object.assign(new Error(message), {
+            configMissing: { missing, model: normalizedConfig.model }
+        });
         
         if (!normalizedConfig.uri) {
-            const error = new Error(`${normalizedConfig.model} ${MESSAGES.URI_REQUIRED}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'uri', model: normalizedConfig.model });
-            throw error;
+            throw invalid(`${normalizedConfig.model} ${MESSAGES.URI_REQUIRED}`, 'uri');
         }
         
         // Basic URI validation
@@ -518,15 +537,11 @@ export class AzureAPIClient {
         try {
             parsedUri = new URL(normalizedConfig.uri);
         } catch {
-            const error = new Error(`${MESSAGES.INVALID_URI_FORMAT} for ${normalizedConfig.model}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'validUri', model: normalizedConfig.model });
-            throw error;
+            throw invalid(`${MESSAGES.INVALID_URI_FORMAT} for ${normalizedConfig.model}`, 'validUri');
         }
 
         if (parsedUri.protocol !== 'https:') {
-            const error = new Error(`${MESSAGES.URI_MUST_BE_HTTPS} for ${normalizedConfig.model}`);
-            eventBus.emit(APP_EVENTS.API_CONFIG_MISSING, { missing: 'httpsUri', model: normalizedConfig.model });
-            throw error;
+            throw invalid(`${MESSAGES.URI_MUST_BE_HTTPS} for ${normalizedConfig.model}`, 'httpsUri');
         }
 
         return normalizedConfig;

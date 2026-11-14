@@ -1453,10 +1453,18 @@ export class UI {
      */
     #showPartialTranscript(text) {
         const box = this.transcriptElement;
+        const { selectionStart, selectionEnd, scrollTop } = box;
         const kept = this.#withoutPartialTranscript(box.value);
         this.#partialSegment = text && (kept ? TRANSCRIPT_SEGMENT_DIVIDER : '') + text;
         box.value = kept + this.#partialSegment;
-        box.scrollTop = box.scrollHeight;
+        if (document.activeElement === box) {
+            // The User is editing: their caret and view stay where they were.
+            box.selectionStart = selectionStart;
+            box.selectionEnd = selectionEnd;
+            box.scrollTop = scrollTop;
+        } else {
+            box.scrollTop = box.scrollHeight;
+        }
         this.updateRestoreAffordance();
     }
 
@@ -1505,7 +1513,12 @@ export class UI {
     persistTranscript() {
         if (!this.transcriptStore || !this.transcriptElement) return false;
 
-        const persisted = this.transcriptStore.save(this.#withoutPartialTranscript(this.transcriptElement.value));
+        const value = this.transcriptElement.value;
+        const text = this.#withoutPartialTranscript(value);
+        // A box holding only the Partial Transcript has nothing to save, and must
+        // not clear the transcript saved before it.
+        if (value && !text) return true;
+        const persisted = this.transcriptStore.save(text);
         if (persisted) {
             this._autosaveFailureNotified = false;
             return true;

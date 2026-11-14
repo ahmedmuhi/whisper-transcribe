@@ -277,6 +277,42 @@ describe('the Partial Transcript in the transcript box', () => {
         expect(store.load()?.text).toBe('Earlier dictation, edited.');
     });
 
+    it('keeps the transcript saved earlier when only the Partial Transcript is in the box', () => {
+        store.save('Saved earlier.');
+        showPartial('Hello, world.');
+
+        expect(ui.persistTranscript()).toBe(true);
+
+        expect(store.load()?.text).toBe('Saved earlier.');
+    });
+
+    it('leaves the caret and view alone while the User is editing the box', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+        ui.transcriptElement.selectionStart = 2;
+        ui.transcriptElement.selectionEnd = 7;
+        ui.transcriptElement.scrollTop = 0;
+        document.activeElement = ui.transcriptElement;
+        try {
+            showPartial('Hello, world.');
+        } finally {
+            delete document.activeElement;
+        }
+
+        expect(ui.transcriptElement.value).toBe(`Earlier dictation.${DIVIDER}Hello, world.`);
+        expect(ui.transcriptElement.selectionStart).toBe(2);
+        expect(ui.transcriptElement.selectionEnd).toBe(7);
+        expect(ui.transcriptElement.scrollTop).toBe(0);
+    });
+
+    it('follows the arriving text when the User is not in the box', () => {
+        ui.transcriptElement.scrollTop = 0;
+        ui.transcriptElement.scrollHeight = 480;
+
+        showPartial('Hello, world.');
+
+        expect(ui.transcriptElement.scrollTop).toBe(480);
+    });
+
     it('keeps words the User typed into it, placing the newer Partial Transcript after them', () => {
         showPartial('Hello, world.');
         ui.transcriptElement.value = 'Hello, world. Typed by hand.';

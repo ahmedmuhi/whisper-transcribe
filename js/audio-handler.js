@@ -626,6 +626,9 @@ export class AudioHandler {
      * @returns {Promise<void>}
      */
     async _teardownToCancelling() {
+        // Release the capture first, so audio still arriving cannot cut a new piece.
+        this.pcmCapture.release();
+        this.pieceCapture = null;
         this.pieceSender.discard();
         await this.stateMachine.transitionTo(RECORDING_STATES.CANCELLING);
         this.safeStopRecorder();
