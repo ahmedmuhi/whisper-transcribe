@@ -328,3 +328,42 @@ recording and 13 ms on the first.
 **The application budget is 26 kB.** The capture took the bundle to about
 23.9 kB against the old 23.5 kB limit. The owner raised the limit to 26 kB once
 for all of tickets #159 to #162, on issue #156.
+
+## Transcribing while the User speaks (2026-11-14)
+
+Spec #156, tickets #160 to #162. For a model that declares Recording Pieces, a
+microphone recording is cut every 60 seconds of recorded audio and each piece is
+sent in the background while the User keeps talking. The contract is §8 of
+`spec/spec-design-recording-state-machine.md`.
+
+**Text appears as pieces arrive.** Each time a piece comes back, the joined text
+of every piece so far is shown in the transcript box as the Partial Transcript,
+where a finished transcript would land. This is what tells the User their voice
+is really being transcribed during a long dictation. It is not announced as
+ready and not autosaved; the transcript-ready event fires once, when every piece
+is in, so a copied transcript never has a hole in it.
+
+**A failed piece is silent.** The owner does not watch the app while dictating,
+so nothing on this path may depend on him noticing a message. A piece that fails
+after the client's retries stops the pieces, recording carries on, and at Finish
+the whole recording is sent through today's path. The same holds at Finish: if
+the final piece fails, the whole recording is sent automatically, and only if
+that also fails does the recording become an Unsent Recording. An automatic
+second attempt gives him a transcript without his involvement; an Unsent
+Recording needs him to notice it and press Retry.
+
+**There is no setting.** Recording Pieces is how recording works for a model
+that declares the capability, today only MAI-Transcribe 2. Every other model and
+Selected Audio keep the whole-file path, so choosing a model is the only choice
+there is.
+
+**The Partial Transcript belongs to the recording in progress.** Grab, Restore,
+and the saved transcript deal only with finished text. Grab leaves the Partial
+Transcript in the box, and with nothing else there it says there is nothing to
+grab yet. A box holding only the Partial Transcript saves nothing, so typing and
+deleting during a recording cannot clear the previously saved transcript.
+
+**Discard means discard.** Confirming a discard aborts the upload in flight and
+removes the Partial Transcript with the recording. The confirmation stays
+proportional, and while text is showing it says that the recording and the text
+shown so far will be removed.
