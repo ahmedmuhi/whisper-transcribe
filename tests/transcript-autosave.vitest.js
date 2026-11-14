@@ -216,3 +216,171 @@ describe('Transcript autosave + restore wiring', () => {
         }
     });
 });
+
+describe('the Partial Transcript in the transcript box', () => {
+    let ui;
+    let store;
+    const DIVIDER = '\n\n──────────\n\n';
+    const showPartial = (text) => eventBus.emit(APP_EVENTS.UI_PARTIAL_TRANSCRIPT_CHANGED, { text });
+
+    beforeEach(() => {
+        applyDomSpies();
+        ui = new UI();
+        store = new TranscriptStore(makeStorage(), 'tk');
+        ui.transcriptStore = store;
+        ui.setupEventBusListeners();
+        ui.transcriptElement.value = '';
+    });
+
+    afterEach(() => {
+        resetEventBus();
+    });
+
+    it('fills an empty box, is replaced by each newer Partial Transcript, and is never saved', () => {
+        showPartial('Hello,');
+        expect(ui.transcriptElement.value).toBe('Hello,');
+
+        showPartial('Hello, world.');
+        expect(ui.transcriptElement.value).toBe('Hello, world.');
+        expect(store.load()).toBeNull();
+    });
+
+    it('goes below earlier text with the divider, and the finished transcript replaces it and alone is saved', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+
+        showPartial('Hello,');
+        showPartial('Hello, world.');
+        expect(ui.transcriptElement.value).toBe(`Earlier dictation.${DIVIDER}Hello, world.`);
+        expect(store.load()).toBeNull();
+
+        eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, { text: 'Hello, world. It is me.' });
+        expect(ui.transcriptElement.value).toBe(`Earlier dictation.${DIVIDER}Hello, world. It is me.`);
+        expect(store.load()?.text).toBe(`Earlier dictation.${DIVIDER}Hello, world. It is me.`);
+    });
+
+    it('is removed by an empty Partial Transcript, leaving the earlier text as it was', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+        showPartial('Hello, world.');
+
+        showPartial('');
+
+        expect(ui.transcriptElement.value).toBe('Earlier dictation.');
+    });
+
+    it('is left out when the User types elsewhere in the box and autosave runs', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+        showPartial('Hello, world.');
+        ui.transcriptElement.value = `Earlier dictation, edited.${DIVIDER}Hello, world.`;
+
+        ui.persistTranscript();
+
+        expect(store.load()?.text).toBe('Earlier dictation, edited.');
+    });
+
+    describe('Grab during a recording', () => {
+        let writeText;
+
+        beforeEach(() => {
+            writeText = vi.fn(() => Promise.resolve());
+            vi.stubGlobal('navigator', { clipboard: { writeText } });
+        });
+
+        afterEach(() => {
+            vi.unstubAllGlobals();
+        });
+
+        it('copies and saves only the finished text, leaving the text so far in the box to keep growing', async () => {
+            ui.transcriptElement.value = 'Earlier dictation.';
+            showPartial('Hello, world.');
+
+            await expect(ui.grabTranscript()).resolves.toBe(true);
+
+            expect(writeText).toHaveBeenCalledWith('Earlier dictation.');
+            expect(store.load()?.text).toBe('Earlier dictation.');
+            expect(ui.transcriptElement.value).toBe('Hello, world.');
+
+            showPartial('Hello, world. It is');
+            expect(ui.transcriptElement.value).toBe('Hello, world. It is');
+            eventBus.emit(APP_EVENTS.UI_TRANSCRIPTION_READY, { text: 'Hello, world. It is me.' });
+            expect(ui.transcriptElement.value).toBe('Hello, world. It is me.');
+            expect(store.load()?.text).toBe('Hello, world. It is me.');
+        });
+
+        it('does nothing but say so when the box holds only the text so far', async () => {
+            store.save('Saved earlier.');
+            showPartial('Hello, world.');
+            const statusSpy = vi.spyOn(eventBus, 'emit');
+
+            await expect(ui.grabTranscript()).resolves.toBe(false);
+
+            expect(writeText).not.toHaveBeenCalled();
+            expect(ui.transcriptElement.value).toBe('Hello, world.');
+            expect(store.load()?.text).toBe('Saved earlier.');
+            expect(statusSpy).toHaveBeenCalledWith(APP_EVENTS.UI_STATUS_UPDATE, {
+                message: MESSAGES.NOTHING_TO_GRAB_YET, type: 'error', temporary: true
+            });
+        });
+    });
+
+    describe('the discard dialog', () => {
+        beforeEach(() => {
+            ui.discardDialog.showModal = vi.fn();
+        });
+
+        it('says the text shown so far will be removed too when it is showing', () => {
+            showPartial('Hello, world.');
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '24:31' });
+            expect(ui.discardDialogBody.textContent)
+                .toBe(`Discard 24:31 of recording? ${MESSAGES.DISCARD_RECORDING_AND_TEXT}`);
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '' });
+            expect(ui.discardDialogBody.textContent).toBe(MESSAGES.DISCARD_RECORDING_AND_TEXT);
+        });
+
+        it('keeps today\'s wording when no text is showing', () => {
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '24:31' });
+            expect(ui.discardDialogBody.textContent).toBe('Discard 24:31 of recording?');
+
+            eventBus.emit(APP_EVENTS.DISCARD_CONFIRM_REQUESTED, { durationLabel: '' });
+            expect(ui.discardDialogBody.textContent)
+                .toBe('The audio has not been transcribed and cannot be recovered.');
+        });
+    });
+
+    it('leaves the caret and view alone while the User is editing the box', () => {
+        ui.transcriptElement.value = 'Earlier dictation.';
+        ui.transcriptElement.selectionStart = 2;
+        ui.transcriptElement.selectionEnd = 7;
+        ui.transcriptElement.scrollTop = 0;
+        document.activeElement = ui.transcriptElement;
+        try {
+            showPartial('Hello, world.');
+        } finally {
+            delete document.activeElement;
+        }
+
+        expect(ui.transcriptElement.value).toBe(`Earlier dictation.${DIVIDER}Hello, world.`);
+        expect(ui.transcriptElement.selectionStart).toBe(2);
+        expect(ui.transcriptElement.selectionEnd).toBe(7);
+        expect(ui.transcriptElement.scrollTop).toBe(0);
+    });
+
+    it('follows the arriving text when the User is not in the box', () => {
+        ui.transcriptElement.scrollTop = 0;
+        ui.transcriptElement.scrollHeight = 480;
+
+        showPartial('Hello, world.');
+
+        expect(ui.transcriptElement.scrollTop).toBe(480);
+    });
+
+    it('keeps words the User typed into it, placing the newer Partial Transcript after them', () => {
+        showPartial('Hello, world.');
+        ui.transcriptElement.value = 'Hello, world. Typed by hand.';
+
+        showPartial('Hello, world. It is me.');
+
+        expect(ui.transcriptElement.value).toBe(`Hello, world. Typed by hand.${DIVIDER}Hello, world. It is me.`);
+    });
+});
